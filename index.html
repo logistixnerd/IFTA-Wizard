@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IFTA Wizard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #0078D7;
+      color: white;
+      padding: 1em;
+      text-align: center;
+    }
+    main {
+      padding: 2em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1em;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 0.5em;
+      text-align: left;
+    }
+    th {
+      background-color: #f4f4f4;
+    }
+    input, select {
+      width: 100%;
+      padding: 0.4em;
+      margin: 0.2em 0;
+    }
+    button {
+      background-color: #0078D7;
+      color: white;
+      padding: 0.5em 1em;
+      border: none;
+      cursor: pointer;
+      margin-top: 1em;
+    }
+    button:hover {
+      background-color: #005BB5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>IFTA Wizard</h1>
+  </header>
+  <main>
+    <h2>Data Entry</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Jurisdiction</th>
+          <th>Miles Traveled</th>
+          <th>Gallons Purchased</th>
+        </tr>
+      </thead>
+      <tbody id="data-table">
+        <tr>
+          <td>
+            <select>
+              <option value="">Select Jurisdiction</option>
+              <option value="Alabama">Alabama</option>
+              <option value="Arizona">Arizona</option>
+              <!-- Add more jurisdictions here -->
+            </select>
+          </td>
+          <td><input type="number" placeholder="Miles"></td>
+          <td><input type="number" placeholder="Gallons"></td>
+        </tr>
+      </tbody>
+    </table>
+    <button id="add-row">Add Row</button>
+  </main>
+</body>
+</html>
