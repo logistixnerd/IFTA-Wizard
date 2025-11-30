@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="styles.css">
     <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- EmailJS for sending verification codes -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
     <!-- Auth Modal -->
@@ -16,7 +18,6 @@
                 <img src="LOGO - logistiXnerd dude.png" alt="LogistiXnerd" class="auth-brand-icon">
                 <img src="LOGO - logistiXnerd text.png" alt="LogistiXnerd" class="auth-brand-text">
                 <h1 class="auth-title">IFTA Wizard</h1>
-                <p class="auth-tagline">Calculate quarterly IFTA for your company, or prepare reports for your owner operators' trucks.</p>
             </div>
             
             <div class="auth-social">
@@ -27,13 +28,7 @@
                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                     </svg>
-                    Google
-                </button>
-                <button type="button" class="btn-social btn-apple" id="appleSignIn" onclick="IFTAAuth.handleAppleSignIn()">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-                        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-                    </svg>
-                    Apple
+                    Continue with Google
                 </button>
             </div>
             
@@ -47,7 +42,7 @@
                 <button type="button" class="auth-mode-btn" data-mode="signup">Create Account</button>
             </div>
             
-            <form id="authForm" class="auth-form">
+            <form id="authForm" class="auth-form" novalidate>
                 <!-- Sign In Fields -->
                 <div class="signin-fields">
                     <div class="form-group">
@@ -58,6 +53,7 @@
                         <label for="signinPassword">Password</label>
                         <input type="password" id="signinPassword" placeholder="Enter your password">
                     </div>
+                    <button type="button" class="forgot-password" id="forgotPasswordBtn" onclick="IFTAAuth.showForgotPassword()">Forgot password?</button>
                     <button type="submit" class="btn btn-primary btn-full">Sign In</button>
                 </div>
                 
@@ -69,7 +65,7 @@
                     </div>
                     <div class="form-group">
                         <label for="authPassword">Password</label>
-                        <input type="password" id="authPassword" placeholder="Create a password">
+                        <input type="password" id="authPassword" placeholder="Create a password (min 6 characters)">
                     </div>
                     <div class="form-group">
                         <label for="authPasswordConfirm">Confirm Password</label>
@@ -87,7 +83,108 @@
                 </div>
             </form>
             
-            <p class="auth-terms">By continuing, you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a></p>
+            <p class="auth-terms">By continuing, you agree to our <a href="terms.html" target="_blank">Terms</a> and <a href="privacy.html" target="_blank">Privacy Policy</a></p>
+            <p class="auth-tagline">Calculate quarterly IFTA for your company, or prepare reports for your owner operators' trucks.</p>
+        </div>
+    </div>
+
+    <!-- Forgot Password Modal -->
+    <div id="forgotPasswordModal" class="modal-overlay hidden">
+        <div class="forgot-password-modal">
+            <button class="modal-close" onclick="IFTAAuth.closeForgotPassword()">&times;</button>
+            
+            <h2>reset password</h2>
+            
+            <!-- Step 1: Enter Email -->
+            <div id="forgotStep1" class="forgot-step">
+                <p class="forgot-description">enter your email address to reset your password</p>
+                <div class="form-group">
+                    <label for="forgotEmail">email</label>
+                    <input type="email" id="forgotEmail" placeholder="you@company.com">
+                </div>
+                <p id="forgotEmailError" class="forgot-error" style="display: none;"></p>
+                <button class="btn btn-primary btn-full" onclick="IFTAAuth.verifyForgotEmail()">continue</button>
+                <button class="btn btn-link" onclick="IFTAAuth.closeForgotPassword()">back to sign in</button>
+            </div>
+            
+            <!-- Step 2: Email Verification Code -->
+            <div id="forgotStep2" class="forgot-step" style="display: none;">
+                <p class="forgot-description">enter the 6-digit code sent to your email</p>
+                <div class="forgot-user-info">
+                    <span class="forgot-user-avatar" id="forgotUserAvatar">J</span>
+                    <span class="forgot-user-name" id="forgotUserName">you@email.com</span>
+                </div>
+                <div class="code-input-container" id="forgotCodeInputs">
+                    <input type="text" class="code-input" maxlength="1" data-index="0" inputmode="numeric">
+                    <input type="text" class="code-input" maxlength="1" data-index="1" inputmode="numeric">
+                    <input type="text" class="code-input" maxlength="1" data-index="2" inputmode="numeric">
+                    <input type="text" class="code-input" maxlength="1" data-index="3" inputmode="numeric">
+                    <input type="text" class="code-input" maxlength="1" data-index="4" inputmode="numeric">
+                    <input type="text" class="code-input" maxlength="1" data-index="5" inputmode="numeric">
+                </div>
+                <p id="forgotCodeError" class="forgot-error" style="display: none;"></p>
+                <button class="btn btn-primary btn-full" onclick="IFTAAuth.verifyForgotCode()">verify code</button>
+                <button class="btn btn-link" id="forgotResendBtn" onclick="IFTAAuth.resendForgotCode()">resend code <span id="forgotResendTimer"></span></button>
+            </div>
+            
+            <!-- Step 3: Create New Password -->
+            <div id="forgotStep3" class="forgot-step" style="display: none;">
+                <p class="forgot-description">create a new password</p>
+                <div class="form-group">
+                    <label for="forgotNewPassword">new password</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="forgotNewPassword" placeholder="min 6 characters">
+                        <button type="button" class="password-toggle" onclick="IFTAAuth.togglePasswordVisibility('forgotNewPassword')">👁</button>
+                    </div>
+                    <div class="password-strength" id="passwordStrength"></div>
+                </div>
+                <div class="form-group">
+                    <label for="forgotConfirmPassword">confirm password</label>
+                    <div class="password-input-wrapper">
+                        <input type="password" id="forgotConfirmPassword" placeholder="confirm password">
+                        <button type="button" class="password-toggle" onclick="IFTAAuth.togglePasswordVisibility('forgotConfirmPassword')">👁</button>
+                    </div>
+                </div>
+                <button class="btn btn-primary btn-full" onclick="IFTAAuth.resetPasswordSubmit()">reset password</button>
+            </div>
+            
+            <!-- Step 4: Success -->
+            <div id="forgotStep4" class="forgot-step" style="display: none;">
+                <div class="success-icon">✓</div>
+                <h3>password reset</h3>
+                <p class="forgot-description">your password has been updated. you can now sign in.</p>
+                <button class="btn btn-primary btn-full" onclick="IFTAAuth.closeForgotPassword()">sign in</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Verification Modal (for signup verification & 2FA) -->
+    <div id="emailVerifyModal" class="modal-overlay hidden">
+        <div class="verify-modal">
+            <button class="verify-close" onclick="IFTAAuth.closeEmailVerify()">&times;</button>
+            
+            <div class="verify-icon" id="verifyIcon">✉️</div>
+            <h2 class="verify-title" id="verifyTitle">Verify Your Email</h2>
+            <p class="verify-subtitle" id="verifyDescription">We sent a code to <strong id="verifyEmailDisplay">your@email.com</strong></p>
+            
+            <div class="code-input-container" id="verifyCodeInputs">
+                <input type="text" class="code-input" maxlength="1" data-index="0" inputmode="numeric" autocomplete="one-time-code">
+                <input type="text" class="code-input" maxlength="1" data-index="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" data-index="2" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" data-index="3" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" data-index="4" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" data-index="5" inputmode="numeric">
+            </div>
+            
+            <div id="verifyError" class="verify-error" style="display: none;"></div>
+            
+            <button class="verify-btn" id="verifyCodeBtn" onclick="IFTAAuth.verifyEmailCode()">Verify</button>
+            
+            <p class="verify-resend">
+                Didn't get it? 
+                <button class="verify-resend-btn" id="resendCodeBtn" onclick="IFTAAuth.resendVerificationCode()">Resend</button>
+                <span class="verify-timer" id="resendTimer"></span>
+            </p>
         </div>
     </div>
 
