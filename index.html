@@ -1,85 +1,612 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IFTA Wizard</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-    }
-    header {
-      background-color: #0078D7;
-      color: white;
-      padding: 1em;
-      text-align: center;
-    }
-    main {
-      padding: 2em;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1em;
-    }
-    th, td {
-      border: 1px solid #ccc;
-      padding: 0.5em;
-      text-align: left;
-    }
-    th {
-      background-color: #f4f4f4;
-    }
-    input, select {
-      width: 100%;
-      padding: 0.4em;
-      margin: 0.2em 0;
-    }
-    button {
-      background-color: #0078D7;
-      color: white;
-      padding: 0.5em 1em;
-      border: none;
-      cursor: pointer;
-      margin-top: 1em;
-    }
-    button:hover {
-      background-color: #005BB5;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IFTA Wizard - Fuel Tax Calculator</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
-  <header>
-    <h1>IFTA Wizard</h1>
-  </header>
-  <main>
-    <h2>Data Entry</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>Jurisdiction</th>
-          <th>Miles Traveled</th>
-          <th>Gallons Purchased</th>
-        </tr>
-      </thead>
-      <tbody id="data-table">
-        <tr>
-          <td>
-            <select>
-              <option value="">Select Jurisdiction</option>
-              <option value="Alabama">Alabama</option>
-              <option value="Arizona">Arizona</option>
-              <!-- Add more jurisdictions here -->
-            </select>
-          </td>
-          <td><input type="number" placeholder="Miles"></td>
-          <td><input type="number" placeholder="Gallons"></td>
-        </tr>
-      </tbody>
-    </table>
-    <button id="add-row">Add Row</button>
-  </main>
+    <!-- Auth Modal -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <div class="auth-header">
+                <img src="LOGO - logistiXnerd dude.png" alt="LogistiXnerd" class="auth-brand-icon">
+                <img src="LOGO - logistiXnerd text.png" alt="LogistiXnerd" class="auth-brand-text">
+                <h1 class="auth-title">IFTA Wizard</h1>
+                <p class="auth-tagline">Calculate quarterly IFTA for your company, or prepare reports for your owner operators' trucks.</p>
+            </div>
+            
+            <div class="auth-social">
+                <button type="button" class="btn-social btn-google" id="googleSignIn" onclick="IFTAAuth.handleGoogleSignIn()">
+                    <svg viewBox="0 0 24 24" width="14" height="14">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                    </svg>
+                    Google
+                </button>
+                <button type="button" class="btn-social btn-apple" id="appleSignIn" onclick="IFTAAuth.handleAppleSignIn()">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+                        <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                    </svg>
+                    Apple
+                </button>
+            </div>
+            
+            <div class="auth-divider">
+                <span>or</span>
+            </div>
+            
+            <!-- Auth Mode Toggle -->
+            <div class="auth-mode-toggle">
+                <button type="button" class="auth-mode-btn active" data-mode="signin">Sign In</button>
+                <button type="button" class="auth-mode-btn" data-mode="signup">Create Account</button>
+            </div>
+            
+            <form id="authForm" class="auth-form">
+                <!-- Sign In Fields -->
+                <div class="signin-fields">
+                    <div class="form-group">
+                        <label for="signinEmail">Email</label>
+                        <input type="email" id="signinEmail" placeholder="you@company.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="signinPassword">Password</label>
+                        <input type="password" id="signinPassword" placeholder="Enter your password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Sign In</button>
+                </div>
+                
+                <!-- Sign Up Fields (hidden by default) -->
+                <div class="signup-fields" style="display: none;">
+                    <div class="form-group">
+                        <label for="authEmail">Email</label>
+                        <input type="email" id="authEmail" placeholder="you@company.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="authPassword">Password</label>
+                        <input type="password" id="authPassword" placeholder="Create a password">
+                    </div>
+                    <div class="form-group">
+                        <label for="authPasswordConfirm">Confirm Password</label>
+                        <input type="password" id="authPasswordConfirm" placeholder="Confirm your password">
+                    </div>
+                    <div class="form-group">
+                        <label for="authName">Full Name</label>
+                        <input type="text" id="authName" placeholder="John Smith">
+                    </div>
+                    <div class="form-group">
+                        <label for="authCompany">Company Name <span class="optional">(optional)</span></label>
+                        <input type="text" id="authCompany" placeholder="ABC Trucking LLC">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-full">Create Account</button>
+                </div>
+            </form>
+            
+            <p class="auth-terms">By continuing, you agree to our <a href="#">Terms</a> and <a href="#">Privacy Policy</a></p>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo">
+                    <h1>IFTA Wizard</h1>
+                </div>
+                <div class="header-info">
+                    <div class="quarter-dropdown">
+                        <select id="headerQuarterSelect" class="quarter-select">
+                            <!-- Populated dynamically by JavaScript -->
+                        </select>
+                    </div>
+                    <span class="rate-status" id="rateStatus" title="Rate data status">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Verifying...</span>
+                    </span>
+                    <!-- Profile Dropdown -->
+                    <div class="profile-dropdown" id="profileDropdown">
+                        <button class="btn btn-secondary btn-sm profile-btn" id="profileBtn">
+                            <span class="profile-avatar" id="profileAvatar">U</span>
+                            <span class="profile-name" id="profileName">Account</span>
+                        </button>
+                        <div class="profile-menu" id="profileMenu">
+                            <div class="profile-menu-header">
+                                <div class="profile-info">
+                                    <span class="profile-user-name" id="menuUserName">User</span>
+                                    <span class="profile-user-email" id="menuUserEmail">user@email.com</span>
+                                </div>
+                            </div>
+                            <div class="profile-menu-items">
+                                <button class="profile-menu-item" id="menuSavedReports">
+                                    <span>Saved Reports</span>
+                                    <span class="menu-badge" id="reportsCount">0</span>
+                                </button>
+                                <button class="profile-menu-item" id="menuProfile">
+                                    <span>Profile Settings</span>
+                                </button>
+                                <button class="profile-menu-item" id="menuPreferences">
+                                    <span>Preferences</span>
+                                </button>
+                                <div class="profile-menu-divider"></div>
+                                <button class="profile-menu-item menu-item-danger" id="menuLogout">
+                                    <span>Log Out</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Configuration Panel -->
+            <section class="config-panel card">
+                <h2>Trip Configuration</h2>
+                <div class="config-grid">
+                    <div class="form-group">
+                        <label for="fuelType">Fuel Type</label>
+                        <select id="fuelType">
+                            <option value="diesel" selected>Diesel</option>
+                            <option value="gasoline">Gasoline</option>
+                            <option value="gasohol">Gasohol</option>
+                            <option value="propane">Propane (LPG)</option>
+                            <option value="lng">LNG</option>
+                            <option value="cng">CNG</option>
+                            <option value="ethanol">Ethanol (E-85)</option>
+                            <option value="methanol">Methanol (M-85)</option>
+                            <option value="biodiesel">Biodiesel</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="baseJurisdiction">Base Jurisdiction</label>
+                        <select id="baseJurisdiction">
+                            <!-- Populated by JavaScript -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="fleetMpg">Fleet Average MPG</label>
+                        <input type="number" id="fleetMpg" step="0.01" value="6.5" min="1" max="20">
+                    </div>
+                </div>
+            </section>
+
+            <!-- Data Entry Table -->
+            <section class="data-section card">
+                <div class="section-header">
+                    <h2>Jurisdiction Data Entry</h2>
+                    <div class="action-buttons">
+                        <button class="btn btn-primary" id="addRow">Add Row</button>
+                        <button class="btn btn-secondary" id="clearAll">Clear</button>
+                        <button class="btn btn-secondary" id="importData">Import</button>
+                        <input type="file" id="csvFileInput" accept=".csv" style="display: none;">
+                    </div>
+                </div>
+                
+                <div class="table-container">
+                    <table id="dataTable">
+                        <thead>
+                            <tr>
+                                <th class="col-jurisdiction">Jurisdiction</th>
+                                <th class="col-miles">Total Miles</th>
+                                <th class="col-taxable">Taxable Miles</th>
+                                <th class="col-gallons">Tax Paid Gal</th>
+                                <th class="col-rate">Rate</th>
+                                <th class="col-taxable-gal">Taxable Gal</th>
+                                <th class="col-net-gal">Net Gal</th>
+                                <th class="col-tax">Tax Due</th>
+                                <th class="col-actions"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody">
+                            <!-- Rows populated by JavaScript -->
+                        </tbody>
+                        <tfoot>
+                            <tr class="totals-row">
+                                <td>Totals</td>
+                                <td id="totalMiles">0</td>
+                                <td id="totalTaxableMiles">0</td>
+                                <td id="totalGallons">0</td>
+                                <td>—</td>
+                                <td id="totalTaxableGallons">0</td>
+                                <td id="totalNetGallons">0</td>
+                                <td id="totalTax" class="tax-amount">$0.00</td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                
+                <!-- Inline Summary Bar -->
+                <div class="inline-summary">
+                    <div class="summary-item">
+                        <span class="summary-label">Miles</span>
+                        <span class="summary-value" id="summaryMiles">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">Gallons</span>
+                        <span class="summary-value" id="summaryGallons">0</span>
+                    </div>
+                    <div class="summary-item">
+                        <span class="summary-label">MPG</span>
+                        <span class="summary-value" id="summaryMpg">0</span>
+                    </div>
+                    <div class="summary-item highlight">
+                        <span class="summary-label">Net Tax</span>
+                        <span class="summary-value" id="summaryTax">$0.00</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Export Section - Right Below Data -->
+            <section class="export-section card">
+                <div class="export-row">
+                    <span class="export-label">Export:</span>
+                    <div class="export-buttons">
+                        <button class="btn btn-primary btn-sm" id="exportPdf">PDF</button>
+                        <button class="btn btn-secondary btn-sm" id="exportCsv">CSV</button>
+                        <button class="btn btn-secondary btn-sm" id="exportExcel">Excel</button>
+                        <button class="btn btn-secondary btn-sm" id="printReport">Print</button>
+                        <div class="export-divider"></div>
+                        <button class="btn btn-secondary btn-sm" id="sendEmail">Email</button>
+                        <button class="btn btn-secondary btn-sm" id="saveToDrive">Drive</button>
+                        <div class="export-divider"></div>
+                        <button class="btn btn-secondary btn-sm" id="saveReport">Save Report</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tax Rates Reference -->
+            <section class="rates-section card">
+                <div class="section-header">
+                    <h2>Tax Rates Reference</h2>
+                    <div class="rates-info">
+                        <span class="system-health" id="systemHealth" title="System status">
+                            <span class="health-dot"></span>
+                            <span class="health-text">OK</span>
+                        </span>
+                        <span id="exchangeRate">USD/CAD: 1.38</span>
+                        <span id="lastUpdated">Updated: —</span>
+                    </div>
+                </div>
+                <div class="rates-filter">
+                    <input type="text" id="ratesSearch" placeholder="Search...">
+                    <select id="countryFilter">
+                        <option value="all">All</option>
+                        <option value="US">US</option>
+                        <option value="CAN">Canada</option>
+                    </select>
+                </div>
+                <div class="rates-table-container">
+                    <table id="ratesTable">
+                        <thead>
+                            <tr>
+                                <th>Jurisdiction</th>
+                                <th>Country</th>
+                                <th>Diesel</th>
+                                <th>Gasoline</th>
+                                <th>Gasohol</th>
+                                <th>Propane</th>
+                                <th>LNG</th>
+                                <th>CNG</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ratesTableBody">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>IFTA Wizard 2025 | <a href="https://www.iftach.org/taxmatrix4/" target="_blank">IFTA, Inc.</a></p>
+            <p class="disclaimer">For estimation only. Verify rates before filing.</p>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <p>Loading...</p>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Hidden quarter select for compatibility -->
+    <select id="quarterSelect" style="display: none;"></select>
+
+    <!-- Saved Reports Modal -->
+    <div id="savedReportsModal" class="modal hidden">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2>Saved Reports</h2>
+                <button class="modal-close" id="closeReportsModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="reports-toolbar">
+                    <div class="reports-search">
+                        <input type="text" id="reportsSearch" placeholder="Search reports...">
+                    </div>
+                    <div class="reports-actions">
+                        <button class="btn btn-secondary btn-sm" id="exportSelectedReports">Export Selected</button>
+                        <button class="btn btn-danger btn-sm" id="deleteSelectedReports">Delete Selected</button>
+                    </div>
+                </div>
+                <div class="reports-list" id="reportsList">
+                    <!-- Reports populated by JavaScript -->
+                    <div class="reports-empty">
+                        <p>No saved reports yet</p>
+                        <small>Save your first report to see it here</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email Modal -->
+    <div id="emailModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Email Report</h2>
+                <button class="modal-close" id="closeEmailModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="emailForm">
+                    <div class="form-group">
+                        <label for="emailTo">Send To</label>
+                        <input type="email" id="emailTo" placeholder="recipient@company.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="emailCc">CC (optional)</label>
+                        <input type="email" id="emailCc" placeholder="cc@company.com">
+                    </div>
+                    <div class="form-group">
+                        <label for="emailSubject">Subject</label>
+                        <input type="text" id="emailSubject" value="IFTA Report">
+                    </div>
+                    <div class="form-group">
+                        <label for="emailMessage">Message (optional)</label>
+                        <textarea id="emailMessage" rows="3" placeholder="Add a message..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Attach Reports</label>
+                        <div class="email-attachments" id="emailAttachments">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="attachCurrent" checked>
+                                <span>Current Report (PDF)</span>
+                            </label>
+                        </div>
+                        <div class="saved-reports-attach" id="savedReportsAttach">
+                            <!-- Saved reports checkboxes populated by JS -->
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelEmail">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Send Email</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Google Drive Modal -->
+    <div id="driveModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Save to Google Drive</h2>
+                <button class="modal-close" id="closeDriveModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="driveNotConnected" class="drive-connect">
+                    <p>Connect your Google Drive to save reports</p>
+                    <button class="btn btn-primary" id="connectDrive">
+                        <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 6px;">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                        </svg>
+                        Connect Google Drive
+                    </button>
+                </div>
+                <div id="driveConnected" class="drive-save hidden">
+                    <div class="drive-user">
+                        <span>Connected as: </span>
+                        <strong id="driveUserEmail">user@gmail.com</strong>
+                    </div>
+                    <div class="form-group">
+                        <label for="driveFolderName">Folder Name</label>
+                        <input type="text" id="driveFolderName" value="IFTA Reports">
+                    </div>
+                    <div class="form-group">
+                        <label>Select Reports to Save</label>
+                        <div class="drive-reports" id="driveReportsList">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="driveCurrentReport" checked>
+                                <span>Current Report</span>
+                            </label>
+                        </div>
+                        <div class="drive-saved-reports" id="driveSavedReports">
+                            <!-- Saved reports populated by JS -->
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="disconnectDrive">Disconnect</button>
+                        <button type="button" class="btn btn-primary" id="saveToDriveBtn">Save to Drive</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Settings Modal -->
+    <div id="profileModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Profile Settings</h2>
+                <button class="modal-close" id="closeProfileModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label for="profileEmail">Email</label>
+                        <input type="email" id="profileEmail" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label for="profileFullName">Full Name</label>
+                        <input type="text" id="profileFullName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="profileCompany">Company Name</label>
+                        <input type="text" id="profileCompany">
+                    </div>
+                    <div class="form-group">
+                        <label for="profilePhone">Phone Number</label>
+                        <input type="tel" id="profilePhone">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="profileFleetSize">Fleet Size</label>
+                            <select id="profileFleetSize">
+                                <option value="">Select...</option>
+                                <option value="1-5">1-5 trucks</option>
+                                <option value="6-20">6-20 trucks</option>
+                                <option value="21-50">21-50 trucks</option>
+                                <option value="51-100">51-100 trucks</option>
+                                <option value="100+">100+ trucks</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="profileDriverCount">Drivers</label>
+                            <input type="number" id="profileDriverCount" min="1">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelProfile">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Preferences Modal -->
+    <div id="preferencesModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Preferences</h2>
+                <button class="modal-close" id="closePreferencesModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="preference-section">
+                    <h3>Default Settings</h3>
+                    <div class="form-group">
+                        <label for="prefFuelType">Default Fuel Type</label>
+                        <select id="prefFuelType">
+                            <option value="diesel">Diesel</option>
+                            <option value="gasoline">Gasoline</option>
+                            <option value="gasohol">Gasohol</option>
+                            <option value="propane">Propane (LPG)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="prefBaseJurisdiction">Default Base Jurisdiction</label>
+                        <select id="prefBaseJurisdiction">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="prefMpg">Default Fleet MPG</label>
+                        <input type="number" id="prefMpg" step="0.1" value="6.5" min="1" max="20">
+                    </div>
+                </div>
+                <div class="preference-section">
+                    <h3>Auto-Save</h3>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="prefAutoSave" checked>
+                        <span>Automatically save data locally</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="prefAutoBackup">
+                        <span>Auto-backup reports to Google Drive</span>
+                    </label>
+                </div>
+                <div class="preference-section">
+                    <h3>Notifications</h3>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="prefEmailReminders" checked>
+                        <span>Email reminders for quarterly filing</span>
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="prefRateAlerts" checked>
+                        <span>Alert when tax rates change</span>
+                    </label>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelPreferences">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="savePreferences">Save Preferences</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Report Modal -->
+    <div id="saveReportModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Save Report</h2>
+                <button class="modal-close" id="closeSaveReportModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="saveReportForm">
+                    <div class="form-group">
+                        <label for="reportName">Report Name</label>
+                        <input type="text" id="reportName" placeholder="Q4 2025 Report" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reportNotes">Notes (optional)</label>
+                        <textarea id="reportNotes" rows="2" placeholder="Add any notes..."></textarea>
+                    </div>
+                    <div class="report-preview">
+                        <div class="preview-item">
+                            <span class="preview-label">Quarter:</span>
+                            <span class="preview-value" id="previewQuarter">Q4 2025</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">Jurisdictions:</span>
+                            <span class="preview-value" id="previewJurisdictions">0</span>
+                        </div>
+                        <div class="preview-item">
+                            <span class="preview-label">Total Tax:</span>
+                            <span class="preview-value" id="previewTax">$0.00</span>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelSaveReport">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Report</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- PDF Generation Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
+
+    <script src="tax-rates.js"></script>
+    <script src="rate-fetcher.js"></script>
+    <script src="integrity-monitor.js"></script>
+    <script src="app.js"></script>
+    <script src="auth.js"></script>
+    <script src="reports.js"></script>
 </body>
 </html>
