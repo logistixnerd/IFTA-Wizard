@@ -5,6 +5,7 @@ const IFTAAuth = {
     isAuthenticated: false,
     user: null,
     currentMode: 'signin', // 'signin' or 'signup'
+    firebaseReady: false, // Track if Firebase is initialized
     
     // 2FA / Email Verification state
     pendingUser: null,           // User waiting for email verification
@@ -25,14 +26,37 @@ const IFTAAuth = {
     // Sign up at https://www.emailjs.com/ and replace these values
     emailjsPublicKey: 'A9hDtCZZwXPLh-jny',
     emailjsServiceId: 'service_qkuqkgx',
-    emailjsTemplateId: 'template_5x32df8',
+    
+    // EmailJS Template IDs
+    templates: {
+        verification: 'template_5x32df8',  // Email verification / OTP
+        reset: 'template_reset'             // Password reset
+    },
+    
+    // Admin emails - show admin link for these users
+    adminEmails: [
+        'milan.pericic@logistixnerd.com'
+    ],
     
     // Initialize authentication
     init() {
         this.initEmailJS();
+        this.initFirebase();
         this.checkExistingSession();
         this.setupEventListeners();
         this.populateHeaderQuarter();
+    },
+    
+    // Initialize Firebase
+    initFirebase() {
+        if (typeof firebase !== 'undefined') {
+            // Firebase is loaded, check if initialized
+            if (firebase.apps.length === 0 && typeof initializeFirebase === 'function') {
+                initializeFirebase();
+            }
+            this.firebaseReady = firebase.apps.length > 0;
+            console.log('Firebase ready:', this.firebaseReady);
+        }
     },
     
     // Initialize EmailJS
@@ -244,6 +268,22 @@ const IFTAAuth = {
         
         // Setup verification code input handlers
         this.setupCodeInputHandlers();
+        
+        // Admin email detection - show admin link when admin email is typed
+        const signinEmail = document.getElementById('signinEmail');
+        if (signinEmail) {
+            signinEmail.addEventListener('input', (e) => this.checkAdminEmail(e.target.value));
+            signinEmail.addEventListener('blur', (e) => this.checkAdminEmail(e.target.value));
+        }
+        
+        // Admin login shortcut - click to login and go to admin
+        const adminPanelLink = document.getElementById('adminPanelLink');
+        if (adminPanelLink) {
+            adminPanelLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.handleAdminLogin();
+            });
+        }
     },
     
     // Logout user
@@ -269,6 +309,7 @@ const IFTAAuth = {
     
     // Toggle between Sign In and Create Account modes
     toggleAuthMode(mode) {
+        console.log('toggleAuthMode called with:', mode);
         this.currentMode = mode;
         const signinFields = document.querySelector('.signin-fields');
         const signupFields = document.querySelector('.signup-fields');
@@ -288,6 +329,8 @@ const IFTAAuth = {
             if (signupFields) signupFields.style.display = 'block';
         }
         
+        console.log('currentMode is now:', this.currentMode);
+        
         // Clear any error messages
         this.clearErrors();
     },
@@ -298,6 +341,7 @@ const IFTAAuth = {
             input.classList.remove('error');
         });
         document.querySelectorAll('.auth-error').forEach(el => el.remove());
+        document.querySelectorAll('.form-error-message').forEach(el => el.remove());
     },
     
     // Show inline error
@@ -309,6 +353,38 @@ const IFTAAuth = {
             errorEl.className = 'auth-error';
             errorEl.textContent = message;
             input.parentNode.appendChild(errorEl);
+        }
+    },
+    
+    // Show form-level error (for registration/login failures)
+    showFormError(formType, message) {
+        // Get the email input field based on form type
+        const emailInputId = formType === 'signin' ? 'signinEmail' : 'authEmail';
+        const emailInput = document.getElementById(emailInputId);
+        
+        if (!emailInput) return;
+        
+        // Remove existing form error if any
+        this.hideFormError(formType);
+        
+        // Add error styling to email field
+        emailInput.classList.add('error');
+        
+        // Create error element - minimalist, just text
+        const errorEl = document.createElement('div');
+        errorEl.className = 'form-error-message';
+        errorEl.id = `${formType}FormError`;
+        errorEl.textContent = message;
+        
+        // Insert right after the email input inside the form-group
+        emailInput.parentNode.appendChild(errorEl);
+    },
+    
+    // Hide form-level error
+    hideFormError(formType) {
+        const errorEl = document.getElementById(`${formType}FormError`);
+        if (errorEl) {
+            errorEl.remove();
         }
     },
     
@@ -399,21 +475,29 @@ const IFTAAuth = {
     // Handle form submission
     handleFormSubmit(e) {
         e.preventDefault();
+        e.stopPropagation();
         this.clearErrors();
         
         console.log('Form submitted, currentMode:', this.currentMode);
         
         if (this.currentMode === 'signin') {
+            console.log('Calling handleSignIn...');
             this.handleSignIn();
         } else {
+            console.log('Calling handleSignUp...');
             this.handleSignUp();
         }
+        
+        return false;
     },
     
     // Handle Sign In (password + 2FA)
     handleSignIn() {
         const email = document.getElementById('signinEmail')?.value?.trim() || '';
         const password = document.getElementById('signinPassword')?.value || '';
+        
+        // Clear previous form error
+        this.hideFormError('signin');
         
         // Validate
         if (!email) {
@@ -439,23 +523,39 @@ const IFTAAuth = {
             // Account exists but email not verified - send new code
             this.pendingUser = result.user;
             this.verificationType = 'signup';
-            this.showError('Your email is not verified. Sending a new code...');
+            this.showFormError('signin', 'Your email is not verified. Sending a new code...');
             setTimeout(() => {
                 this.sendVerificationCode(result.user.email, result.user.name);
             }, 1000);
         } else {
-            this.showError(result.error);
+            // Show error inline on the form
+            this.showFormError('signin', result.error);
         }
     },
     
     // Handle Sign Up (Creates account, then requires email verification)
     handleSignUp() {
-        console.log('handleSignUp called');
-        const email = document.getElementById('authEmail')?.value?.trim() || '';
-        const password = document.getElementById('authPassword')?.value || '';
-        const passwordConfirm = document.getElementById('authPasswordConfirm')?.value || '';
-        const name = document.getElementById('authName')?.value?.trim() || '';
-        const company = document.getElementById('authCompany')?.value?.trim() || '';
+        console.log('=== handleSignUp START ===');
+        
+        const emailEl = document.getElementById('authEmail');
+        const passwordEl = document.getElementById('authPassword');
+        const passwordConfirmEl = document.getElementById('authPasswordConfirm');
+        const nameEl = document.getElementById('authName');
+        const companyEl = document.getElementById('authCompany');
+        
+        console.log('Form elements found:', {
+            emailEl: !!emailEl,
+            passwordEl: !!passwordEl,
+            passwordConfirmEl: !!passwordConfirmEl,
+            nameEl: !!nameEl,
+            companyEl: !!companyEl
+        });
+        
+        const email = emailEl?.value?.trim() || '';
+        const password = passwordEl?.value || '';
+        const passwordConfirm = passwordConfirmEl?.value || '';
+        const name = nameEl?.value?.trim() || '';
+        const company = companyEl?.value?.trim() || '';
         
         console.log('SignUp values:', { email, password: password ? '***' : '', name, company });
         
@@ -463,44 +563,61 @@ const IFTAAuth = {
         let hasError = false;
         
         if (!email) {
+            console.log('Error: Email is empty');
             this.showFieldError('authEmail', 'Email is required');
             hasError = true;
         } else if (!this.isValidEmail(email)) {
+            console.log('Error: Invalid email');
             this.showFieldError('authEmail', 'Please enter a valid email');
             hasError = true;
         }
         
         if (!password) {
+            console.log('Error: Password is empty');
             this.showFieldError('authPassword', 'Password is required');
             hasError = true;
         } else if (password.length < 6) {
+            console.log('Error: Password too short');
             this.showFieldError('authPassword', 'Password must be at least 6 characters');
             hasError = true;
         }
         
         if (password !== passwordConfirm) {
+            console.log('Error: Passwords do not match');
             this.showFieldError('authPasswordConfirm', 'Passwords do not match');
             hasError = true;
         }
         
         if (!name) {
+            console.log('Error: Name is empty');
             this.showFieldError('authName', 'Name is required');
             hasError = true;
         }
         
-        if (hasError) return;
+        if (hasError) {
+            console.log('Validation failed, hasError:', hasError);
+            return;
+        }
+        
+        console.log('Validation passed, calling registerUser...');
         
         // Register (creates unverified account)
         const result = this.registerUser(email, password, name, company);
+        console.log('registerUser result:', result);
         
         if (result.success) {
             // Account created, now verify email
             this.pendingUser = result.user;
             this.verificationType = 'signup';
+            console.log('Sending verification code...');
             this.sendVerificationCode(email, name);
         } else {
-            this.showError(result.error);
+            console.log('Registration failed:', result.error);
+            // Show error inline on the form
+            this.showFormError('signup', result.error);
         }
+        
+        console.log('=== handleSignUp END ===');
     },
     
     // ==========================================
@@ -556,7 +673,7 @@ const IFTAAuth = {
         this.startResendCooldown();
     },
     
-    // Send email using EmailJS
+    // Send verification code email
     async sendEmailWithCode(email, name, code) {
         // Check if EmailJS is configured
         if (typeof emailjs === 'undefined') {
@@ -574,19 +691,49 @@ const IFTAAuth = {
         try {
             const templateParams = {
                 to_email: email,
-                to_name: name || 'User',
+                to_name: name || 'there',
                 verification_code: code,
-                app_name: 'IFTA Wizard',
                 valid_minutes: '10'
             };
             
             await emailjs.send(
                 this.emailjsServiceId,
-                this.emailjsTemplateId,
+                this.templates.verification,
                 templateParams
             );
             
-            console.log('Email sent successfully to:', email);
+            console.log('Verification email sent to:', email);
+            return true;
+        } catch (error) {
+            console.error('EmailJS error:', error);
+            this.showDemoCode(code);
+            return false;
+        }
+    },
+    
+    // Send password reset email
+    async sendResetEmail(email, name, code) {
+        if (typeof emailjs === 'undefined') {
+            console.log('EmailJS not loaded');
+            this.showDemoCode(code);
+            return false;
+        }
+        
+        try {
+            const templateParams = {
+                to_email: email,
+                to_name: name || 'there',
+                verification_code: code,
+                valid_minutes: '10'
+            };
+            
+            await emailjs.send(
+                this.emailjsServiceId,
+                this.templates.reset,
+                templateParams
+            );
+            
+            console.log('Reset email sent to:', email);
             return true;
         } catch (error) {
             console.error('EmailJS error:', error);
@@ -980,12 +1127,60 @@ const IFTAAuth = {
         // Save lead to leads collection
         this.saveLead(userData);
         
+        // Save to Firebase if available
+        this.saveUserToFirebase(userData);
+        
         // Hide modal and update UI
         this.hideAuthModal();
         this.updateUIForLoggedInUser();
         
         if (typeof showToast === 'function') {
             showToast(`Welcome, ${userData.name}!`, 'success');
+        }
+    },
+    
+    // Save user to Firebase
+    async saveUserToFirebase(userData) {
+        if (!this.firebaseReady || typeof db === 'undefined') {
+            console.log('Firebase not ready, skipping cloud save');
+            return;
+        }
+        
+        try {
+            const userRef = db.collection('users').doc(userData.id || userData.email.replace(/[^a-zA-Z0-9]/g, '_'));
+            
+            // Check if user exists
+            const existingUser = await userRef.get();
+            
+            if (existingUser.exists) {
+                // Update last login
+                await userRef.update({
+                    lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } else {
+                // Create new user with default role
+                await userRef.set({
+                    email: userData.email,
+                    name: userData.name || '',
+                    company: userData.company || '',
+                    role: 'user', // Default role
+                    signupMethod: userData.signupMethod || 'email',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            
+            // Log activity
+            await db.collection('activity_logs').add({
+                action: 'login',
+                details: `${userData.email} signed in`,
+                userId: userData.id || userData.email,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            console.log('User saved to Firebase');
+        } catch (error) {
+            console.error('Error saving to Firebase:', error);
         }
     },
     
@@ -1029,6 +1224,13 @@ const IFTAAuth = {
             const firstName = this.user.name ? this.user.name.split(' ')[0] : 'User';
             if (profileName) profileName.textContent = firstName;
             if (profileAvatar) profileAvatar.textContent = firstName.charAt(0).toUpperCase();
+            
+            // Show/hide admin console menu item
+            const adminMenuItem = document.getElementById('menuAdminConsole');
+            if (adminMenuItem) {
+                const isAdmin = this.adminEmails.includes(this.user.email.toLowerCase());
+                adminMenuItem.style.display = isAdmin ? 'flex' : 'none';
+            }
         }
         
         // Update reports module if available
@@ -1050,6 +1252,50 @@ const IFTAAuth = {
         if (profileAvatar) profileAvatar.textContent = 'U';
         
         this.showAuthModal();
+    },
+    
+    // Check if email is admin and show admin link
+    checkAdminEmail(email) {
+        const adminLink = document.getElementById('adminPanelLink');
+        if (!adminLink) return;
+        
+        const isAdmin = this.adminEmails.some(adminEmail => 
+            email.toLowerCase().trim() === adminEmail.toLowerCase()
+        );
+        
+        if (isAdmin) {
+            adminLink.style.display = 'block';
+        } else {
+            adminLink.style.display = 'none';
+        }
+    },
+    
+    // Handle admin login shortcut - login and redirect to admin
+    async handleAdminLogin() {
+        const email = document.getElementById('signinEmail').value.trim();
+        const password = document.getElementById('signinPassword').value;
+        
+        // Check if password is entered
+        if (!password) {
+            this.showFieldError('signinPassword', 'Enter your password first');
+            document.getElementById('signinPassword').focus();
+            return;
+        }
+        
+        // Authenticate
+        const result = this.authenticateUser(email, password);
+        
+        if (result.success) {
+            // Save user and redirect to admin
+            this.user = result.user;
+            this.isAuthenticated = true;
+            localStorage.setItem('ifta_user', JSON.stringify(result.user));
+            
+            // Redirect to admin page
+            window.location.href = 'admin.html';
+        } else {
+            this.showFieldError('signinPassword', result.error || 'Incorrect password');
+        }
     },
     
     // Validate email format
@@ -1192,12 +1438,12 @@ const IFTAAuth = {
         this.forgotVerificationCode = this.generateVerificationCode();
         this.forgotCodeExpiry = Date.now() + (10 * 60 * 1000); // 10 minutes
         
-        // Send email via EmailJS
-        const emailSent = await this.sendEmailWithCode(email, name, this.forgotVerificationCode);
+        // Send password reset email
+        const emailSent = await this.sendResetEmail(email, name, this.forgotVerificationCode);
         
         if (emailSent) {
             if (typeof showToast === 'function') {
-                showToast('Code sent to your email', 'success');
+                showToast('Reset code sent to your email', 'success');
             }
         }
         

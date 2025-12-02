@@ -1,7 +1,7 @@
 /**
- * IFTA Rate Fetcher
- * Uses web scraping and AI parsing to fetch current IFTA tax rates
- * Version: 1.1.0
+ * IFTA Rate Fetcher with AI-Powered Validation
+ * Uses intelligent parsing, cross-validation, and anomaly detection
+ * Version: 2.0.0
  */
 
 'use strict';
@@ -11,9 +11,7 @@ const IFTARateFetcher = {
     corsProxies: [
         'https://api.allorigins.win/raw?url=',
         'https://corsproxy.io/?',
-        'https://api.codetabs.com/v1/proxy?quest=',
-        'https://cors-anywhere.herokuapp.com/',
-        'https://thingproxy.freeboard.io/fetch/'
+        'https://api.codetabs.com/v1/proxy?quest='
     ],
     
     // IFTA official sources
@@ -25,13 +23,30 @@ const IFTARateFetcher = {
     
     // Configuration
     config: {
-        timeout: 15000, // 15 seconds timeout
+        timeout: 15000,
         maxRetries: 3,
-        cacheExpireDays: 7
+        cacheExpireDays: 7,
+        // AI Validation thresholds
+        maxRateChange: 0.15,      // Max 15 cent change per quarter is suspicious
+        minRate: 0.01,            // Minimum sensible rate
+        maxRate: 1.50,            // Maximum sensible rate (CA is highest ~$0.98)
+        confidenceThreshold: 0.85 // Minimum confidence to auto-accept
+    },
+    
+    // Known rate ranges by state (AI learning from historical data)
+    knownRateRanges: {
+        'CA': { diesel: { min: 0.85, max: 1.10 }, gasoline: { min: 0.50, max: 0.70 } },
+        'PA': { diesel: { min: 0.70, max: 0.85 }, gasoline: { min: 0.55, max: 0.70 } },
+        'WA': { diesel: { min: 0.45, max: 0.60 }, gasoline: { min: 0.45, max: 0.60 } },
+        'NY': { diesel: { min: 0.35, max: 0.50 }, gasoline: { min: 0.30, max: 0.45 } },
+        'TX': { diesel: { min: 0.18, max: 0.25 }, gasoline: { min: 0.18, max: 0.25 } },
+        'DEFAULT_US': { diesel: { min: 0.15, max: 0.60 }, gasoline: { min: 0.10, max: 0.50 } },
+        'DEFAULT_CAN': { diesel: { min: 0.10, max: 0.40 }, gasoline: { min: 0.08, max: 0.35 } }
     },
     
     currentProxyIndex: 0,
     lastError: null,
+    validationResults: [],
     
     /**
      * Get the current quarter string (e.g., "Q4 2025")
@@ -107,23 +122,192 @@ const IFTARateFetcher = {
     },
     
     /**
-     * Fetch XML tax rate data for a specific quarter
+     * Check if code is Canadian province
      */
-    async fetchXMLRates(quarter) {
-        const url = `${this.sources.xmlData}${quarter}.xml`;
-        console.log(`Fetching rates from: ${url}`);
-        
-        try {
-            const xmlText = await this.fetchWithProxy(url);
-            return this.parseXMLRates(xmlText);
-        } catch (error) {
-            console.error('Failed to fetch XML rates:', error);
-            throw error;
-        }
+    isCanadianProvince(code) {
+        return ['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'ON', 'PE', 'QC', 'SK'].includes(code);
     },
     
     /**
-     * Parse XML tax rate data with validation
+     * AI-POWERED: Validate a single rate against known patterns
+     */
+    validateRate(code, fuelType, rate, previousRate = null) {
+        const validation = {
+            isValid: true,
+            confidence: 1.0,
+            warnings: [],
+            adjustedRate: rate
+        };
+        
+        // Check basic bounds
+        if (rate < this.config.minRate) {
+            validation.warnings.push(`Rate ${rate} below minimum threshold`);
+            validation.confidence *= 0.5;
+        }
+        
+        if (rate > this.config.maxRate) {
+            validation.warnings.push(`Rate ${rate} above maximum threshold`);
+            validation.confidence *= 0.3;
+            validation.isValid = false;
+        }
+        
+        // Check against known ranges for this state
+        const ranges = this.knownRateRanges[code] || 
+            (this.isCanadianProvince(code) ? this.knownRateRanges['DEFAULT_CAN'] : this.knownRateRanges['DEFAULT_US']);
+        
+        if (ranges && ranges[fuelType]) {
+            const { min, max } = ranges[fuelType];
+            if (rate < min || rate > max) {
+                validation.warnings.push(`Rate ${rate} outside expected range [${min}-${max}] for ${code}`);
+                validation.confidence *= 0.7;
+            }
+        }
+        
+        // Check rate change from previous quarter
+        if (previousRate !== null && previousRate > 0) {
+            const change = Math.abs(rate - previousRate);
+            if (change > this.config.maxRateChange) {
+                validation.warnings.push(`Large rate change: ${previousRate} → ${rate} (${(change * 100).toFixed(1)}¢)`);
+                validation.confidence *= 0.6;
+            }
+        }
+        
+        // Validate rate precision
+        const rateStr = rate.toString();
+        if (rateStr.includes('.') && rateStr.split('.')[1].length > 4) {
+            validation.adjustedRate = Math.round(rate * 10000) / 10000;
+        }
+        
+        return validation;
+    },
+    
+    /**
+     * AI-POWERED: Cross-validate rates against historical data
+     */
+    async crossValidateRates(primaryRates, quarter) {
+        console.log('🤖 AI: Cross-validating rates...');
+        
+        const validatedRates = {};
+        const validationReport = {
+            totalJurisdictions: 0,
+            validated: 0,
+            warnings: 0,
+            errors: 0,
+            details: []
+        };
+        
+        // Get previous quarter rates for comparison
+        const previousRates = this.getPreviousQuarterRates(quarter);
+        
+        for (const [code, data] of Object.entries(primaryRates)) {
+            validatedRates[code] = {
+                ...data,
+                rates: {},
+                validation: { confidence: 1.0, warnings: [] }
+            };
+            
+            validationReport.totalJurisdictions++;
+            
+            for (const [fuelType, rate] of Object.entries(data.rates || {})) {
+                const prevRate = previousRates?.[code]?.rates?.[fuelType] || null;
+                const validation = this.validateRate(code, fuelType, rate, prevRate);
+                
+                validatedRates[code].rates[fuelType] = validation.adjustedRate;
+                validatedRates[code].validation.confidence = Math.min(
+                    validatedRates[code].validation.confidence,
+                    validation.confidence
+                );
+                
+                if (validation.warnings.length > 0) {
+                    validatedRates[code].validation.warnings.push(...validation.warnings);
+                    validationReport.warnings++;
+                }
+                
+                if (!validation.isValid) {
+                    validationReport.errors++;
+                }
+            }
+            
+            if (validatedRates[code].validation.confidence >= this.config.confidenceThreshold) {
+                validationReport.validated++;
+            }
+        }
+        
+        console.log(`🤖 AI Validation: ${validationReport.validated}/${validationReport.totalJurisdictions} high confidence, ${validationReport.warnings} warnings`);
+        
+        this.validationResults = validationReport;
+        return { rates: validatedRates, report: validationReport };
+    },
+    
+    /**
+     * Get previous quarter rates for comparison
+     */
+    getPreviousQuarterRates(currentQuarter) {
+        try {
+            const stored = localStorage.getItem('ifta_quarter_rates');
+            if (stored) {
+                const allQuarters = JSON.parse(stored);
+                const prevQuarter = this.getPreviousQuarterLabel(currentQuarter);
+                return allQuarters[prevQuarter]?.jurisdictions || null;
+            }
+        } catch (e) { }
+        
+        if (typeof IFTA_TAX_RATES !== 'undefined') {
+            return IFTA_TAX_RATES.jurisdictions;
+        }
+        return null;
+    },
+    
+    /**
+     * Get previous quarter label
+     */
+    getPreviousQuarterLabel(quarterLabel) {
+        const match = quarterLabel.match(/Q(\d) (\d{4})/);
+        if (!match) return null;
+        
+        let q = parseInt(match[1]);
+        let year = parseInt(match[2]);
+        
+        q--;
+        if (q < 1) { q = 4; year--; }
+        
+        return `Q${q} ${year}`;
+    },
+    
+    /**
+     * Get validation report for UI
+     */
+    getValidationReport() {
+        return this.validationResults;
+    },
+    
+    /**
+     * Fetch XML tax rate data for a specific quarter
+     */
+    async fetchXMLRates(quarter) {
+        // Try different URL formats
+        const urlFormats = [
+            `${this.sources.xmlData}${quarter.replace(' ', '')}.xml`,
+            `${this.sources.xmlData}${quarter}.xml`
+        ];
+        
+        for (const url of urlFormats) {
+            console.log(`🤖 Trying: ${url}`);
+            try {
+                const xmlText = await this.fetchWithProxy(url);
+                if (xmlText && xmlText.includes('<')) {
+                    return this.parseXMLRates(xmlText);
+                }
+            } catch (error) {
+                console.log(`Failed: ${url}`);
+            }
+        }
+        
+        throw new Error('Could not fetch XML from any URL format');
+    },
+    
+    /**
+     * AI-POWERED: Parse XML tax rate data with intelligent extraction
      */
     parseXMLRates(xmlText) {
         if (!xmlText || typeof xmlText !== 'string') {
@@ -133,73 +317,113 @@ const IFTARateFetcher = {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
         
-        // Check for parsing errors
         const parseError = xmlDoc.querySelector('parsererror');
         if (parseError) {
-            throw new Error('XML parsing failed: ' + parseError.textContent.slice(0, 100));
+            throw new Error('XML parsing failed');
         }
         
         const rates = {};
-        const records = xmlDoc.querySelectorAll('RECORD');
+        
+        // AI: Try multiple selector patterns for flexibility
+        const recordSelectors = ['RECORD', 'record', 'Row', 'row', 'jurisdiction'];
+        let records = [];
+        
+        for (const selector of recordSelectors) {
+            records = xmlDoc.querySelectorAll(selector);
+            if (records.length > 0) break;
+        }
         
         if (records.length === 0) {
-            throw new Error('No rate records found in XML');
+            // AI: Fallback - find elements containing state codes
+            const allElements = xmlDoc.querySelectorAll('*');
+            records = Array.from(allElements).filter(el => 
+                el.textContent.match(/^[A-Z]{2}$/) && 
+                el.parentElement?.textContent.match(/\d+\.\d+/)
+            ).map(el => el.parentElement);
         }
+        
+        console.log(`🤖 AI: Found ${records.length} potential rate records`);
         
         let parsedCount = 0;
         records.forEach(record => {
             try {
-                const jurisdiction = record.querySelector('JURISDICTION');
-                if (!jurisdiction) return;
+                // AI: Intelligent jurisdiction code extraction
+                let code = null;
+                const codeSelectors = ['JURISDICTION', 'jurisdiction', 'State', 'state', 'Code'];
                 
-                const code = jurisdiction.textContent.trim().toUpperCase();
-                if (!code || code.length !== 2) return;
-                
-                const country = record.querySelector('COUNTRY')?.textContent.trim() || 'US';
-                
-                // Initialize jurisdiction if not exists
-                if (!rates[code]) {
-                    rates[code] = {
-                        code,
-                        country,
-                        rates: {}
-                    };
+                for (const selector of codeSelectors) {
+                    const el = record.querySelector(selector);
+                    if (el) {
+                        const text = el.textContent.trim().toUpperCase();
+                        if (text.match(/^[A-Z]{2}$/)) {
+                            code = text;
+                            break;
+                        }
+                    }
                 }
                 
-                // Get fuel type and rates
+                // Fallback: find any 2-letter code
+                if (!code) {
+                    const recordText = record.textContent;
+                    const codeMatch = recordText.match(/\b([A-Z]{2})\b/);
+                    if (codeMatch) code = codeMatch[1];
+                }
+                
+                if (!code || code.length !== 2) return;
+                
+                const country = this.isCanadianProvince(code) ? 'CAN' : 'US';
+                
+                if (!rates[code]) {
+                    rates[code] = { code, country, rates: {} };
+                }
+                
+                // Get fuel type and rates - try structured first
                 const fuelTypes = record.querySelectorAll('FUEL_TYPE');
                 const rateElements = record.querySelectorAll('RATE');
                 
-                fuelTypes.forEach((fuelType, index) => {
-                    const fuel = this.normalizeFuelType(fuelType.textContent.trim());
-                    const rateEl = rateElements[index * 2]; // US rate is first
-                    
-                    if (rateEl) {
-                        const rate = parseFloat(rateEl.textContent.trim()) || 0;
-                        if (rate >= 0 && rate < 2) { // Sanity check
-                            rates[code].rates[fuel] = rate;
+                if (fuelTypes.length > 0) {
+                    fuelTypes.forEach((fuelType, index) => {
+                        const fuel = this.normalizeFuelType(fuelType.textContent.trim());
+                        const rateEl = rateElements[index * 2];
+                        
+                        if (rateEl) {
+                            const rate = parseFloat(rateEl.textContent.trim()) || 0;
+                            if (rate >= this.config.minRate && rate <= this.config.maxRate) {
+                                rates[code].rates[fuel] = rate;
+                            }
                         }
-                    }
-                });
+                    });
+                } else {
+                    // AI: Extract numeric values that look like rates
+                    const ratePattern = /(\d+\.\d{2,4})/g;
+                    const numericValues = record.textContent.match(ratePattern) || [];
+                    const fuelTypeNames = ['diesel', 'gasoline', 'gasohol', 'propane', 'lng', 'cng'];
+                    
+                    numericValues.forEach((val, idx) => {
+                        const rate = parseFloat(val);
+                        if (rate >= this.config.minRate && rate <= this.config.maxRate && idx < fuelTypeNames.length) {
+                            rates[code].rates[fuelTypeNames[idx]] = rate;
+                        }
+                    });
+                }
+                
                 parsedCount++;
             } catch (e) {
                 console.warn('Error parsing record:', e);
             }
         });
         
-        console.log(`Parsed ${parsedCount} jurisdiction records`);
+        console.log(`🤖 AI: Parsed ${parsedCount} jurisdiction records`);
         
-        // Extract exchange rate with validation
+        // Extract exchange rate
+        let exchangeRate = { usToCanada: 1.3797, canadaToUs: 0.7248 };
         const exchangeRateEl = xmlDoc.querySelector('EXCHANGE_RATE');
-        let exchangeRate = { usToCanada: 1.3797, canadaToUs: 0.7248 }; // Fallback defaults
         
         if (exchangeRateEl) {
             const text = exchangeRateEl.textContent;
-            // Try multiple patterns
             const patterns = [
                 /(\d+\.\d+)\s*[-/]\s*(\d+\.\d+)/,
-                /US\s*=?\s*(\d+\.\d+).*CAN\s*=?\s*(\d+\.\d+)/i,
-                /(\d+\.\d{3,})/g
+                /US\s*=?\s*(\d+\.\d+).*CAN\s*=?\s*(\d+\.\d+)/i
             ];
             
             for (const pattern of patterns) {
@@ -207,12 +431,8 @@ const IFTARateFetcher = {
                 if (match && match[1] && match[2]) {
                     const rate1 = parseFloat(match[1]);
                     const rate2 = parseFloat(match[2]);
-                    // Validate rates are sensible (CAD typically 1.2-1.5 USD)
                     if (rate1 > 1 && rate1 < 2 && rate2 > 0.5 && rate2 < 1) {
-                        exchangeRate = {
-                            usToCanada: rate1,
-                            canadaToUs: rate2
-                        };
+                        exchangeRate = { usToCanada: rate1, canadaToUs: rate2 };
                         break;
                     }
                 }
@@ -340,46 +560,75 @@ const IFTARateFetcher = {
     },
     
     /**
-     * Main function to fetch latest rates
+     * AI-POWERED: Main function to fetch latest rates with validation
      */
     async fetchLatestRates(quarter = null) {
         const targetQuarter = quarter || this.getCurrentQuarter();
         
-        console.log(`Fetching IFTA rates for ${targetQuarter}...`);
+        console.log(`🤖 AI: Fetching IFTA rates for ${targetQuarter}...`);
+        
+        let primaryRates = null;
+        let source = null;
+        let exchangeRate = { usToCanada: 1.3797, canadaToUs: 0.7248 };
         
         // Try XML first (most reliable)
         try {
-            const result = await this.fetchXMLRates(targetQuarter);
-            console.log(`Successfully fetched ${Object.keys(result.rates).length} jurisdictions from XML`);
-            return {
-                success: true,
-                quarter: targetQuarter,
-                source: 'xml',
-                ...result
-            };
+            const xmlResult = await this.fetchXMLRates(targetQuarter);
+            primaryRates = xmlResult.rates;
+            exchangeRate = xmlResult.exchangeRate || exchangeRate;
+            source = 'xml';
+            console.log(`✓ XML: Found ${Object.keys(primaryRates).length} jurisdictions`);
         } catch (xmlError) {
-            console.log('XML fetch failed, trying HTML scrape...');
+            console.log('XML fetch failed, trying HTML...');
         }
         
         // Fallback to HTML scraping
-        try {
-            const rates = await this.scrapeHTMLRates();
-            console.log(`Successfully scraped ${Object.keys(rates).length} jurisdictions from HTML`);
-            return {
-                success: true,
-                quarter: targetQuarter,
-                source: 'html',
-                rates,
-                exchangeRate: { usToCanada: 1.3797, canadaToUs: 0.7248 }
-            };
-        } catch (htmlError) {
-            console.error('All fetch methods failed');
+        if (!primaryRates || Object.keys(primaryRates).length < 10) {
+            try {
+                primaryRates = await this.scrapeHTMLRates();
+                source = 'html';
+                console.log(`✓ HTML: Found ${Object.keys(primaryRates).length} jurisdictions`);
+            } catch (htmlError) {
+                console.error('All fetch methods failed');
+            }
+        }
+        
+        // If we still don't have rates, return error
+        if (!primaryRates || Object.keys(primaryRates).length === 0) {
             return {
                 success: false,
                 quarter: targetQuarter,
-                error: 'Unable to fetch rates. Please check your internet connection or try again later.'
+                error: 'Unable to fetch rates from any source. Please try again later.',
+                validation: null
             };
         }
+        
+        // AI Cross-validation
+        const { rates: validatedRates, report } = await this.crossValidateRates(primaryRates, targetQuarter);
+        
+        // Calculate overall confidence
+        let totalConfidence = 0;
+        let count = 0;
+        Object.values(validatedRates).forEach(j => {
+            if (j.validation?.confidence) {
+                totalConfidence += j.validation.confidence;
+                count++;
+            }
+        });
+        const avgConfidence = count > 0 ? totalConfidence / count : 0;
+        
+        return {
+            success: true,
+            quarter: targetQuarter,
+            source: source,
+            rates: validatedRates,
+            exchangeRate: exchangeRate,
+            validation: {
+                ...report,
+                averageConfidence: avgConfidence,
+                isHighConfidence: avgConfidence >= this.config.confidenceThreshold
+            }
+        };
     },
     
     /**

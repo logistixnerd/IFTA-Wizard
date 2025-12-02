@@ -920,12 +920,13 @@ const IFTAReports = {
     
     formatNumber(num) {
         if (typeof num !== 'number' || isNaN(num)) return '0';
-        return num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+        return Math.round(num).toLocaleString('en-US', { maximumFractionDigits: 0 });
     },
     
+    // Format gallons as whole numbers (IFTA requirement)
     formatGallons(num) {
-        if (typeof num !== 'number' || isNaN(num)) return '0.000';
-        return num.toLocaleString('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+        if (typeof num !== 'number' || isNaN(num)) return '0';
+        return Math.round(num).toLocaleString('en-US', { maximumFractionDigits: 0 });
     },
     
     formatRate(num) {
@@ -935,7 +936,8 @@ const IFTAReports = {
     
     formatCurrency(num) {
         if (typeof num !== 'number' || isNaN(num)) return '$0.00';
-        return '$' + num.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const rounded = Math.round(num * 100) / 100; // Round to 2 decimal places
+        return '$' + rounded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 };
 

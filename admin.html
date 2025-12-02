@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - IFTA Wizard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="admin.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <!-- EmailJS for sending invites -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+</head>
+<body class="admin-body">
+    <!-- Loading Overlay -->
+    <div id="adminLoading" class="admin-loading">
+        <div class="admin-loading-content">
+            <div class="spinner"></div>
+            <p>Verifying access...</p>
+        </div>
+    </div>
+
+    <!-- Access Denied -->
+    <div id="accessDenied" class="access-denied hidden">
+        <div class="access-denied-content">
+            <p class="access-denied-title">access denied</p>
+            <p class="access-denied-message">you must be logged in as an admin to access this page</p>
+            <a href="index.html">login</a>
+        </div>
+    </div>
+
+    <!-- Admin Panel -->
+    <div id="adminPanel" class="admin-panel hidden">
+        <!-- Sidebar -->
+        <aside class="admin-sidebar">
+            <div class="admin-logo">
+                <img src="LOGO - logistiXnerd dude.png" alt="Logo" class="admin-logo-img">
+                <span class="admin-logo-text">IFTA Admin</span>
+            </div>
+            
+            <nav class="admin-nav">
+                <a href="#dashboard" class="admin-nav-item active" data-section="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+                <a href="#users" class="admin-nav-item" data-section="users">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Users</span>
+                </a>
+                <a href="#companies" class="admin-nav-item" data-section="companies">
+                    <span class="nav-icon">🏢</span>
+                    <span class="nav-text">Companies</span>
+                </a>
+                <a href="#reports" class="admin-nav-item" data-section="reports">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-text">Reports</span>
+                </a>
+                <a href="#tax-rates" class="admin-nav-item" data-section="tax-rates">
+                    <span class="nav-icon">💰</span>
+                    <span class="nav-text">Tax Rates</span>
+                    <span class="nav-badge" id="pendingApprovalsBadge"></span>
+                </a>
+                <a href="#activity" class="admin-nav-item" data-section="activity">
+                    <span class="nav-icon">📝</span>
+                    <span class="nav-text">Activity Log</span>
+                </a>
+                <a href="#errors" class="admin-nav-item" data-section="errors">
+                    <span class="nav-icon">⚠️</span>
+                    <span class="nav-text">Error Log</span>
+                </a>
+            </nav>
+            
+            <div class="admin-sidebar-footer">
+                <a href="index.html" class="admin-nav-item">
+                    <span class="nav-icon">←</span>
+                    <span class="nav-text">Back to App</span>
+                </a>
+                <button class="admin-nav-item" id="adminLogout">
+                    <span class="nav-icon">🚪</span>
+                    <span class="nav-text">Logout</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="admin-main">
+            <!-- Header -->
+            <header class="admin-header">
+                <h1 class="admin-page-title" id="pageTitle">Dashboard</h1>
+                <div class="admin-header-right">
+                    <span class="admin-user-info">
+                        <span class="admin-user-name" id="adminUserName">Admin</span>
+                        <span class="admin-user-role" id="adminUserRole">Administrator</span>
+                    </span>
+                </div>
+            </header>
+
+            <!-- Dashboard Section -->
+            <section id="section-dashboard" class="admin-section active">
+                <div class="admin-stats-grid">
+                    <div class="admin-stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="statTotalUsers">-</div>
+                            <div class="stat-label">Total Users</div>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <div class="stat-icon">🏢</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="statTotalCompanies">-</div>
+                            <div class="stat-label">Companies</div>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <div class="stat-icon">📋</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="statTotalReports">-</div>
+                            <div class="stat-label">Reports Generated</div>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card warning">
+                        <div class="stat-icon">⏳</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="statPendingApprovals">-</div>
+                            <div class="stat-label">Pending Approvals</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>Companies</h2>
+                    </div>
+                    <div class="admin-card-body">
+                        <div id="dashboardCompaniesList" class="companies-list">
+                            <p class="empty-state">Loading companies...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Users Section -->
+            <section id="section-users" class="admin-section">
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>User Management</h2>
+                        <div class="admin-card-actions">
+                            <input type="text" class="admin-search" id="userSearch" placeholder="Search users...">
+                            <button class="btn btn-primary" onclick="AdminPanel.showInviteUserModal()">+ Invite User</button>
+                        </div>
+                    </div>
+                    <div class="admin-card-body">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Email</th>
+                                    <th>Company</th>
+                                    <th>Role</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr><td colspan="6" class="empty-state">Loading users...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Companies Section -->
+            <section id="section-companies" class="admin-section">
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>Companies</h2>
+                        <div class="admin-card-actions">
+                            <input type="text" class="admin-search" id="companySearch" placeholder="Search companies...">
+                            <button class="btn" onclick="AdminPanel.showAddCompanyModal()">+ Add Company</button>
+                        </div>
+                    </div>
+                    <div class="admin-card-body">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Company Name</th>
+                                    <th>Owner</th>
+                                    <th>Users</th>
+                                    <th>Reports</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="companiesTableBody">
+                                <tr><td colspan="6" class="empty-state">Loading companies...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reports Section -->
+            <section id="section-reports" class="admin-section">
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>Generated Reports</h2>
+                        <div class="admin-card-actions">
+                            <select class="admin-select" id="reportQuarterFilter">
+                                <option value="">All Quarters</option>
+                                <option value="Q1">Q1</option>
+                                <option value="Q2">Q2</option>
+                                <option value="Q3">Q3</option>
+                                <option value="Q4">Q4</option>
+                            </select>
+                            <input type="text" class="admin-search" id="reportSearch" placeholder="Search reports...">
+                        </div>
+                    </div>
+                    <div class="admin-card-body">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Report ID</th>
+                                    <th>Company</th>
+                                    <th>Quarter</th>
+                                    <th>Total Miles</th>
+                                    <th>Net Tax</th>
+                                    <th>Created</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportsTableBody">
+                                <tr><td colspan="7" class="empty-state">Loading reports...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tax Rates Section -->
+            <section id="section-tax-rates" class="admin-section">
+                <!-- Quarter Selector -->
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>📅 Select Quarter</h2>
+                        <div class="admin-card-actions">
+                            <button class="btn" id="copyFromQuarterBtn" title="Copy rates from another quarter">
+                                📋 Copy From...
+                            </button>
+                        </div>
+                    </div>
+                    <div class="admin-card-body">
+                        <div class="quarter-selector" id="quarterSelector">
+                            <!-- Quarters will be populated by JS -->
+                        </div>
+                        <div class="quarter-status" id="quarterStatus">
+                            <span class="quarter-status-label">Selected:</span>
+                            <span class="quarter-status-value" id="selectedQuarterDisplay">-</span>
+                            <span class="quarter-status-badge" id="quarterStatusBadge">-</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rate Status Overview -->
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>📊 Tax Rate Status</h2>
+                        <div class="admin-card-actions">
+                            <button class="btn btn-primary" id="fetchNewRatesBtn">
+                                🤖 AI Fetch Latest Rates
+                            </button>
+                        </div>
+                    </div>
+                    <div class="admin-card-body">
+                        <div class="tax-status-grid">
+                            <div class="tax-status-item">
+                                <span class="tax-status-label">Editing Quarter</span>
+                                <span class="tax-status-value" id="currentRatesQuarter">-</span>
+                            </div>
+                            <div class="tax-status-item">
+                                <span class="tax-status-label">Last Updated</span>
+                                <span class="tax-status-value" id="currentRatesUpdated">-</span>
+                            </div>
+                            <div class="tax-status-item">
+                                <span class="tax-status-label">Total Jurisdictions</span>
+                                <span class="tax-status-value" id="totalJurisdictions">-</span>
+                            </div>
+                            <div class="tax-status-item">
+                                <span class="tax-status-label">Exchange Rate (USD/CAD)</span>
+                                <span class="tax-status-value" id="exchangeRateDisplay">-</span>
+                            </div>
+                        </div>
+                        <div id="fetchStatus" class="fetch-status hidden"></div>
+                    </div>
+                </div>
+
+                <!-- Editable Tax Rates -->
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>💰 Tax Rates by Jurisdiction</h2>
+                        <div class="admin-card-actions">
+                            <select class="admin-select" id="fuelTypeFilter">
+                                <option value="diesel">Diesel</option>
+                                <option value="gasoline">Gasoline</option>
+                                <option value="gasohol">Gasohol</option>
+                                <option value="propane">Propane</option>
+                                <option value="lng">LNG</option>
+                                <option value="cng">CNG</option>
+                            </select>
+                            <input type="text" class="admin-search" id="stateSearch" placeholder="Search state...">
+                            <button class="btn btn-success" id="saveRatesBtn">
+                                💾 Save Quarter
+                            </button>
+                        </div>
+                    </div>
+                    <div class="admin-card-body">
+                        <div class="rates-table-container">
+                            <table class="admin-table rates-table" id="currentRatesTable">
+                                <thead>
+                                    <tr>
+                                        <th>State/Province</th>
+                                        <th>Name</th>
+                                        <th>Country</th>
+                                        <th>Rate ($/gal)</th>
+                                        <th>Effective Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="taxRatesTableBody">
+                                    <tr><td colspan="6" class="empty-state">Loading tax rates...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="rates-footer">
+                            <span id="ratesModifiedCount" class="modified-count hidden">0 rates modified</span>
+                            <span id="lastSaveTime" class="last-save-time"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stored Quarters Overview -->
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>📦 Stored Quarters</h2>
+                    </div>
+                    <div class="admin-card-body">
+                        <div class="stored-quarters-list" id="storedQuartersList">
+                            <p class="empty-state">Loading stored quarters...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Activity Log Section -->
+            <section id="section-activity" class="admin-section">
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>Activity Log</h2>
+                        <div class="admin-card-actions">
+                            <select class="admin-select" id="activityFilter">
+                                <option value="">All Activities</option>
+                                <option value="login">Logins</option>
+                                <option value="report">Reports</option>
+                                <option value="tax_rate">Tax Rate Changes</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="admin-card-body">
+                        <div id="activityLogList" class="activity-list">
+                            <p class="empty-state">Loading activity log...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Error Log Section -->
+            <section id="section-errors" class="admin-section">
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>Error Log</h2>
+                        <div class="admin-card-actions">
+                            <button class="btn btn-secondary" id="clearOldErrorsBtn">
+                                Clear Old Errors
+                            </button>
+                        </div>
+                    </div>
+                    <div class="admin-card-body">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th>Time</th>
+                                    <th>Type</th>
+                                    <th>Message</th>
+                                    <th>User</th>
+                                    <th>Page</th>
+                                </tr>
+                            </thead>
+                            <tbody id="errorLogTableBody">
+                                <tr><td colspan="5" class="empty-state">Loading error log...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Role Change Modal -->
+    <div id="roleModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close" onclick="AdminPanel.closeRoleModal()">&times;</button>
+            <h2>Change User Role</h2>
+            <p>User: <strong id="roleModalUserName"></strong></p>
+            <div class="form-group">
+                <label for="newRoleSelect">New Role</label>
+                <select id="newRoleSelect" class="admin-select">
+                    <option value="user">User</option>
+                    <option value="moderator">Moderator</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="AdminPanel.closeRoleModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="AdminPanel.saveRoleChange()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tax Rate Approval Modal -->
+    <div id="taxApprovalModal" class="modal-overlay hidden">
+        <div class="modal-content modal-large">
+            <button class="modal-close" onclick="AdminPanel.closeTaxApprovalModal()">&times;</button>
+            <h2>Review Tax Rate Update</h2>
+            <div id="taxApprovalDetails"></div>
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="AdminPanel.rejectTaxRates()">Reject</button>
+                <button class="btn btn-success" onclick="AdminPanel.approveTaxRates()">Approve & Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite User Modal -->
+    <div id="inviteUserModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close" onclick="AdminPanel.closeInviteUserModal()">&times;</button>
+            <h2>Invite User</h2>
+            <form id="inviteUserForm" onsubmit="AdminPanel.sendUserInvite(event)">
+                <div class="form-group">
+                    <label for="inviteEmail">Email</label>
+                    <input type="email" id="inviteEmail" placeholder="user@company.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="inviteName">Name (optional)</label>
+                    <input type="text" id="inviteName" placeholder="John Smith">
+                </div>
+                <div class="form-group">
+                    <label for="inviteCompany">Company (optional)</label>
+                    <input type="text" id="inviteCompany" placeholder="ABC Trucking LLC">
+                </div>
+                <div class="form-group">
+                    <label for="inviteRole">Role</label>
+                    <select id="inviteRole">
+                        <option value="user">User</option>
+                        <option value="moderator">Moderator</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="inviteMessage">Personal Message (optional)</label>
+                    <textarea id="inviteMessage" rows="2" placeholder="Add a personal note..."></textarea>
+                </div>
+                <p id="inviteStatus" class="invite-status"></p>
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="AdminPanel.closeInviteUserModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="sendInviteBtn">Send Invite</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Copy From Quarter Modal -->
+    <div id="copyQuarterModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close" onclick="AdminPanel.closeCopyQuarterModal()">&times;</button>
+            <h2>Copy Rates From Quarter</h2>
+            <p class="modal-description">Select a quarter to copy rates from. This will overwrite the current quarter's rates.</p>
+            <div class="form-group">
+                <label for="copyFromQuarterSelect">Source Quarter</label>
+                <select id="copyFromQuarterSelect" class="admin-select" style="width: 100%;">
+                    <!-- Populated by JS -->
+                </select>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn" onclick="AdminPanel.closeCopyQuarterModal()">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="AdminPanel.confirmCopyFromQuarter()">Copy Rates</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="tax-rates.js"></script>
+    <script src="rate-fetcher.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>

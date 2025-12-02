@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IFTA Wizard - Fuel Tax Calculator</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <!-- EmailJS for sending verification codes -->
@@ -53,6 +57,7 @@
                         <label for="signinPassword">Password</label>
                         <input type="password" id="signinPassword" placeholder="Enter your password">
                     </div>
+                    <a href="admin.html" id="adminPanelLink" class="admin-panel-link" style="display: none;">go to admin console</a>
                     <button type="button" class="forgot-password" id="forgotPasswordBtn" onclick="IFTAAuth.showForgotPassword()">Forgot password?</button>
                     <button type="submit" class="btn btn-primary btn-full">Sign In</button>
                 </div>
@@ -219,6 +224,9 @@
                                 </div>
                             </div>
                             <div class="profile-menu-items">
+                                <a href="admin.html" class="profile-menu-item" id="menuAdminConsole" style="display: none;">
+                                    <span>Admin Console</span>
+                                </a>
                                 <button class="profile-menu-item" id="menuSavedReports">
                                     <span>Saved Reports</span>
                                     <span class="menu-badge" id="reportsCount">0</span>
@@ -247,6 +255,11 @@
                 <h2>Trip Configuration</h2>
                 <div class="config-grid">
                     <div class="form-group">
+                        <label for="unitNumber">Unit # <span class="optional-hint">(or "All Units")</span></label>
+                        <input type="text" id="unitNumber" placeholder="e.g., 101 or All Units" 
+                               title="Enter truck/unit number for per-unit report, or leave blank for company-wide">
+                    </div>
+                    <div class="form-group">
                         <label for="fuelType">Fuel Type</label>
                         <select id="fuelType">
                             <option value="diesel" selected>Diesel</option>
@@ -261,14 +274,21 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="baseJurisdiction">Base Jurisdiction</label>
-                        <select id="baseJurisdiction">
+                        <label for="baseJurisdiction">Base Jurisdiction <span class="required">*</span></label>
+                        <select id="baseJurisdiction" required>
+                            <option value="">Select...</option>
                             <!-- Populated by JavaScript -->
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="fleetMpg">Fleet Average MPG</label>
-                        <input type="number" id="fleetMpg" step="0.01" value="6.5" min="1" max="20">
+                        <label for="fleetMpg">Fleet MPG <span class="mpg-hint">(from history)</span></label>
+                        <input type="number" id="fleetMpg" step="0.01" value="6.5" min="1" max="20" 
+                               title="Average MPG calculated from your previous IFTA reports">
+                    </div>
+                    <div class="form-group">
+                        <label for="currentMpg">Current MPG <span class="mpg-hint">(this report)</span></label>
+                        <input type="text" id="currentMpg" value="—" readonly class="mpg-calculated"
+                               title="Calculated from Total Miles ÷ Total Tax Paid Gallons entered below">
                     </div>
                 </div>
             </section>
@@ -699,6 +719,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
 
+    <script src="firebase-config.js"></script>
     <script src="tax-rates.js"></script>
     <script src="rate-fetcher.js"></script>
     <script src="integrity-monitor.js"></script>

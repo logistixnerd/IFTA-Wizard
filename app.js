@@ -9,10 +9,12 @@
 // Application State
 const appState = {
     rows: [],
+    unitNumber: '',           // Truck/unit number or empty for company-wide
     selectedFuelType: 'diesel',
     selectedQuarter: 'Q4 2025',
-    baseJurisdiction: 'TX',
+    baseJurisdiction: '',  // Empty by default - user must select
     fleetMpg: 6.5,
+    currentMpg: 0,  // Calculated from current data entry
     rowIdCounter: 0,
     isInitialized: false
 };
@@ -35,9 +37,11 @@ const CONSTANTS = {
 const elements = {
     dataTableBody: null,
     quarterSelect: null,
+    unitNumberInput: null,
     fuelTypeSelect: null,
     baseJurisdictionSelect: null,
     fleetMpgInput: null,
+    currentMpgInput: null,
     loadingOverlay: null,
     toastContainer: null
 };
@@ -124,9 +128,11 @@ async function checkForRateUpdates() {
 function initializeElements() {
     elements.dataTableBody = document.getElementById('dataTableBody');
     elements.quarterSelect = document.getElementById('quarterSelect');
+    elements.unitNumberInput = document.getElementById('unitNumber');
     elements.fuelTypeSelect = document.getElementById('fuelType');
     elements.baseJurisdictionSelect = document.getElementById('baseJurisdiction');
     elements.fleetMpgInput = document.getElementById('fleetMpg');
+    elements.currentMpgInput = document.getElementById('currentMpg');
     elements.loadingOverlay = document.getElementById('loadingOverlay');
     elements.toastContainer = document.getElementById('toastContainer');
     
@@ -188,6 +194,12 @@ function populateJurisdictionDropdowns() {
     const baseSelect = elements.baseJurisdictionSelect;
     baseSelect.innerHTML = '';
     
+    // Add "Select..." placeholder option
+    const selectOption = document.createElement('option');
+    selectOption.value = '';
+    selectOption.textContent = 'Select...';
+    baseSelect.appendChild(selectOption);
+    
     // Add US jurisdictions group
     const usGroup = document.createElement('optgroup');
     usGroup.label = 'United States';
@@ -210,8 +222,8 @@ function populateJurisdictionDropdowns() {
     });
     baseSelect.appendChild(canGroup);
     
-    // Set default
-    baseSelect.value = appState.baseJurisdiction;
+    // Set to empty (Select...) by default
+    baseSelect.value = appState.baseJurisdiction || '';
 }
 
 // Attach event listeners
@@ -230,6 +242,10 @@ function attachEventListeners() {
     document.getElementById('csvFileInput').addEventListener('change', handleCsvImport);
     
     // Configuration changes
+    elements.unitNumberInput.addEventListener('input', (e) => {
+        appState.unitNumber = e.target.value.trim();
+    });
+    
     elements.quarterSelect.addEventListener('change', (e) => {
         appState.selectedQuarter = e.target.value;
         
@@ -295,29 +311,39 @@ function attachEventListeners() {
 // Add a new data row
 function addNewRow(data = null) {
     const rowId = ++appState.rowIdCounter;
-    const rowData = data || {
+    
+    // Create row data object
+    const rowData = {
         id: rowId,
-        jurisdiction: '',
-        totalMiles: 0,
-        taxableMiles: 0,
-        taxPaidGallons: 0,
-        taxRate: 0,
-        taxableGallons: 0,
-        netTaxableGallons: 0,
-        taxDue: 0
+        jurisdiction: data?.jurisdiction || '',
+        totalMiles: data?.totalMiles || 0,
+        taxableMiles: data?.taxableMiles || 0,
+        taxPaidGallons: data?.taxPaidGallons || 0,
+        taxRate: data?.taxRate || 0,
+        taxableGallons: data?.taxableGallons || 0,
+        netTaxableGallons: data?.netTaxableGallons || 0,
+        taxDue: data?.taxDue || 0,
+        taxableMilesManuallyEdited: data?.taxableMilesManuallyEdited || false
     };
     
-    if (!data) {
-        rowData.id = rowId;
-        appState.rows.push(rowData);
-    }
+    // Add to state FIRST so createRowHtml can see all rows
+    appState.rows.push(rowData);
     
+    console.log(`addNewRow: Creating row ${rowId}, appState.rows now has ${appState.rows.length} rows`);
+    
+    // Create the row element
     const row = document.createElement('tr');
-    row.id = `row-${rowData.id}`;
+    row.id = `row-${rowId}`;
     row.innerHTML = createRowHtml(rowData);
     elements.dataTableBody.appendChild(row);
     
-    attachRowEventListeners(row, rowData.id);
+    // Attach all event listeners with the correct rowId
+    attachRowEventListeners(row, rowId);
+    
+    // Refresh all dropdowns to show updated disabled states
+    refreshAllJurisdictionDropdowns();
+    
+    console.log(`addNewRow: Row ${rowId} fully created with event listeners`);
     
     return rowData;
 }
@@ -326,13 +352,20 @@ function addNewRow(data = null) {
 function createRowHtml(rowData) {
     const jurisdictions = getJurisdictionList();
     
+    // Get already used jurisdictions (exclude current row's jurisdiction)
+    const usedJurisdictions = appState.rows
+        .filter(r => r.id !== rowData.id && r.jurisdiction)
+        .map(r => r.jurisdiction);
+    
     let jurisdictionOptions = '<option value="">Select...</option>';
     
     // US jurisdictions
     jurisdictionOptions += '<optgroup label="United States">';
     jurisdictions.filter(j => j.country === 'US').forEach(j => {
         const selected = rowData.jurisdiction === j.code ? 'selected' : '';
-        jurisdictionOptions += `<option value="${j.code}" ${selected}>${j.name} (${j.code})</option>`;
+        const disabled = usedJurisdictions.includes(j.code) ? 'disabled' : '';
+        const usedLabel = usedJurisdictions.includes(j.code) ? ' (already added)' : '';
+        jurisdictionOptions += `<option value="${j.code}" ${selected} ${disabled}>${j.name} (${j.code})${usedLabel}</option>`;
     });
     jurisdictionOptions += '</optgroup>';
     
@@ -340,11 +373,18 @@ function createRowHtml(rowData) {
     jurisdictionOptions += '<optgroup label="Canada">';
     jurisdictions.filter(j => j.country === 'CAN').forEach(j => {
         const selected = rowData.jurisdiction === j.code ? 'selected' : '';
-        jurisdictionOptions += `<option value="${j.code}" ${selected}>${j.name} (${j.code})</option>`;
+        const disabled = usedJurisdictions.includes(j.code) ? 'disabled' : '';
+        const usedLabel = usedJurisdictions.includes(j.code) ? ' (already added)' : '';
+        jurisdictionOptions += `<option value="${j.code}" ${selected} ${disabled}>${j.name} (${j.code})${usedLabel}</option>`;
     });
     jurisdictionOptions += '</optgroup>';
     
     const taxClass = rowData.taxDue >= 0 ? 'positive' : 'negative';
+    
+    // Display values - whole numbers for miles, integers for gallons
+    const totalMilesDisplay = rowData.totalMiles ? Math.round(rowData.totalMiles) : '';
+    const taxableMilesDisplay = rowData.taxableMiles ? Math.round(rowData.taxableMiles) : '';
+    const taxPaidGallonsDisplay = rowData.taxPaidGallons ? Math.round(rowData.taxPaidGallons) : '';
     
     return `
         <td>
@@ -354,20 +394,23 @@ function createRowHtml(rowData) {
         </td>
         <td>
             <input type="number" class="total-miles" data-field="totalMiles" 
-                   value="${rowData.totalMiles || ''}" min="0" step="1" placeholder="0">
+                   value="${totalMilesDisplay}" min="0" step="1" placeholder="0"
+                   title="Total miles traveled in this jurisdiction">
         </td>
         <td>
             <input type="number" class="taxable-miles" data-field="taxableMiles" 
-                   value="${rowData.taxableMiles || ''}" min="0" step="1" placeholder="0">
+                   value="${taxableMilesDisplay}" min="0" step="1" placeholder="0"
+                   title="Taxable miles (defaults to total miles, editable for exemptions)">
         </td>
         <td>
             <input type="number" class="tax-paid-gallons" data-field="taxPaidGallons" 
-                   value="${rowData.taxPaidGallons || ''}" min="0" step="0.001" placeholder="0.000">
+                   value="${taxPaidGallonsDisplay}" min="0" step="1" placeholder="0"
+                   title="Gallons purchased with tax already paid in this jurisdiction">
         </td>
-        <td class="rate-display">${formatRate(rowData.taxRate)}</td>
-        <td class="taxable-gallons">${formatGallons(rowData.taxableGallons)}</td>
-        <td class="net-taxable-gallons">${formatGallons(rowData.netTaxableGallons)}</td>
-        <td class="tax-amount ${taxClass}">${formatCurrency(rowData.taxDue)}</td>
+        <td class="rate-display" title="Tax rate from IFTA reference - not editable">${formatRate(rowData.taxRate)}</td>
+        <td class="taxable-gallons" title="Taxable Miles ÷ Fleet MPG">${formatWholeGallons(rowData.taxableGallons)}</td>
+        <td class="net-taxable-gallons" title="Taxable Gallons - Tax Paid Gallons">${formatWholeGallons(rowData.netTaxableGallons)}</td>
+        <td class="tax-amount ${taxClass}" title="Net Taxable Gallons × Tax Rate">${formatCurrency(rowData.taxDue)}</td>
         <td>
             <button class="delete-row" title="Delete row">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -379,45 +422,210 @@ function createRowHtml(rowData) {
     `;
 }
 
+// Format gallons as whole numbers
+function formatWholeGallons(value) {
+    if (value === null || value === undefined || isNaN(value)) return '0';
+    return Math.round(value).toLocaleString();
+}
+
 // Attach event listeners to a row
 function attachRowEventListeners(row, rowId) {
-    // Jurisdiction change
+    // Jurisdiction change - ALWAYS update tax rate from reference
     row.querySelector('.jurisdiction-select').addEventListener('change', (e) => {
-        updateRowField(rowId, 'jurisdiction', e.target.value);
+        const newJurisdiction = e.target.value;
+        console.log(`Jurisdiction change for row ${rowId}: ${newJurisdiction}`);
+        console.log(`appState.rows:`, appState.rows.map(r => ({id: r.id, jurisdiction: r.jurisdiction})));
+        
+        // Check if jurisdiction is already used in another row
+        if (newJurisdiction) {
+            const existingRow = appState.rows.find(r => r.id !== rowId && r.jurisdiction === newJurisdiction);
+            if (existingRow) {
+                showToast(`${newJurisdiction} is already added in another row`, 'warning');
+                e.target.value = ''; // Reset selection
+                return;
+            }
+        }
+        
+        updateRowField(rowId, 'jurisdiction', newJurisdiction);
+        // Force tax rate refresh from reference
+        forceUpdateTaxRate(rowId);
         calculateRow(rowId);
+        
+        // Refresh all jurisdiction dropdowns to update disabled states
+        refreshAllJurisdictionDropdowns();
     });
     
-    // Total miles change
+    // Total miles change - automatically mirror to taxable miles
     row.querySelector('.total-miles').addEventListener('input', (e) => {
-        const value = parseFloat(e.target.value) || 0;
+        // Force whole numbers only
+        const value = Math.round(parseFloat(e.target.value) || 0);
+        e.target.value = value || '';
+        
+        console.log(`Total miles input for row ${rowId}: ${value}`);
         updateRowField(rowId, 'totalMiles', value);
         
-        // Auto-fill taxable miles if empty
+        // Auto-mirror to taxable miles (always, unless user has manually edited)
+        const rowData = appState.rows.find(r => r.id === rowId);
+        if (!rowData) {
+            console.error(`Row ${rowId} not found in appState.rows!`);
+            return;
+        }
+        
         const taxableMilesInput = row.querySelector('.taxable-miles');
-        if (!taxableMilesInput.value) {
-            taxableMilesInput.value = value;
+        
+        // If taxable miles was same as total (or empty), keep them in sync
+        if (!rowData.taxableMilesManuallyEdited || rowData.taxableMiles === rowData.totalMiles || !taxableMilesInput.value) {
+            taxableMilesInput.value = value || '';
             updateRowField(rowId, 'taxableMiles', value);
+            rowData.taxableMilesManuallyEdited = false;
+            console.log(`Taxable miles mirrored to ${value} for row ${rowId}`);
         }
         
         calculateRow(rowId);
     });
     
-    // Taxable miles change
+    // Taxable miles change - mark as manually edited
     row.querySelector('.taxable-miles').addEventListener('input', (e) => {
-        updateRowField(rowId, 'taxableMiles', parseFloat(e.target.value) || 0);
+        // Force whole numbers only
+        const value = Math.round(parseFloat(e.target.value) || 0);
+        e.target.value = value || '';
+        
+        const rowData = appState.rows.find(r => r.id === rowId);
+        if (rowData) {
+            rowData.taxableMilesManuallyEdited = true;
+        }
+        
+        updateRowField(rowId, 'taxableMiles', value);
         calculateRow(rowId);
     });
     
-    // Tax paid gallons change
+    // Tax paid gallons change - whole numbers only
     row.querySelector('.tax-paid-gallons').addEventListener('input', (e) => {
-        updateRowField(rowId, 'taxPaidGallons', parseFloat(e.target.value) || 0);
+        // Force whole numbers only
+        const value = Math.round(parseFloat(e.target.value) || 0);
+        e.target.value = value || '';
+        
+        updateRowField(rowId, 'taxPaidGallons', value);
         calculateRow(rowId);
+    });
+    
+    // Prevent decimal input on number fields AND handle Enter key to add new row
+    ['.total-miles', '.taxable-miles', '.tax-paid-gallons'].forEach(selector => {
+        const input = row.querySelector(selector);
+        if (input) {
+            input.addEventListener('keydown', (e) => {
+                // Block decimal point and comma
+                if (e.key === '.' || e.key === ',') {
+                    e.preventDefault();
+                }
+                // Enter key - validate and add new row
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    handleEnterKeyAddRow(rowId);
+                }
+            });
+            // On blur, ensure whole number
+            input.addEventListener('blur', (e) => {
+                const value = Math.round(parseFloat(e.target.value) || 0);
+                e.target.value = value || '';
+            });
+        }
+    });
+    
+    // Also handle Enter on jurisdiction select
+    row.querySelector('.jurisdiction-select').addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleEnterKeyAddRow(rowId);
+        }
     });
     
     // Delete row
     row.querySelector('.delete-row').addEventListener('click', () => {
         deleteRow(rowId);
     });
+}
+
+// Handle Enter key to validate current row and add new row
+function handleEnterKeyAddRow(currentRowId) {
+    const rowData = appState.rows.find(r => r.id === currentRowId);
+    if (!rowData) return;
+    
+    // Validate current row has required data
+    const errors = [];
+    
+    if (!rowData.jurisdiction) {
+        errors.push('Jurisdiction is required');
+    }
+    
+    if (!rowData.totalMiles || rowData.totalMiles <= 0) {
+        errors.push('Total Miles must be greater than 0');
+    }
+    
+    // Show errors if validation fails
+    if (errors.length > 0) {
+        showToast(errors.join('. '), 'error');
+        
+        // Focus on the first missing field
+        const row = document.getElementById(`row-${currentRowId}`);
+        if (row) {
+            if (!rowData.jurisdiction) {
+                row.querySelector('.jurisdiction-select').focus();
+            } else if (!rowData.totalMiles || rowData.totalMiles <= 0) {
+                row.querySelector('.total-miles').focus();
+            }
+        }
+        return;
+    }
+    
+    // Validation passed - add new row and focus on its jurisdiction select
+    const newRowData = addNewRow();
+    
+    // Focus on the new row's jurisdiction dropdown
+    setTimeout(() => {
+        const newRow = document.getElementById(`row-${newRowData.id}`);
+        if (newRow) {
+            newRow.querySelector('.jurisdiction-select').focus();
+        }
+    }, 50);
+    
+    showToast('New row added', 'success');
+}
+
+// Force update tax rate from reference data - CRITICAL for accuracy
+function forceUpdateTaxRate(rowId) {
+    const rowData = appState.rows.find(r => r.id === rowId);
+    if (!rowData) {
+        console.warn(`forceUpdateTaxRate: Row ${rowId} not found in appState.rows`);
+        return;
+    }
+    
+    if (!rowData.jurisdiction) {
+        rowData.taxRate = 0;
+        console.log(`forceUpdateTaxRate: Row ${rowId} has no jurisdiction, rate set to 0`);
+        return;
+    }
+    
+    // ALWAYS get rate from reference - never allow manual override
+    let taxRate = 0;
+    if (typeof getValidatedTaxRate === 'function') {
+        taxRate = getValidatedTaxRate(rowData.jurisdiction, appState.selectedFuelType);
+        console.log(`forceUpdateTaxRate: Got rate ${taxRate} for ${rowData.jurisdiction}/${appState.selectedFuelType} via getValidatedTaxRate`);
+    } else if (typeof getTaxRate === 'function') {
+        taxRate = getTaxRate(rowData.jurisdiction, appState.selectedFuelType);
+        console.log(`forceUpdateTaxRate: Got rate ${taxRate} for ${rowData.jurisdiction}/${appState.selectedFuelType} via getTaxRate`);
+    } else {
+        console.error('forceUpdateTaxRate: No tax rate function available!');
+    }
+    
+    // Validate rate is reasonable
+    if (typeof taxRate !== 'number' || isNaN(taxRate) || taxRate < 0 || taxRate > 2) {
+        console.warn(`Invalid tax rate for ${rowData.jurisdiction}: ${taxRate}, defaulting to 0`);
+        taxRate = 0;
+    }
+    
+    rowData.taxRate = taxRate;
+    console.log(`forceUpdateTaxRate: Row ${rowId} rate set to ${taxRate}`);
 }
 
 // Update a field in the row data
@@ -428,53 +636,93 @@ function updateRowField(rowId, field, value) {
     }
 }
 
-// Calculate values for a single row
+// Calculate values for a single row - IFTA FORMULA
+// This is the critical calculation that must be 100% accurate
 function calculateRow(rowId) {
+    console.log(`calculateRow called for row ${rowId}`);
     const rowData = appState.rows.find(r => r.id === rowId);
     if (!rowData) {
-        console.warn(`Row ${rowId} not found for calculation`);
+        console.error(`calculateRow: Row ${rowId} not found in appState.rows!`);
+        console.log(`appState.rows IDs:`, appState.rows.map(r => r.id));
         return;
     }
     
+    console.log(`calculateRow: Found row ${rowId}, data:`, JSON.stringify(rowData));
+    
     try {
-        // Sanitize input values
-        rowData.totalMiles = sanitizeNumber(rowData.totalMiles, 0, CONSTANTS.MAX_MILES);
-        rowData.taxableMiles = sanitizeNumber(rowData.taxableMiles, 0, CONSTANTS.MAX_MILES);
-        rowData.taxPaidGallons = sanitizeNumber(rowData.taxPaidGallons, 0, CONSTANTS.MAX_GALLONS);
+        // ==========================================
+        // STEP 1: Sanitize and validate input values (whole numbers)
+        // ==========================================
+        rowData.totalMiles = Math.round(sanitizeNumber(rowData.totalMiles, 0, CONSTANTS.MAX_MILES));
+        rowData.taxableMiles = Math.round(sanitizeNumber(rowData.taxableMiles, 0, CONSTANTS.MAX_MILES));
+        rowData.taxPaidGallons = Math.round(sanitizeNumber(rowData.taxPaidGallons, 0, CONSTANTS.MAX_GALLONS));
         
-        // Get tax rate for the selected jurisdiction, fuel type, and active QUARTER
-        // Use getValidatedTaxRate for bulletproof rate lookup (it uses activeQuarter internally)
+        // Taxable miles cannot exceed total miles
+        if (rowData.taxableMiles > rowData.totalMiles) {
+            rowData.taxableMiles = rowData.totalMiles;
+        }
+        
+        // ==========================================
+        // STEP 2: Get TAX RATE from reference (NEVER allow manual input)
+        // This is CRITICAL - rate must come from tax-rates.js
+        // ==========================================
         let taxRate = 0;
         if (rowData.jurisdiction) {
+            // Always use getValidatedTaxRate for bulletproof rate lookup
             if (typeof getValidatedTaxRate === 'function') {
                 taxRate = getValidatedTaxRate(rowData.jurisdiction, appState.selectedFuelType);
             } else if (typeof getTaxRate === 'function') {
                 taxRate = getTaxRate(rowData.jurisdiction, appState.selectedFuelType);
             }
+            
+            // Final validation - rate must be reasonable
+            if (typeof taxRate !== 'number' || isNaN(taxRate) || taxRate < 0 || taxRate > 2) {
+                console.error(`INVALID TAX RATE for ${rowData.jurisdiction}/${appState.selectedFuelType}: ${taxRate}`);
+                taxRate = 0;
+            }
         }
-        rowData.taxRate = sanitizeNumber(taxRate, 0, 2);
+        rowData.taxRate = taxRate;
         
-        // Calculate taxable gallons = taxable miles / fleet MPG
+        // ==========================================
+        // STEP 3: Calculate TAXABLE GALLONS
+        // Formula: Taxable Miles ÷ Fleet MPG
+        // ==========================================
         const mpg = Math.max(appState.fleetMpg, CONSTANTS.MIN_MPG);
-        const taxableGallons = rowData.taxableMiles / mpg;
-        rowData.taxableGallons = roundTo(taxableGallons, CONSTANTS.DECIMAL_PLACES.gallons);
+        const rawTaxableGallons = rowData.taxableMiles / mpg;
+        // Round to whole gallons for IFTA compliance
+        rowData.taxableGallons = Math.round(rawTaxableGallons);
         
-        // Calculate net taxable gallons = taxable gallons - tax paid gallons
-        const netTaxableGallons = rowData.taxableGallons - rowData.taxPaidGallons;
-        rowData.netTaxableGallons = roundTo(netTaxableGallons, CONSTANTS.DECIMAL_PLACES.gallons);
+        // ==========================================
+        // STEP 4: Calculate NET TAXABLE GALLONS
+        // Formula: Taxable Gallons - Tax Paid Gallons
+        // Can be negative (results in tax credit)
+        // ==========================================
+        rowData.netTaxableGallons = rowData.taxableGallons - rowData.taxPaidGallons;
         
-        // Calculate tax due/credit using bulletproof calculation
+        // ==========================================
+        // STEP 5: Calculate TAX DUE
+        // Formula: Net Taxable Gallons × Tax Rate
+        // Positive = tax owed, Negative = tax credit
+        // ==========================================
         let taxDue;
         if (typeof calculateTax === 'function') {
             taxDue = calculateTax(rowData.netTaxableGallons, rowData.taxRate);
         } else {
             taxDue = rowData.netTaxableGallons * rowData.taxRate;
         }
-        rowData.taxDue = roundTo(taxDue, CONSTANTS.DECIMAL_PLACES.currency);
+        // Round to 2 decimal places for currency
+        rowData.taxDue = roundTo(taxDue, 2);
         
-        // Update UI
+        console.log(`calculateRow: Final values for row ${rowId}: rate=${rowData.taxRate}, taxableGal=${rowData.taxableGallons}, netGal=${rowData.netTaxableGallons}, taxDue=${rowData.taxDue}`);
+        
+        // ==========================================
+        // STEP 6: Update UI
+        // ==========================================
         updateRowUI(rowId, rowData);
         updateTotals();
+        
+        console.log(`calculateRow: UI updated for row ${rowId}`);
+        
     } catch (error) {
         console.error(`Error calculating row ${rowId}:`, error);
     }
@@ -498,13 +746,65 @@ function updateRowUI(rowId, rowData) {
     const row = document.getElementById(`row-${rowId}`);
     if (!row) return;
     
+    // Tax rate - display with 4 decimal places
     row.querySelector('.rate-display').textContent = formatRate(rowData.taxRate);
-    row.querySelector('.taxable-gallons').textContent = formatGallons(rowData.taxableGallons);
-    row.querySelector('.net-taxable-gallons').textContent = formatGallons(rowData.netTaxableGallons);
     
+    // Taxable gallons - whole number
+    row.querySelector('.taxable-gallons').textContent = formatWholeGallons(rowData.taxableGallons);
+    
+    // Net taxable gallons - whole number (can be negative)
+    const netGallonsCell = row.querySelector('.net-taxable-gallons');
+    netGallonsCell.textContent = formatWholeGallons(rowData.netTaxableGallons);
+    netGallonsCell.className = `net-taxable-gallons ${rowData.netTaxableGallons >= 0 ? '' : 'negative'}`;
+    
+    // Tax due - currency format
     const taxCell = row.querySelector('.tax-amount');
     taxCell.textContent = formatCurrency(rowData.taxDue);
     taxCell.className = `tax-amount ${rowData.taxDue >= 0 ? 'positive' : 'negative'}`;
+}
+
+// Refresh all jurisdiction dropdowns to update disabled states
+function refreshAllJurisdictionDropdowns() {
+    const jurisdictions = getJurisdictionList();
+    const usedJurisdictions = appState.rows
+        .filter(r => r.jurisdiction)
+        .map(r => r.jurisdiction);
+    
+    appState.rows.forEach(rowData => {
+        const row = document.getElementById(`row-${rowData.id}`);
+        if (!row) return;
+        
+        const select = row.querySelector('.jurisdiction-select');
+        if (!select) return;
+        
+        // Build new options
+        let jurisdictionOptions = '<option value="">Select...</option>';
+        
+        // US jurisdictions
+        jurisdictionOptions += '<optgroup label="United States">';
+        jurisdictions.filter(j => j.country === 'US').forEach(j => {
+            const selected = rowData.jurisdiction === j.code ? 'selected' : '';
+            // Disable if used in another row (but not this row)
+            const isUsedElsewhere = usedJurisdictions.includes(j.code) && rowData.jurisdiction !== j.code;
+            const disabled = isUsedElsewhere ? 'disabled' : '';
+            const usedLabel = isUsedElsewhere ? ' (already added)' : '';
+            jurisdictionOptions += `<option value="${j.code}" ${selected} ${disabled}>${j.name} (${j.code})${usedLabel}</option>`;
+        });
+        jurisdictionOptions += '</optgroup>';
+        
+        // Canadian jurisdictions
+        jurisdictionOptions += '<optgroup label="Canada">';
+        jurisdictions.filter(j => j.country === 'CAN').forEach(j => {
+            const selected = rowData.jurisdiction === j.code ? 'selected' : '';
+            const isUsedElsewhere = usedJurisdictions.includes(j.code) && rowData.jurisdiction !== j.code;
+            const disabled = isUsedElsewhere ? 'disabled' : '';
+            const usedLabel = isUsedElsewhere ? ' (already added)' : '';
+            jurisdictionOptions += `<option value="${j.code}" ${selected} ${disabled}>${j.name} (${j.code})${usedLabel}</option>`;
+        });
+        jurisdictionOptions += '</optgroup>';
+        
+        select.innerHTML = jurisdictionOptions;
+    });
 }
 
 // Delete a row
@@ -520,6 +820,9 @@ function deleteRow(rowId) {
     }
     
     updateTotals();
+    
+    // Refresh dropdowns so deleted jurisdiction becomes available again
+    refreshAllJurisdictionDropdowns();
     
     // Add a new row if all rows are deleted
     if (appState.rows.length === 0) {
@@ -564,26 +867,35 @@ function updateTotals() {
         totalTax += row.taxDue || 0;
     });
     
-    // Update table footer
-    document.getElementById('totalMiles').textContent = formatNumber(totalMiles);
-    document.getElementById('totalTaxableMiles').textContent = formatNumber(totalTaxableMiles);
-    document.getElementById('totalGallons').textContent = formatGallons(totalGallons);
-    document.getElementById('totalTaxableGallons').textContent = formatGallons(totalTaxableGallons);
-    document.getElementById('totalNetGallons').textContent = formatGallons(totalNetGallons);
+    // Update table footer - use whole numbers for miles and gallons
+    document.getElementById('totalMiles').textContent = formatNumber(Math.round(totalMiles));
+    document.getElementById('totalTaxableMiles').textContent = formatNumber(Math.round(totalTaxableMiles));
+    document.getElementById('totalGallons').textContent = formatNumber(Math.round(totalGallons));
+    document.getElementById('totalTaxableGallons').textContent = formatNumber(Math.round(totalTaxableGallons));
+    document.getElementById('totalNetGallons').textContent = formatNumber(Math.round(totalNetGallons));
     
     const totalTaxCell = document.getElementById('totalTax');
-    totalTaxCell.textContent = formatCurrency(totalTax);
+    totalTaxCell.textContent = formatCurrency(roundTo(totalTax, 2));
     totalTaxCell.className = `tax-amount ${totalTax >= 0 ? 'positive' : 'negative'}`;
     
     // Update summary cards
-    document.getElementById('summaryMiles').textContent = formatNumber(totalMiles);
-    document.getElementById('summaryGallons').textContent = formatGallons(totalGallons);
+    document.getElementById('summaryMiles').textContent = formatNumber(Math.round(totalMiles));
+    document.getElementById('summaryGallons').textContent = formatNumber(Math.round(totalGallons));
     
-    const overallMpg = totalGallons > 0 ? totalMiles / totalGallons : 0;
-    document.getElementById('summaryMpg').textContent = overallMpg.toFixed(2);
+    // Calculate and display Current MPG (from this report's data)
+    const currentMpg = totalGallons > 0 ? totalMiles / totalGallons : 0;
+    appState.currentMpg = currentMpg;
+    
+    // Update Current MPG display in config panel
+    if (elements.currentMpgInput) {
+        elements.currentMpgInput.value = totalGallons > 0 ? currentMpg.toFixed(2) : '—';
+    }
+    
+    // Update summary bar MPG
+    document.getElementById('summaryMpg').textContent = currentMpg > 0 ? currentMpg.toFixed(2) : '—';
     
     const summaryTax = document.getElementById('summaryTax');
-    summaryTax.textContent = formatCurrency(totalTax);
+    summaryTax.textContent = formatCurrency(roundTo(totalTax, 2));
 }
 
 // Update the rates reference table
@@ -720,6 +1032,13 @@ function handleCsvImport(event) {
 
 // Export to CSV
 function exportToCsv() {
+    // Check if base jurisdiction is selected
+    if (!appState.baseJurisdiction) {
+        showToast('Please select a Base Jurisdiction before exporting.', 'warning');
+        elements.baseJurisdictionSelect.focus();
+        return;
+    }
+    
     const dataRows = appState.rows.filter(r => r.jurisdiction);
     if (dataRows.length === 0) {
         showToast('No data to export. Please add some trip data first.', 'warning');
@@ -748,6 +1067,13 @@ function exportToCsv() {
 
 // Export to Excel (CSV format that Excel opens)
 function exportToExcel() {
+    // Check if base jurisdiction is selected
+    if (!appState.baseJurisdiction) {
+        showToast('Please select a Base Jurisdiction before exporting.', 'warning');
+        elements.baseJurisdictionSelect.focus();
+        return;
+    }
+    
     const dataRows = appState.rows.filter(r => r.jurisdiction);
     if (dataRows.length === 0) {
         showToast('No data to export. Please add some trip data first.', 'warning');
@@ -795,6 +1121,13 @@ function exportToExcel() {
 
 // Export to PDF using jsPDF
 function exportToPdf() {
+    // Check if base jurisdiction is selected
+    if (!appState.baseJurisdiction) {
+        showToast('Please select a Base Jurisdiction before exporting.', 'warning');
+        elements.baseJurisdictionSelect.focus();
+        return;
+    }
+    
     // Check if there's data to export
     const dataRows = appState.rows.filter(r => r.jurisdiction);
     if (dataRows.length === 0) {
@@ -1167,20 +1500,21 @@ function loadFromLocalStorage(silent = false) {
                 appState.rowIdCounter = 0;
                 elements.dataTableBody.innerHTML = '';
                 
-                data.rows.forEach(rowData => {
-                    const newRow = addNewRow();
-                    Object.assign(newRow, rowData);
-                    newRow.id = appState.rowIdCounter;
+                data.rows.forEach(savedRowData => {
+                    // addNewRow now handles everything including adding to appState.rows
+                    const newRow = addNewRow(savedRowData);
                     
-                    // Update UI
-                    const row = document.getElementById(`row-${newRow.id}`);
-                    if (row) {
-                        row.querySelector('.jurisdiction-select').value = newRow.jurisdiction || '';
-                        row.querySelector('.total-miles').value = newRow.totalMiles || '';
-                        row.querySelector('.taxable-miles').value = newRow.taxableMiles || '';
-                        row.querySelector('.tax-paid-gallons').value = newRow.taxPaidGallons || '';
+                    // Update UI inputs
+                    const rowElement = document.getElementById(`row-${newRow.id}`);
+                    if (rowElement) {
+                        rowElement.querySelector('.jurisdiction-select').value = newRow.jurisdiction || '';
+                        rowElement.querySelector('.total-miles').value = newRow.totalMiles || '';
+                        rowElement.querySelector('.taxable-miles').value = newRow.taxableMiles || '';
+                        rowElement.querySelector('.tax-paid-gallons').value = newRow.taxPaidGallons || '';
                     }
                     
+                    // Recalculate to ensure tax rate and values are correct
+                    forceUpdateTaxRate(newRow.id);
                     calculateRow(newRow.id);
                 });
                 
