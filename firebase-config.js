@@ -427,144 +427,118 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// ADMIN SETUP (Run once to set up admin user)
+// ADMIN SETUP (Development only - disabled in production)
 // ==========================================
 
-// Call this from browser console: setupAdmin('your@email.com')
-async function setupAdmin(email) {
-    if (!db) {
-        console.error('Firebase not initialized. Please refresh the page and try again.');
-        return;
-    }
-    
-    if (!email) {
-        console.error('Please provide an email: setupAdmin("your@email.com")');
-        return;
-    }
-    
-    try {
-        // Normalize email to use as doc ID
-        const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
-        const userRef = db.collection('users').doc(docId);
-        
-        // Check if user exists
-        const userDoc = await userRef.get();
-        
-        if (userDoc.exists) {
-            // Update to admin
-            await userRef.update({
-                role: 'admin',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            console.log(`✅ ${email} has been upgraded to ADMIN role`);
-        } else {
-            // Create admin user
-            await userRef.set({
-                email: email,
-                name: 'Admin',
-                role: 'admin',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            console.log(`✅ Admin user created for ${email}`);
+// These functions are disabled in production for security
+// To manage users, use Firebase Console directly:
+// https://console.firebase.google.com/project/ifta-wizard-a9061/firestore
+
+const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+if (isDevelopment) {
+    // Call this from browser console: setupAdmin('your@email.com')
+    window.setupAdmin = async function(email) {
+        if (!db) {
+            console.error('Firebase not initialized. Please refresh the page and try again.');
+            return;
         }
         
-        console.log('You can now access the admin panel at: admin.html');
-        console.log('Make sure to sign in with this email first on the main page!');
-    } catch (error) {
-        console.error('Error setting up admin:', error);
-        if (error.code === 'permission-denied') {
-            console.error('\n❌ Permission denied. You need to set up Firestore security rules first.');
-            console.error('\nGo to Firebase Console > Firestore > Rules and set:');
-            console.error(`
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if true;
-    }
-  }
+        if (!email) {
+            console.error('Please provide an email: setupAdmin("your@email.com")');
+            return;
+        }
+        
+        try {
+            const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+            const userRef = db.collection('users').doc(docId);
+            const userDoc = await userRef.get();
+            
+            if (userDoc.exists) {
+                await userRef.update({
+                    role: 'admin',
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log(`✅ ${email} has been upgraded to ADMIN role`);
+            } else {
+                await userRef.set({
+                    email: email.toLowerCase(),
+                    name: 'Admin',
+                    role: 'admin',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log(`✅ Admin user created for ${email}`);
+            }
+        } catch (error) {
+            console.error('Error setting up admin:', error);
+        }
+    };
+
+    // Call this from browser console: setupAdminWithPassword('your@email.com', 'yourpassword')
+    window.setupAdminWithPassword = async function(email, password) {
+        if (!db) {
+            console.error('Firebase not initialized. Please refresh the page and try again.');
+            return;
+        }
+        
+        if (!email || !password) {
+            console.error('Please provide email and password: setupAdminWithPassword("your@email.com", "yourpassword")');
+            return;
+        }
+        
+        if (password.length < 6) {
+            console.error('Password must be at least 6 characters');
+            return;
+        }
+        
+        function hashPassword(pwd) {
+            let hash = 0;
+            for (let i = 0; i < pwd.length; i++) {
+                const char = pwd.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            return 'hash_' + Math.abs(hash).toString(36) + '_' + pwd.length;
+        }
+        
+        try {
+            const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+            const userRef = db.collection('users').doc(docId);
+            const passwordHash = hashPassword(password);
+            const userDoc = await userRef.get();
+            
+            if (userDoc.exists) {
+                await userRef.update({
+                    role: 'admin',
+                    email: email.toLowerCase(),
+                    passwordHash: passwordHash,
+                    emailVerified: true,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log(`✅ ${email} has been upgraded to ADMIN with password`);
+            } else {
+                await userRef.set({
+                    email: email.toLowerCase(),
+                    name: 'Admin',
+                    role: 'admin',
+                    passwordHash: passwordHash,
+                    emailVerified: true,
+                    signupMethod: 'email',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log(`✅ Admin user created for ${email} with password`);
+            }
+            
+            console.log('You can now log in with this email and password!');
+        } catch (error) {
+            console.error('Error setting up admin:', error);
+        }
+    };
+    
+    console.log('🔧 Development mode: Admin setup functions available');
+} else {
+    // Production - no admin functions exposed
+    console.log('🔒 Production mode: Admin functions disabled');
 }
-            `);
-            console.error('\n⚠️ WARNING: This is for development only. Secure your rules for production!');
-        }
-    }
-}
-
-// Make it available globally
-window.setupAdmin = setupAdmin;
-
-// ==========================================
-// ADMIN SETUP WITH PASSWORD
-// ==========================================
-
-// Call this from browser console: setupAdminWithPassword('your@email.com', 'yourpassword')
-async function setupAdminWithPassword(email, password) {
-    if (!db) {
-        console.error('Firebase not initialized. Please refresh the page and try again.');
-        return;
-    }
-    
-    if (!email || !password) {
-        console.error('Please provide email and password: setupAdminWithPassword("your@email.com", "yourpassword")');
-        return;
-    }
-    
-    if (password.length < 6) {
-        console.error('Password must be at least 6 characters');
-        return;
-    }
-    
-    // Simple hash function (same as in auth.js)
-    function hashPassword(pwd) {
-        let hash = 0;
-        for (let i = 0; i < pwd.length; i++) {
-            const char = pwd.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash;
-        }
-        return 'hash_' + Math.abs(hash).toString(36) + '_' + pwd.length;
-    }
-    
-    try {
-        // Normalize email to use as doc ID
-        const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
-        const userRef = db.collection('users').doc(docId);
-        
-        const passwordHash = hashPassword(password);
-        
-        // Check if user exists
-        const userDoc = await userRef.get();
-        
-        if (userDoc.exists) {
-            // Update to admin with password
-            await userRef.update({
-                role: 'admin',
-                email: email.toLowerCase(),
-                passwordHash: passwordHash,
-                emailVerified: true,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            console.log(`✅ ${email} has been upgraded to ADMIN with password`);
-        } else {
-            // Create admin user with password
-            await userRef.set({
-                email: email.toLowerCase(),
-                name: 'Admin',
-                role: 'admin',
-                passwordHash: passwordHash,
-                emailVerified: true,
-                signupMethod: 'email',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            console.log(`✅ Admin user created for ${email} with password`);
-        }
-        
-        console.log('You can now log in with this email and password!');
-    } catch (error) {
-        console.error('Error setting up admin:', error);
-    }
-}
-
-window.setupAdminWithPassword = setupAdminWithPassword;
