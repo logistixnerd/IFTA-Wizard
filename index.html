@@ -373,7 +373,7 @@
                         <button class="btn btn-secondary btn-sm" id="sendEmail">Email</button>
                         <button class="btn btn-secondary btn-sm" id="saveToDrive">Drive</button>
                         <div class="export-divider"></div>
-                        <button class="btn btn-secondary btn-sm" id="saveReport">Save Report</button>
+                        <button class="btn btn-success btn-sm" id="saveReport">💾 Save Report</button>
                     </div>
                 </div>
             </section>
@@ -692,6 +692,34 @@
                         <label for="reportNotes">Notes (optional)</label>
                         <textarea id="reportNotes" rows="2" placeholder="Add any notes..."></textarea>
                     </div>
+                    
+                    <!-- Report Options -->
+                    <div class="form-group">
+                        <label class="section-label">Include in Report:</label>
+                        <div class="checkbox-group">
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="includeFleetMpg" checked>
+                                <span>Fleet MPG</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="includeCurrentMpg" checked>
+                                <span>Current MPG (calculated)</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="includeUnitNumber" checked>
+                                <span>Unit Number</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="includeTaxRates">
+                                <span>Tax Rates Reference Table</span>
+                            </label>
+                            <label class="checkbox-item">
+                                <input type="checkbox" id="includeSummary" checked>
+                                <span>Summary Totals</span>
+                            </label>
+                        </div>
+                    </div>
+                    
                     <div class="report-preview">
                         <div class="preview-item">
                             <span class="preview-label">Quarter:</span>
@@ -711,6 +739,47 @@
                         <button type="submit" class="btn btn-primary">Save Report</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export PDF Options Modal -->
+    <div id="exportPdfModal" class="modal hidden">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>Export to PDF</h2>
+                <button class="modal-close" id="closeExportPdfModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="section-label">Include in PDF:</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="pdfIncludeUnitNumber" checked>
+                            <span>Unit Number</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="pdfIncludeFleetMpg" checked>
+                            <span>Fleet MPG</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="pdfIncludeCurrentMpg" checked>
+                            <span>Current MPG (calculated)</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="pdfIncludeTaxRates">
+                            <span>Tax Rates Reference Table</span>
+                        </label>
+                        <label class="checkbox-item">
+                            <input type="checkbox" id="pdfIncludeSummary" checked>
+                            <span>Summary Section</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelExportPdf">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="confirmExportPdf">Export PDF</button>
+                </div>
             </div>
         </div>
     </div>

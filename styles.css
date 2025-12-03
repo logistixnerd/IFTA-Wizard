@@ -1069,6 +1069,17 @@ body {
     border-color: var(--gray-400);
 }
 
+.btn-success {
+    background: #2e7d32;
+    color: var(--white);
+    border-color: #2e7d32;
+}
+
+.btn-success:hover {
+    background: #1b5e20;
+    border-color: #1b5e20;
+}
+
 .btn-danger {
     background: var(--white);
     color: var(--danger);
@@ -2125,6 +2136,49 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     text-transform: uppercase;
     letter-spacing: 0.3px;
     margin-bottom: 0.625rem;
+}
+
+/* Report Options Checkboxes */
+.section-label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--gray-700);
+}
+
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: var(--gray-50);
+    border-radius: var(--radius);
+    border: 1px solid var(--gray-200);
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--gray-700);
+}
+
+.checkbox-item input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.checkbox-item:hover {
+    color: var(--gray-900);
+}
+
+/* Smaller modal for export options */
+.modal-sm .modal-content {
+    max-width: 400px;
 }
 
 /* Report Preview */

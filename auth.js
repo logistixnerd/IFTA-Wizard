@@ -155,6 +155,111 @@ const IFTAAuth = {
         return { success: true, user: safeUser };
     },
     
+    // Find user in Firebase (for cross-domain auth)
+    async findUserInFirebase(email) {
+        if (!this.firebaseReady || typeof db === 'undefined') {
+            console.log('Firebase not ready for user lookup');
+            return null;
+        }
+        
+        const emailLower = email.toLowerCase();
+        const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+        
+        try {
+            // First, try to find by document ID (how setupAdmin creates users)
+            const docRef = db.collection('users').doc(docId);
+            const doc = await docRef.get();
+            
+            if (doc.exists) {
+                console.log('Found user by doc ID:', docId);
+                return { id: doc.id, ...doc.data() };
+            }
+            
+            // Second, try to find by email field (lowercase)
+            const snapshot = await db.collection('users')
+                .where('email', '==', emailLower)
+                .limit(1)
+                .get();
+            
+            if (!snapshot.empty) {
+                const foundDoc = snapshot.docs[0];
+                console.log('Found user by email query');
+                return { id: foundDoc.id, ...foundDoc.data() };
+            }
+            
+            // Third, try original email (in case it was stored with original casing)
+            const snapshot2 = await db.collection('users')
+                .where('email', '==', email)
+                .limit(1)
+                .get();
+            
+            if (!snapshot2.empty) {
+                const foundDoc = snapshot2.docs[0];
+                console.log('Found user by original email');
+                return { id: foundDoc.id, ...foundDoc.data() };
+            }
+            
+            console.log('User not found in Firebase:', email);
+            return null;
+        } catch (error) {
+            console.error('Error finding user in Firebase:', error);
+            return null;
+        }
+    },
+    
+    // Authenticate with Firebase (when user exists in cloud but not locally)
+    async authenticateWithFirebase(email, password) {
+        if (!this.firebaseReady || typeof db === 'undefined') {
+            return { success: false, error: 'Cloud authentication unavailable' };
+        }
+        
+        try {
+            // Use findUserInFirebase which handles multiple lookup methods
+            const userData = await this.findUserInFirebase(email);
+            
+            if (!userData) {
+                return { success: false, error: 'No account found with this email' };
+            }
+            
+            // Check password hash if stored
+            if (userData.passwordHash) {
+                if (userData.passwordHash !== this.hashPassword(password)) {
+                    return { success: false, error: 'Incorrect password' };
+                }
+            } else {
+                // No password hash in Firebase - user may have registered via Google/Apple
+                // or the password hash wasn't synced yet
+                console.log('No password hash in Firebase for user:', email);
+                // For now, we can't verify password - show appropriate message
+                return { success: false, error: 'Please use the same sign-in method you registered with, or reset your password' };
+            }
+            
+            // Create user object
+            const user = {
+                id: userData.id,
+                email: userData.email || email,
+                name: userData.name || '',
+                company: userData.company || '',
+                signupMethod: userData.signupMethod || 'email',
+                emailVerified: userData.emailVerified !== false
+            };
+            
+            // Sync to local storage for future logins
+            const users = this.getUsers();
+            users.push({
+                ...user,
+                passwordHash: this.hashPassword(password),
+                createdAt: userData.createdAt?.toDate?.()?.toISOString() || new Date().toISOString()
+            });
+            this.saveUsers(users);
+            
+            return { success: true, user: user };
+        } catch (error) {
+            console.error('Error authenticating with Firebase:', error);
+            return { success: false, error: 'Authentication failed. Please try again.' };
+        }
+    },
+    
     // Check if user has existing session
     checkExistingSession() {
         const savedUser = localStorage.getItem('ifta_user');
@@ -492,12 +597,13 @@ const IFTAAuth = {
     },
     
     // Handle Sign In (password + 2FA)
-    handleSignIn() {
+    async handleSignIn() {
         const email = document.getElementById('signinEmail')?.value?.trim() || '';
         const password = document.getElementById('signinPassword')?.value || '';
         
         // Clear previous form error
         this.hideFormError('signin');
+        this.clearErrors();
         
         // Validate
         if (!email) {
@@ -513,22 +619,33 @@ const IFTAAuth = {
             return;
         }
         
-        // Authenticate (password check)
-        const result = this.authenticateUser(email, password);
+        // First try local authentication
+        let result = this.authenticateUser(email, password);
+        
+        // If user not found locally, try Firebase
+        if (!result.success && result.error === 'No account found with this email') {
+            const firebaseUser = await this.findUserInFirebase(email);
+            if (firebaseUser) {
+                // User exists in Firebase but not locally - sync them
+                result = await this.authenticateWithFirebase(email, password);
+            }
+        }
         
         if (result.success) {
             // Password correct, login directly
             this.saveUserAndAuthenticate(result.user);
         } else if (result.needsVerification) {
             // Account exists but email not verified - send new code
+            // Only show form message, no toast
             this.pendingUser = result.user;
             this.verificationType = 'signup';
-            this.showFormError('signin', 'Your email is not verified. Sending a new code...');
+            this.showFormError('signin', 'Email not verified. Sending a new code...');
             setTimeout(() => {
+                this.hideFormError('signin');
                 this.sendVerificationCode(result.user.email, result.user.name);
-            }, 1000);
+            }, 1500);
         } else {
-            // Show error inline on the form
+            // Show error inline on the form only (no toast)
             this.showFormError('signin', result.error);
         }
     },
@@ -613,7 +730,7 @@ const IFTAAuth = {
             this.sendVerificationCode(email, name);
         } else {
             console.log('Registration failed:', result.error);
-            // Show error inline on the form
+            // Show error inline on the form only (no toast)
             this.showFormError('signup', result.error);
         }
         
@@ -1139,7 +1256,7 @@ const IFTAAuth = {
         }
     },
     
-    // Save user to Firebase
+    // Save user to Firebase (including password hash for cross-domain auth)
     async saveUserToFirebase(userData) {
         if (!this.firebaseReady || typeof db === 'undefined') {
             console.log('Firebase not ready, skipping cloud save');
@@ -1152,22 +1269,37 @@ const IFTAAuth = {
             // Check if user exists
             const existingUser = await userRef.get();
             
+            // Get password hash from local storage if available (for cross-domain auth)
+            const localUser = this.findUserByEmail(userData.email);
+            const passwordHash = localUser?.passwordHash || null;
+            
             if (existingUser.exists) {
-                // Update last login
-                await userRef.update({
+                // Update last login and password hash if we have it
+                const updateData = {
                     lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                };
+                if (passwordHash && !existingUser.data().passwordHash) {
+                    updateData.passwordHash = passwordHash;
+                    updateData.emailVerified = true;
+                }
+                await userRef.update(updateData);
             } else {
                 // Create new user with default role
-                await userRef.set({
-                    email: userData.email,
+                const newUserData = {
+                    email: userData.email.toLowerCase(),
                     name: userData.name || '',
                     company: userData.company || '',
                     role: 'user', // Default role
                     signupMethod: userData.signupMethod || 'email',
+                    emailVerified: true,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     lastLogin: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                };
+                // Include password hash for cross-domain auth
+                if (passwordHash) {
+                    newUserData.passwordHash = passwordHash;
+                }
+                await userRef.set(newUserData);
             }
             
             // Log activity
@@ -1377,7 +1509,7 @@ const IFTAAuth = {
     },
     
     // Step 1: Verify email exists and send code
-    verifyForgotEmail() {
+    async verifyForgotEmail() {
         console.log('verifyForgotEmail called');
         const email = document.getElementById('forgotEmail')?.value?.trim() || '';
         console.log('Email entered:', email);
@@ -1395,7 +1527,14 @@ const IFTAAuth = {
             return;
         }
         
-        const user = this.findUserByEmail(email);
+        // First check local storage
+        let user = this.findUserByEmail(email);
+        
+        // If not found locally, check Firebase
+        if (!user) {
+            user = await this.findUserInFirebase(email);
+        }
+        
         console.log('User found:', user);
         
         if (!user) {

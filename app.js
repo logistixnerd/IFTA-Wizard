@@ -1135,6 +1135,46 @@ function exportToPdf() {
         return;
     }
     
+    // Show the export options modal
+    const modal = document.getElementById('exportPdfModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        
+        // Setup event listeners for the modal (only once)
+        if (!modal.dataset.initialized) {
+            document.getElementById('closeExportPdfModal')?.addEventListener('click', () => {
+                modal.classList.add('hidden');
+            });
+            document.getElementById('cancelExportPdf')?.addEventListener('click', () => {
+                modal.classList.add('hidden');
+            });
+            document.getElementById('confirmExportPdf')?.addEventListener('click', () => {
+                modal.classList.add('hidden');
+                generatePdfWithOptions();
+            });
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.classList.add('hidden');
+            });
+            modal.dataset.initialized = 'true';
+        }
+    } else {
+        // Fallback if modal not found - export with defaults
+        generatePdfWithOptions();
+    }
+}
+
+// Generate PDF with selected options
+function generatePdfWithOptions() {
+    const options = {
+        includeUnitNumber: document.getElementById('pdfIncludeUnitNumber')?.checked ?? true,
+        includeFleetMpg: document.getElementById('pdfIncludeFleetMpg')?.checked ?? true,
+        includeCurrentMpg: document.getElementById('pdfIncludeCurrentMpg')?.checked ?? true,
+        includeTaxRates: document.getElementById('pdfIncludeTaxRates')?.checked ?? false,
+        includeSummary: document.getElementById('pdfIncludeSummary')?.checked ?? true
+    };
+    
+    const dataRows = appState.rows.filter(r => r.jurisdiction);
+    
     // Check if jsPDF is loaded
     if (typeof window.jspdf === 'undefined') {
         showToast('PDF library loading... please try again in a moment.', 'warning');
@@ -1165,23 +1205,56 @@ function exportToPdf() {
         doc.setFontSize(10);
         doc.setTextColor(80, 80, 80);
         
-        const infoY = 35;
+        let infoY = 35;
         const col1X = 14;
         const col2X = 110;
         
+        // Build info rows based on options
         doc.setFont(undefined, 'bold');
         doc.text('Quarter:', col1X, infoY);
-        doc.text('Fuel Type:', col1X, infoY + 6);
-        doc.text('Fleet MPG:', col1X, infoY + 12);
-        doc.text('Base Jurisdiction:', col2X, infoY);
-        doc.text('Report Date:', col2X, infoY + 6);
-        
         doc.setFont(undefined, 'normal');
-        doc.text(formatQuarterDisplay(appState.selectedQuarter), col1X + 25, infoY);
-        doc.text(appState.selectedFuelType.charAt(0).toUpperCase() + appState.selectedFuelType.slice(1), col1X + 25, infoY + 6);
-        doc.text(String(appState.fleetMpg), col1X + 25, infoY + 12);
+        doc.text(formatQuarterDisplay(appState.selectedQuarter), col1X + 30, infoY);
+        
+        doc.setFont(undefined, 'bold');
+        doc.text('Fuel Type:', col1X, infoY + 6);
+        doc.setFont(undefined, 'normal');
+        doc.text(appState.selectedFuelType.charAt(0).toUpperCase() + appState.selectedFuelType.slice(1), col1X + 30, infoY + 6);
+        
+        let row = 2;
+        
+        if (options.includeFleetMpg) {
+            doc.setFont(undefined, 'bold');
+            doc.text('Fleet MPG:', col1X, infoY + (row * 6));
+            doc.setFont(undefined, 'normal');
+            doc.text(String(appState.fleetMpg), col1X + 30, infoY + (row * 6));
+            row++;
+        }
+        
+        if (options.includeCurrentMpg && appState.currentMpg > 0) {
+            doc.setFont(undefined, 'bold');
+            doc.text('Current MPG:', col1X, infoY + (row * 6));
+            doc.setFont(undefined, 'normal');
+            doc.text(appState.currentMpg.toFixed(2), col1X + 30, infoY + (row * 6));
+            row++;
+        }
+        
+        // Right column
+        doc.setFont(undefined, 'bold');
+        doc.text('Base Jurisdiction:', col2X, infoY);
+        doc.setFont(undefined, 'normal');
         doc.text(appState.baseJurisdiction, col2X + 40, infoY);
+        
+        doc.setFont(undefined, 'bold');
+        doc.text('Report Date:', col2X, infoY + 6);
+        doc.setFont(undefined, 'normal');
         doc.text(new Date().toLocaleDateString(), col2X + 40, infoY + 6);
+        
+        if (options.includeUnitNumber && appState.unitNumber) {
+            doc.setFont(undefined, 'bold');
+            doc.text('Unit #:', col2X, infoY + 12);
+            doc.setFont(undefined, 'normal');
+            doc.text(appState.unitNumber, col2X + 40, infoY + 12);
+        }
         
         // Prepare table data
         const tableData = [];
@@ -1222,9 +1295,12 @@ function exportToPdf() {
             formatCurrency(totals.tax)
         ]);
         
+        // Calculate table start Y based on info rows
+        const tableStartY = infoY + (Math.max(row, 3) * 6) + 10;
+        
         // Create table
         doc.autoTable({
-            startY: infoY + 22,
+            startY: tableStartY,
             head: [['Jurisdiction', 'Total Miles', 'Taxable Miles', 'Tax Paid Gal', 'Rate', 'Taxable Gal', 'Net Taxable', 'Tax Due']],
             body: tableData,
             theme: 'striped',
@@ -1269,8 +1345,81 @@ function exportToPdf() {
             margin: { left: 14, right: 14 }
         });
         
+        let finalY = doc.lastAutoTable.finalY + 10;
+        
+        // Add Summary Section if enabled
+        if (options.includeSummary) {
+            doc.setFontSize(12);
+            doc.setTextColor(...primaryColor);
+            doc.text('Summary', 14, finalY);
+            finalY += 6;
+            
+            doc.setFontSize(9);
+            doc.setTextColor(80, 80, 80);
+            doc.text(`Total Jurisdictions: ${dataRows.length}`, 14, finalY);
+            doc.text(`Total Miles: ${formatNumber(totals.miles)}`, 80, finalY);
+            finalY += 5;
+            doc.text(`Total Tax Paid Gallons: ${formatGallons(totals.gallons)}`, 14, finalY);
+            doc.text(`Net Tax: ${formatCurrency(totals.tax)}`, 80, finalY);
+            finalY += 10;
+        }
+        
+        // Add Tax Rates Reference Table if enabled
+        if (options.includeTaxRates) {
+            // Check if we need a new page
+            if (finalY > 200) {
+                doc.addPage();
+                finalY = 20;
+            }
+            
+            doc.setFontSize(12);
+            doc.setTextColor(...primaryColor);
+            doc.text('Tax Rates Reference', 14, finalY);
+            finalY += 6;
+            
+            // Build rates table data
+            const ratesData = [];
+            const jurisdictions = Object.keys(IFTA_TAX_RATES.jurisdictions).sort();
+            jurisdictions.forEach(code => {
+                const j = IFTA_TAX_RATES.jurisdictions[code];
+                ratesData.push([
+                    `${j.name} (${code})`,
+                    formatRate(j.rates.diesel),
+                    formatRate(j.rates.gasoline),
+                    formatRate(j.rates.propane)
+                ]);
+            });
+            
+            doc.autoTable({
+                startY: finalY,
+                head: [['Jurisdiction', 'Diesel', 'Gasoline', 'Propane']],
+                body: ratesData,
+                theme: 'striped',
+                headStyles: {
+                    fillColor: [100, 100, 100],
+                    textColor: 255,
+                    fontSize: 8
+                },
+                bodyStyles: {
+                    fontSize: 7
+                },
+                columnStyles: {
+                    0: { cellWidth: 60 },
+                    1: { halign: 'right', cellWidth: 25 },
+                    2: { halign: 'right', cellWidth: 25 },
+                    3: { halign: 'right', cellWidth: 25 }
+                },
+                margin: { left: 14, right: 14 }
+            });
+            
+            finalY = doc.lastAutoTable.finalY + 10;
+        }
+        
         // Footer
-        const finalY = doc.lastAutoTable.finalY + 15;
+        if (finalY > 270) {
+            doc.addPage();
+            finalY = 20;
+        }
         doc.setFontSize(8);
         doc.setTextColor(120, 120, 120);
         doc.text('Generated by IFTA Wizard | Tax rates sourced from IFTA, Inc.', 14, finalY);
@@ -1278,7 +1427,8 @@ function exportToPdf() {
         
         // Save the PDF
         const timestamp = new Date().toISOString().slice(0, 10);
-        const filename = `IFTA-Report-${appState.selectedQuarter.replace(' ', '-')}-${timestamp}.pdf`;
+        const unitSuffix = appState.unitNumber ? `-Unit${appState.unitNumber}` : '';
+        const filename = `IFTA-Report-${appState.selectedQuarter.replace(' ', '-')}${unitSuffix}-${timestamp}.pdf`;
         doc.save(filename);
         
         showToast('PDF downloaded successfully!', 'success');
@@ -1286,11 +1436,6 @@ function exportToPdf() {
     } catch (error) {
         console.error('PDF export error:', error);
         showToast('Error generating PDF. Please try again.', 'error');
-        
-        // Fallback to print dialog
-        if (confirm('PDF generation failed. Would you like to use the print dialog instead?')) {
-            printReportAsPdf();
-        }
     }
 }
 

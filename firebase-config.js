@@ -493,3 +493,78 @@ service cloud.firestore {
 
 // Make it available globally
 window.setupAdmin = setupAdmin;
+
+// ==========================================
+// ADMIN SETUP WITH PASSWORD
+// ==========================================
+
+// Call this from browser console: setupAdminWithPassword('your@email.com', 'yourpassword')
+async function setupAdminWithPassword(email, password) {
+    if (!db) {
+        console.error('Firebase not initialized. Please refresh the page and try again.');
+        return;
+    }
+    
+    if (!email || !password) {
+        console.error('Please provide email and password: setupAdminWithPassword("your@email.com", "yourpassword")');
+        return;
+    }
+    
+    if (password.length < 6) {
+        console.error('Password must be at least 6 characters');
+        return;
+    }
+    
+    // Simple hash function (same as in auth.js)
+    function hashPassword(pwd) {
+        let hash = 0;
+        for (let i = 0; i < pwd.length; i++) {
+            const char = pwd.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return 'hash_' + Math.abs(hash).toString(36) + '_' + pwd.length;
+    }
+    
+    try {
+        // Normalize email to use as doc ID
+        const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+        const userRef = db.collection('users').doc(docId);
+        
+        const passwordHash = hashPassword(password);
+        
+        // Check if user exists
+        const userDoc = await userRef.get();
+        
+        if (userDoc.exists) {
+            // Update to admin with password
+            await userRef.update({
+                role: 'admin',
+                email: email.toLowerCase(),
+                passwordHash: passwordHash,
+                emailVerified: true,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log(`✅ ${email} has been upgraded to ADMIN with password`);
+        } else {
+            // Create admin user with password
+            await userRef.set({
+                email: email.toLowerCase(),
+                name: 'Admin',
+                role: 'admin',
+                passwordHash: passwordHash,
+                emailVerified: true,
+                signupMethod: 'email',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log(`✅ Admin user created for ${email} with password`);
+        }
+        
+        console.log('You can now log in with this email and password!');
+    } catch (error) {
+        console.error('Error setting up admin:', error);
+    }
+}
+
+window.setupAdminWithPassword = setupAdminWithPassword;

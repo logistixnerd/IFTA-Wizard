@@ -480,6 +480,13 @@ const IFTAReports = {
         document.getElementById('previewJurisdictions').textContent = dataRows.length;
         document.getElementById('previewTax').textContent = this.formatCurrency(totalTax);
         
+        // Reset checkboxes to defaults
+        document.getElementById('includeFleetMpg').checked = true;
+        document.getElementById('includeCurrentMpg').checked = true;
+        document.getElementById('includeUnitNumber').checked = true;
+        document.getElementById('includeTaxRates').checked = false;
+        document.getElementById('includeSummary').checked = true;
+        
         this.openModal('saveReportModal');
     },
     
@@ -495,6 +502,15 @@ const IFTAReports = {
             return;
         }
         
+        // Get report options
+        const options = {
+            includeFleetMpg: document.getElementById('includeFleetMpg')?.checked ?? true,
+            includeCurrentMpg: document.getElementById('includeCurrentMpg')?.checked ?? true,
+            includeUnitNumber: document.getElementById('includeUnitNumber')?.checked ?? true,
+            includeTaxRates: document.getElementById('includeTaxRates')?.checked ?? false,
+            includeSummary: document.getElementById('includeSummary')?.checked ?? true
+        };
+        
         const dataRows = (appState?.rows || []).filter(r => r.jurisdiction);
         const totalTax = dataRows.reduce((sum, r) => sum + (r.taxDue || 0), 0);
         const totalMiles = dataRows.reduce((sum, r) => sum + (r.totalMiles || 0), 0);
@@ -507,11 +523,14 @@ const IFTAReports = {
             name: name,
             notes: notes,
             quarter: appState?.selectedQuarter || 'Q4 2025',
+            options: options,  // Store the report options
             data: {
                 rows: dataRows,
                 quarter: appState?.selectedQuarter,
                 fuelType: appState?.selectedFuelType,
-                mpg: appState?.fleetMpg,
+                fleetMpg: appState?.fleetMpg,
+                currentMpg: appState?.currentMpg,
+                unitNumber: appState?.unitNumber || '',
                 baseJurisdiction: appState?.baseJurisdiction
             },
             summary: {
