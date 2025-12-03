@@ -605,6 +605,15 @@ const IFTAAuth = {
         this.hideFormError('signin');
         this.clearErrors();
         
+        // Check brute force protection
+        if (typeof IFTASecurity !== 'undefined') {
+            const loginCheck = IFTASecurity.checkLoginAttempt(email);
+            if (!loginCheck.allowed) {
+                this.showFormError('signin', loginCheck.message);
+                return;
+            }
+        }
+        
         // Validate
         if (!email) {
             this.showFieldError('signinEmail', 'Email is required');
@@ -633,6 +642,10 @@ const IFTAAuth = {
         
         if (result.success) {
             // Password correct, login directly
+            // Record successful login for security
+            if (typeof IFTASecurity !== 'undefined') {
+                IFTASecurity.recordSuccessfulLogin(email);
+            }
             this.saveUserAndAuthenticate(result.user);
         } else if (result.needsVerification) {
             // Account exists but email not verified - send new code
@@ -645,6 +658,10 @@ const IFTAAuth = {
                 this.sendVerificationCode(result.user.email, result.user.name);
             }, 1500);
         } else {
+            // Record failed login for brute force protection
+            if (typeof IFTASecurity !== 'undefined') {
+                IFTASecurity.recordFailedLogin(email);
+            }
             // Show error inline on the form only (no toast)
             this.showFormError('signin', result.error);
         }

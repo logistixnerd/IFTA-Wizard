@@ -4,6 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Panel - IFTA Wizard</title>
+    
+    <!-- Security Headers -->
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="X-Frame-Options" content="DENY">
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://apis.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.emailjs.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' https://fonts.gstatic.com;
+        img-src 'self' data: https: blob:;
+        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebase.com https://api.emailjs.com https://firestore.googleapis.com;
+        frame-src 'self' https://accounts.google.com;
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+    ">
+    
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="admin.css">
     <!-- Firebase SDKs -->
@@ -500,6 +519,7 @@
     </div>
 
     <script src="firebase-config.js"></script>
+    <script src="security.js"></script>
     <script src="tax-rates.js"></script>
     <script src="rate-fetcher.js"></script>
     <script src="admin.js"></script>

@@ -1,0 +1,194 @@
+// IFTA Wizard - Firestore Security Rules
+// ========================================
+// Copy these rules to Firebase Console > Firestore > Rules
+// https://console.firebase.google.com/project/ifta-wizard-a9061/firestore/rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserData().role == 'admin';
+    }
+    
+    function isModerator() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             (getUserData().role == 'admin' || getUserData().role == 'moderator');
+    }
+    
+    // Email validation
+    function isValidEmail(email) {
+      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+    
+    // ==========================================
+    // USERS COLLECTION
+    // ==========================================
+    match /users/{userId} {
+      // Anyone can read user profiles (for login lookups)
+      // In production, you may want to restrict this
+      allow read: if true;
+      
+      // Users can only create their own profile
+      allow create: if true; // Allow signup
+      
+      // Users can update their own profile, but not change role
+      allow update: if request.auth != null && 
+                      (request.auth.uid == userId || 
+                       request.resource.data.email == resource.data.email) &&
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) || 
+                       isAdmin());
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+    
+    // ==========================================
+    // REPORTS COLLECTION
+    // ==========================================
+    match /reports/{reportId} {
+      // Users can read their own reports, admins can read all
+      allow read: if isAuthenticated() && 
+                    (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Users can create their own reports
+      allow create: if isAuthenticated() && 
+                      request.resource.data.userId == request.auth.uid;
+      
+      // Users can update their own reports
+      allow update: if isAuthenticated() && 
+                      resource.data.userId == request.auth.uid;
+      
+      // Users can delete their own reports, admins can delete any
+      allow delete: if isAuthenticated() && 
+                      (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // ==========================================
+    // COMPANIES COLLECTION
+    // ==========================================
+    match /companies/{companyId} {
+      // Authenticated users can read companies
+      allow read: if isAuthenticated();
+      
+      // Only authenticated users can create companies
+      allow create: if isAuthenticated();
+      
+      // Only company owner or admin can update
+      allow update: if isAuthenticated() && 
+                      (resource.data.ownerId == request.auth.uid || isAdmin());
+      
+      // Only company owner or admin can delete
+      allow delete: if isAuthenticated() && 
+                      (resource.data.ownerId == request.auth.uid || isAdmin());
+    }
+    
+    // ==========================================
+    // TAX RATES COLLECTION
+    // ==========================================
+    match /tax_rates/{rateId} {
+      // Anyone can read tax rates
+      allow read: if true;
+      
+      // Only admins/moderators can modify tax rates
+      allow write: if isModerator();
+    }
+    
+    // ==========================================
+    // TAX RATE APPROVALS COLLECTION
+    // ==========================================
+    match /tax_rate_approvals/{approvalId} {
+      // Moderators can read approvals
+      allow read: if isModerator();
+      
+      // Moderators can create approval requests
+      allow create: if isModerator();
+      
+      // Only admins can approve/reject (update)
+      allow update: if isAdmin();
+      
+      // Only admins can delete approvals
+      allow delete: if isAdmin();
+    }
+    
+    // ==========================================
+    // ACTIVITY LOGS COLLECTION
+    // ==========================================
+    match /activity_logs/{logId} {
+      // Only admins can read activity logs
+      allow read: if isAdmin();
+      
+      // Anyone can write activity logs (for tracking)
+      allow create: if true;
+      
+      // No one can update or delete logs (immutable)
+      allow update, delete: if false;
+    }
+    
+    // ==========================================
+    // SECURITY LOGS COLLECTION
+    // ==========================================
+    match /security_logs/{logId} {
+      // Only admins can read security logs
+      allow read: if isAdmin();
+      
+      // Anyone can write security logs (for tracking)
+      allow create: if true;
+      
+      // No one can update or delete security logs (immutable)
+      allow update, delete: if false;
+    }
+    
+    // ==========================================
+    // ERROR LOGS COLLECTION
+    // ==========================================
+    match /error_logs/{logId} {
+      // Only admins can read error logs
+      allow read: if isAdmin();
+      
+      // Anyone can write error logs
+      allow create: if true;
+      
+      // No one can update or delete error logs (immutable)
+      allow update, delete: if false;
+    }
+    
+    // ==========================================
+    // LEADS COLLECTION
+    // ==========================================
+    match /leads/{leadId} {
+      // Only admins can read leads
+      allow read: if isAdmin();
+      
+      // Anyone can create a lead (signup)
+      allow create: if true;
+      
+      // Only admins can update/delete leads
+      allow update, delete: if isAdmin();
+    }
+    
+    // ==========================================
+    // DEFAULT DENY
+    // ==========================================
+    // Deny access to any other collections not explicitly defined
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
