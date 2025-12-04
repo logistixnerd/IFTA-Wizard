@@ -757,51 +757,93 @@ const IFTAReports = {
         });
     },
     
-    // Send email (simulated - in production use EmailJS, SendGrid, etc.)
-    sendEmailWithAttachments(emailData) {
-        // Generate PDFs for attachments
-        const attachments = [];
-        
-        if (emailData.attachCurrent) {
-            // Current report
-            attachments.push('Current Report');
+    // EmailJS configuration
+    EMAILJS_CONFIG: {
+        serviceId: 'service_qkuqkgx',
+        templateId: 'template_5x32df8',
+        publicKey: 'A9hDtCZZwXPLh-jny'
+    },
+    
+    // Send email via EmailJS
+    async sendEmailWithAttachments(emailData) {
+        // Show loading state
+        const sendBtn = document.querySelector('#emailModal .btn-primary');
+        const originalText = sendBtn?.textContent;
+        if (sendBtn) {
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<span class="spinner"></span> Sending...';
         }
         
-        const reports = this.getSavedReports();
-        emailData.savedReportIds.forEach(id => {
-            const report = reports.find(r => r.id === id);
-            if (report) {
-                attachments.push(report.name);
+        try {
+            // Generate attachment list
+            const attachments = [];
+            if (emailData.attachCurrent) {
+                attachments.push('Current Report');
             }
-        });
-        
-        // Create mailto link as fallback
-        let body = emailData.message || '';
-        if (attachments.length > 0) {
-            body += '\n\n---\nAttachments: ' + attachments.join(', ');
-            body += '\n\n(Note: Please download the PDF files and attach them manually, or use the Google Drive integration to share.)';
-        }
-        
-        const mailtoLink = `mailto:${emailData.to}${emailData.cc ? '?cc=' + emailData.cc : ''}${emailData.cc ? '&' : '?'}subject=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(body)}`;
-        
-        // For demo: open mailto and download PDFs
-        window.open(mailtoLink, '_blank');
-        
-        // Download current report if selected
-        if (emailData.attachCurrent && typeof exportToPdf === 'function') {
-            setTimeout(() => exportToPdf(), 500);
-        }
-        
-        // Download selected saved reports
-        emailData.savedReportIds.forEach((id, index) => {
-            const report = reports.find(r => r.id === id);
-            if (report) {
-                setTimeout(() => this.generatePdfFromReport(report), 1000 + (index * 500));
+            const reports = this.getSavedReports();
+            emailData.savedReportIds.forEach(id => {
+                const report = reports.find(r => r.id === id);
+                if (report) attachments.push(report.name);
+            });
+            
+            // Check if EmailJS is available
+            if (typeof emailjs !== 'undefined') {
+                // Initialize EmailJS
+                emailjs.init(this.EMAILJS_CONFIG.publicKey);
+                
+                // Prepare email parameters
+                const templateParams = {
+                    to_email: emailData.to,
+                    cc_email: emailData.cc || '',
+                    subject: emailData.subject,
+                    message: emailData.message || '',
+                    from_name: IFTAAuth?.user?.name || 'IFTA Wizard User',
+                    from_email: IFTAAuth?.user?.email || '',
+                    attachments: attachments.length > 0 ? 'Attachments: ' + attachments.join(', ') : '',
+                    reply_to: IFTAAuth?.user?.email || emailData.to
+                };
+                
+                await emailjs.send(
+                    this.EMAILJS_CONFIG.serviceId,
+                    this.EMAILJS_CONFIG.templateId,
+                    templateParams
+                );
+                
+                this.closeModal('emailModal');
+                showToast('Email sent successfully!', 'success');
+                
+                // Download PDFs for the user to attach if needed
+                if (emailData.attachCurrent && typeof exportToPdf === 'function') {
+                    setTimeout(() => exportToPdf(), 500);
+                }
+                emailData.savedReportIds.forEach((id, index) => {
+                    const report = reports.find(r => r.id === id);
+                    if (report) {
+                        setTimeout(() => this.generatePdfFromReport(report), 1000 + (index * 500));
+                    }
+                });
+                
+            } else {
+                // Fallback to mailto
+                let body = emailData.message || '';
+                if (attachments.length > 0) {
+                    body += '\n\n---\nAttachments: ' + attachments.join(', ');
+                }
+                const mailtoLink = `mailto:${emailData.to}?subject=${encodeURIComponent(emailData.subject)}&body=${encodeURIComponent(body)}`;
+                window.open(mailtoLink, '_blank');
+                
+                this.closeModal('emailModal');
+                showToast('Opening email client...', 'info');
             }
-        });
-        
-        this.closeModal('emailModal');
-        showToast('Opening email client... PDFs will download for attachment.', 'info');
+        } catch (error) {
+            console.error('Email error:', error);
+            showToast('Failed to send email. Please try again.', 'error');
+        } finally {
+            if (sendBtn) {
+                sendBtn.disabled = false;
+                sendBtn.textContent = originalText || 'Send Email';
+            }
+        }
     },
     
     // ============ GOOGLE DRIVE ============
@@ -852,49 +894,78 @@ const IFTAReports = {
     initGoogleDrive() {
         if (!this.driveEnabled) return;
         
-        // Load Google API client library
-        if (typeof gapi === 'undefined') {
-            const script = document.createElement('script');
-            script.src = 'https://apis.google.com/js/api.js';
-            script.onload = () => this.loadGapiClient();
-            document.head.appendChild(script);
-        } else {
+        // Wait for Google Identity Services to load
+        this.waitForGoogleLibraries().then(() => {
             this.loadGapiClient();
-        }
+        }).catch(err => {
+            console.error('Failed to load Google libraries:', err);
+        });
+    },
+    
+    // Wait for Google libraries to load
+    waitForGoogleLibraries() {
+        return new Promise((resolve, reject) => {
+            let attempts = 0;
+            const maxAttempts = 50; // 5 seconds max
+            
+            const check = () => {
+                attempts++;
+                if (typeof gapi !== 'undefined' && typeof google !== 'undefined' && google.accounts) {
+                    resolve();
+                } else if (attempts >= maxAttempts) {
+                    reject(new Error('Google libraries failed to load'));
+                } else {
+                    setTimeout(check, 100);
+                }
+            };
+            check();
+        });
     },
     
     // Load GAPI client
     async loadGapiClient() {
         try {
+            // Load the gapi client
             await new Promise((resolve, reject) => {
                 gapi.load('client', { callback: resolve, onerror: reject });
             });
             
+            // Initialize with API key
             await gapi.client.init({
                 apiKey: this.GOOGLE_CONFIG.apiKey,
                 discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
             });
             
-            console.log('Google Drive API initialized');
+            console.log('Google Drive API client initialized');
             
-            // Initialize token client
-            if (typeof google !== 'undefined' && google.accounts) {
-                this.tokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: this.GOOGLE_CONFIG.clientId,
-                    scope: this.GOOGLE_CONFIG.scopes,
-                    callback: (response) => this.handleDriveAuthCallback(response)
-                });
-            }
+            // Initialize token client for OAuth
+            this.tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: this.GOOGLE_CONFIG.clientId,
+                scope: this.GOOGLE_CONFIG.scopes,
+                callback: (response) => this.handleDriveAuthCallback(response)
+            });
+            
+            console.log('Google OAuth token client ready');
+            
         } catch (error) {
             console.error('Error initializing Google Drive:', error);
+            showToast('Google Drive initialization failed', 'error');
         }
     },
     
     // Handle Drive auth callback
     handleDriveAuthCallback(response) {
         if (response.error) {
-            console.error('Drive auth error:', response.error);
-            showToast('Failed to connect Google Drive', 'error');
+            console.error('Drive auth error:', response.error, response);
+            let errorMsg = 'Failed to connect Google Drive';
+            if (response.error === 'popup_blocked_by_browser') {
+                errorMsg = 'Please allow popups for this site to connect Google Drive';
+            } else if (response.error === 'access_denied') {
+                errorMsg = 'Access denied. Please grant permission to use Google Drive';
+            } else if (response.error === 'invalid_client') {
+                errorMsg = 'Google Drive configuration error. Please contact support.';
+            }
+            showToast(errorMsg, 'error');
             return;
         }
         
@@ -931,27 +1002,49 @@ const IFTAReports = {
     },
     
     // Connect Google Drive
-    connectGoogleDrive() {
+    async connectGoogleDrive() {
         if (!this.driveEnabled) {
             showToast('Google Drive is not configured', 'error');
             return;
         }
         
-        if (!this.tokenClient) {
-            // Initialize if not done yet
-            this.initGoogleDrive();
-            setTimeout(() => {
-                if (this.tokenClient) {
-                    this.tokenClient.requestAccessToken({ prompt: 'consent' });
-                } else {
-                    showToast('Google Drive is loading, please try again', 'info');
-                }
-            }, 1000);
-            return;
+        // Show loading
+        const connectBtn = document.getElementById('connectDrive');
+        const originalText = connectBtn?.textContent;
+        if (connectBtn) {
+            connectBtn.disabled = true;
+            connectBtn.innerHTML = '<span class="spinner"></span> Connecting...';
         }
         
-        // Request access token
-        this.tokenClient.requestAccessToken({ prompt: 'consent' });
+        try {
+            console.log('Starting Google Drive connection...');
+            console.log('gapi available:', typeof gapi !== 'undefined');
+            console.log('google.accounts available:', typeof google !== 'undefined' && google.accounts);
+            
+            if (!this.tokenClient) {
+                console.log('Token client not ready, initializing...');
+                // Wait for initialization
+                await this.waitForGoogleLibraries();
+                await this.loadGapiClient();
+            }
+            
+            if (this.tokenClient) {
+                console.log('Requesting access token...');
+                // Request access token - this will trigger the OAuth popup
+                this.tokenClient.requestAccessToken({ prompt: 'consent' });
+            } else {
+                console.error('Token client still null after init');
+                showToast('Google Drive failed to initialize. Please refresh the page.', 'error');
+            }
+        } catch (error) {
+            console.error('Google Drive connection error:', error);
+            showToast(`Failed to connect to Google Drive: ${error.message || 'Unknown error'}`, 'error');
+        } finally {
+            if (connectBtn) {
+                connectBtn.disabled = false;
+                connectBtn.textContent = originalText || 'Connect Google Drive';
+            }
+        }
     },
     
     // Disconnect Google Drive
