@@ -877,7 +877,7 @@ const IFTAReports = {
         if (this.driveConnected) {
             notConnected?.classList.add('hidden');
             connected?.classList.remove('hidden');
-            document.getElementById('driveUserEmail').textContent = this.driveUser || 'user@gmail.com';
+            document.getElementById('driveUserEmail').textContent = this.driveUser || 'Connected';
             this.populateDriveSavedReports();
         } else {
             notConnected?.classList.remove('hidden');
@@ -969,7 +969,7 @@ const IFTAReports = {
             return;
         }
         
-        // Store the access token
+        // Store the access token temporarily
         const tokenData = {
             access_token: response.access_token,
             expires_at: Date.now() + (response.expires_in * 1000)
@@ -978,8 +978,12 @@ const IFTAReports = {
         
         this.driveConnected = true;
         
-        // Get user info
+        // Get user info and update token with email
         this.getDriveUserInfo().then(() => {
+            // Update token with user email for persistence
+            tokenData.email = this.driveUser;
+            localStorage.setItem(this.STORAGE_KEYS.driveToken, JSON.stringify(tokenData));
+            
             document.getElementById('driveNotConnected')?.classList.add('hidden');
             document.getElementById('driveConnected')?.classList.remove('hidden');
             document.getElementById('driveUserEmail').textContent = this.driveUser || 'Connected';
@@ -995,6 +999,7 @@ const IFTAReports = {
                 fields: 'user'
             });
             this.driveUser = response.result.user.emailAddress;
+            console.log('Drive user:', this.driveUser);
         } catch (error) {
             console.error('Error getting Drive user info:', error);
             this.driveUser = 'Connected';
