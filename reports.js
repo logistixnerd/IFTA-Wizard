@@ -59,6 +59,7 @@ const IFTAReports = {
                 
                 const isOpen = dropdown.classList.contains('open');
                 dropdown.classList.toggle('open');
+                profileBtn.setAttribute('aria-expanded', !isOpen);
                 
                 if (!isOpen) {
                     this.updateProfileMenuInfo();
@@ -72,6 +73,7 @@ const IFTAReports = {
                     !dropdown.contains(e.target) && 
                     e.target !== profileBtn) {
                     dropdown.classList.remove('open');
+                    profileBtn?.setAttribute('aria-expanded', 'false');
                 }
             });
         }

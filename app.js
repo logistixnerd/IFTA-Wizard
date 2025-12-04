@@ -80,6 +80,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         appState.isInitialized = true;
         hideLoading();
+        
+        // Setup offline detection
+        setupOfflineDetection();
+        
         showToast('IFTA Wizard loaded successfully!', 'success');
     } catch (error) {
         console.error('Initialization error:', error);
@@ -1920,6 +1924,37 @@ function showLoading() {
 // UI: Hide loading overlay
 function hideLoading() {
     elements.loadingOverlay.classList.remove('active');
+}
+
+// Offline detection
+function setupOfflineDetection() {
+    const updateOnlineStatus = () => {
+        const statusElement = document.getElementById('systemHealth');
+        if (!statusElement) return;
+        
+        if (!navigator.onLine) {
+            statusElement.classList.add('offline');
+            statusElement.querySelector('.health-text').textContent = 'Offline';
+            statusElement.querySelector('.health-dot').style.background = '#f44336';
+            statusElement.title = 'You are offline. Changes will sync when back online.';
+            showToast('You are offline. Some features may be limited.', 'warning');
+        } else {
+            statusElement.classList.remove('offline');
+            statusElement.querySelector('.health-text').textContent = 'OK';
+            statusElement.querySelector('.health-dot').style.background = '';
+            statusElement.title = 'System status';
+        }
+    };
+    
+    window.addEventListener('online', () => {
+        updateOnlineStatus();
+        showToast('Back online!', 'success');
+    });
+    
+    window.addEventListener('offline', updateOnlineStatus);
+    
+    // Initial check
+    updateOnlineStatus();
 }
 
 // UI: Show toast notification

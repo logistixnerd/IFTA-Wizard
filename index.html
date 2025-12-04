@@ -36,12 +36,12 @@
 </head>
 <body>
     <!-- Auth Modal - starts hidden, shown only if not authenticated -->
-    <div id="authModal" class="auth-modal hidden" style="display: none;">
+    <div id="authModal" class="auth-modal hidden" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="authTitle">
         <div class="auth-modal-content">
             <div class="auth-header">
                 <img src="LOGO - logistiXnerd dude.png" alt="LogistiXnerd" class="auth-brand-icon">
                 <img src="LOGO - logistiXnerd text.png" alt="LogistiXnerd" class="auth-brand-text">
-                <h1 class="auth-title">IFTA Wizard</h1>
+                <h1 class="auth-title" id="authTitle">IFTA Wizard</h1>
             </div>
             
             <div class="auth-social">
@@ -120,11 +120,11 @@
     </div>
 
     <!-- Forgot Password Modal -->
-    <div id="forgotPasswordModal" class="modal-overlay hidden">
+    <div id="forgotPasswordModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="forgotPasswordTitle">
         <div class="forgot-password-modal">
-            <button class="modal-close" onclick="IFTAAuth.closeForgotPassword()">&times;</button>
+            <button class="modal-close" onclick="IFTAAuth.closeForgotPassword()" aria-label="Close">&times;</button>
             
-            <h2>reset password</h2>
+            <h2 id="forgotPasswordTitle">reset password</h2>
             
             <!-- Step 1: Enter Email -->
             <div id="forgotStep1" class="forgot-step">
@@ -190,9 +190,9 @@
     </div>
 
     <!-- Email Verification Modal (for signup verification & 2FA) -->
-    <div id="emailVerifyModal" class="modal-overlay hidden">
+    <div id="emailVerifyModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="verifyTitle">
         <div class="verify-modal">
-            <button class="verify-close" onclick="IFTAAuth.closeEmailVerify()">&times;</button>
+            <button class="verify-close" onclick="IFTAAuth.closeEmailVerify()" aria-label="Close">&times;</button>
             
             <div class="verify-icon" id="verifyIcon">✉️</div>
             <h2 class="verify-title" id="verifyTitle">Verify Your Email</h2>
@@ -285,7 +285,7 @@
 
     <div class="app-container">
         <!-- Header -->
-        <header class="header">
+        <header class="header" role="banner">
             <div class="header-content">
                 <div class="logo">
                     <h1>IFTA Wizard</h1>
@@ -302,11 +302,11 @@
                     </span>
                     <!-- Profile Dropdown -->
                     <div class="profile-dropdown" id="profileDropdown">
-                        <button class="btn btn-secondary btn-sm profile-btn" id="profileBtn">
+                        <button class="btn btn-secondary btn-sm profile-btn" id="profileBtn" aria-haspopup="true" aria-expanded="false">
                             <span class="profile-avatar" id="profileAvatar">U</span>
                             <span class="profile-name" id="profileName">Account</span>
                         </button>
-                        <div class="profile-menu" id="profileMenu">
+                        <div class="profile-menu" id="profileMenu" role="menu" aria-label="Account menu">
                             <div class="profile-menu-header">
                                 <div class="profile-info">
                                     <span class="profile-user-name" id="menuUserName">User</span>
@@ -342,7 +342,7 @@
         </header>
 
         <!-- Main Content -->
-        <main class="main-content">
+        <main class="main-content" role="main">
             <!-- Configuration Panel -->
             <section class="config-panel card">
                 <h2>Trip Configuration</h2>
@@ -399,7 +399,7 @@
                 </div>
                 
                 <div class="table-container">
-                    <table id="dataTable">
+                    <table id="dataTable" aria-label="Jurisdiction fuel tax data">
                         <thead>
                             <tr>
                                 <th class="col-jurisdiction">Jurisdiction</th>
@@ -493,7 +493,7 @@
                     </select>
                 </div>
                 <div class="rates-table-container">
-                    <table id="ratesTable">
+                    <table id="ratesTable" aria-label="Tax rates reference">
                         <thead>
                             <tr>
                                 <th>Jurisdiction</th>
@@ -528,17 +528,17 @@
     </div>
 
     <!-- Toast Notifications -->
-    <div id="toastContainer" class="toast-container"></div>
+    <div id="toastContainer" class="toast-container" role="alert" aria-live="polite"></div>
 
     <!-- Hidden quarter select for compatibility -->
     <select id="quarterSelect" style="display: none;"></select>
 
     <!-- Saved Reports Modal -->
-    <div id="savedReportsModal" class="modal hidden">
+    <div id="savedReportsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="savedReportsTitle">
         <div class="modal-content modal-lg">
             <div class="modal-header">
-                <h2>Saved Reports</h2>
-                <button class="modal-close" id="closeReportsModal">&times;</button>
+                <h2 id="savedReportsTitle">Saved Reports</h2>
+                <button class="modal-close" id="closeReportsModal" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="reports-toolbar">
@@ -562,11 +562,11 @@
     </div>
 
     <!-- Email Modal -->
-    <div id="emailModal" class="modal hidden">
+    <div id="emailModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="emailModalTitle">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Email Report</h2>
-                <button class="modal-close" id="closeEmailModal">&times;</button>
+                <h2 id="emailModalTitle">Email Report</h2>
+                <button class="modal-close" id="closeEmailModal" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="emailForm">
@@ -608,11 +608,11 @@
     </div>
 
     <!-- Google Drive Modal -->
-    <div id="driveModal" class="modal hidden">
+    <div id="driveModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="driveModalTitle">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Save to Google Drive</h2>
-                <button class="modal-close" id="closeDriveModal">&times;</button>
+                <h2 id="driveModalTitle">Save to Google Drive</h2>
+                <button class="modal-close" id="closeDriveModal" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
                 <div id="driveNotConnected" class="drive-connect">
@@ -658,11 +658,11 @@
     </div>
 
     <!-- Profile Settings Modal -->
-    <div id="profileModal" class="modal hidden">
+    <div id="profileModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Profile Settings</h2>
-                <button class="modal-close" id="closeProfileModal">&times;</button>
+                <h2 id="profileModalTitle">Profile Settings</h2>
+                <button class="modal-close" id="closeProfileModal" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="profileForm">
@@ -709,11 +709,11 @@
     </div>
 
     <!-- Preferences Modal -->
-    <div id="preferencesModal" class="modal hidden">
+    <div id="preferencesModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="preferencesModalTitle">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Preferences</h2>
-                <button class="modal-close" id="closePreferencesModal">&times;</button>
+                <h2 id="preferencesModalTitle">Preferences</h2>
+                <button class="modal-close" id="closePreferencesModal" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="preference-section">
@@ -769,11 +769,11 @@
     </div>
 
     <!-- Save Report Modal -->
-    <div id="saveReportModal" class="modal hidden">
+    <div id="saveReportModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="saveReportModalTitle">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Save Report</h2>
-                <button class="modal-close" id="closeSaveReportModal">&times;</button>
+                <h2 id="saveReportModalTitle">Save Report</h2>
+                <button class="modal-close" id="closeSaveReportModal" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
                 <form id="saveReportForm">
@@ -837,11 +837,11 @@
     </div>
 
     <!-- Export PDF Options Modal -->
-    <div id="exportPdfModal" class="modal hidden">
+    <div id="exportPdfModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="exportPdfModalTitle">
         <div class="modal-content modal-sm">
             <div class="modal-header">
-                <h2>Export to PDF</h2>
-                <button class="modal-close" id="closeExportPdfModal">&times;</button>
+                <h2 id="exportPdfModalTitle">Export to PDF</h2>
+                <button class="modal-close" id="closeExportPdfModal" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
