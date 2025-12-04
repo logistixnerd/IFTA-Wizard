@@ -674,11 +674,11 @@ const IFTAAuth = {
             headerUser.textContent = this.user?.name?.split(' ')[0] || 'User';
         }
         
-        // Show/hide admin link
-        const adminLink = document.getElementById('adminLink');
+        // Show/hide admin link in profile menu
+        const adminLink = document.getElementById('menuAdminConsole');
         if (adminLink) {
             const isAdmin = this.adminEmails.includes(this.user?.email?.toLowerCase());
-            adminLink.style.display = isAdmin ? 'block' : 'none';
+            adminLink.style.display = isAdmin ? 'flex' : 'none';
         }
         
         // Update header avatar if user has photo
@@ -695,7 +695,7 @@ const IFTAAuth = {
     
     // Setup profile menu toggle
     setupProfileToggle() {
-        const userBtn = document.getElementById('userProfileBtn');
+        const userBtn = document.getElementById('profileBtn');
         const profileMenu = document.getElementById('profileMenu');
         
         if (!userBtn || !profileMenu) return;
