@@ -108,24 +108,11 @@ function validateRequiredElements() {
     return true;
 }
 
-// Check for rate updates on load
+// Check for rate updates on load (rates are manually updated in tax-rates.js)
 async function checkForRateUpdates() {
-    try {
-        updateRateStatus('fetching', 'Checking...');
-        const result = await IFTARateFetcher.autoUpdate();
-        
-        if (result.updated) {
-            showToast(`Rates updated`, 'success');
-            updateRatesTable();
-            recalculateAll();
-            updateRateStatus('live', 'Updated');
-        } else {
-            updateRateStatus('verified', 'Current');
-        }
-    } catch (error) {
-        console.log('Auto-update check completed');
-        updateRateStatus('verified', 'Cached');
-    }
+    // Rates are now manually maintained in tax-rates.js
+    // Check source: https://www.iftach.org/taxmatrix4/
+    updateRateStatus('verified', 'Current');
 }
 
 // Initialize DOM element references
@@ -1015,28 +1002,11 @@ function filterRatesTable() {
     });
 }
 
-// Background rate update check (fallback when IntegrityMonitor not available)
+// Background rate update check (rates are manually maintained)
 async function checkForRateUpdates() {
-    try {
-        updateRateStatus('fetching', 'Verifying...');
-        
-        if (typeof IFTARateFetcher !== 'undefined') {
-            const result = await IFTARateFetcher.autoUpdate();
-            
-            if (result.updated) {
-                updateRatesTable();
-                recalculateAll();
-                updateRateStatus('verified', 'Updated');
-            } else {
-                updateRateStatus('verified', 'Current');
-            }
-        } else {
-            updateRateStatus('verified', 'Cached');
-        }
-    } catch (error) {
-        console.log('Rate check completed with fallback');
-        updateRateStatus('verified', 'Cached');
-    }
+    // Rates are manually updated in tax-rates.js
+    // Source: https://www.iftach.org/taxmatrix4/
+    updateRateStatus('verified', 'Current');
 }
 
 // Update rate status indicator

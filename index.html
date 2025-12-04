@@ -75,7 +75,10 @@
                     </div>
                     <div class="form-group">
                         <label for="signinPassword">Password</label>
-                        <input type="password" id="signinPassword" placeholder="Enter your password">
+                        <div class="password-input-wrapper">
+                            <input type="password" id="signinPassword" placeholder="Enter your password">
+                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('signinPassword', this)" aria-label="Show password">Show</button>
+                        </div>
                     </div>
                     <div class="form-group remember-me">
                         <label class="checkbox-label">
@@ -96,11 +99,23 @@
                     </div>
                     <div class="form-group">
                         <label for="authPassword">Password</label>
-                        <input type="password" id="authPassword" placeholder="Create a password (min 6 characters)">
+                        <div class="password-input-wrapper">
+                            <input type="password" id="authPassword" placeholder="Create a password" oninput="checkPasswordRequirements(this.value)">
+                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('authPassword', this)" aria-label="Show password">Show</button>
+                        </div>
+                        <div class="password-requirements" id="passwordRequirements">
+                            <span class="req" id="req-length">• 6+ characters</span>
+                            <span class="req" id="req-upper">• 1 uppercase</span>
+                            <span class="req" id="req-lower">• 1 lowercase</span>
+                            <span class="req" id="req-number">• 1 number</span>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="authPasswordConfirm">Confirm Password</label>
-                        <input type="password" id="authPasswordConfirm" placeholder="Confirm your password">
+                        <div class="password-input-wrapper">
+                            <input type="password" id="authPasswordConfirm" placeholder="Confirm your password">
+                            <button type="button" class="password-toggle" onclick="togglePasswordVisibility('authPasswordConfirm', this)" aria-label="Show password">Show</button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="authName">Full Name</label>
@@ -884,9 +899,37 @@
     <script src="firebase-config.js"></script>
     <script src="security.js"></script>
     <script src="tax-rates.js"></script>
-    <script src="rate-fetcher.js"></script>
     <script src="integrity-monitor.js"></script>
     <script src="app.js"></script>
+    
+    <!-- Password helpers -->
+    <script>
+    function togglePasswordVisibility(inputId, btn) {
+        const input = document.getElementById(inputId);
+        if (input.type === 'password') {
+            input.type = 'text';
+            btn.textContent = 'Hide';
+        } else {
+            input.type = 'password';
+            btn.textContent = 'Show';
+        }
+    }
+    
+    function checkPasswordRequirements(password) {
+        const reqs = {
+            'req-length': password.length >= 6,
+            'req-upper': /[A-Z]/.test(password),
+            'req-lower': /[a-z]/.test(password),
+            'req-number': /[0-9]/.test(password)
+        };
+        
+        for (const [id, valid] of Object.entries(reqs)) {
+            const el = document.getElementById(id);
+            if (el) el.classList.toggle('valid', valid);
+        }
+    }
+    </script>
+    
     <script src="auth-firebase.js"></script>
     <script src="reports.js"></script>
 </body>

@@ -1631,138 +1631,23 @@ const AdminPanel = {
         }
     },
     
-    // Fetch new tax rates using IFTARateFetcher
+    // Open IFTACH tax matrix for manual rate updates
     async fetchNewTaxRates() {
-        const statusEl = document.getElementById('fetchStatus');
-        const btn = document.getElementById('fetchNewRatesBtn');
+        // Open IFTACH tax matrix in new tab for manual copy/paste
+        window.open('https://www.iftach.org/taxmatrix4/', '_blank');
         
-        try {
-            // Show loading state
-            statusEl.classList.remove('hidden', 'success', 'error');
-            statusEl.classList.add('loading');
-            statusEl.innerHTML = `
-                <span>🤖 AI: Fetching and validating rates from IFTA sources...</span>
-                <div style="font-size:10px;color:#666;margin-top:4px;">
-                    Cross-referencing with historical data for accuracy
-                </div>
-            `;
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loading-dots">Fetching</span>';
-            
-            // Check if IFTARateFetcher is available
-            if (typeof IFTARateFetcher === 'undefined') {
-                throw new Error('Rate fetcher not loaded');
-            }
-            
-            // Fetch the rates for the selected quarter
-            const targetQuarter = this.selectedQuarter || IFTARateFetcher.getCurrentQuarter();
-            const result = await IFTARateFetcher.fetchLatestRates(targetQuarter);
-            
-            if (result.success) {
-                // Build rates data for the quarter
-                const ratesData = {
-                    quarter: result.quarter,
-                    lastUpdated: new Date().toISOString().split('T')[0],
-                    effectiveDate: this.getEffectiveDateForQuarter(result.quarter),
-                    exchangeRate: result.exchangeRate || { usToCanada: 1.3797, canadaToUs: 0.7248 },
-                    jurisdictions: {},
-                    validation: result.validation
-                };
-                
-                // Merge fetched rates with base template
-                const baseJurisdictions = JSON.parse(JSON.stringify(IFTA_TAX_RATES.jurisdictions));
-                Object.keys(baseJurisdictions).forEach(code => {
-                    ratesData.jurisdictions[code] = baseJurisdictions[code];
-                    // Merge in fetched rates
-                    if (result.rates[code]?.rates) {
-                        Object.assign(ratesData.jurisdictions[code].rates, result.rates[code].rates);
-                    }
-                    // Add validation confidence if available
-                    if (result.rates[code]?.validation) {
-                        ratesData.jurisdictions[code].validation = result.rates[code].validation;
-                    }
-                });
-                
-                // Store in quarter rates store
-                this.quarterRatesStore[result.quarter] = ratesData;
-                this.saveQuarterRatesToStorage();
-                
-                // Update current display
-                this.currentQuarterRates = ratesData;
-                this.originalRates = JSON.parse(JSON.stringify(ratesData.jurisdictions));
-                this.modifiedRates = {};
-                
-                // Build AI validation status
-                const validation = result.validation;
-                let aiStatus = '';
-                let confidenceClass = 'high';
-                
-                if (validation) {
-                    const confidencePercent = Math.round(validation.averageConfidence * 100);
-                    if (confidencePercent >= 85) {
-                        confidenceClass = 'high';
-                    } else if (confidencePercent >= 70) {
-                        confidenceClass = 'medium';
-                    } else {
-                        confidenceClass = 'low';
-                    }
-                    
-                    aiStatus = `
-                        <div class="ai-validation-summary ${confidenceClass}">
-                            <span class="ai-badge">🤖 AI Validated</span>
-                            <span class="confidence-score">Confidence: ${confidencePercent}%</span>
-                            <span class="validation-stats">
-                                ${validation.validated}/${validation.totalJurisdictions} verified
-                                ${validation.warnings > 0 ? `• ${validation.warnings} warnings` : ''}
-                                ${validation.errors > 0 ? `• ${validation.errors} errors` : ''}
-                            </span>
-                        </div>
-                    `;
-                }
-                
-                // Show success
-                statusEl.classList.remove('loading');
-                statusEl.classList.add('success');
-                statusEl.innerHTML = `
-                    ✅ Successfully fetched rates for <strong>${result.quarter}</strong><br>
-                    Source: ${result.source.toUpperCase()} | 
-                    ${Object.keys(result.rates).length} jurisdictions updated
-                    ${aiStatus}
-                `;
-                
-                // Refresh displays
-                this.renderQuarterSelector();
-                this.renderStoredQuarters();
-                this.renderTaxRatesTable();
-                document.getElementById('currentRatesUpdated').textContent = ratesData.lastUpdated;
-                
-                // Log activity
-                this.logActivity('tax_rate_fetch', `Fetched ${result.quarter} rates from ${result.source}`);
-                
-            } else {
-                throw new Error(result.error || 'Failed to fetch rates');
-            }
-            
-        } catch (error) {
-            console.error('Error fetching tax rates:', error);
-            
-            // Show error
-            statusEl.classList.remove('loading');
-            statusEl.classList.add('error');
-            statusEl.innerHTML = `
-                ❌ Failed to fetch rates: ${error.message}<br>
-                <small>Using cached/local rates. Try again later or update manually.</small>
-            `;
-            
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '🤖 AI Fetch Latest Rates';
-            
-            // Hide status after 10 seconds
-            setTimeout(() => {
-                statusEl.classList.add('hidden');
-            }, 10000);
-        }
+        const statusEl = document.getElementById('fetchStatus');
+        statusEl.classList.remove('hidden', 'loading', 'error');
+        statusEl.classList.add('success');
+        statusEl.innerHTML = `
+            📋 IFTACH Tax Matrix opened in new tab<br>
+            <small>Copy rates from the matrix and update tax-rates.js manually</small>
+        `;
+        
+        // Hide status after 10 seconds
+        setTimeout(() => {
+            statusEl.classList.add('hidden');
+        }, 10000);
     },
     
     // Send tax rate reminder

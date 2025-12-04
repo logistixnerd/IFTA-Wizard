@@ -367,36 +367,16 @@ const IntegrityMonitor = {
             
             if (currentQNum > storedQNum) {
                 console.log(`[IntegrityMonitor] New quarter detected: ${currentQuarterStr} > ${storedQuarter}`);
-                this.updateRateStatus('fetching', 'Updating...');
-                
-                // Try to fetch new rates
-                if (typeof IFTARateFetcher !== 'undefined') {
-                    const result = await IFTARateFetcher.fetchLatestRates(currentQuarterStr);
-                    
-                    if (result.success) {
-                        IFTARateFetcher.updateLocalRates(result);
-                        console.log(`[IntegrityMonitor] Rates updated to ${currentQuarterStr}`);
-                        
-                        // Update UI elements if they exist
-                        this.updateUIAfterRateChange(currentQuarterStr);
-                        
-                        // Re-run self-tests with new rates
-                        await this.runSelfTests();
-                        
-                        this.updateRateStatus('verified', 'Updated');
-                    } else {
-                        console.warn('[IntegrityMonitor] Could not fetch new rates:', result.error);
-                        this.updateRateStatus('verified', 'Using cached');
-                    }
-                }
+                console.log('[IntegrityMonitor] Manual rate update required - check https://www.iftach.org/taxmatrix4/');
+                this.updateRateStatus('verified', 'Check rates');
             } else {
                 // Check if rates are stale (last update > 30 days ago)
                 const lastUpdate = new Date(IFTA_TAX_RATES.lastUpdated);
                 const daysSinceUpdate = (now - lastUpdate) / (1000 * 60 * 60 * 24);
                 
                 if (daysSinceUpdate > 30) {
-                    console.log('[IntegrityMonitor] Rates are stale, attempting refresh...');
-                    await this.attemptRateRefresh();
+                    console.log('[IntegrityMonitor] Rates may be stale - check https://www.iftach.org/taxmatrix4/');
+                    this.updateRateStatus('verified', 'Review rates');
                 } else {
                     console.log('[IntegrityMonitor] Rates are current');
                     this.updateRateStatus('verified', 'Current');
@@ -406,35 +386,6 @@ const IntegrityMonitor = {
         } catch (error) {
             console.error('[IntegrityMonitor] Quarterly update check failed:', error);
             this.updateRateStatus('verified', 'Cached');
-        }
-    },
-    
-    /**
-     * Attempt to refresh rates in background
-     */
-    async attemptRateRefresh() {
-        if (typeof IFTARateFetcher === 'undefined') {
-            console.warn('[IntegrityMonitor] Rate fetcher not available');
-            return;
-        }
-        
-        try {
-            const result = await IFTARateFetcher.fetchLatestRates();
-            
-            if (result.success) {
-                // Validate new rates before applying
-                const newRatesValid = this.validateNewRates(result.rates);
-                
-                if (newRatesValid) {
-                    IFTARateFetcher.updateLocalRates(result);
-                    this.updateUIAfterRateChange(result.quarter);
-                    this.updateRateStatus('verified', 'Refreshed');
-                } else {
-                    console.warn('[IntegrityMonitor] New rates failed validation, keeping current');
-                }
-            }
-        } catch (error) {
-            console.warn('[IntegrityMonitor] Rate refresh failed:', error);
         }
     },
     
@@ -467,11 +418,7 @@ const IntegrityMonitor = {
      */
     attemptSelfCalibration() {
         console.log('[IntegrityMonitor] Attempting self-calibration...');
-        
-        // Reload rates from cache if available
-        if (typeof IFTARateFetcher !== 'undefined') {
-            IFTARateFetcher.loadCachedRates();
-        }
+        console.log('[IntegrityMonitor] Check rates at https://www.iftach.org/taxmatrix4/');
         
         // Re-run tests after calibration attempt
         setTimeout(() => {
