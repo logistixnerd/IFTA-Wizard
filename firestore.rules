@@ -1,7 +1,9 @@
 // IFTA Wizard - Firestore Security Rules
 // ========================================
-// Copy these rules to Firebase Console > Firestore > Rules
+// IMPORTANT: Deploy these rules to Firebase Console > Firestore > Rules
 // https://console.firebase.google.com/project/ifta-wizard-a9061/firestore/rules
+//
+// These rules use Firebase Authentication for secure access control.
 
 rules_version = '2';
 service cloud.firestore {
@@ -16,43 +18,37 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
     
     function isAdmin() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             getUserData().role == 'admin';
+      return isAuthenticated() && getUserRole() == 'admin';
     }
     
     function isModerator() {
-      return isAuthenticated() && 
-             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             (getUserData().role == 'admin' || getUserData().role == 'moderator');
-    }
-    
-    // Email validation
-    function isValidEmail(email) {
-      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+      return isAuthenticated() && (getUserRole() == 'admin' || getUserRole() == 'moderator');
     }
     
     // ==========================================
     // USERS COLLECTION
     // ==========================================
     match /users/{userId} {
-      // Allow read for login lookups
-      allow read: if true;
+      // Users can read their own profile, admins can read all
+      allow read: if isOwner(userId) || isAdmin();
       
-      // Allow create for signup
-      allow create: if true;
+      // Users can create their own profile
+      allow create: if isOwner(userId);
       
-      // Allow update (for password changes, profile updates, etc.)
-      // Note: Using custom auth system, not Firebase Auth
-      allow update: if true;
+      // Users can update their own profile (but not role)
+      allow update: if isOwner(userId) && 
+                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']));
       
-      // Allow delete (for account removal)
-      allow delete: if true;
+      // Admins can update any profile including role
+      allow update: if isAdmin();
+      
+      // Only admins can delete
+      allow delete: if isAdmin();
     }
     
     // ==========================================
@@ -80,17 +76,19 @@ service cloud.firestore {
     // COMPANIES COLLECTION
     // ==========================================
     match /companies/{companyId} {
-      // Authenticated users can read companies
-      allow read: if isAuthenticated();
+      // Authenticated users can read companies they own
+      allow read: if isAuthenticated() && 
+                    (resource.data.ownerId == request.auth.uid || isAdmin());
       
-      // Only authenticated users can create companies
-      allow create: if isAuthenticated();
+      // Authenticated users can create companies
+      allow create: if isAuthenticated() && 
+                      request.resource.data.ownerId == request.auth.uid;
       
-      // Only company owner or admin can update
+      // Only owner or admin can update
       allow update: if isAuthenticated() && 
                       (resource.data.ownerId == request.auth.uid || isAdmin());
       
-      // Only company owner or admin can delete
+      // Only owner or admin can delete
       allow delete: if isAuthenticated() && 
                       (resource.data.ownerId == request.auth.uid || isAdmin());
     }
@@ -99,10 +97,10 @@ service cloud.firestore {
     // TAX RATES COLLECTION
     // ==========================================
     match /tax_rates/{rateId} {
-      // Anyone can read tax rates
+      // Anyone can read tax rates (public data)
       allow read: if true;
       
-      // Only admins/moderators can modify tax rates
+      // Only moderators/admins can write
       allow write: if isModerator();
     }
     
@@ -116,10 +114,10 @@ service cloud.firestore {
       // Moderators can create approval requests
       allow create: if isModerator();
       
-      // Only admins can approve/reject (update)
+      // Only admins can approve/reject
       allow update: if isAdmin();
       
-      // Only admins can delete approvals
+      // Only admins can delete
       allow delete: if isAdmin();
     }
     
@@ -127,13 +125,13 @@ service cloud.firestore {
     // ACTIVITY LOGS COLLECTION
     // ==========================================
     match /activity_logs/{logId} {
-      // Only admins can read activity logs
+      // Only admins can read
       allow read: if isAdmin();
       
-      // Anyone can write activity logs (for tracking)
-      allow create: if true;
+      // Authenticated users can create logs
+      allow create: if isAuthenticated();
       
-      // No one can update or delete logs (immutable)
+      // Logs are immutable
       allow update, delete: if false;
     }
     
@@ -141,13 +139,13 @@ service cloud.firestore {
     // SECURITY LOGS COLLECTION
     // ==========================================
     match /security_logs/{logId} {
-      // Only admins can read security logs
+      // Only admins can read
       allow read: if isAdmin();
       
-      // Anyone can write security logs (for tracking)
-      allow create: if true;
+      // Authenticated users can create
+      allow create: if isAuthenticated();
       
-      // No one can update or delete security logs (immutable)
+      // Logs are immutable
       allow update, delete: if false;
     }
     
@@ -155,13 +153,13 @@ service cloud.firestore {
     // ERROR LOGS COLLECTION
     // ==========================================
     match /error_logs/{logId} {
-      // Only admins can read error logs
+      // Only admins can read
       allow read: if isAdmin();
       
-      // Anyone can write error logs
+      // Anyone can create (for error tracking)
       allow create: if true;
       
-      // No one can update or delete error logs (immutable)
+      // Logs are immutable
       allow update, delete: if false;
     }
     
@@ -172,17 +170,16 @@ service cloud.firestore {
       // Only admins can read leads
       allow read: if isAdmin();
       
-      // Anyone can create a lead (signup)
+      // Anyone can create (signup tracking)
       allow create: if true;
       
-      // Only admins can update/delete leads
-      allow update, delete: if isAdmin();
+      // Leads are immutable
+      allow update, delete: if false;
     }
     
     // ==========================================
     // DEFAULT DENY
     // ==========================================
-    // Deny access to any other collections not explicitly defined
     match /{document=**} {
       allow read, write: if false;
     }

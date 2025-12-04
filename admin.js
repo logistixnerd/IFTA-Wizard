@@ -16,33 +16,36 @@ const AdminPanel = {
     
     // Initialize admin panel
     async init() {
-        // Check localStorage authentication first
-        const savedUser = localStorage.getItem('ifta_user');
+        // Initialize Firebase first
+        await this.initFirebaseIfAvailable();
         
-        if (!savedUser) {
-            this.showAccessDenied();
-            return;
-        }
-        
-        try {
-            this.currentUser = JSON.parse(savedUser);
-            
-            // Check if user is admin
-            if (this.isAdmin(this.currentUser.email)) {
-                this.showAdminPanel();
-                this.loadUserProfileFromLocal();
-                this.setupEventListeners();
-                
-                // Try to initialize Firebase for data storage
-                await this.initFirebaseIfAvailable();
-                
-                // Load dashboard data
-                await this.loadDashboardData();
-            } else {
-                this.showAccessDenied();
-            }
-        } catch (e) {
-            console.error('Error initializing admin panel:', e);
+        // Check Firebase Authentication
+        if (typeof firebase !== 'undefined' && firebase.auth) {
+            firebase.auth().onAuthStateChanged(async (user) => {
+                if (user) {
+                    // User is signed in via Firebase Auth
+                    this.currentUser = {
+                        uid: user.uid,
+                        email: user.email,
+                        name: user.displayName || 'Admin'
+                    };
+                    
+                    // Check if user is admin
+                    if (this.isAdmin(user.email)) {
+                        this.showAdminPanel();
+                        this.loadUserProfileFromLocal();
+                        this.setupEventListeners();
+                        await this.loadDashboardData();
+                    } else {
+                        this.showAccessDenied();
+                    }
+                } else {
+                    // Not signed in, redirect to main app
+                    this.showAccessDenied();
+                }
+            });
+        } else {
+            // Firebase not available, show access denied
             this.showAccessDenied();
         }
     },

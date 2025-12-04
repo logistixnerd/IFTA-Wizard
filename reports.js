@@ -720,31 +720,9 @@ const IFTAReports = {
     
     // Connect Google Drive
     connectGoogleDrive() {
-        // In production, this would use Google OAuth
-        // For demo, simulate connection
-        
-        showToast('Connecting to Google Drive...', 'info');
-        
-        // Simulate OAuth flow
-        setTimeout(() => {
-            const mockToken = {
-                email: IFTAAuth.user?.email || 'user@gmail.com',
-                accessToken: 'mock_token_' + Date.now(),
-                expiry: new Date(Date.now() + 3600000).toISOString() // 1 hour
-            };
-            
-            localStorage.setItem(this.STORAGE_KEYS.driveToken, JSON.stringify(mockToken));
-            this.driveConnected = true;
-            this.driveUser = mockToken.email;
-            
-            // Update UI
-            document.getElementById('driveNotConnected')?.classList.add('hidden');
-            document.getElementById('driveConnected')?.classList.remove('hidden');
-            document.getElementById('driveUserEmail').textContent = mockToken.email;
-            
-            this.populateDriveSavedReports();
-            showToast('Google Drive connected!', 'success');
-        }, 1500);
+        // Google Drive integration requires API credentials
+        // Configure in Google Cloud Console and update credentials in this file
+        showToast('Google Drive integration not configured. Contact admin.', 'warning');
     },
     
     // Disconnect Google Drive
