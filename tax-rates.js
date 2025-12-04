@@ -1,61 +1,75 @@
-// IFTA Tax Rates - Q4 2025 (Official IFTACH Rates)
-// Source: https://www.iftach.org/taxmatrix4/TaxDownload.php
-// Effective: October 1, 2025 - December 31, 2025
-// Exchange Rate for Canadian Provinces: 1.4335 (as specified by IFTACH for Q4 2025)
+/**
+ * IFTA Tax Rates Data
+ * Current Quarter: Q4 2025 (October - December 2025)
+ * Source: https://www.iftach.org/taxmatrix4/
+ * Exchange Rate: US = 1.3797 / Canada = 0.7248
+ * 
+ * Note: Rates are in USD per gallon for US jurisdictions
+ * and converted to USD for Canadian jurisdictions
+ */
 
 const IFTA_TAX_RATES = {
     quarter: "Q4 2025",
+    effectiveDate: "2025-10-01",
+    endDate: "2025-12-31",
+    exchangeRate: {
+        usToCanada: 1.4335,
+        canadaToUs: 0.6976
+    },
     lastUpdated: "2025-12-04",
-    exchangeRate: 1.4335,
+    
     jurisdictions: {
-        // United States - Official Q4 2025 IFTACH Rates
+        // United States Jurisdictions
         "AL": {
             name: "Alabama",
             abbrev: "AL",
             country: "US",
             rates: {
-                diesel: 0.3100,
-                gasoline: 0.2900,
-                gasohol: 0.2900,
-                propane: 0.2100,
-                lng: 0.2100,
-                cng: 0.2100,
-                ethanol: 0.2900,
-                methanol: 0.2900,
-                biodiesel: 0.3100
-            }
+                diesel: 0.310,
+                gasoline: 0.290,
+                gasohol: 0.290,
+                propane: 0.270,
+                lng: 0.310,
+                cng: 0.290,
+                ethanol: 0.290,
+                methanol: 0.290,
+                biodiesel: 0.310
+            },
+            footnote: "#35"
         },
         "AZ": {
             name: "Arizona",
             abbrev: "AZ",
             country: "US",
             rates: {
-                diesel: 0.2600,
-                gasoline: 0.1800,
-                gasohol: 0.1800,
-                propane: 0.1800,
-                lng: 0.1800,
-                cng: 0.1800,
-                ethanol: 0.1800,
-                methanol: 0.1800,
-                biodiesel: 0.2600
-            }
+                diesel: 0.260,
+                gasoline: 0.180,
+                gasohol: 0.180,
+                propane: 0.180,
+                lng: 0.260,
+                cng: 0.180,
+                ethanol: 0.180,
+                methanol: 0.180,
+                biodiesel: 0.260
+            },
+            footnote: "#7"
         },
         "AR": {
             name: "Arkansas",
             abbrev: "AR",
             country: "US",
             rates: {
-                diesel: 0.2850,
-                gasoline: 0.2450,
-                gasohol: 0.2450,
-                propane: 0.1650,
-                lng: 0.2850,
-                cng: 0.0500,
-                ethanol: 0.2450,
-                methanol: 0.2450,
-                biodiesel: 0.2850
-            }
+                diesel: 0.285,
+                gasoline: 0.247,
+                gasohol: 0.247,
+                propane: 0.165,
+                lng: 0.285,
+                cng: 0.050,
+                ethanol: 0.247,
+                methanol: 0.247,
+                biodiesel: 0.285
+            },
+            footnote: "#29"
         },
         "CA": {
             name: "California",
@@ -64,14 +78,15 @@ const IFTA_TAX_RATES = {
             rates: {
                 diesel: 0.9710,
                 gasoline: 0.6510,
-                gasohol: 0.6510,
-                propane: 0.0600,
-                lng: 0.1163,
-                cng: 0.1163,
-                ethanol: 0.6510,
-                methanol: 0.6510,
-                biodiesel: 0.9710
-            }
+                gasohol: 0.596,
+                propane: 0.060,
+                lng: 0.980,
+                cng: 0.596,
+                ethanol: 0.596,
+                methanol: 0.596,
+                biodiesel: 0.980
+            },
+            footnote: "#1"
         },
         "CO": {
             name: "Colorado",
@@ -80,13 +95,13 @@ const IFTA_TAX_RATES = {
             rates: {
                 diesel: 0.3250,
                 gasoline: 0.2200,
-                gasohol: 0.2200,
-                propane: 0.2200,
-                lng: 0.2200,
-                cng: 0.2200,
-                ethanol: 0.2200,
-                methanol: 0.2200,
-                biodiesel: 0.3250
+                gasohol: 0.2225,
+                propane: 0.2225,
+                lng: 0.2650,
+                cng: 0.2225,
+                ethanol: 0.2225,
+                methanol: 0.2225,
+                biodiesel: 0.2650
             }
         },
         "CT": {
@@ -97,13 +112,14 @@ const IFTA_TAX_RATES = {
                 diesel: 0.4890,
                 gasoline: 0.2500,
                 gasohol: 0.2500,
-                propane: 0.2500,
-                lng: 0.2640,
-                cng: 0.2640,
+                propane: 0.2600,
+                lng: 0.2600,
+                cng: 0.2600,
                 ethanol: 0.2500,
                 methanol: 0.2500,
-                biodiesel: 0.4890
-            }
+                biodiesel: 0.5210
+            },
+            footnote: "#15"
         },
         "DE": {
             name: "Delaware",
@@ -135,7 +151,8 @@ const IFTA_TAX_RATES = {
                 ethanol: 0.3777,
                 methanol: 0.3777,
                 biodiesel: 0.4027
-            }
+            },
+            footnote: "#18"
         },
         "GA": {
             name: "Georgia",
@@ -151,7 +168,8 @@ const IFTA_TAX_RATES = {
                 ethanol: 0.3510,
                 methanol: 0.3510,
                 biodiesel: 0.3710
-            }
+            },
+            footnote: "#30"
         },
         "ID": {
             name: "Idaho",
@@ -166,8 +184,9 @@ const IFTA_TAX_RATES = {
                 cng: 0.3300,
                 ethanol: 0.3300,
                 methanol: 0.3300,
-                biodiesel: 0.3800
-            }
+                biodiesel: 0.3300
+            },
+            footnote: "#6"
         },
         "IL": {
             name: "Illinois",
@@ -183,7 +202,8 @@ const IFTA_TAX_RATES = {
                 ethanol: 0.5670,
                 methanol: 0.5670,
                 biodiesel: 0.7490
-            }
+            },
+            footnote: "#26"
         },
         "IN": {
             name: "Indiana",
@@ -191,15 +211,16 @@ const IFTA_TAX_RATES = {
             country: "US",
             rates: {
                 diesel: 0.6100,
-                gasoline: 0.5000,
-                gasohol: 0.5000,
-                propane: 0.5500,
-                lng: 0.6600,
-                cng: 0.5500,
-                ethanol: 0.5000,
-                methanol: 0.5000,
+                gasoline: 0.3600,
+                gasohol: 0.3600,
+                propane: 0.3600,
+                lng: 0.6100,
+                cng: 0.3600,
+                ethanol: 0.3600,
+                methanol: 0.3600,
                 biodiesel: 0.6100
-            }
+            },
+            footnote: "#31"
         },
         "IA": {
             name: "Iowa",
@@ -211,11 +232,12 @@ const IFTA_TAX_RATES = {
                 gasohol: 0.2900,
                 propane: 0.3000,
                 lng: 0.3250,
-                cng: 0.3100,
-                ethanol: 0.2900,
-                methanol: 0.3000,
-                biodiesel: 0.3150
-            }
+                cng: 0.3140,
+                ethanol: 0.1900,
+                methanol: 0.0000,
+                biodiesel: 0.3250
+            },
+            footnote: "#25"
         },
         "KS": {
             name: "Kansas",
@@ -257,28 +279,29 @@ const IFTA_TAX_RATES = {
                 diesel: 0.2000,
                 gasoline: 0.2000,
                 gasohol: 0.2000,
-                propane: 0.2000,
-                lng: 0.2000,
-                cng: 0.2000,
+                propane: 0.0000,
+                lng: 0.0000,
+                cng: 0.0000,
                 ethanol: 0.2000,
                 methanol: 0.2000,
                 biodiesel: 0.2000
-            }
+            },
+            footnote: "#21"
         },
         "ME": {
             name: "Maine",
             abbrev: "ME",
             country: "US",
             rates: {
-                diesel: 0.3420,
-                gasoline: 0.3020,
-                gasohol: 0.3020,
+                diesel: 0.3120,
+                gasoline: 0.3000,
+                gasohol: 0.3000,
                 propane: 0.2180,
-                lng: 0.2180,
-                cng: 0.2180,
-                ethanol: 0.3020,
-                methanol: 0.3020,
-                biodiesel: 0.3420
+                lng: 0.3120,
+                cng: 0.2070,
+                ethanol: 0.3000,
+                methanol: 0.3000,
+                biodiesel: 0.3120
             }
         },
         "MD": {
@@ -295,7 +318,8 @@ const IFTA_TAX_RATES = {
                 ethanol: 0.4700,
                 methanol: 0.4700,
                 biodiesel: 0.4175
-            }
+            },
+            footnote: "#23"
         },
         "MA": {
             name: "Massachusetts",
@@ -338,12 +362,13 @@ const IFTA_TAX_RATES = {
                 gasoline: 0.2850,
                 gasohol: 0.2850,
                 propane: 0.1710,
-                lng: 0.1710,
-                cng: 0.1710,
+                lng: 0.2850,
+                cng: 0.3180,
                 ethanol: 0.2850,
                 methanol: 0.2850,
                 biodiesel: 0.2850
-            }
+            },
+            footnote: "#16"
         },
         "MS": {
             name: "Mississippi",
@@ -359,7 +384,8 @@ const IFTA_TAX_RATES = {
                 ethanol: 0.1800,
                 methanol: 0.1800,
                 biodiesel: 0.1800
-            }
+            },
+            footnote: "#2"
         },
         "MO": {
             name: "Missouri",
@@ -369,44 +395,46 @@ const IFTA_TAX_RATES = {
                 diesel: 0.2200,
                 gasoline: 0.2200,
                 gasohol: 0.2200,
-                propane: 0.2200,
-                lng: 0.2200,
-                cng: 0.1100,
+                propane: 0.0000,
+                lng: 0.1100,
+                cng: 0.0500,
                 ethanol: 0.2200,
                 methanol: 0.2200,
                 biodiesel: 0.2200
-            }
+            },
+            footnote: "#3"
         },
         "MT": {
             name: "Montana",
             abbrev: "MT",
             country: "US",
             rates: {
-                diesel: 0.3295,
-                gasoline: 0.3300,
-                gasohol: 0.3300,
-                propane: 0.0700,
-                lng: 0.0700,
+                diesel: 0.2975,
+                gasoline: 0.0000,
+                gasohol: 0.0000,
+                propane: 0.0400,
+                lng: 0.2975,
                 cng: 0.0700,
-                ethanol: 0.3300,
-                methanol: 0.3300,
-                biodiesel: 0.3295
-            }
+                ethanol: 0.0000,
+                methanol: 0.0000,
+                biodiesel: 0.2975
+            },
+            footnote: "#9"
         },
         "NE": {
             name: "Nebraska",
             abbrev: "NE",
             country: "US",
             rates: {
-                diesel: 0.2990,
-                gasoline: 0.2990,
-                gasohol: 0.2990,
-                propane: 0.2990,
-                lng: 0.2990,
-                cng: 0.2990,
-                ethanol: 0.2990,
-                methanol: 0.2990,
-                biodiesel: 0.2990
+                diesel: 0.2840,
+                gasoline: 0.2840,
+                gasohol: 0.2840,
+                propane: 0.2840,
+                lng: 0.2840,
+                cng: 0.2840,
+                ethanol: 0.2840,
+                methanol: 0.2840,
+                biodiesel: 0.2840
             }
         },
         "NV": {
@@ -414,15 +442,15 @@ const IFTA_TAX_RATES = {
             abbrev: "NV",
             country: "US",
             rates: {
-                diesel: 0.2800,
+                diesel: 0.2700,
                 gasoline: 0.2300,
                 gasohol: 0.2300,
-                propane: 0.2200,
+                propane: 0.1900,
                 lng: 0.2700,
-                cng: 0.2100,
+                cng: 0.0680,
                 ethanol: 0.2300,
                 methanol: 0.2300,
-                biodiesel: 0.2800
+                biodiesel: 0.2700
             }
         },
         "NH": {
@@ -430,15 +458,15 @@ const IFTA_TAX_RATES = {
             abbrev: "NH",
             country: "US",
             rates: {
-                diesel: 0.2340,
-                gasoline: 0.2200,
-                gasohol: 0.2200,
-                propane: 0.2200,
-                lng: 0.2200,
-                cng: 0.2200,
-                ethanol: 0.2200,
-                methanol: 0.2200,
-                biodiesel: 0.2340
+                diesel: 0.2220,
+                gasoline: 0.2220,
+                gasohol: 0.2220,
+                propane: 0.0000,
+                lng: 0.0000,
+                cng: 0.0000,
+                ethanol: 0.2220,
+                methanol: 0.2220,
+                biodiesel: 0.2220
             }
         },
         "NJ": {
@@ -462,32 +490,34 @@ const IFTA_TAX_RATES = {
             abbrev: "NM",
             country: "US",
             rates: {
-                diesel: 0.2438,
-                gasoline: 0.1875,
-                gasohol: 0.1875,
+                diesel: 0.2100,
+                gasoline: 0.1700,
+                gasohol: 0.1700,
                 propane: 0.1200,
-                lng: 0.1200,
-                cng: 0.1200,
-                ethanol: 0.1875,
-                methanol: 0.1875,
-                biodiesel: 0.2438
-            }
+                lng: 0.2060,
+                cng: 0.1330,
+                ethanol: 0.1700,
+                methanol: 0.1700,
+                biodiesel: 0.2100
+            },
+            footnote: "#33"
         },
         "NY": {
             name: "New York",
             abbrev: "NY",
             country: "US",
             rates: {
-                diesel: 0.1770,
+                diesel: 0.1720,
                 gasoline: 0.0800,
                 gasohol: 0.0800,
-                propane: 0.0800,
-                lng: 0.0800,
-                cng: 0.0800,
+                propane: 0.0000,
+                lng: 0.0530,
+                cng: 0.0530,
                 ethanol: 0.0800,
                 methanol: 0.0800,
-                biodiesel: 0.1770
-            }
+                biodiesel: 0.1720
+            },
+            footnote: "#11"
         },
         "NC": {
             name: "North Carolina",
@@ -503,7 +533,8 @@ const IFTA_TAX_RATES = {
                 ethanol: 0.4080,
                 methanol: 0.4080,
                 biodiesel: 0.4080
-            }
+            },
+            footnote: "#24"
         },
         "ND": {
             name: "North Dakota",
@@ -531,11 +562,12 @@ const IFTA_TAX_RATES = {
                 gasohol: 0.3850,
                 propane: 0.3850,
                 lng: 0.4700,
-                cng: 0.3850,
+                cng: 0.4700,
                 ethanol: 0.3850,
                 methanol: 0.3850,
                 biodiesel: 0.4700
-            }
+            },
+            footnote: "#28"
         },
         "OK": {
             name: "Oklahoma",
@@ -543,13 +575,13 @@ const IFTA_TAX_RATES = {
             country: "US",
             rates: {
                 diesel: 0.1900,
-                gasoline: 0.2000,
-                gasohol: 0.2000,
-                propane: 0.1900,
-                lng: 0.0500,
+                gasoline: 0.1900,
+                gasohol: 0.1900,
+                propane: 0.1400,
+                lng: 0.0400,
                 cng: 0.0500,
-                ethanol: 0.2000,
-                methanol: 0.2000,
+                ethanol: 0.1900,
+                methanol: 0.1900,
                 biodiesel: 0.1900
             }
         },
@@ -583,54 +615,57 @@ const IFTA_TAX_RATES = {
                 ethanol: 0.5830,
                 methanol: 0.5830,
                 biodiesel: 0.7410
-            }
+            },
+            footnote: "#4"
         },
         "RI": {
             name: "Rhode Island",
             abbrev: "RI",
             country: "US",
             rates: {
-                diesel: 0.3400,
-                gasoline: 0.3400,
-                gasohol: 0.3400,
-                propane: 0.3400,
-                lng: 0.3400,
-                cng: 0.3400,
-                ethanol: 0.3400,
-                methanol: 0.3400,
-                biodiesel: 0.3400
-            }
+                diesel: 0.3800,
+                gasoline: 0.3700,
+                gasohol: 0.3700,
+                propane: 0.3700,
+                lng: 0.3800,
+                cng: 0.3700,
+                ethanol: 0.3700,
+                methanol: 0.3700,
+                biodiesel: 0.3800
+            },
+            footnote: "#34"
         },
         "SC": {
             name: "South Carolina",
             abbrev: "SC",
             country: "US",
             rates: {
-                diesel: 0.2800,
-                gasoline: 0.2800,
-                gasohol: 0.2800,
-                propane: 0.2800,
-                lng: 0.2800,
-                cng: 0.2800,
-                ethanol: 0.2800,
-                methanol: 0.2800,
-                biodiesel: 0.2800
-            }
+                diesel: 0.2875,
+                gasoline: 0.2875,
+                gasohol: 0.2875,
+                propane: 0.2875,
+                lng: 0.2875,
+                cng: 0.2875,
+                ethanol: 0.2875,
+                methanol: 0.2875,
+                biodiesel: 0.2875
+            },
+            footnote: "#22"
         },
         "SD": {
             name: "South Dakota",
             abbrev: "SD",
             country: "US",
             rates: {
-                diesel: 0.2800,
-                gasoline: 0.2800,
-                gasohol: 0.2800,
+                diesel: 0.3000,
+                gasoline: 0.3000,
+                gasohol: 0.3000,
                 propane: 0.2000,
-                lng: 0.2800,
-                cng: 0.2800,
-                ethanol: 0.2800,
-                methanol: 0.2800,
-                biodiesel: 0.2800
+                lng: 0.3000,
+                cng: 0.3000,
+                ethanol: 0.3000,
+                methanol: 0.3000,
+                biodiesel: 0.3000
             }
         },
         "TN": {
@@ -639,15 +674,16 @@ const IFTA_TAX_RATES = {
             country: "US",
             rates: {
                 diesel: 0.2700,
-                gasoline: 0.2600,
-                gasohol: 0.2600,
+                gasoline: 0.2700,
+                gasohol: 0.2700,
                 propane: 0.1700,
-                lng: 0.1700,
+                lng: 0.2100,
                 cng: 0.1300,
-                ethanol: 0.2600,
-                methanol: 0.2600,
+                ethanol: 0.2700,
+                methanol: 0.2700,
                 biodiesel: 0.2700
-            }
+            },
+            footnote: "#8"
         },
         "TX": {
             name: "Texas",
@@ -658,43 +694,45 @@ const IFTA_TAX_RATES = {
                 gasoline: 0.2000,
                 gasohol: 0.2000,
                 propane: 0.1500,
-                lng: 0.1500,
-                cng: 0.1500,
+                lng: 0.2000,
+                cng: 0.2000,
                 ethanol: 0.2000,
                 methanol: 0.2000,
                 biodiesel: 0.2000
-            }
+            },
+            footnote: "#12"
         },
         "UT": {
             name: "Utah",
             abbrev: "UT",
             country: "US",
             rates: {
-                diesel: 0.3350,
-                gasoline: 0.3150,
-                gasohol: 0.3150,
-                propane: 0.3150,
-                lng: 0.3350,
-                cng: 0.3350,
-                ethanol: 0.3150,
-                methanol: 0.3150,
-                biodiesel: 0.3350
-            }
+                diesel: 0.3250,
+                gasoline: 0.3250,
+                gasohol: 0.3250,
+                propane: 0.3250,
+                lng: 0.3250,
+                cng: 0.3250,
+                ethanol: 0.3250,
+                methanol: 0.3250,
+                biodiesel: 0.3250
+            },
+            footnote: "#20"
         },
         "VT": {
             name: "Vermont",
             abbrev: "VT",
             country: "US",
             rates: {
-                diesel: 0.3400,
-                gasoline: 0.2620,
-                gasohol: 0.2620,
-                propane: 0.2620,
-                lng: 0.2620,
-                cng: 0.2620,
-                ethanol: 0.2620,
-                methanol: 0.2620,
-                biodiesel: 0.3400
+                diesel: 0.3100,
+                gasoline: 0.3210,
+                gasohol: 0.3210,
+                propane: 0.0400,
+                lng: 0.3100,
+                cng: 0.0400,
+                ethanol: 0.3210,
+                methanol: 0.3210,
+                biodiesel: 0.3100
             }
         },
         "VA": {
@@ -711,7 +749,8 @@ const IFTA_TAX_RATES = {
                 ethanol: 0.3020,
                 methanol: 0.3020,
                 biodiesel: 0.4700
-            }
+            },
+            footnote: "#19"
         },
         "WA": {
             name: "Washington",
@@ -719,15 +758,16 @@ const IFTA_TAX_RATES = {
             country: "US",
             rates: {
                 diesel: 0.5840,
-                gasoline: 0.4940,
-                gasohol: 0.4940,
-                propane: 0.4940,
-                lng: 0.4940,
-                cng: 0.4940,
-                ethanol: 0.4940,
-                methanol: 0.4940,
+                gasoline: 0.5840,
+                gasohol: 0.5840,
+                propane: 0.5840,
+                lng: 0.5840,
+                cng: 0.5840,
+                ethanol: 0.5840,
+                methanol: 0.5840,
                 biodiesel: 0.5840
-            }
+            },
+            footnote: "#10"
         },
         "WV": {
             name: "West Virginia",
@@ -750,15 +790,15 @@ const IFTA_TAX_RATES = {
             abbrev: "WI",
             country: "US",
             rates: {
-                diesel: 0.3090,
-                gasoline: 0.3090,
-                gasohol: 0.3090,
-                propane: 0.3090,
-                lng: 0.3090,
-                cng: 0.3090,
-                ethanol: 0.3090,
-                methanol: 0.3090,
-                biodiesel: 0.3090
+                diesel: 0.3290,
+                gasoline: 0.3290,
+                gasohol: 0.3290,
+                propane: 0.2290,
+                lng: 0.3290,
+                cng: 0.2290,
+                ethanol: 0.3290,
+                methanol: 0.3290,
+                biodiesel: 0.3290
             }
         },
         "WY": {
@@ -775,256 +815,421 @@ const IFTA_TAX_RATES = {
                 ethanol: 0.2400,
                 methanol: 0.2400,
                 biodiesel: 0.2400
-            }
+            },
+            footnote: "#32"
         },
-        
-        // Canadian Provinces - Official Q4 2025 IFTACH Rates (USD equivalent)
+
+        // Canadian Jurisdictions (rates in USD, converted from CAD)
         "AB": {
             name: "Alberta",
             abbrev: "AB",
-            country: "CA",
+            country: "CAN",
             rates: {
-                diesel: 0.0935,
-                gasoline: 0.0935,
-                gasohol: 0.0935,
-                propane: 0.0627,
-                lng: 0.0935,
-                cng: 0.0935,
-                ethanol: 0.0935,
-                methanol: 0.0935,
-                biodiesel: 0.0935
+                diesel: 0.0942,
+                gasoline: 0.0942,
+                gasohol: 0.0942,
+                propane: 0.0635,
+                lng: 0.0942,
+                cng: 0.0942,
+                ethanol: 0.0942,
+                methanol: 0.0942,
+                biodiesel: 0.0942
+            },
+            footnote: "#14",
+            ratesCAD: {
+                diesel: 0.1300,
+                gasoline: 0.1300,
+                propane: 0.0877
             }
         },
         "BC": {
             name: "British Columbia",
             abbrev: "BC",
-            country: "CA",
+            country: "CAN",
             rates: {
-                diesel: 0.2267,
-                gasoline: 0.1999,
-                gasohol: 0.1999,
-                propane: 0.0523,
-                lng: 0.0313,
-                cng: 0.0313,
-                ethanol: 0.1999,
-                methanol: 0.1999,
-                biodiesel: 0.2267
+                diesel: 0.2427,
+                gasoline: 0.2354,
+                gasohol: 0.2354,
+                propane: 0.1449,
+                lng: 0.2427,
+                cng: 0.2354,
+                ethanol: 0.2354,
+                methanol: 0.2354,
+                biodiesel: 0.2427
+            },
+            footnote: "#13",
+            ratesCAD: {
+                diesel: 0.3350,
+                gasoline: 0.3250
             }
         },
         "MB": {
             name: "Manitoba",
             abbrev: "MB",
-            country: "CA",
+            country: "CAN",
             rates: {
-                diesel: 0.0978,
-                gasoline: 0.0978,
-                gasohol: 0.0978,
-                propane: 0.0209,
-                lng: 0.0978,
-                cng: 0.0978,
-                ethanol: 0.0978,
-                methanol: 0.0978,
-                biodiesel: 0.0978
+                diesel: 0.1014,
+                gasoline: 0.1014,
+                gasohol: 0.1014,
+                propane: 0.0725,
+                lng: 0.1014,
+                cng: 0.1014,
+                ethanol: 0.1014,
+                methanol: 0.1014,
+                biodiesel: 0.1014
+            },
+            footnote: "#17",
+            ratesCAD: {
+                diesel: 0.1400,
+                gasoline: 0.1400
             }
         },
         "NB": {
             name: "New Brunswick",
             abbrev: "NB",
-            country: "CA",
+            country: "CAN",
             rates: {
-                diesel: 0.1934,
-                gasoline: 0.1170,
-                gasohol: 0.1170,
-                propane: 0.0740,
-                lng: 0.1934,
-                cng: 0.1934,
-                ethanol: 0.1170,
-                methanol: 0.1170,
-                biodiesel: 0.1934
+                diesel: 0.2129,
+                gasoline: 0.1739,
+                gasohol: 0.1739,
+                propane: 0.1159,
+                lng: 0.2129,
+                cng: 0.1739,
+                ethanol: 0.1739,
+                methanol: 0.1739,
+                biodiesel: 0.2129
+            },
+            ratesCAD: {
+                diesel: 0.2940,
+                gasoline: 0.2400
             }
         },
         "NL": {
-            name: "Newfoundland",
+            name: "Newfoundland and Labrador",
             abbrev: "NL",
-            country: "CA",
+            country: "CAN",
             rates: {
-                diesel: 0.2288,
-                gasoline: 0.1659,
-                gasohol: 0.1659,
-                propane: 0.0769,
-                lng: 0.2288,
-                cng: 0.2288,
-                ethanol: 0.1659,
-                methanol: 0.1659,
-                biodiesel: 0.2288
+                diesel: 0.1449,
+                gasoline: 0.1377,
+                gasohol: 0.1377,
+                propane: 0.0942,
+                lng: 0.1449,
+                cng: 0.1377,
+                ethanol: 0.1377,
+                methanol: 0.1377,
+                biodiesel: 0.1449
+            },
+            ratesCAD: {
+                diesel: 0.2000,
+                gasoline: 0.1900
             }
         },
         "NS": {
             name: "Nova Scotia",
             abbrev: "NS",
-            country: "CA",
+            country: "CAN",
             rates: {
-                diesel: 0.1100,
-                gasoline: 0.1100,
-                gasohol: 0.1100,
-                propane: 0.0700,
-                lng: 0.1100,
-                cng: 0.1100,
-                ethanol: 0.1100,
-                methanol: 0.1100,
-                biodiesel: 0.1100
+                diesel: 0.1117,
+                gasoline: 0.1117,
+                gasohol: 0.1117,
+                propane: 0.0797,
+                lng: 0.1117,
+                cng: 0.1117,
+                ethanol: 0.1117,
+                methanol: 0.1117,
+                biodiesel: 0.1117
+            },
+            ratesCAD: {
+                diesel: 0.1542,
+                gasoline: 0.1542
             }
         },
         "ON": {
             name: "Ontario",
             abbrev: "ON",
-            country: "CA",
+            country: "CAN",
             rates: {
-                diesel: 0.1017,
-                gasoline: 0.0967,
-                gasohol: 0.0967,
-                propane: 0.0314,
-                lng: 0.1017,
-                cng: 0.1017,
-                ethanol: 0.0967,
-                methanol: 0.0967,
-                biodiesel: 0.1017
+                diesel: 0.1043,
+                gasoline: 0.0942,
+                gasohol: 0.0942,
+                propane: 0.0507,
+                lng: 0.1043,
+                cng: 0.0942,
+                ethanol: 0.0942,
+                methanol: 0.0942,
+                biodiesel: 0.1043
+            },
+            footnote: "#5",
+            ratesCAD: {
+                diesel: 0.1440,
+                gasoline: 0.1300
             }
         },
         "PE": {
             name: "Prince Edward Island",
             abbrev: "PE",
-            country: "CA",
+            country: "CAN",
             rates: {
-                diesel: 0.1449,
-                gasoline: 0.0966,
-                gasohol: 0.0966,
-                propane: 0.0966,
-                lng: 0.1449,
-                cng: 0.1449,
-                ethanol: 0.0966,
-                methanol: 0.0966,
-                biodiesel: 0.1449
+                diesel: 0.1855,
+                gasoline: 0.1072,
+                gasohol: 0.1072,
+                propane: 0.0000,
+                lng: 0.1855,
+                cng: 0.1072,
+                ethanol: 0.1072,
+                methanol: 0.1072,
+                biodiesel: 0.1855
+            },
+            footnote: "#27",
+            ratesCAD: {
+                diesel: 0.2560,
+                gasoline: 0.1480
             }
         },
         "QC": {
             name: "Quebec",
             abbrev: "QC",
-            country: "CA",
+            country: "CAN",
             rates: {
-                diesel: 0.1456,
-                gasoline: 0.1353,
-                gasohol: 0.1353,
-                propane: 0.0978,
-                lng: 0.1456,
-                cng: 0.1456,
-                ethanol: 0.1353,
-                methanol: 0.1353,
-                biodiesel: 0.1456
+                diesel: 0.1464,
+                gasoline: 0.1406,
+                gasohol: 0.1406,
+                propane: 0.0797,
+                lng: 0.1464,
+                cng: 0.1406,
+                ethanol: 0.1406,
+                methanol: 0.1406,
+                biodiesel: 0.1464
+            },
+            ratesCAD: {
+                diesel: 0.2020,
+                gasoline: 0.1941
             }
         },
         "SK": {
             name: "Saskatchewan",
             abbrev: "SK",
-            country: "CA",
+            country: "CAN",
             rates: {
-                diesel: 0.1050,
-                gasoline: 0.1050,
-                gasohol: 0.1050,
-                propane: 0.0700,
-                lng: 0.1050,
-                cng: 0.1050,
-                ethanol: 0.1050,
-                methanol: 0.1050,
-                biodiesel: 0.1050
-            }
-        },
-        "NT": {
-            name: "Northwest Territories",
-            abbrev: "NT",
-            country: "CA",
-            rates: {
-                diesel: 0.0635,
-                gasoline: 0.0740,
-                gasohol: 0.0740,
-                propane: 0.0635,
-                lng: 0.0635,
-                cng: 0.0635,
-                ethanol: 0.0740,
-                methanol: 0.0740,
-                biodiesel: 0.0635
-            }
-        },
-        "NU": {
-            name: "Nunavut",
-            abbrev: "NU",
-            country: "CA",
-            rates: {
-                diesel: 0.0635,
-                gasoline: 0.0640,
-                gasohol: 0.0640,
-                propane: 0.0635,
-                lng: 0.0635,
-                cng: 0.0635,
-                ethanol: 0.0640,
-                methanol: 0.0640,
-                biodiesel: 0.0635
-            }
-        },
-        "YT": {
-            name: "Yukon",
-            abbrev: "YT",
-            country: "CA",
-            rates: {
-                diesel: 0.0527,
-                gasoline: 0.0473,
-                gasohol: 0.0473,
-                propane: 0.0473,
-                lng: 0.0527,
-                cng: 0.0527,
-                ethanol: 0.0473,
-                methanol: 0.0473,
-                biodiesel: 0.0527
+                diesel: 0.1087,
+                gasoline: 0.1087,
+                gasohol: 0.1087,
+                propane: 0.0652,
+                lng: 0.1087,
+                cng: 0.1087,
+                ethanol: 0.1087,
+                methanol: 0.1087,
+                biodiesel: 0.1087
+            },
+            ratesCAD: {
+                diesel: 0.1500,
+                gasoline: 0.1500
             }
         }
-    },
-    
-    // Function to get tax rate for a jurisdiction and fuel type
-    getTaxRate: function(jurisdiction, fuelType = 'diesel') {
-        const j = this.jurisdictions[jurisdiction.toUpperCase()];
-        if (!j || !j.rates) return null;
-        return j.rates[fuelType.toLowerCase()] || j.rates.diesel;
-    },
-    
-    // Get all jurisdiction codes
-    getJurisdictionCodes: function() {
-        return Object.keys(this.jurisdictions);
-    },
-    
-    // Get jurisdiction name
-    getJurisdictionName: function(code) {
-        const j = this.jurisdictions[code.toUpperCase()];
-        return j ? j.name : null;
-    },
-    
-    // Check if jurisdiction exists
-    hasJurisdiction: function(code) {
-        return this.jurisdictions.hasOwnProperty(code.toUpperCase());
     }
 };
 
-// Special jurisdiction notes
-const JURISDICTION_NOTES = {
-    "OR": "Oregon uses weight-mile tax system. Diesel rate is $0.00 for IFTA reporting. Separate weight-mile taxes apply.",
-    "KY": "Rate includes base tax of $0.2200 plus $0.1050 surtax = $0.3250 total for diesel.",
-    "VA": "Rate includes base tax of $0.3270 plus $0.1430 surcharge = $0.4700 total for diesel.",
-    "IN": "Additional $.05 surcharge applies to propane and LNG.",
-    "CA": "California Special Diesel rate. Prepaid sales tax may also apply.",
-    "NY": "Rate shown is state portion only. Additional carrier tax may apply.",
-    "PA": "Pennsylvania Oil Company Franchise Tax rate."
+// Historical rate adjustments for past quarters (relative to Q4 2025 base rates)
+// This stores any rate changes between quarters
+const QUARTERLY_RATE_HISTORY = {
+    "Q4 2025": {}, // Current quarter - no adjustments
+    "Q3 2025": {
+        // Most rates stayed same in Q3 2025
+    },
+    "Q2 2025": {
+        // Q2 2025 rates
+        "CA": { diesel: 0.970, gasoline: 0.586 },
+    },
+    "Q1 2025": {
+        "CA": { diesel: 0.960, gasoline: 0.576 },
+    },
+    "Q4 2024": {
+        "CA": { diesel: 0.944, gasoline: 0.564 },
+        "PA": { diesel: 0.741, gasoline: 0.576 },
+    },
+    "Q3 2024": {
+        "CA": { diesel: 0.944, gasoline: 0.564 },
+        "PA": { diesel: 0.741, gasoline: 0.576 },
+    },
+    "Q2 2024": {
+        "CA": { diesel: 0.930, gasoline: 0.550 },
+        "PA": { diesel: 0.741, gasoline: 0.576 },
+    },
+    "Q1 2024": {
+        "CA": { diesel: 0.920, gasoline: 0.540 },
+        "PA": { diesel: 0.741, gasoline: 0.576 },
+    }
 };
 
-// Export for use in other modules
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { IFTA_TAX_RATES, JURISDICTION_NOTES };
+// Current active quarter for rate lookups
+let activeQuarter = "Q4 2025";
+
+// Set the active quarter for rate calculations
+function setActiveQuarter(quarter) {
+    if (typeof quarter === 'string') {
+        activeQuarter = quarter.trim();
+        console.log(`Active quarter set to: ${activeQuarter}`);
+    }
 }
+
+// Get the current active quarter
+function getActiveQuarter() {
+    return activeQuarter;
+}
+
+// Function to get rate for a jurisdiction and fuel type with quarter support
+function getTaxRate(jurisdictionCode, fuelType = 'diesel', quarter = null) {
+    // Use active quarter if not specified
+    const targetQuarter = quarter || activeQuarter;
+    
+    // Validate inputs
+    if (!jurisdictionCode || typeof jurisdictionCode !== 'string') {
+        console.warn('Invalid jurisdiction code:', jurisdictionCode);
+        return 0;
+    }
+    
+    const code = jurisdictionCode.toUpperCase().trim();
+    const jurisdiction = IFTA_TAX_RATES.jurisdictions[code];
+    
+    if (!jurisdiction) {
+        console.warn(`Unknown jurisdiction: ${code}`);
+        return 0;
+    }
+    
+    if (!jurisdiction.rates) {
+        console.warn(`No rates found for jurisdiction: ${code}`);
+        return 0;
+    }
+    
+    // Map fuel type names to the rate keys
+    const fuelTypeMap = {
+        'diesel': 'diesel',
+        'special diesel': 'diesel',
+        'gasoline': 'gasoline',
+        'gasohol': 'gasohol',
+        'propane': 'propane',
+        'lpg': 'propane',
+        'lng': 'lng',
+        'cng': 'cng',
+        'ethanol': 'ethanol',
+        'e-85': 'ethanol',
+        'e85': 'ethanol',
+        'methanol': 'methanol',
+        'm-85': 'methanol',
+        'm85': 'methanol',
+        'biodiesel': 'biodiesel'
+    };
+    
+    const normalizedFuelType = fuelTypeMap[(fuelType || 'diesel').toLowerCase()] || 'diesel';
+    
+    // Check for quarterly rate override first
+    const quarterAdjustments = QUARTERLY_RATE_HISTORY[targetQuarter];
+    if (quarterAdjustments && quarterAdjustments[code] && quarterAdjustments[code][normalizedFuelType] !== undefined) {
+        const rate = quarterAdjustments[code][normalizedFuelType];
+        return (typeof rate === 'number' && isFinite(rate) && rate >= 0) ? rate : 0;
+    }
+    
+    // Get base rate
+    const rate = jurisdiction.rates[normalizedFuelType];
+    
+    // Return rate or 0 if not found/invalid
+    return (typeof rate === 'number' && isFinite(rate) && rate >= 0) ? rate : 0;
+}
+
+// Validate that a rate is reasonable (between 0 and $2.00 per gallon)
+function validateRate(rate) {
+    return typeof rate === 'number' && isFinite(rate) && rate >= 0 && rate <= 2.0;
+}
+
+// Get rate with full validation
+function getValidatedTaxRate(jurisdictionCode, fuelType = 'diesel', quarter = null) {
+    const rate = getTaxRate(jurisdictionCode, fuelType, quarter);
+    if (!validateRate(rate)) {
+        console.warn(`Invalid rate for ${jurisdictionCode}/${fuelType}: ${rate}`);
+        return 0;
+    }
+    return rate;
+}
+
+// Get all jurisdictions as array for dropdowns
+function getJurisdictionList() {
+    return Object.entries(IFTA_TAX_RATES.jurisdictions)
+        .map(([code, data]) => ({
+            code,
+            name: data.name,
+            country: data.country
+        }))
+        .sort((a, b) => {
+            // Sort by country (US first), then by name
+            if (a.country !== b.country) {
+                return a.country === 'US' ? -1 : 1;
+            }
+            return a.name.localeCompare(b.name);
+        });
+}
+
+// Get US jurisdictions only
+function getUSJurisdictions() {
+    return getJurisdictionList().filter(j => j.country === 'US');
+}
+
+// Get Canadian jurisdictions only
+function getCanadianJurisdictions() {
+    return getJurisdictionList().filter(j => j.country === 'CAN');
+}
+
+// Calculate tax with bulletproof precision
+function calculateTax(netTaxableGallons, rate) {
+    // Validate inputs
+    if (typeof netTaxableGallons !== 'number' || !isFinite(netTaxableGallons)) {
+        return 0;
+    }
+    if (typeof rate !== 'number' || !isFinite(rate) || rate < 0) {
+        return 0;
+    }
+    
+    // Use precise decimal arithmetic
+    // Multiply by 10000 to avoid floating point errors, then divide
+    const gallonsCents = Math.round(netTaxableGallons * 10000);
+    const rateCents = Math.round(rate * 10000);
+    const taxCents = gallonsCents * rateCents / 10000;
+    
+    // Round to 2 decimal places
+    return Math.round(taxCents) / 10000;
+}
+
+// Verify calculation integrity
+function verifyCalculation(miles, mpg, taxPaidGallons, rate) {
+    if (mpg <= 0 || !isFinite(mpg)) {
+        return { valid: false, error: 'Invalid MPG' };
+    }
+    
+    const taxableGallons = miles / mpg;
+    const netTaxableGallons = taxableGallons - taxPaidGallons;
+    const taxDue = calculateTax(netTaxableGallons, rate);
+    
+    // Verify the math adds up
+    const verification = {
+        valid: true,
+        taxableGallons: Math.round(taxableGallons * 1000) / 1000,
+        netTaxableGallons: Math.round(netTaxableGallons * 1000) / 1000,
+        taxDue: Math.round(taxDue * 100) / 100,
+        formula: `(${miles} miles ÷ ${mpg} mpg) - ${taxPaidGallons} gal = ${Math.round(netTaxableGallons * 1000) / 1000} net gal × $${rate.toFixed(4)} = $${(Math.round(taxDue * 100) / 100).toFixed(2)}`
+    };
+    
+    return verification;
+}
+
+// Export for use in app.js
+window.IFTA_TAX_RATES = IFTA_TAX_RATES;
+window.QUARTERLY_RATE_HISTORY = QUARTERLY_RATE_HISTORY;
+window.getTaxRate = getTaxRate;
+window.getValidatedTaxRate = getValidatedTaxRate;
+window.setActiveQuarter = setActiveQuarter;
+window.getActiveQuarter = getActiveQuarter;
+window.getJurisdictionList = getJurisdictionList;
+window.getUSJurisdictions = getUSJurisdictions;
+window.getCanadianJurisdictions = getCanadianJurisdictions;
+window.calculateTax = calculateTax;
+window.verifyCalculation = verifyCalculation;
+window.validateRate = validateRate;
