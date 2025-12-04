@@ -44,26 +44,43 @@ const IFTAReports = {
     
     // Setup event listeners
     setupEventListeners() {
-        // Profile dropdown
+        // Profile dropdown - use event delegation for reliability
         const profileBtn = document.getElementById('profileBtn');
-        if (profileBtn) {
-            console.log('Profile button found, attaching listener');
+        const dropdown = document.getElementById('profileDropdown');
+        
+        if (profileBtn && dropdown) {
+            console.log('Profile button found, setting up dropdown');
+            
+            // Remove any existing handlers
+            profileBtn.onclick = null;
+            
+            // Add click handler
             profileBtn.addEventListener('click', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
-                console.log('Profile button clicked');
-                this.toggleProfileMenu();
+                console.log('Profile button clicked!');
+                
+                const isOpen = dropdown.classList.contains('open');
+                dropdown.classList.toggle('open');
+                console.log('Dropdown is now:', isOpen ? 'closed' : 'open');
+                
+                if (!isOpen) {
+                    this.updateProfileMenuInfo();
+                }
+            });
+            
+            // Close profile menu on outside click - but not when clicking inside
+            document.addEventListener('click', (e) => {
+                const profileBtn = document.getElementById('profileBtn');
+                if (dropdown.classList.contains('open') && 
+                    !dropdown.contains(e.target) && 
+                    e.target !== profileBtn) {
+                    dropdown.classList.remove('open');
+                }
             });
         } else {
-            console.log('Profile button NOT found');
+            console.error('Profile button NOT found!');
         }
-        
-        // Close profile menu on outside click
-        document.addEventListener('click', (e) => {
-            const dropdown = document.getElementById('profileDropdown');
-            if (dropdown && !dropdown.contains(e.target)) {
-                dropdown.classList.remove('open');
-            }
-        });
         
         // Profile menu items
         document.getElementById('menuSavedReports')?.addEventListener('click', () => this.openSavedReportsModal());
@@ -1582,63 +1599,7 @@ const IFTAReports = {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM ready, initializing IFTAReports...');
     
-    // Setup profile dropdown immediately (don't wait)
-    const profileBtn = document.getElementById('profileBtn');
-    const dropdown = document.getElementById('profileDropdown');
-    
-    if (profileBtn && dropdown) {
-        console.log('Setting up profile dropdown directly');
-        profileBtn.onclick = function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            console.log('Profile clicked!');
-            dropdown.classList.toggle('open');
-            
-            // Update user info when opening
-            if (typeof IFTAAuth !== 'undefined' && IFTAAuth.user) {
-                const userName = document.getElementById('menuUserName');
-                const userEmail = document.getElementById('menuUserEmail');
-                const profileName = document.getElementById('profileName');
-                const profileAvatar = document.getElementById('profileAvatar');
-                const adminLink = document.getElementById('menuAdminConsole');
-                
-                if (userName) userName.textContent = IFTAAuth.user.name || 'User';
-                if (userEmail) userEmail.textContent = IFTAAuth.user.email || '';
-                if (profileName) profileName.textContent = IFTAAuth.user.name?.split(' ')[0] || 'Account';
-                if (profileAvatar && IFTAAuth.user.name) {
-                    profileAvatar.textContent = IFTAAuth.user.name.charAt(0).toUpperCase();
-                }
-                
-                // Show admin link if admin
-                if (adminLink) {
-                    const adminEmails = ['milan.pericic@logistixnerd.com', 'milanpericic@gmail.com', 'admin@iftawizard.com'];
-                    const isAdmin = adminEmails.includes(IFTAAuth.user.email?.toLowerCase());
-                    adminLink.style.display = isAdmin ? 'flex' : 'none';
-                }
-            }
-        };
-        
-        // Close on outside click
-        document.addEventListener('click', function(e) {
-            if (!dropdown.contains(e.target)) {
-                dropdown.classList.remove('open');
-            }
-        });
-        
-        // Setup logout button
-        const logoutBtn = document.getElementById('menuLogout');
-        if (logoutBtn) {
-            logoutBtn.onclick = function() {
-                if (typeof IFTAAuth !== 'undefined') {
-                    IFTAAuth.logout();
-                }
-            };
-        }
-    } else {
-        console.error('Profile button or dropdown not found!', { profileBtn, dropdown });
-    }
-    
-    // Wait a bit for auth to initialize first
+    // Initialize IFTAReports after a brief delay to let auth load
     setTimeout(() => {
         try {
             IFTAReports.init();
