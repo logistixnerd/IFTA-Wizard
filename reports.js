@@ -170,7 +170,7 @@ const IFTAReports = {
     
     // ============ SAVED REPORTS ============
     
-    // Get saved reports
+    // Get saved reports (from localStorage, with Firebase sync)
     getSavedReports() {
         try {
             return JSON.parse(localStorage.getItem(this.STORAGE_KEYS.reports) || '[]');
@@ -179,14 +179,102 @@ const IFTAReports = {
         }
     },
     
-    // Save report
-    saveReport(reportData) {
+    // Sync reports from Firebase (call on init/login)
+    async syncReportsFromFirebase() {
+        if (typeof db === 'undefined' || !IFTAAuth?.user?.uid) return;
+        
+        try {
+            const snapshot = await db.collection('users')
+                .doc(IFTAAuth.user.uid)
+                .collection('reports')
+                .orderBy('createdAt', 'desc')
+                .get();
+            
+            if (snapshot.empty) return;
+            
+            const firebaseReports = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            
+            // Merge with local reports (Firebase takes precedence)
+            const localReports = this.getSavedReports();
+            const mergedReports = [...firebaseReports];
+            
+            // Add local reports that aren't in Firebase
+            localReports.forEach(local => {
+                if (!mergedReports.find(r => r.id === local.id)) {
+                    mergedReports.push(local);
+                    // Also save this local report to Firebase
+                    this.saveReportToFirebase(local);
+                }
+            });
+            
+            // Sort by date
+            mergedReports.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            
+            // Update local storage
+            localStorage.setItem(this.STORAGE_KEYS.reports, JSON.stringify(mergedReports));
+            this.updateReportsCount();
+            
+            console.log('Reports synced from Firebase:', mergedReports.length);
+        } catch (error) {
+            console.error('Error syncing reports from Firebase:', error);
+        }
+    },
+    
+    // Save report to Firebase
+    async saveReportToFirebase(reportData) {
+        if (typeof db === 'undefined' || !IFTAAuth?.user?.uid) return null;
+        
+        try {
+            const reportRef = db.collection('users')
+                .doc(IFTAAuth.user.uid)
+                .collection('reports')
+                .doc(reportData.id);
+            
+            await reportRef.set({
+                name: reportData.name,
+                notes: reportData.notes || '',
+                quarter: reportData.quarter,
+                createdAt: reportData.createdAt || new Date().toISOString(),
+                data: reportData.data,
+                summary: reportData.summary,
+                options: reportData.options || {},
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
+            return reportData.id;
+        } catch (error) {
+            console.error('Error saving report to Firebase:', error);
+            return null;
+        }
+    },
+    
+    // Delete report from Firebase
+    async deleteReportFromFirebase(reportId) {
+        if (typeof db === 'undefined' || !IFTAAuth?.user?.uid) return;
+        
+        try {
+            await db.collection('users')
+                .doc(IFTAAuth.user.uid)
+                .collection('reports')
+                .doc(reportId)
+                .delete();
+        } catch (error) {
+            console.error('Error deleting report from Firebase:', error);
+        }
+    },
+    
+    // Save report (to both localStorage and Firebase)
+    async saveReport(reportData) {
         const reports = this.getSavedReports();
         const newReport = {
             id: 'report_' + Date.now(),
             name: reportData.name,
             notes: reportData.notes || '',
             quarter: reportData.quarter,
+            options: reportData.options || {},
             createdAt: new Date().toISOString(),
             data: reportData.data,
             summary: reportData.summary
@@ -196,15 +284,21 @@ const IFTAReports = {
         localStorage.setItem(this.STORAGE_KEYS.reports, JSON.stringify(reports));
         this.updateReportsCount();
         
+        // Also save to Firebase
+        await this.saveReportToFirebase(newReport);
+        
         return newReport;
     },
     
-    // Delete report
-    deleteReport(reportId) {
+    // Delete report (from both localStorage and Firebase)
+    async deleteReport(reportId) {
         let reports = this.getSavedReports();
         reports = reports.filter(r => r.id !== reportId);
         localStorage.setItem(this.STORAGE_KEYS.reports, JSON.stringify(reports));
         this.updateReportsCount();
+        
+        // Also delete from Firebase
+        await this.deleteReportFromFirebase(reportId);
     },
     
     // Update reports count badge

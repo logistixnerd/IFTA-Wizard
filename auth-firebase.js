@@ -89,6 +89,11 @@ const IFTAAuth = {
                 this.hideAuthModal();
                 this.updateUIForLoggedInUser();
                 
+                // Sync reports from Firebase
+                if (typeof IFTAReports !== 'undefined' && IFTAReports.syncReportsFromFirebase) {
+                    IFTAReports.syncReportsFromFirebase();
+                }
+                
                 // Log activity
                 this.logActivity('login', `${this.user.email} signed in`);
                 
@@ -104,6 +109,11 @@ const IFTAAuth = {
                 this.isAuthenticated = true;
                 this.hideAuthModal();
                 this.updateUIForLoggedInUser();
+                
+                // Still try to sync reports
+                if (typeof IFTAReports !== 'undefined' && IFTAReports.syncReportsFromFirebase) {
+                    IFTAReports.syncReportsFromFirebase();
+                }
             }
         } else {
             // User is signed out

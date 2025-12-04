@@ -49,6 +49,15 @@ service cloud.firestore {
       
       // Only admins can delete
       allow delete: if isAdmin();
+      
+      // User's reports subcollection
+      match /reports/{reportId} {
+        // Users can read their own reports
+        allow read: if isOwner(userId);
+        
+        // Users can create, update, delete their own reports
+        allow create, update, delete: if isOwner(userId);
+      }
     }
     
     // ==========================================
