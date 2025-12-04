@@ -9,7 +9,9 @@ const AdminPanel = {
     
     // List of admin emails (add your email here)
     adminEmails: [
-        'milan.pericic@logistixnerd.com'
+        'milan.pericic@logistixnerd.com',
+        'milanpericic@gmail.com',
+        'admin@iftawizard.com'
     ],
     
     // Initialize admin panel

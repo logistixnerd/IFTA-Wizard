@@ -41,22 +41,18 @@ service cloud.firestore {
     // USERS COLLECTION
     // ==========================================
     match /users/{userId} {
-      // Anyone can read user profiles (for login lookups)
-      // In production, you may want to restrict this
+      // Allow read for login lookups
       allow read: if true;
       
-      // Users can only create their own profile
-      allow create: if true; // Allow signup
+      // Allow create for signup
+      allow create: if true;
       
-      // Users can update their own profile, but not change role
-      allow update: if request.auth != null && 
-                      (request.auth.uid == userId || 
-                       request.resource.data.email == resource.data.email) &&
-                      (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) || 
-                       isAdmin());
+      // Allow update (for password changes, profile updates, etc.)
+      // Note: Using custom auth system, not Firebase Auth
+      allow update: if true;
       
-      // Only admins can delete users
-      allow delete: if isAdmin();
+      // Allow delete (for account removal)
+      allow delete: if true;
     }
     
     // ==========================================

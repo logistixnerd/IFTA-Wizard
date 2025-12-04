@@ -39,7 +39,9 @@ const IFTAAuth = {
     
     // Admin emails - show admin link for these users
     adminEmails: [
-        'milan.pericic@logistixnerd.com'
+        'milan.pericic@logistixnerd.com',
+        'milanpericic@gmail.com',
+        'admin@iftawizard.com'
     ],
     
     // Initialize authentication
