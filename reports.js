@@ -47,10 +47,14 @@ const IFTAReports = {
         // Profile dropdown
         const profileBtn = document.getElementById('profileBtn');
         if (profileBtn) {
+            console.log('Profile button found, attaching listener');
             profileBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
+                console.log('Profile button clicked');
                 this.toggleProfileMenu();
             });
+        } else {
+            console.log('Profile button NOT found');
         }
         
         // Close profile menu on outside click
@@ -122,8 +126,10 @@ const IFTAReports = {
     // Toggle profile menu
     toggleProfileMenu() {
         const dropdown = document.getElementById('profileDropdown');
+        console.log('toggleProfileMenu called, dropdown:', dropdown);
         if (dropdown) {
             dropdown.classList.toggle('open');
+            console.log('Dropdown classes:', dropdown.className);
             this.updateProfileMenuInfo();
         }
     },

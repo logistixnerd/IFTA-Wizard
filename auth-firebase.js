@@ -691,42 +691,9 @@ const IFTAAuth = {
             headerAvatar.textContent = '';
         }
         
-        // Setup profile toggle
-        this.setupProfileToggle();
+        // Note: Profile toggle is handled by reports.js
     },
-    
-    // Setup profile menu toggle
-    setupProfileToggle() {
-        const userBtn = document.getElementById('profileBtn');
-        const profileMenu = document.getElementById('profileMenu');
-        
-        if (!userBtn || !profileMenu) return;
-        
-        // Remove old listeners by cloning
-        const newBtn = userBtn.cloneNode(true);
-        userBtn.parentNode.replaceChild(newBtn, userBtn);
-        
-        newBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            profileMenu.classList.toggle('active');
-        });
-        
-        // Close on outside click
-        document.addEventListener('click', (e) => {
-            if (!profileMenu.contains(e.target) && !newBtn.contains(e.target)) {
-                profileMenu.classList.remove('active');
-            }
-        });
-        
-        // Re-attach logout listener
-        const logoutBtn = document.getElementById('menuLogout');
-        if (logoutBtn) {
-            const newLogout = logoutBtn.cloneNode(true);
-            logoutBtn.parentNode.replaceChild(newLogout, logoutBtn);
-            newLogout.addEventListener('click', () => this.logout());
-        }
-    },
-    
+
     // Populate header quarter dropdown
     populateHeaderQuarter() {
         const headerSelect = document.getElementById('headerQuarterSelect');
