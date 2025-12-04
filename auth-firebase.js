@@ -611,6 +611,8 @@ const IFTAAuth = {
         const modal = document.getElementById('authModal');
         if (modal) {
             modal.classList.remove('hidden');
+            modal.style.display = 'flex'; // Show the modal
+            console.log('Auth modal shown');
         }
     },
     
@@ -619,6 +621,8 @@ const IFTAAuth = {
         const modal = document.getElementById('authModal');
         if (modal) {
             modal.classList.add('hidden');
+            modal.style.display = 'none'; // Force hide as fallback
+            console.log('Auth modal hidden');
         }
     },
     
