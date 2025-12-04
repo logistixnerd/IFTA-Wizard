@@ -867,20 +867,30 @@ function updateTotals() {
         totalTax += row.taxDue || 0;
     });
     
-    // Update table footer - use whole numbers for miles and gallons
-    document.getElementById('totalMiles').textContent = formatNumber(Math.round(totalMiles));
-    document.getElementById('totalTaxableMiles').textContent = formatNumber(Math.round(totalTaxableMiles));
-    document.getElementById('totalGallons').textContent = formatNumber(Math.round(totalGallons));
-    document.getElementById('totalTaxableGallons').textContent = formatNumber(Math.round(totalTaxableGallons));
-    document.getElementById('totalNetGallons').textContent = formatNumber(Math.round(totalNetGallons));
+    // Update table footer - use whole numbers for miles and gallons (with null checks)
+    const totalMilesEl = document.getElementById('totalMiles');
+    const totalTaxableMilesEl = document.getElementById('totalTaxableMiles');
+    const totalGallonsEl = document.getElementById('totalGallons');
+    const totalTaxableGallonsEl = document.getElementById('totalTaxableGallons');
+    const totalNetGallonsEl = document.getElementById('totalNetGallons');
+    
+    if (totalMilesEl) totalMilesEl.textContent = formatNumber(Math.round(totalMiles));
+    if (totalTaxableMilesEl) totalTaxableMilesEl.textContent = formatNumber(Math.round(totalTaxableMiles));
+    if (totalGallonsEl) totalGallonsEl.textContent = formatNumber(Math.round(totalGallons));
+    if (totalTaxableGallonsEl) totalTaxableGallonsEl.textContent = formatNumber(Math.round(totalTaxableGallons));
+    if (totalNetGallonsEl) totalNetGallonsEl.textContent = formatNumber(Math.round(totalNetGallons));
     
     const totalTaxCell = document.getElementById('totalTax');
-    totalTaxCell.textContent = formatCurrency(roundTo(totalTax, 2));
-    totalTaxCell.className = `tax-amount ${totalTax >= 0 ? 'positive' : 'negative'}`;
+    if (totalTaxCell) {
+        totalTaxCell.textContent = formatCurrency(roundTo(totalTax, 2));
+        totalTaxCell.className = `tax-amount ${totalTax >= 0 ? 'positive' : 'negative'}`;
+    }
     
     // Update summary cards
-    document.getElementById('summaryMiles').textContent = formatNumber(Math.round(totalMiles));
-    document.getElementById('summaryGallons').textContent = formatNumber(Math.round(totalGallons));
+    const summaryMilesEl = document.getElementById('summaryMiles');
+    const summaryGallonsEl = document.getElementById('summaryGallons');
+    if (summaryMilesEl) summaryMilesEl.textContent = formatNumber(Math.round(totalMiles));
+    if (summaryGallonsEl) summaryGallonsEl.textContent = formatNumber(Math.round(totalGallons));
     
     // Calculate and display Current MPG (from this report's data)
     const currentMpg = totalGallons > 0 ? totalMiles / totalGallons : 0;
@@ -892,15 +902,18 @@ function updateTotals() {
     }
     
     // Update summary bar MPG
-    document.getElementById('summaryMpg').textContent = currentMpg > 0 ? currentMpg.toFixed(2) : '—';
+    const summaryMpgEl = document.getElementById('summaryMpg');
+    if (summaryMpgEl) summaryMpgEl.textContent = currentMpg > 0 ? currentMpg.toFixed(2) : '—';
     
     const summaryTax = document.getElementById('summaryTax');
-    summaryTax.textContent = formatCurrency(roundTo(totalTax, 2));
+    if (summaryTax) summaryTax.textContent = formatCurrency(roundTo(totalTax, 2));
 }
 
 // Update the rates reference table
 function updateRatesTable() {
     const tbody = document.getElementById('ratesTableBody');
+    if (!tbody) return;
+    
     tbody.innerHTML = '';
     
     const jurisdictions = getJurisdictionList();

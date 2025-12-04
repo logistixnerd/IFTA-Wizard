@@ -189,6 +189,24 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     
     <script>
+        // SECURITY: Only allow on localhost or with special key
+        const isLocalhost = window.location.hostname === 'localhost' || 
+                           window.location.hostname === '127.0.0.1' ||
+                           window.location.hostname.includes('.local');
+        const hasSetupKey = new URLSearchParams(window.location.search).get('key') === 'ifta-setup-2025';
+        
+        if (!isLocalhost && !hasSetupKey) {
+            document.body.innerHTML = `
+                <div style="max-width: 400px; margin: 50px auto; text-align: center; font-family: sans-serif; padding: 20px;">
+                    <h1 style="color: #c62828;">⚠️ Access Denied</h1>
+                    <p style="color: #666;">This page is only accessible on localhost for security reasons.</p>
+                    <p style="color: #888; font-size: 14px; margin-top: 20px;">If you need to set up an account, please run this locally or contact an administrator.</p>
+                    <a href="index.html" style="display: inline-block; margin-top: 20px; padding: 12px 24px; background: #5b9bd5; color: white; text-decoration: none; border-radius: 8px;">Go to IFTA Wizard</a>
+                </div>
+            `;
+            throw new Error('Access denied - setup page is localhost only');
+        }
+        
         // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyDrjI76QLlhLnmX80_XdFaD4QHP32I9QxY",

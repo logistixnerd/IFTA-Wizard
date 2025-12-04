@@ -690,21 +690,11 @@ const IFTAAuth = {
     
     // Handle Sign Up (Creates account, then requires email verification)
     handleSignUp() {
-        console.log('=== handleSignUp START ===');
-        
         const emailEl = document.getElementById('authEmail');
         const passwordEl = document.getElementById('authPassword');
         const passwordConfirmEl = document.getElementById('authPasswordConfirm');
         const nameEl = document.getElementById('authName');
         const companyEl = document.getElementById('authCompany');
-        
-        console.log('Form elements found:', {
-            emailEl: !!emailEl,
-            passwordEl: !!passwordEl,
-            passwordConfirmEl: !!passwordConfirmEl,
-            nameEl: !!nameEl,
-            companyEl: !!companyEl
-        });
         
         const email = emailEl?.value?.trim() || '';
         const password = passwordEl?.value || '';
@@ -712,67 +702,51 @@ const IFTAAuth = {
         const name = nameEl?.value?.trim() || '';
         const company = companyEl?.value?.trim() || '';
         
-        console.log('SignUp values:', { email, password: password ? '***' : '', name, company });
-        
         // Validate
         let hasError = false;
         
         if (!email) {
-            console.log('Error: Email is empty');
             this.showFieldError('authEmail', 'Email is required');
             hasError = true;
         } else if (!this.isValidEmail(email)) {
-            console.log('Error: Invalid email');
             this.showFieldError('authEmail', 'Please enter a valid email');
             hasError = true;
         }
         
         if (!password) {
-            console.log('Error: Password is empty');
             this.showFieldError('authPassword', 'Password is required');
             hasError = true;
         } else if (password.length < 6) {
-            console.log('Error: Password too short');
             this.showFieldError('authPassword', 'Password must be at least 6 characters');
             hasError = true;
         }
         
         if (password !== passwordConfirm) {
-            console.log('Error: Passwords do not match');
             this.showFieldError('authPasswordConfirm', 'Passwords do not match');
             hasError = true;
         }
         
         if (!name) {
-            console.log('Error: Name is empty');
             this.showFieldError('authName', 'Name is required');
             hasError = true;
         }
         
         if (hasError) {
-            console.log('Validation failed, hasError:', hasError);
             return;
         }
         
-        console.log('Validation passed, calling registerUser...');
-        
         // Register (creates unverified account)
         const result = this.registerUser(email, password, name, company);
-        console.log('registerUser result:', result);
         
         if (result.success) {
             // Account created, now verify email
             this.pendingUser = result.user;
             this.verificationType = 'signup';
-            console.log('Sending verification code...');
             this.sendVerificationCode(email, name);
         } else {
-            console.log('Registration failed:', result.error);
             // Show error inline on the form only (no toast)
             this.showFormError('signup', result.error);
         }
-        
-        console.log('=== handleSignUp END ===');
     },
     
     // ==========================================
@@ -1355,9 +1329,9 @@ const IFTAAuth = {
         }
     },
     
-    // Save lead data (in production, this would go to a backend)
-    saveLead(userData) {
-        // Get existing leads
+    // Save lead data to localStorage and Firebase
+    async saveLead(userData) {
+        // Get existing leads from localStorage
         let leads = [];
         try {
             leads = JSON.parse(localStorage.getItem('ifta_leads') || '[]');
@@ -1365,24 +1339,40 @@ const IFTAAuth = {
             leads = [];
         }
         
-        // Check if email already exists
-        const existingIndex = leads.findIndex(l => l.email === userData.email);
+        const leadData = {
+            email: userData.email?.toLowerCase() || '',
+            name: userData.name || '',
+            company: userData.company || '',
+            signupMethod: userData.signupMethod || 'email',
+            source: window.location.hostname || 'direct'
+        };
+        
+        // Check if email already exists locally
+        const existingIndex = leads.findIndex(l => l.email?.toLowerCase() === leadData.email);
         if (existingIndex >= 0) {
             // Update existing lead
-            leads[existingIndex] = { ...leads[existingIndex], ...userData, lastLogin: new Date().toISOString() };
+            leads[existingIndex] = { ...leads[existingIndex], ...leadData, lastLogin: new Date().toISOString() };
         } else {
             // Add new lead
-            leads.push({
-                ...userData,
-                leadId: 'lead_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-                createdAt: new Date().toISOString()
-            });
+            leadData.leadId = 'lead_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            leadData.createdAt = new Date().toISOString();
+            leads.push(leadData);
         }
         
         localStorage.setItem('ifta_leads', JSON.stringify(leads));
         
-        // Log lead capture (in production, send to analytics/CRM)
-        console.log('Lead captured:', userData);
+        // Also save to Firebase leads collection
+        if (this.firebaseReady && typeof db !== 'undefined') {
+            try {
+                const leadRef = db.collection('leads').doc(leadData.email.replace(/[^a-zA-Z0-9]/g, '_'));
+                await leadRef.set({
+                    ...leadData,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+            } catch (e) {
+                // Silent fail - leads are not critical
+            }
+        }
     },
     
     // Update UI for logged in user

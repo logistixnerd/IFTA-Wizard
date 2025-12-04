@@ -16,28 +16,19 @@ const AdminPanel = {
     
     // Initialize admin panel
     async init() {
-        console.log('Initializing Admin Panel...');
-        
         // Check localStorage authentication first
         const savedUser = localStorage.getItem('ifta_user');
-        console.log('Saved user from localStorage:', savedUser);
         
         if (!savedUser) {
-            console.log('No user in localStorage, showing access denied...');
             this.showAccessDenied();
             return;
         }
         
         try {
             this.currentUser = JSON.parse(savedUser);
-            console.log('Current user:', this.currentUser);
-            console.log('User email:', this.currentUser.email);
-            console.log('Admin emails:', this.adminEmails);
-            console.log('Is admin check:', this.isAdmin(this.currentUser.email));
             
             // Check if user is admin
             if (this.isAdmin(this.currentUser.email)) {
-                console.log('User is admin, showing panel...');
                 this.showAdminPanel();
                 this.loadUserProfileFromLocal();
                 this.setupEventListeners();
@@ -48,11 +39,10 @@ const AdminPanel = {
                 // Load dashboard data
                 await this.loadDashboardData();
             } else {
-                console.log('User is not admin');
                 this.showAccessDenied();
             }
         } catch (e) {
-            console.error('Error parsing user:', e);
+            console.error('Error initializing admin panel:', e);
             this.showAccessDenied();
         }
     },
@@ -70,10 +60,9 @@ const AdminPanel = {
                 if (firebase.apps.length === 0 && typeof initializeFirebase === 'function') {
                     initializeFirebase();
                 }
-                console.log('Firebase initialized for admin panel');
             }
         } catch (error) {
-            console.log('Firebase not available, using localStorage only');
+            // Firebase not available, using localStorage only
         }
     },
     

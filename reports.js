@@ -18,13 +18,26 @@ const IFTAReports = {
     
     driveConnected: false,
     driveUser: null,
+    driveEnabled: false,  // Will be true only if credentials are configured
     
     // Initialize
     init() {
+        // Check if Google Drive is properly configured
+        this.driveEnabled = this.GOOGLE_CONFIG.clientId !== 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com' &&
+                           this.GOOGLE_CONFIG.apiKey !== 'YOUR_GOOGLE_API_KEY';
+        
+        // Hide Google Drive button if not configured
+        const driveBtn = document.getElementById('saveToDrive');
+        if (driveBtn && !this.driveEnabled) {
+            driveBtn.style.display = 'none';
+        }
+        
         this.setupEventListeners();
         this.loadPreferences();
         this.updateReportsCount();
-        this.checkDriveConnection();
+        if (this.driveEnabled) {
+            this.checkDriveConnection();
+        }
     },
     
     // Setup event listeners
@@ -768,6 +781,12 @@ const IFTAReports = {
     
     // Save to Google Drive
     saveToDrive() {
+        if (!this.driveEnabled) {
+            showToast('Google Drive integration is not configured', 'error');
+            this.closeModal('driveModal');
+            return;
+        }
+        
         const folderName = document.getElementById('driveFolderName')?.value?.trim() || 'IFTA Reports';
         const saveCurrentReport = document.getElementById('driveCurrentReport')?.checked;
         
