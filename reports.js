@@ -200,6 +200,13 @@ const IFTAReports = {
     async syncReportsFromFirebase() {
         if (typeof db === 'undefined' || !IFTAAuth?.user?.uid) return;
         
+        // Show syncing indicator
+        const reportsCount = document.getElementById('reportsCount');
+        if (reportsCount) {
+            reportsCount.innerHTML = '<span class="sync-spinner">↻</span>';
+            reportsCount.title = 'Syncing reports...';
+        }
+        
         try {
             // Try to get reports without ordering first (in case index doesn't exist)
             let snapshot;
@@ -218,7 +225,10 @@ const IFTAReports = {
                     .get();
             }
             
-            if (snapshot.empty) return;
+            if (snapshot.empty) {
+                this.updateReportsCount();
+                return;
+            }
             
             const firebaseReports = snapshot.docs.map(doc => ({
                 id: doc.id,
@@ -244,8 +254,6 @@ const IFTAReports = {
             // Update local storage
             localStorage.setItem(this.STORAGE_KEYS.reports, JSON.stringify(mergedReports));
             this.updateReportsCount();
-            
-            console.log('Reports synced from Firebase:', mergedReports.length);
         } catch (error) {
             console.error('Error syncing reports from Firebase:', error);
         }

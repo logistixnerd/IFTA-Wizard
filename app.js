@@ -305,6 +305,52 @@ function attachEventListeners() {
     document.getElementById('exportExcel').addEventListener('click', exportToExcel);
     document.getElementById('printReport').addEventListener('click', printReport);
     
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        // Only handle shortcuts when not in an input field
+        const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT';
+        
+        // Ctrl/Cmd + key shortcuts
+        if (e.ctrlKey || e.metaKey) {
+            switch(e.key.toLowerCase()) {
+                case 's':
+                    // Ctrl+S: Save Report
+                    e.preventDefault();
+                    if (typeof IFTAReports !== 'undefined') {
+                        IFTAReports.openSaveReportModal();
+                    }
+                    break;
+                case 'e':
+                    // Ctrl+E: Export PDF
+                    e.preventDefault();
+                    exportToPdf();
+                    break;
+                case 'n':
+                    // Ctrl+N: Add new row (only if not in input)
+                    if (!isInput) {
+                        e.preventDefault();
+                        addNewRow();
+                    }
+                    break;
+                case 'p':
+                    // Ctrl+P: Print
+                    e.preventDefault();
+                    printReport();
+                    break;
+            }
+        }
+        
+        // Escape to close modals
+        if (e.key === 'Escape') {
+            const openModals = document.querySelectorAll('.modal:not(.hidden)');
+            openModals.forEach(modal => modal.classList.add('hidden'));
+            
+            // Also close profile dropdown
+            const dropdown = document.getElementById('profileDropdown');
+            if (dropdown) dropdown.classList.remove('open');
+        }
+    });
+    
     // Note: saveReport, sendEmail, saveToDrive are handled by reports.js
 }
 

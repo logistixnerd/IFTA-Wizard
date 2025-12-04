@@ -2443,3 +2443,21 @@ button:focus-visible, input:focus-visible, select:focus-visible {
         grid-template-columns: 1fr;
     }
 }
+
+/* Sync spinner animation */
+.sync-spinner {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Keyboard shortcut hints */
+.shortcut-hint {
+    font-size: 0.65rem;
+    color: var(--gray-400);
+    margin-left: 0.5rem;
+}
