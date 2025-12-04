@@ -9,12 +9,14 @@ const IFTAAuth = {
     firebaseReady: false,
     authStateInitialized: false,
     
-    // Admin emails - show admin link for these users (lowercase)
-    adminEmails: [
-        'milan.pericic@logistixnerd.com',
-        'milanpericic@gmail.com',
-        'admin@iftawizard.com'
-    ].map(e => e.toLowerCase()),
+    // Admin emails - use centralized list from firebase-config.js or fallback
+    get adminEmails() {
+        return window.ADMIN_EMAILS || [
+            'milan.pericic@logistixnerd.com',
+            'milanpericic@gmail.com',
+            'admin@iftawizard.com'
+        ].map(e => e.toLowerCase());
+    },
     
     // Initialize authentication
     init() {

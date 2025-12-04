@@ -7,7 +7,7 @@ const IFTASecurity = {
     config: {
         maxLoginAttempts: 5,
         lockoutDuration: 15 * 60 * 1000, // 15 minutes
-        sessionTimeout: 30 * 60 * 1000, // 30 minutes of inactivity
+        sessionTimeout: 60 * 60 * 1000, // 1 hour of inactivity (was 30 min, too short)
         csrfTokenLength: 32,
         rateLimitWindow: 60 * 1000, // 1 minute
         rateLimitMax: 100, // max requests per window
@@ -69,19 +69,17 @@ const IFTASecurity = {
     // ==========================================
     
     setupXSSProtection() {
-        // Override innerHTML to sanitize content
-        const originalInnerHTML = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
-        const self = this;
-        
-        Object.defineProperty(Element.prototype, 'innerHTML', {
-            set: function(value) {
-                const sanitized = self.sanitizeHTML(value);
-                originalInnerHTML.set.call(this, sanitized);
-            },
-            get: function() {
-                return originalInnerHTML.get.call(this);
-            }
-        });
+        // Instead of overriding innerHTML globally (which breaks libraries),
+        // provide a safe sanitization method to use when setting user content
+        // The sanitizeHTML and escapeHTML methods are available for explicit use
+        console.log('XSS protection methods available: IFTASecurity.sanitizeHTML(), IFTASecurity.escapeHTML()');
+    },
+    
+    // Safe innerHTML setter - use this when setting user-provided content
+    safeSetHTML(element, html) {
+        if (element) {
+            element.innerHTML = this.sanitizeHTML(html);
+        }
     },
     
     // Sanitize HTML to prevent XSS
@@ -297,15 +295,24 @@ const IFTASecurity = {
     handleSessionTimeout() {
         // Clear session
         localStorage.removeItem('ifta_user');
+        localStorage.removeItem('ifta_login_time');
         sessionStorage.clear();
         
-        // Notify user and redirect
+        // Notify user
         if (typeof showToast === 'function') {
             showToast('Session expired due to inactivity. Please log in again.', 'warning');
         }
         
-        // Reload to show login screen
-        setTimeout(() => window.location.reload(), 2000);
+        // Use Firebase logout if available, otherwise reload
+        if (typeof firebase !== 'undefined' && firebase.auth) {
+            firebase.auth().signOut().then(() => {
+                // Auth state listener will show login modal
+            }).catch(() => {
+                window.location.reload();
+            });
+        } else {
+            setTimeout(() => window.location.reload(), 2000);
+        }
         
         this.logSecurityEvent('session_timeout', {});
     },

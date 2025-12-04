@@ -7,12 +7,14 @@ const AdminPanel = {
     selectedUserId: null,
     selectedApprovalId: null,
     
-    // List of admin emails (add your email here)
-    adminEmails: [
-        'milan.pericic@logistixnerd.com',
-        'milanpericic@gmail.com',
-        'admin@iftawizard.com'
-    ],
+    // Admin emails - use centralized list from firebase-config.js or fallback
+    get adminEmails() {
+        return window.ADMIN_EMAILS || [
+            'milan.pericic@logistixnerd.com',
+            'milanpericic@gmail.com',
+            'admin@iftawizard.com'
+        ];
+    },
     
     // Initialize admin panel
     async init() {

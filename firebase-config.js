@@ -427,52 +427,63 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// ADMIN SETUP - Make current logged-in user an admin
+// CENTRALIZED ADMIN EMAILS - Single source of truth
 // ==========================================
+const ADMIN_EMAILS = [
+    'milan.pericic@logistixnerd.com',
+    'milanpericic@gmail.com',
+    'admin@iftawizard.com'
+].map(e => e.toLowerCase());
 
-// Call this from browser console while logged in: makeCurrentUserAdmin()
-window.makeCurrentUserAdmin = async function() {
-    if (!db) {
-        console.error('Firebase not initialized. Please refresh the page and try again.');
-        return;
-    }
-    
-    const currentUser = firebase.auth().currentUser;
-    if (!currentUser) {
-        console.error('❌ You must be logged in first! Sign in with Google or Email, then run this again.');
-        return;
-    }
-    
-    try {
-        const userRef = db.collection('users').doc(currentUser.uid);
-        const userDoc = await userRef.get();
-        
-        if (userDoc.exists) {
-            await userRef.update({
-                role: 'admin',
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        } else {
-            await userRef.set({
-                email: currentUser.email,
-                name: currentUser.displayName || 'Admin',
-                role: 'admin',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        }
-        
-        console.log(`✅ SUCCESS! ${currentUser.email} (UID: ${currentUser.uid}) is now an ADMIN`);
-        console.log('🔄 Please refresh the page to see admin features.');
-    } catch (error) {
-        console.error('Error setting up admin:', error);
-    }
-};
+// Export for other modules
+window.ADMIN_EMAILS = ADMIN_EMAILS;
 
+// ==========================================
+// ADMIN SETUP - Development only for security
+// ==========================================
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
 if (isDevelopment) {
-    // Call this from browser console: setupAdmin('your@email.com')
+    // Make current logged-in user an admin (DEV ONLY)
+    window.makeCurrentUserAdmin = async function() {
+        if (!db) {
+            console.error('Firebase not initialized. Please refresh the page and try again.');
+            return;
+        }
+        
+        const currentUser = firebase.auth().currentUser;
+        if (!currentUser) {
+            console.error('❌ You must be logged in first! Sign in with Google or Email, then run this again.');
+            return;
+        }
+        
+        try {
+            const userRef = db.collection('users').doc(currentUser.uid);
+            const userDoc = await userRef.get();
+            
+            if (userDoc.exists) {
+                await userRef.update({
+                    role: 'admin',
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } else {
+                await userRef.set({
+                    email: currentUser.email,
+                    name: currentUser.displayName || 'Admin',
+                    role: 'admin',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+            
+            console.log(`✅ SUCCESS! ${currentUser.email} (UID: ${currentUser.uid}) is now an ADMIN`);
+            console.log('🔄 Please refresh the page to see admin features.');
+        } catch (error) {
+            console.error('Error setting up admin:', error);
+        }
+    };
+
+    // Setup admin by email (DEV ONLY)
     window.setupAdmin = async function(email) {
         if (!db) {
             console.error('Firebase not initialized. Please refresh the page and try again.');
@@ -486,95 +497,29 @@ if (isDevelopment) {
         
         try {
             const emailLower = email.toLowerCase();
-            const docId = emailLower.replace(/[^a-zA-Z0-9]/g, '_');
-            const userRef = db.collection('users').doc(docId);
-            const userDoc = await userRef.get();
+            // Find user by email query instead of document ID
+            const usersRef = db.collection('users');
+            const snapshot = await usersRef.where('email', '==', emailLower).get();
             
-            if (userDoc.exists) {
-                await userRef.update({
+            if (!snapshot.empty) {
+                const userDoc = snapshot.docs[0];
+                await userDoc.ref.update({
                     role: 'admin',
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
                 console.log(`✅ ${email} has been upgraded to ADMIN role`);
             } else {
-                await userRef.set({
-                    email: emailLower,
-                    name: 'Admin',
-                    role: 'admin',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                console.log(`✅ Admin user created for ${email}`);
+                console.error(`❌ No user found with email: ${email}`);
+                console.log('The user must sign up first before being made admin.');
             }
-        } catch (error) {
-            console.error('Error setting up admin:', error);
-        }
-    };
-
-    // Call this from browser console: setupAdminWithPassword('your@email.com', 'yourpassword')
-    window.setupAdminWithPassword = async function(email, password) {
-        if (!db) {
-            console.error('Firebase not initialized. Please refresh the page and try again.');
-            return;
-        }
-        
-        if (!email || !password) {
-            console.error('Please provide email and password: setupAdminWithPassword("your@email.com", "yourpassword")');
-            return;
-        }
-        
-        if (password.length < 6) {
-            console.error('Password must be at least 6 characters');
-            return;
-        }
-        
-        function hashPassword(pwd) {
-            let hash = 0;
-            for (let i = 0; i < pwd.length; i++) {
-                const char = pwd.charCodeAt(i);
-                hash = ((hash << 5) - hash) + char;
-                hash = hash & hash;
-            }
-            return 'hash_' + Math.abs(hash).toString(36) + '_' + pwd.length;
-        }
-        
-        try {
-            const emailLower = email.toLowerCase();
-            const docId = emailLower.replace(/[^a-zA-Z0-9]/g, '_');
-            const userRef = db.collection('users').doc(docId);
-            const passwordHash = hashPassword(password);
-            const userDoc = await userRef.get();
-            
-            if (userDoc.exists) {
-                await userRef.update({
-                    role: 'admin',
-                    email: emailLower,
-                    passwordHash: passwordHash,
-                    emailVerified: true,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                console.log(`✅ ${email} has been upgraded to ADMIN with password`);
-            } else {
-                await userRef.set({
-                    email: email.toLowerCase(),
-                    name: 'Admin',
-                    role: 'admin',
-                    passwordHash: passwordHash,
-                    emailVerified: true,
-                    signupMethod: 'email',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                console.log(`✅ Admin user created for ${email} with password`);
-            }
-            
-            console.log('You can now log in with this email and password!');
         } catch (error) {
             console.error('Error setting up admin:', error);
         }
     };
     
     console.log('🔧 Development mode: Admin setup functions available');
+    console.log('   - makeCurrentUserAdmin() - Make yourself admin while logged in');
+    console.log('   - setupAdmin("email") - Make existing user admin by email');
 } else {
     // Production - no admin functions exposed
     console.log('🔒 Production mode: Admin functions disabled');
