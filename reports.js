@@ -9,10 +9,10 @@ const IFTAReports = {
         driveToken: 'ifta_drive_token'
     },
     
-    // Google API config (replace with your own in production)
+    // Google API config
     GOOGLE_CONFIG: {
-        clientId: 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com',
-        apiKey: 'YOUR_GOOGLE_API_KEY',
+        clientId: '1005752295612-5ib4pggv00hgrnoiho50fvguln8a75sn.apps.googleusercontent.com',
+        apiKey: 'AIzaSyAmMfBcWSGN9w3rLC4vRobWqAG6ahyfEQM',
         scopes: 'https://www.googleapis.com/auth/drive.file'
     },
     
@@ -35,7 +35,9 @@ const IFTAReports = {
         this.setupEventListeners();
         this.loadPreferences();
         this.updateReportsCount();
+        
         if (this.driveEnabled) {
+            this.initGoogleDrive();
             this.checkDriveConnection();
         }
     },
@@ -687,9 +689,11 @@ const IFTAReports = {
         if (token) {
             try {
                 const data = JSON.parse(token);
-                if (data.expiry && new Date(data.expiry) > new Date()) {
+                // Check for new format (expires_at) or old format (expiry)
+                const expiresAt = data.expires_at || (data.expiry ? new Date(data.expiry).getTime() : 0);
+                if (expiresAt > Date.now()) {
                     this.driveConnected = true;
-                    this.driveUser = data.email;
+                    this.driveUser = data.email || 'Connected';
                     return;
                 }
             } catch (e) {}
@@ -718,15 +722,130 @@ const IFTAReports = {
         this.openModal('driveModal');
     },
     
+    // Google token client for OAuth
+    tokenClient: null,
+    
+    // Initialize Google Drive API
+    initGoogleDrive() {
+        if (!this.driveEnabled) return;
+        
+        // Load Google API client library
+        if (typeof gapi === 'undefined') {
+            const script = document.createElement('script');
+            script.src = 'https://apis.google.com/js/api.js';
+            script.onload = () => this.loadGapiClient();
+            document.head.appendChild(script);
+        } else {
+            this.loadGapiClient();
+        }
+    },
+    
+    // Load GAPI client
+    async loadGapiClient() {
+        try {
+            await new Promise((resolve, reject) => {
+                gapi.load('client', { callback: resolve, onerror: reject });
+            });
+            
+            await gapi.client.init({
+                apiKey: this.GOOGLE_CONFIG.apiKey,
+                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+            });
+            
+            console.log('Google Drive API initialized');
+            
+            // Initialize token client
+            if (typeof google !== 'undefined' && google.accounts) {
+                this.tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: this.GOOGLE_CONFIG.clientId,
+                    scope: this.GOOGLE_CONFIG.scopes,
+                    callback: (response) => this.handleDriveAuthCallback(response)
+                });
+            }
+        } catch (error) {
+            console.error('Error initializing Google Drive:', error);
+        }
+    },
+    
+    // Handle Drive auth callback
+    handleDriveAuthCallback(response) {
+        if (response.error) {
+            console.error('Drive auth error:', response.error);
+            showToast('Failed to connect Google Drive', 'error');
+            return;
+        }
+        
+        // Store the access token
+        const tokenData = {
+            access_token: response.access_token,
+            expires_at: Date.now() + (response.expires_in * 1000)
+        };
+        localStorage.setItem(this.STORAGE_KEYS.driveToken, JSON.stringify(tokenData));
+        
+        this.driveConnected = true;
+        
+        // Get user info
+        this.getDriveUserInfo().then(() => {
+            document.getElementById('driveNotConnected')?.classList.add('hidden');
+            document.getElementById('driveConnected')?.classList.remove('hidden');
+            document.getElementById('driveUserEmail').textContent = this.driveUser || 'Connected';
+            this.populateDriveSavedReports();
+            showToast('Google Drive connected!', 'success');
+        });
+    },
+    
+    // Get Drive user info
+    async getDriveUserInfo() {
+        try {
+            const response = await gapi.client.drive.about.get({
+                fields: 'user'
+            });
+            this.driveUser = response.result.user.emailAddress;
+        } catch (error) {
+            console.error('Error getting Drive user info:', error);
+            this.driveUser = 'Connected';
+        }
+    },
+    
     // Connect Google Drive
     connectGoogleDrive() {
-        // Google Drive integration requires API credentials
-        // Configure in Google Cloud Console and update credentials in this file
-        showToast('Google Drive integration not configured. Contact admin.', 'warning');
+        if (!this.driveEnabled) {
+            showToast('Google Drive is not configured', 'error');
+            return;
+        }
+        
+        if (!this.tokenClient) {
+            // Initialize if not done yet
+            this.initGoogleDrive();
+            setTimeout(() => {
+                if (this.tokenClient) {
+                    this.tokenClient.requestAccessToken({ prompt: 'consent' });
+                } else {
+                    showToast('Google Drive is loading, please try again', 'info');
+                }
+            }, 1000);
+            return;
+        }
+        
+        // Request access token
+        this.tokenClient.requestAccessToken({ prompt: 'consent' });
     },
     
     // Disconnect Google Drive
     disconnectGoogleDrive() {
+        // Revoke the token if possible
+        const tokenData = localStorage.getItem(this.STORAGE_KEYS.driveToken);
+        if (tokenData) {
+            try {
+                const token = JSON.parse(tokenData);
+                if (token.access_token && google?.accounts?.oauth2) {
+                    google.accounts.oauth2.revoke(token.access_token);
+                }
+            } catch (e) {
+                console.log('Token revoke skipped');
+            }
+        }
+        
         localStorage.removeItem(this.STORAGE_KEYS.driveToken);
         this.driveConnected = false;
         this.driveUser = null;
@@ -735,6 +854,189 @@ const IFTAReports = {
         document.getElementById('driveConnected')?.classList.add('hidden');
         
         showToast('Google Drive disconnected', 'info');
+    },
+    
+    // Check if Drive token is valid
+    isDriveTokenValid() {
+        try {
+            const tokenData = localStorage.getItem(this.STORAGE_KEYS.driveToken);
+            if (!tokenData) return false;
+            
+            const token = JSON.parse(tokenData);
+            return token.access_token && token.expires_at > Date.now();
+        } catch (e) {
+            return false;
+        }
+    },
+    
+    // Get or create folder in Drive
+    async getOrCreateDriveFolder(folderName) {
+        try {
+            // Search for existing folder
+            const searchResponse = await gapi.client.drive.files.list({
+                q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+                fields: 'files(id, name)',
+                spaces: 'drive'
+            });
+            
+            if (searchResponse.result.files && searchResponse.result.files.length > 0) {
+                return searchResponse.result.files[0].id;
+            }
+            
+            // Create new folder
+            const createResponse = await gapi.client.drive.files.create({
+                resource: {
+                    name: folderName,
+                    mimeType: 'application/vnd.google-apps.folder'
+                },
+                fields: 'id'
+            });
+            
+            return createResponse.result.id;
+        } catch (error) {
+            console.error('Error creating Drive folder:', error);
+            throw error;
+        }
+    },
+    
+    // Upload file to Drive
+    async uploadToDrive(fileName, fileContent, folderId, mimeType = 'application/pdf') {
+        try {
+            const boundary = '-------314159265358979323846';
+            const metadata = {
+                name: fileName,
+                mimeType: mimeType,
+                parents: [folderId]
+            };
+            
+            // Convert Blob/ArrayBuffer to base64
+            let base64Data;
+            if (fileContent instanceof Blob) {
+                base64Data = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64 = reader.result.split(',')[1];
+                        resolve(base64);
+                    };
+                    reader.readAsDataURL(fileContent);
+                });
+            } else {
+                base64Data = btoa(fileContent);
+            }
+            
+            const multipartRequestBody =
+                `--${boundary}\r\n` +
+                `Content-Type: application/json; charset=UTF-8\r\n\r\n` +
+                JSON.stringify(metadata) + `\r\n` +
+                `--${boundary}\r\n` +
+                `Content-Type: ${mimeType}\r\n` +
+                `Content-Transfer-Encoding: base64\r\n\r\n` +
+                base64Data + `\r\n` +
+                `--${boundary}--`;
+            
+            const response = await gapi.client.request({
+                path: '/upload/drive/v3/files',
+                method: 'POST',
+                params: { uploadType: 'multipart' },
+                headers: {
+                    'Content-Type': `multipart/related; boundary="${boundary}"`
+                },
+                body: multipartRequestBody
+            });
+            
+            return response.result;
+        } catch (error) {
+            console.error('Error uploading to Drive:', error);
+            throw error;
+        }
+    },
+    
+    // Generate PDF as Blob
+    generatePdfBlob(report) {
+        if (typeof window.jspdf === 'undefined') {
+            return null;
+        }
+        
+        try {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            const primaryColor = [91, 155, 213];
+            
+            // Title
+            doc.setFontSize(22);
+            doc.setTextColor(...primaryColor);
+            doc.text('IFTA Fuel Tax Report', 14, 22);
+            
+            doc.setDrawColor(...primaryColor);
+            doc.setLineWidth(0.5);
+            doc.line(14, 26, 196, 26);
+            
+            // Report Info
+            doc.setFontSize(10);
+            doc.setTextColor(80, 80, 80);
+            
+            doc.setFont(undefined, 'bold');
+            doc.text('Report:', 14, 35);
+            doc.text('Quarter:', 14, 41);
+            doc.text('Created:', 14, 47);
+            
+            doc.setFont(undefined, 'normal');
+            doc.text(report.name, 50, 35);
+            doc.text(report.quarter, 50, 41);
+            doc.text(this.formatDate(report.createdAt), 50, 47);
+            
+            // Table data
+            const tableData = (report.data?.rows || []).filter(r => r.jurisdiction).map(row => [
+                row.jurisdiction,
+                this.formatNumber(row.totalMiles),
+                this.formatNumber(row.taxableMiles),
+                this.formatGallons(row.taxPaidGallons),
+                this.formatRate(row.taxRate),
+                this.formatGallons(row.taxableGallons),
+                this.formatGallons(row.netTaxableGallons),
+                this.formatCurrency(row.taxDue)
+            ]);
+            
+            // Add totals
+            if (report.summary) {
+                tableData.push([
+                    'TOTALS',
+                    this.formatNumber(report.summary.totalMiles || 0),
+                    this.formatNumber(report.summary.taxableMiles || 0),
+                    this.formatGallons(report.summary.gallons || 0),
+                    '—',
+                    this.formatGallons(report.summary.taxableGallons || 0),
+                    this.formatGallons(report.summary.netGallons || 0),
+                    report.summary.totalTax || '$0.00'
+                ]);
+            }
+            
+            doc.autoTable({
+                startY: report.notes ? 62 : 55,
+                head: [['Jurisdiction', 'Total Miles', 'Taxable Miles', 'Tax Paid Gal', 'Rate', 'Taxable Gal', 'Net Taxable', 'Tax Due']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: {
+                    fillColor: primaryColor,
+                    textColor: 255,
+                    fontStyle: 'bold',
+                    fontSize: 8
+                },
+                bodyStyles: { fontSize: 7 },
+                didParseCell: function(data) {
+                    if (data.row.index === tableData.length - 1) {
+                        data.cell.styles.fontStyle = 'bold';
+                        data.cell.styles.fillColor = [232, 245, 233];
+                    }
+                }
+            });
+            
+            return doc.output('blob');
+        } catch (error) {
+            console.error('PDF generation error:', error);
+            return null;
+        }
     },
     
     // Populate saved reports for Drive
@@ -758,10 +1060,16 @@ const IFTAReports = {
     },
     
     // Save to Google Drive
-    saveToDrive() {
+    async saveToDrive() {
         if (!this.driveEnabled) {
             showToast('Google Drive integration is not configured', 'error');
             this.closeModal('driveModal');
+            return;
+        }
+        
+        // Check if connected
+        if (!this.isDriveTokenValid()) {
+            showToast('Please connect Google Drive first', 'warning');
             return;
         }
         
@@ -779,32 +1087,80 @@ const IFTAReports = {
             return;
         }
         
-        showToast('Saving to Google Drive...', 'info');
+        showToast('Uploading to Google Drive...', 'info');
         
-        // In production, this would upload to Google Drive API
-        // For demo, simulate the upload
-        
-        setTimeout(() => {
-            let count = (saveCurrentReport ? 1 : 0) + selectedReports.length;
+        try {
+            // Get or create folder
+            const folderId = await this.getOrCreateDriveFolder(folderName);
             
-            // Download PDFs locally as a fallback
-            if (saveCurrentReport && typeof exportToPdf === 'function') {
-                exportToPdf();
+            let uploadCount = 0;
+            
+            // Upload current report
+            if (saveCurrentReport) {
+                const currentReport = this.getCurrentReportData();
+                if (currentReport) {
+                    const pdfBlob = this.generatePdfBlob(currentReport);
+                    if (pdfBlob) {
+                        const fileName = `${currentReport.name.replace(/[^a-z0-9]/gi, '-')}.pdf`;
+                        await this.uploadToDrive(fileName, pdfBlob, folderId);
+                        uploadCount++;
+                    }
+                }
             }
             
+            // Upload selected saved reports
             const reports = this.getSavedReports();
-            selectedReports.forEach((id, index) => {
-                const report = reports.find(r => r.id === id);
+            for (const reportId of selectedReports) {
+                const report = reports.find(r => r.id === reportId);
                 if (report) {
-                    setTimeout(() => this.generatePdfFromReport(report), 500 + (index * 500));
+                    const pdfBlob = this.generatePdfBlob(report);
+                    if (pdfBlob) {
+                        const fileName = `${report.name.replace(/[^a-z0-9]/gi, '-')}.pdf`;
+                        await this.uploadToDrive(fileName, pdfBlob, folderId);
+                        uploadCount++;
+                    }
                 }
-            });
+            }
             
             this.closeModal('driveModal');
-            showToast(`${count} report(s) saved to "${folderName}" folder! (PDFs downloaded locally)`, 'success');
-        }, 1500);
+            showToast(`${uploadCount} report(s) saved to Google Drive!`, 'success');
+        } catch (error) {
+            console.error('Drive upload error:', error);
+            showToast('Failed to upload to Google Drive. Please try again.', 'error');
+        }
     },
     
+    // Get current report data for Drive upload
+    getCurrentReportData() {
+        const dataRows = (appState?.rows || []).filter(r => r.jurisdiction);
+        if (dataRows.length === 0) return null;
+        
+        const totalTax = dataRows.reduce((sum, r) => sum + (r.taxDue || 0), 0);
+        const totalMiles = dataRows.reduce((sum, r) => sum + (r.totalMiles || 0), 0);
+        const taxableMiles = dataRows.reduce((sum, r) => sum + (r.taxableMiles || 0), 0);
+        const gallons = dataRows.reduce((sum, r) => sum + (r.taxPaidGallons || 0), 0);
+        const taxableGallons = dataRows.reduce((sum, r) => sum + (r.taxableGallons || 0), 0);
+        const netGallons = dataRows.reduce((sum, r) => sum + (r.netTaxableGallons || 0), 0);
+        
+        const quarter = appState?.selectedQuarter || 'Q4 2025';
+        
+        return {
+            name: `IFTA Report - ${quarter}`,
+            quarter: quarter,
+            createdAt: new Date().toISOString(),
+            data: { rows: dataRows },
+            summary: {
+                jurisdictions: dataRows.length,
+                totalMiles: totalMiles,
+                taxableMiles: taxableMiles,
+                gallons: gallons,
+                taxableGallons: taxableGallons,
+                netGallons: netGallons,
+                totalTax: this.formatCurrency(totalTax)
+            }
+        };
+    },
+
     // ============ PROFILE ============
     
     // Open profile modal
