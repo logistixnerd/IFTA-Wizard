@@ -9,12 +9,12 @@ const IFTAAuth = {
     firebaseReady: false,
     authStateInitialized: false,
     
-    // Admin emails - show admin link for these users
+    // Admin emails - show admin link for these users (lowercase)
     adminEmails: [
         'milan.pericic@logistixnerd.com',
         'milanpericic@gmail.com',
         'admin@iftawizard.com'
-    ],
+    ].map(e => e.toLowerCase()),
     
     // Initialize authentication
     init() {
@@ -677,7 +677,9 @@ const IFTAAuth = {
         // Show/hide admin link in profile menu
         const adminLink = document.getElementById('menuAdminConsole');
         if (adminLink) {
-            const isAdmin = this.adminEmails.includes(this.user?.email?.toLowerCase());
+            const userEmail = this.user?.email?.toLowerCase() || '';
+            const isAdmin = this.adminEmails.some(email => email.toLowerCase() === userEmail);
+            console.log('Admin check:', { userEmail, isAdmin, adminEmails: this.adminEmails });
             adminLink.style.display = isAdmin ? 'flex' : 'none';
         }
         
