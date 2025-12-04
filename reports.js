@@ -1580,9 +1580,72 @@ const IFTAReports = {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM ready, initializing IFTAReports...');
+    
+    // Setup profile dropdown immediately (don't wait)
+    const profileBtn = document.getElementById('profileBtn');
+    const dropdown = document.getElementById('profileDropdown');
+    
+    if (profileBtn && dropdown) {
+        console.log('Setting up profile dropdown directly');
+        profileBtn.onclick = function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('Profile clicked!');
+            dropdown.classList.toggle('open');
+            
+            // Update user info when opening
+            if (typeof IFTAAuth !== 'undefined' && IFTAAuth.user) {
+                const userName = document.getElementById('menuUserName');
+                const userEmail = document.getElementById('menuUserEmail');
+                const profileName = document.getElementById('profileName');
+                const profileAvatar = document.getElementById('profileAvatar');
+                const adminLink = document.getElementById('menuAdminConsole');
+                
+                if (userName) userName.textContent = IFTAAuth.user.name || 'User';
+                if (userEmail) userEmail.textContent = IFTAAuth.user.email || '';
+                if (profileName) profileName.textContent = IFTAAuth.user.name?.split(' ')[0] || 'Account';
+                if (profileAvatar && IFTAAuth.user.name) {
+                    profileAvatar.textContent = IFTAAuth.user.name.charAt(0).toUpperCase();
+                }
+                
+                // Show admin link if admin
+                if (adminLink) {
+                    const adminEmails = ['milan.pericic@logistixnerd.com', 'milanpericic@gmail.com', 'admin@iftawizard.com'];
+                    const isAdmin = adminEmails.includes(IFTAAuth.user.email?.toLowerCase());
+                    adminLink.style.display = isAdmin ? 'flex' : 'none';
+                }
+            }
+        };
+        
+        // Close on outside click
+        document.addEventListener('click', function(e) {
+            if (!dropdown.contains(e.target)) {
+                dropdown.classList.remove('open');
+            }
+        });
+        
+        // Setup logout button
+        const logoutBtn = document.getElementById('menuLogout');
+        if (logoutBtn) {
+            logoutBtn.onclick = function() {
+                if (typeof IFTAAuth !== 'undefined') {
+                    IFTAAuth.logout();
+                }
+            };
+        }
+    } else {
+        console.error('Profile button or dropdown not found!', { profileBtn, dropdown });
+    }
+    
     // Wait a bit for auth to initialize first
     setTimeout(() => {
-        IFTAReports.init();
+        try {
+            IFTAReports.init();
+            console.log('IFTAReports initialized');
+        } catch (err) {
+            console.error('Error initializing IFTAReports:', err);
+        }
     }, 100);
 });
 
