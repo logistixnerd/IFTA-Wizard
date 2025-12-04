@@ -1724,6 +1724,52 @@ input::placeholder {
     .main-content {
         padding: 0.75rem;
     }
+    
+    /* Table on mobile */
+    .table-container {
+        margin: 0 -0.75rem;
+        padding: 0 0.75rem;
+    }
+    
+    #dataTable th, #dataTable td {
+        padding: 0.35rem 0.25rem;
+        font-size: 0.7rem;
+    }
+    
+    #dataTable input, #dataTable select {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.25rem;
+        min-width: 50px;
+    }
+    
+    .jurisdiction-select {
+        min-width: 90px !important;
+        max-width: 110px;
+    }
+    
+    .total-miles, .taxable-miles, .tax-paid-gallons {
+        min-width: 55px !important;
+        max-width: 70px;
+    }
+    
+    /* Make tax rate and calculated columns narrower */
+    .rate-display, .taxable-gallons, .net-taxable-gallons {
+        font-size: 0.65rem;
+    }
+    
+    .tax-amount {
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+    
+    .delete-row {
+        padding: 0.2rem;
+    }
+    
+    .delete-row svg {
+        width: 14px;
+        height: 14px;
+    }
 
     .card {
         padding: 0.75rem;
@@ -1793,6 +1839,66 @@ input::placeholder {
 
     .action-buttons .btn {
         width: 100%;
+    }
+    
+    /* Auth modal on small screens */
+    .auth-modal-content {
+        padding: 1rem;
+        margin: 0.5rem;
+        max-width: 100%;
+    }
+    
+    .auth-header {
+        margin-bottom: 1rem;
+    }
+    
+    .auth-brand-text {
+        max-width: 120px;
+    }
+    
+    .auth-title {
+        font-size: 1.25rem;
+    }
+    
+    .auth-mode-toggle {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .auth-mode-btn {
+        width: 100%;
+        padding: 0.5rem;
+    }
+    
+    .btn-social {
+        font-size: 0.8rem;
+        padding: 0.6rem;
+    }
+    
+    /* Export buttons on mobile */
+    .export-buttons {
+        flex-wrap: wrap;
+        gap: 0.35rem;
+    }
+    
+    .export-buttons .btn {
+        font-size: 0.7rem;
+        padding: 0.35rem 0.5rem;
+    }
+    
+    .export-divider {
+        display: none;
+    }
+    
+    /* Summary on mobile */
+    .inline-summary {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .summary-item {
+        width: 100%;
+        justify-content: space-between;
     }
 }
 
