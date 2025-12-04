@@ -197,6 +197,7 @@ const IFTAAuth = {
     async handleSignIn() {
         const emailInput = document.getElementById('signinEmail');
         const passwordInput = document.getElementById('signinPassword');
+        const rememberMe = document.getElementById('rememberMe')?.checked ?? true;
         
         const email = emailInput?.value?.trim();
         const password = passwordInput?.value;
@@ -214,6 +215,13 @@ const IFTAAuth = {
         }
         
         try {
+            // Set persistence based on "Remember me" checkbox
+            const persistence = rememberMe 
+                ? firebase.auth.Auth.Persistence.LOCAL      // Remember across sessions
+                : firebase.auth.Auth.Persistence.SESSION;   // Only for this session
+            
+            await firebase.auth().setPersistence(persistence);
+            
             const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
             // Auth state change listener will handle the rest
             

@@ -290,6 +290,31 @@ body {
     margin-bottom: 0.5rem;
 }
 
+/* Remember me checkbox */
+.remember-me {
+    margin-bottom: 0.75rem !important;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.75rem;
+    color: var(--gray-600);
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.checkbox-label span {
+    user-select: none;
+}
+
 .forgot-password {
     display: block;
     text-align: right;
