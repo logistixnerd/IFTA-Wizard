@@ -926,11 +926,14 @@ const IFTAReports = {
     initGoogleDrive() {
         if (!this.driveEnabled) return;
         
-        // Wait for Google Identity Services to load
+        // Wait for Google Identity Services to load - non-blocking
         this.waitForGoogleLibraries().then(() => {
-            this.loadGapiClient();
+            this.loadGapiClient().catch(err => {
+                console.warn('Google Drive client initialization failed (non-critical):', err);
+            });
         }).catch(err => {
-            console.error('Failed to load Google libraries:', err);
+            console.warn('Google libraries not available (non-critical):', err);
+            // This is non-critical - the rest of the app should still work
         });
     },
     
@@ -970,18 +973,24 @@ const IFTAReports = {
             
             console.log('Google Drive API client initialized');
             
-            // Initialize token client for OAuth
-            this.tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: this.GOOGLE_CONFIG.clientId,
-                scope: this.GOOGLE_CONFIG.scopes,
-                callback: (response) => this.handleDriveAuthCallback(response)
-            });
-            
-            console.log('Google OAuth token client ready');
+            // Initialize token client for OAuth - wrap in try-catch for origin errors
+            try {
+                this.tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: this.GOOGLE_CONFIG.clientId,
+                    scope: this.GOOGLE_CONFIG.scopes,
+                    callback: (response) => this.handleDriveAuthCallback(response)
+                });
+                console.log('Google OAuth token client ready');
+            } catch (oauthError) {
+                console.warn('OAuth token client failed (origin may not be authorized):', oauthError);
+                this.driveEnabled = false;
+                const driveBtn = document.getElementById('saveToDrive');
+                if (driveBtn) driveBtn.style.display = 'none';
+            }
             
         } catch (error) {
-            console.error('Error initializing Google Drive:', error);
-            showToast('Google Drive initialization failed', 'error');
+            console.warn('Error initializing Google Drive (non-critical):', error);
+            this.driveEnabled = false;
         }
     },
     
