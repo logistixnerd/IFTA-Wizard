@@ -176,7 +176,7 @@ const IFTAAuth = {
         }
         
         const emailLower = email.toLowerCase();
-        const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+        const docId = emailLower.replace(/[^a-zA-Z0-9]/g, '_');
         
         try {
             // First, try to find by document ID (how setupAdmin creates users)
@@ -1302,7 +1302,8 @@ const IFTAAuth = {
         }
         
         try {
-            const userRef = db.collection('users').doc(userData.id || userData.email.replace(/[^a-zA-Z0-9]/g, '_'));
+            const emailLower = userData.email.toLowerCase();
+            const userRef = db.collection('users').doc(userData.id || emailLower.replace(/[^a-zA-Z0-9]/g, '_'));
             
             // Check if user exists
             const existingUser = await userRef.get();
@@ -2229,7 +2230,7 @@ const IFTAAuth = {
         // Update Firebase
         if (this.firebaseReady && typeof db !== 'undefined') {
             try {
-                const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+                const docId = email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
                 await db.collection('users').doc(docId).update({
                     totpEnabled: true,
                     totpSecret: secret,
@@ -2257,7 +2258,7 @@ const IFTAAuth = {
         // Update Firebase
         if (this.firebaseReady && typeof db !== 'undefined') {
             try {
-                const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+                const docId = email.toLowerCase().replace(/[^a-zA-Z0-9]/g, '_');
                 await db.collection('users').doc(docId).update({
                     totpEnabled: false,
                     totpSecret: firebase.firestore.FieldValue.delete()

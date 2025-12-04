@@ -450,7 +450,8 @@ if (isDevelopment) {
         }
         
         try {
-            const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+            const emailLower = email.toLowerCase();
+            const docId = emailLower.replace(/[^a-zA-Z0-9]/g, '_');
             const userRef = db.collection('users').doc(docId);
             const userDoc = await userRef.get();
             
@@ -462,7 +463,7 @@ if (isDevelopment) {
                 console.log(`✅ ${email} has been upgraded to ADMIN role`);
             } else {
                 await userRef.set({
-                    email: email.toLowerCase(),
+                    email: emailLower,
                     name: 'Admin',
                     role: 'admin',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -503,7 +504,8 @@ if (isDevelopment) {
         }
         
         try {
-            const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+            const emailLower = email.toLowerCase();
+            const docId = emailLower.replace(/[^a-zA-Z0-9]/g, '_');
             const userRef = db.collection('users').doc(docId);
             const passwordHash = hashPassword(password);
             const userDoc = await userRef.get();
@@ -511,7 +513,7 @@ if (isDevelopment) {
             if (userDoc.exists) {
                 await userRef.update({
                     role: 'admin',
-                    email: email.toLowerCase(),
+                    email: emailLower,
                     passwordHash: passwordHash,
                     emailVerified: true,
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
