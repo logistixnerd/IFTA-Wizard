@@ -727,7 +727,7 @@ const IFTAReports = {
     },
     
     // Handle email submit
-    handleEmailSubmit(e) {
+    async handleEmailSubmit(e) {
         e.preventDefault();
         
         const to = document.getElementById('emailTo')?.value?.trim();
@@ -747,10 +747,7 @@ const IFTAReports = {
             selectedReports.push(cb.dataset.reportId);
         });
         
-        // In production, this would send to a backend API
-        // For now, we'll use mailto: as a fallback and show instructions
-        
-        this.sendEmailWithAttachments({
+        await this.sendEmailWithAttachments({
             to, cc, subject, message,
             attachCurrent,
             savedReportIds: selectedReports
@@ -788,26 +785,38 @@ const IFTAReports = {
             
             // Check if EmailJS is available
             if (typeof emailjs !== 'undefined') {
+                console.log('EmailJS available, initializing...');
                 // Initialize EmailJS
                 emailjs.init(this.EMAILJS_CONFIG.publicKey);
                 
-                // Prepare email parameters
+                // Build the email content
+                let emailContent = emailData.message || '';
+                if (attachments.length > 0) {
+                    emailContent += '\n\n📎 Reports Included:\n• ' + attachments.join('\n• ');
+                    emailContent += '\n\n(PDFs will be downloaded for you to attach)';
+                }
+                
+                // Use the template format that matches the existing verification template
                 const templateParams = {
                     to_email: emailData.to,
-                    cc_email: emailData.cc || '',
-                    subject: emailData.subject,
-                    message: emailData.message || '',
+                    to_name: emailData.to.split('@')[0], // Use email prefix as name
                     from_name: IFTAAuth?.user?.name || 'IFTA Wizard User',
-                    from_email: IFTAAuth?.user?.email || '',
-                    attachments: attachments.length > 0 ? 'Attachments: ' + attachments.join(', ') : '',
+                    verification_code: 'IFTA REPORT', // This shows in subject/header area
+                    message: `Subject: ${emailData.subject}\n\n${emailContent}`,
                     reply_to: IFTAAuth?.user?.email || emailData.to
                 };
                 
-                await emailjs.send(
+                console.log('Sending email with params:', templateParams);
+                console.log('Using service:', this.EMAILJS_CONFIG.serviceId);
+                console.log('Using template:', this.EMAILJS_CONFIG.templateId);
+                
+                const result = await emailjs.send(
                     this.EMAILJS_CONFIG.serviceId,
                     this.EMAILJS_CONFIG.templateId,
                     templateParams
                 );
+                
+                console.log('EmailJS result:', result);
                 
                 this.closeModal('emailModal');
                 showToast('Email sent successfully!', 'success');
