@@ -1087,7 +1087,13 @@ const IFTAReports = {
             return;
         }
         
-        showToast('Uploading to Google Drive...', 'info');
+        // Show loading state on button
+        const saveBtn = document.getElementById('saveToDriveBtn');
+        const originalText = saveBtn?.textContent;
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner"></span> Uploading...';
+        }
         
         try {
             // Get or create folder
@@ -1127,6 +1133,12 @@ const IFTAReports = {
         } catch (error) {
             console.error('Drive upload error:', error);
             showToast('Failed to upload to Google Drive. Please try again.', 'error');
+        } finally {
+            // Restore button
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText || 'Save to Drive';
+            }
         }
     },
     

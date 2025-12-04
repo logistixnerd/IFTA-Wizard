@@ -384,7 +384,16 @@ const IFTAAuth = {
     
     // Handle Google Sign In
     async handleGoogleSignIn() {
+        const googleBtn = document.getElementById('googleSignIn');
+        const originalText = googleBtn?.innerHTML;
+        
         try {
+            // Show loading
+            if (googleBtn) {
+                googleBtn.disabled = true;
+                googleBtn.innerHTML = '<span style="display:inline-block;width:14px;height:14px;border:2px solid #ccc;border-top-color:#4285F4;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;"></span>Signing in...';
+            }
+            
             const provider = new firebase.auth.GoogleAuthProvider();
             provider.addScope('email');
             provider.addScope('profile');
@@ -438,6 +447,12 @@ const IFTAAuth = {
                 if (typeof showToast === 'function') {
                     showToast('Google sign-in failed. Please try again.', 'error');
                 }
+            }
+        } finally {
+            // Restore button
+            if (googleBtn && originalText) {
+                googleBtn.disabled = false;
+                googleBtn.innerHTML = originalText;
             }
         }
     },
