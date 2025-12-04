@@ -184,11 +184,22 @@ const IFTAReports = {
         if (typeof db === 'undefined' || !IFTAAuth?.user?.uid) return;
         
         try {
-            const snapshot = await db.collection('users')
-                .doc(IFTAAuth.user.uid)
-                .collection('reports')
-                .orderBy('createdAt', 'desc')
-                .get();
+            // Try to get reports without ordering first (in case index doesn't exist)
+            let snapshot;
+            try {
+                snapshot = await db.collection('users')
+                    .doc(IFTAAuth.user.uid)
+                    .collection('reports')
+                    .orderBy('createdAt', 'desc')
+                    .get();
+            } catch (indexError) {
+                // Fallback: get without ordering if index is missing
+                console.warn('Reports index missing, fetching without order:', indexError.message);
+                snapshot = await db.collection('users')
+                    .doc(IFTAAuth.user.uid)
+                    .collection('reports')
+                    .get();
+            }
             
             if (snapshot.empty) return;
             
@@ -600,7 +611,7 @@ const IFTAReports = {
     },
     
     // Handle save report form
-    handleSaveReport(e) {
+    async handleSaveReport(e) {
         e.preventDefault();
         
         const name = document.getElementById('reportName')?.value?.trim();
@@ -611,51 +622,69 @@ const IFTAReports = {
             return;
         }
         
-        // Get report options
-        const options = {
-            includeFleetMpg: document.getElementById('includeFleetMpg')?.checked ?? true,
-            includeCurrentMpg: document.getElementById('includeCurrentMpg')?.checked ?? true,
-            includeUnitNumber: document.getElementById('includeUnitNumber')?.checked ?? true,
-            includeTaxRates: document.getElementById('includeTaxRates')?.checked ?? false,
-            includeSummary: document.getElementById('includeSummary')?.checked ?? true
-        };
+        // Show loading state
+        const saveBtn = document.querySelector('#saveReportForm button[type="submit"]');
+        const originalText = saveBtn?.textContent;
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<span class="spinner"></span> Saving...';
+        }
         
-        const dataRows = (appState?.rows || []).filter(r => r.jurisdiction);
-        const totalTax = dataRows.reduce((sum, r) => sum + (r.taxDue || 0), 0);
-        const totalMiles = dataRows.reduce((sum, r) => sum + (r.totalMiles || 0), 0);
-        const taxableMiles = dataRows.reduce((sum, r) => sum + (r.taxableMiles || 0), 0);
-        const gallons = dataRows.reduce((sum, r) => sum + (r.taxPaidGallons || 0), 0);
-        const taxableGallons = dataRows.reduce((sum, r) => sum + (r.taxableGallons || 0), 0);
-        const netGallons = dataRows.reduce((sum, r) => sum + (r.netTaxableGallons || 0), 0);
-        
-        const reportData = {
-            name: name,
-            notes: notes,
-            quarter: appState?.selectedQuarter || 'Q4 2025',
-            options: options,  // Store the report options
-            data: {
-                rows: dataRows,
-                quarter: appState?.selectedQuarter,
-                fuelType: appState?.selectedFuelType,
-                fleetMpg: appState?.fleetMpg,
-                currentMpg: appState?.currentMpg,
-                unitNumber: appState?.unitNumber || '',
-                baseJurisdiction: appState?.baseJurisdiction
-            },
-            summary: {
-                jurisdictions: dataRows.length,
-                totalMiles: totalMiles,
-                taxableMiles: taxableMiles,
-                gallons: gallons,
-                taxableGallons: taxableGallons,
-                netGallons: netGallons,
-                totalTax: this.formatCurrency(totalTax)
+        try {
+            // Get report options
+            const options = {
+                includeFleetMpg: document.getElementById('includeFleetMpg')?.checked ?? true,
+                includeCurrentMpg: document.getElementById('includeCurrentMpg')?.checked ?? true,
+                includeUnitNumber: document.getElementById('includeUnitNumber')?.checked ?? true,
+                includeTaxRates: document.getElementById('includeTaxRates')?.checked ?? false,
+                includeSummary: document.getElementById('includeSummary')?.checked ?? true
+            };
+            
+            const dataRows = (appState?.rows || []).filter(r => r.jurisdiction);
+            const totalTax = dataRows.reduce((sum, r) => sum + (r.taxDue || 0), 0);
+            const totalMiles = dataRows.reduce((sum, r) => sum + (r.totalMiles || 0), 0);
+            const taxableMiles = dataRows.reduce((sum, r) => sum + (r.taxableMiles || 0), 0);
+            const gallons = dataRows.reduce((sum, r) => sum + (r.taxPaidGallons || 0), 0);
+            const taxableGallons = dataRows.reduce((sum, r) => sum + (r.taxableGallons || 0), 0);
+            const netGallons = dataRows.reduce((sum, r) => sum + (r.netTaxableGallons || 0), 0);
+            
+            const reportData = {
+                name: name,
+                notes: notes,
+                quarter: appState?.selectedQuarter || 'Q4 2025',
+                options: options,
+                data: {
+                    rows: dataRows,
+                    quarter: appState?.selectedQuarter,
+                    fuelType: appState?.selectedFuelType,
+                    fleetMpg: appState?.fleetMpg,
+                    currentMpg: appState?.currentMpg,
+                    unitNumber: appState?.unitNumber || '',
+                    baseJurisdiction: appState?.baseJurisdiction
+                },
+                summary: {
+                    jurisdictions: dataRows.length,
+                    totalMiles: totalMiles,
+                    taxableMiles: taxableMiles,
+                    gallons: gallons,
+                    taxableGallons: taxableGallons,
+                    netGallons: netGallons,
+                    totalTax: this.formatCurrency(totalTax)
+                }
+            };
+            
+            await this.saveReport(reportData);
+            this.closeModal('saveReportModal');
+            showToast(`Report "${name}" saved!`, 'success');
+        } catch (error) {
+            console.error('Error saving report:', error);
+            showToast('Error saving report', 'error');
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.textContent = originalText || 'Save Report';
             }
-        };
-        
-        this.saveReport(reportData);
-        this.closeModal('saveReportModal');
-        showToast(`Report "${name}" saved!`, 'success');
+        }
     },
     
     // ============ EMAIL ============
@@ -1284,7 +1313,7 @@ const IFTAReports = {
     },
     
     // Handle profile submit
-    handleProfileSubmit(e) {
+    async handleProfileSubmit(e) {
         e.preventDefault();
         
         if (!IFTAAuth.user) return;
@@ -1295,7 +1324,24 @@ const IFTAReports = {
         IFTAAuth.user.fleetSize = document.getElementById('profileFleetSize')?.value || '';
         IFTAAuth.user.driverCount = document.getElementById('profileDriverCount')?.value || '';
         
+        // Save to localStorage
         localStorage.setItem('ifta_user', JSON.stringify(IFTAAuth.user));
+        
+        // Also save to Firebase if available
+        if (typeof db !== 'undefined' && IFTAAuth.user?.uid) {
+            try {
+                await db.collection('users').doc(IFTAAuth.user.uid).update({
+                    name: IFTAAuth.user.name,
+                    company: IFTAAuth.user.company,
+                    phone: IFTAAuth.user.phone,
+                    fleetSize: IFTAAuth.user.fleetSize,
+                    driverCount: IFTAAuth.user.driverCount,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (error) {
+                console.error('Error saving profile to Firebase:', error);
+            }
+        }
         
         this.updateProfileMenuInfo();
         this.closeModal('profileModal');
