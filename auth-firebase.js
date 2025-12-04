@@ -55,6 +55,20 @@ const IFTAAuth = {
         this.authStateInitialized = true;
         
         if (firebaseUser) {
+            // Check session expiry (7 days)
+            const loginTime = localStorage.getItem('ifta_login_time');
+            const SEVEN_DAYS = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
+            
+            if (loginTime && (Date.now() - parseInt(loginTime)) > SEVEN_DAYS) {
+                // Session expired - log out
+                console.log('Session expired after 7 days');
+                await this.logout();
+                if (typeof showToast === 'function') {
+                    showToast('Session expired. Please sign in again.', 'info');
+                }
+                return;
+            }
+            
             // User is signed in
             try {
                 // Get additional user data from Firestore
@@ -95,6 +109,7 @@ const IFTAAuth = {
             // User is signed out
             this.user = null;
             this.isAuthenticated = false;
+            localStorage.removeItem('ifta_login_time');
             this.showAuthModal();
         }
     },
@@ -223,6 +238,12 @@ const IFTAAuth = {
             await firebase.auth().setPersistence(persistence);
             
             const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
+            
+            // Save login timestamp for 7-day expiry check
+            if (rememberMe) {
+                localStorage.setItem('ifta_login_time', Date.now().toString());
+            }
+            
             // Auth state change listener will handle the rest
             
             if (typeof showToast === 'function') {
@@ -370,6 +391,9 @@ const IFTAAuth = {
             
             const result = await firebase.auth().signInWithPopup(provider);
             const user = result.user;
+            
+            // Save login timestamp for 7-day expiry
+            localStorage.setItem('ifta_login_time', Date.now().toString());
             
             // Check if this is a new user
             const isNewUser = result.additionalUserInfo?.isNewUser;
