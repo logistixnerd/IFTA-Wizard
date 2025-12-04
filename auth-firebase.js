@@ -21,6 +21,14 @@ const IFTAAuth = {
         this.initFirebase();
         this.setupEventListeners();
         this.populateHeaderQuarter();
+        
+        // Fallback: if auth state doesn't initialize within 3 seconds, show login
+        setTimeout(() => {
+            if (!this.authStateInitialized) {
+                console.log('Auth state timeout - showing login modal');
+                this.showAuthModal();
+            }
+        }, 3000);
     },
     
     // Initialize Firebase
