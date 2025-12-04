@@ -212,6 +212,70 @@
         </div>
     </div>
 
+    <!-- TOTP Setup Modal (for enabling authenticator app) -->
+    <div id="totpSetupModal" class="modal-overlay hidden">
+        <div class="verify-modal totp-modal">
+            <button class="verify-close" onclick="IFTAAuth.closeTOTPSetup()">&times;</button>
+            
+            <div class="verify-icon">🔐</div>
+            <h2 class="verify-title">Setup Authenticator</h2>
+            <p class="verify-subtitle">Scan this QR code with Microsoft Authenticator, Google Authenticator, or any TOTP app</p>
+            
+            <div class="totp-qr-container">
+                <img id="totpQRCode" src="" alt="QR Code" class="totp-qr">
+            </div>
+            
+            <div class="totp-secret">
+                <p class="totp-secret-label">Or enter this code manually:</p>
+                <code id="totpSecretKey" class="totp-secret-code">XXXX XXXX XXXX XXXX XXXX</code>
+                <p class="totp-account">Account: <strong id="totpEmail">your@email.com</strong></p>
+            </div>
+            
+            <p class="verify-subtitle" style="margin-top: 1rem;">Enter the 6-digit code from your app:</p>
+            
+            <div class="code-input-container" id="totpSetupCodeInputs">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+            </div>
+            
+            <div id="totpSetupError" class="verify-error totp-error" style="display: none;"></div>
+            
+            <button class="verify-btn" onclick="IFTAAuth.verifyTOTPSetup()">Enable Authenticator</button>
+        </div>
+    </div>
+
+    <!-- TOTP Verify Modal (for login with authenticator) -->
+    <div id="totpVerifyModal" class="modal-overlay hidden">
+        <div class="verify-modal totp-modal">
+            <button class="verify-close" onclick="IFTAAuth.closeTOTPVerify()">&times;</button>
+            
+            <div class="verify-icon">🔐</div>
+            <h2 class="verify-title">Two-Factor Authentication</h2>
+            <p class="verify-subtitle">Enter the 6-digit code from your authenticator app for <strong id="totpVerifyEmail">your@email.com</strong></p>
+            
+            <div class="code-input-container" id="totpVerifyCodeInputs">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+            </div>
+            
+            <div id="totpVerifyError" class="verify-error totp-error" style="display: none;"></div>
+            
+            <button class="verify-btn" onclick="IFTAAuth.verifyTOTPLogin()">Verify</button>
+            
+            <p class="totp-help">
+                <small>Open your Microsoft Authenticator, Google Authenticator, or other TOTP app to get your code.</small>
+            </p>
+        </div>
+    </div>
+
     <div class="app-container">
         <!-- Header -->
         <header class="header">
@@ -246,6 +310,9 @@
                                 <a href="admin.html" class="profile-menu-item" id="menuAdminConsole" style="display: none;">
                                     <span>Admin Console</span>
                                 </a>
+                                <button class="profile-menu-item" id="menuSetupTOTP" style="display: none;">
+                                    <span>🔐 Setup Authenticator</span>
+                                </button>
                                 <button class="profile-menu-item" id="menuSavedReports">
                                     <span>Saved Reports</span>
                                     <span class="menu-badge" id="reportsCount">0</span>

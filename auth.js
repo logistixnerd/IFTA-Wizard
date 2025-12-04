@@ -15,6 +15,10 @@ const IFTAAuth = {
     resendCooldown: 0,           // Cooldown timer for resend
     resendInterval: null,        // Timer interval reference
     
+    // TOTP (Authenticator App) state
+    totpPendingUser: null,       // User waiting for TOTP verification
+    totpSecret: null,            // Current TOTP secret being set up
+    
     // Forgot password state
     forgotPasswordUser: null,
     forgotVerificationCode: null,
@@ -42,9 +46,16 @@ const IFTAAuth = {
     init() {
         this.initEmailJS();
         this.initFirebase();
+        this.initTOTP();
         this.checkExistingSession();
         this.setupEventListeners();
         this.populateHeaderQuarter();
+    },
+    
+    // Initialize TOTP library
+    initTOTP() {
+        // TOTP will be initialized when needed
+        console.log('TOTP authenticator support ready');
     },
     
     // Initialize Firebase
@@ -641,12 +652,20 @@ const IFTAAuth = {
         }
         
         if (result.success) {
-            // Password correct, login directly
-            // Record successful login for security
-            if (typeof IFTASecurity !== 'undefined') {
-                IFTASecurity.recordSuccessfulLogin(email);
+            // Check if user has TOTP enabled (for admins)
+            const hasTOTP = await this.hasTOTPEnabled(email);
+            
+            if (hasTOTP) {
+                // Show TOTP verification modal
+                this.showTOTPVerify(result.user);
+            } else {
+                // Password correct, login directly
+                // Record successful login for security
+                if (typeof IFTASecurity !== 'undefined') {
+                    IFTASecurity.recordSuccessfulLogin(email);
+                }
+                this.saveUserAndAuthenticate(result.user);
             }
-            this.saveUserAndAuthenticate(result.user);
         } else if (result.needsVerification) {
             // Account exists but email not verified - send new code
             // Only show form message, no toast
@@ -1364,7 +1383,7 @@ const IFTAAuth = {
     },
     
     // Update UI for logged in user
-    updateUIForLoggedInUser() {
+    async updateUIForLoggedInUser() {
         // Update profile dropdown
         const profileName = document.getElementById('profileName');
         const profileAvatar = document.getElementById('profileAvatar');
@@ -1374,13 +1393,27 @@ const IFTAAuth = {
             if (profileName) profileName.textContent = firstName;
             if (profileAvatar) profileAvatar.textContent = firstName.charAt(0).toUpperCase();
             
+            // Check if user is admin
+            const isAdmin = this.adminEmails.includes(this.user.email.toLowerCase());
+            
             // Show/hide admin console menu item
             const adminMenuItem = document.getElementById('menuAdminConsole');
             if (adminMenuItem) {
-                const isAdmin = this.adminEmails.includes(this.user.email.toLowerCase());
                 adminMenuItem.style.display = isAdmin ? 'flex' : 'none';
             }
+            
+            // Show/hide TOTP setup menu item (for admins who haven't set it up)
+            const totpMenuItem = document.getElementById('menuSetupTOTP');
+            if (totpMenuItem && isAdmin) {
+                const hasTOTP = await this.hasTOTPEnabled(this.user.email);
+                totpMenuItem.style.display = hasTOTP ? 'none' : 'flex';
+                totpMenuItem.onclick = () => this.showTOTPSetup(this.user.email);
+            }
         }
+        
+        // Setup TOTP code input handlers
+        this.setupTOTPCodeInputs('totpSetupCodeInputs', () => this.verifyTOTPSetup());
+        this.setupTOTPCodeInputs('totpVerifyCodeInputs', () => this.verifyTOTPLogin());
         
         // Update reports module if available
         if (typeof IFTAReports !== 'undefined') {
@@ -1894,6 +1927,552 @@ const IFTAAuth = {
         a.download = `ifta_leads_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         URL.revokeObjectURL(url);
+    },
+    
+    // ==========================================
+    // TOTP (AUTHENTICATOR APP) FUNCTIONS
+    // ==========================================
+    
+    // Generate a random base32 secret for TOTP
+    generateTOTPSecret() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        let secret = '';
+        const array = new Uint8Array(20);
+        crypto.getRandomValues(array);
+        for (let i = 0; i < 20; i++) {
+            secret += chars[array[i] % 32];
+        }
+        return secret;
+    },
+    
+    // Generate TOTP code from secret (RFC 6238)
+    generateTOTPCode(secret, timeStep = 30) {
+        const epoch = Math.floor(Date.now() / 1000);
+        const counter = Math.floor(epoch / timeStep);
+        
+        // Decode base32 secret
+        const base32Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        let bits = '';
+        for (let char of secret.toUpperCase()) {
+            const val = base32Chars.indexOf(char);
+            if (val === -1) continue;
+            bits += val.toString(2).padStart(5, '0');
+        }
+        
+        const keyBytes = [];
+        for (let i = 0; i + 8 <= bits.length; i += 8) {
+            keyBytes.push(parseInt(bits.substr(i, 8), 2));
+        }
+        
+        // Counter to bytes (8 bytes, big endian)
+        const counterBytes = [];
+        let temp = counter;
+        for (let i = 7; i >= 0; i--) {
+            counterBytes[i] = temp & 0xff;
+            temp = Math.floor(temp / 256);
+        }
+        
+        // HMAC-SHA1 (simplified - in production use Web Crypto API)
+        const hmac = this.hmacSha1(keyBytes, counterBytes);
+        
+        // Dynamic truncation
+        const offset = hmac[hmac.length - 1] & 0x0f;
+        const code = ((hmac[offset] & 0x7f) << 24) |
+                     ((hmac[offset + 1] & 0xff) << 16) |
+                     ((hmac[offset + 2] & 0xff) << 8) |
+                     (hmac[offset + 3] & 0xff);
+        
+        return (code % 1000000).toString().padStart(6, '0');
+    },
+    
+    // Simple HMAC-SHA1 implementation
+    hmacSha1(key, message) {
+        // This is a simplified version - for production, use SubtleCrypto
+        // Using a basic implementation for compatibility
+        const blockSize = 64;
+        
+        // Pad or hash key
+        if (key.length > blockSize) {
+            key = this.sha1(key);
+        }
+        while (key.length < blockSize) {
+            key.push(0);
+        }
+        
+        // Create inner and outer padding
+        const ipad = key.map(b => b ^ 0x36);
+        const opad = key.map(b => b ^ 0x5c);
+        
+        // Inner hash
+        const innerData = [...ipad, ...message];
+        const innerHash = this.sha1(innerData);
+        
+        // Outer hash
+        const outerData = [...opad, ...innerHash];
+        return this.sha1(outerData);
+    },
+    
+    // SHA1 implementation
+    sha1(data) {
+        // Initialize hash values
+        let h0 = 0x67452301;
+        let h1 = 0xEFCDAB89;
+        let h2 = 0x98BADCFE;
+        let h3 = 0x10325476;
+        let h4 = 0xC3D2E1F0;
+        
+        // Pre-processing
+        const msgLen = data.length;
+        data.push(0x80);
+        while ((data.length % 64) !== 56) {
+            data.push(0);
+        }
+        
+        // Append length in bits as 64-bit big-endian
+        const bitLen = msgLen * 8;
+        for (let i = 7; i >= 0; i--) {
+            data.push((bitLen / Math.pow(256, i)) & 0xff);
+        }
+        
+        // Process each 64-byte chunk
+        for (let chunk = 0; chunk < data.length; chunk += 64) {
+            const w = [];
+            
+            // Break chunk into 16 32-bit words
+            for (let i = 0; i < 16; i++) {
+                w[i] = (data[chunk + i * 4] << 24) |
+                       (data[chunk + i * 4 + 1] << 16) |
+                       (data[chunk + i * 4 + 2] << 8) |
+                       data[chunk + i * 4 + 3];
+            }
+            
+            // Extend to 80 words
+            for (let i = 16; i < 80; i++) {
+                const val = w[i - 3] ^ w[i - 8] ^ w[i - 14] ^ w[i - 16];
+                w[i] = ((val << 1) | (val >>> 31)) >>> 0;
+            }
+            
+            let a = h0, b = h1, c = h2, d = h3, e = h4;
+            
+            for (let i = 0; i < 80; i++) {
+                let f, k;
+                if (i < 20) {
+                    f = (b & c) | ((~b >>> 0) & d);
+                    k = 0x5A827999;
+                } else if (i < 40) {
+                    f = b ^ c ^ d;
+                    k = 0x6ED9EBA1;
+                } else if (i < 60) {
+                    f = (b & c) | (b & d) | (c & d);
+                    k = 0x8F1BBCDC;
+                } else {
+                    f = b ^ c ^ d;
+                    k = 0xCA62C1D6;
+                }
+                
+                const temp = (((a << 5) | (a >>> 27)) + f + e + k + w[i]) >>> 0;
+                e = d;
+                d = c;
+                c = ((b << 30) | (b >>> 2)) >>> 0;
+                b = a;
+                a = temp;
+            }
+            
+            h0 = (h0 + a) >>> 0;
+            h1 = (h1 + b) >>> 0;
+            h2 = (h2 + c) >>> 0;
+            h3 = (h3 + d) >>> 0;
+            h4 = (h4 + e) >>> 0;
+        }
+        
+        // Convert to bytes
+        const hash = [];
+        [h0, h1, h2, h3, h4].forEach(h => {
+            hash.push((h >>> 24) & 0xff);
+            hash.push((h >>> 16) & 0xff);
+            hash.push((h >>> 8) & 0xff);
+            hash.push(h & 0xff);
+        });
+        
+        return hash;
+    },
+    
+    // Verify TOTP code (check current and adjacent windows for clock drift)
+    verifyTOTPCode(secret, code, window = 1) {
+        for (let i = -window; i <= window; i++) {
+            const epoch = Math.floor(Date.now() / 1000) + (i * 30);
+            const counter = Math.floor(epoch / 30);
+            
+            // Generate code for this window
+            const expectedCode = this.generateTOTPCodeForCounter(secret, counter);
+            
+            if (expectedCode === code) {
+                return true;
+            }
+        }
+        return false;
+    },
+    
+    // Generate TOTP code for specific counter
+    generateTOTPCodeForCounter(secret, counter) {
+        // Decode base32 secret
+        const base32Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+        let bits = '';
+        for (let char of secret.toUpperCase()) {
+            const val = base32Chars.indexOf(char);
+            if (val === -1) continue;
+            bits += val.toString(2).padStart(5, '0');
+        }
+        
+        const keyBytes = [];
+        for (let i = 0; i + 8 <= bits.length; i += 8) {
+            keyBytes.push(parseInt(bits.substr(i, 8), 2));
+        }
+        
+        // Counter to bytes (8 bytes, big endian)
+        const counterBytes = [];
+        let temp = counter;
+        for (let i = 7; i >= 0; i--) {
+            counterBytes[i] = temp & 0xff;
+            temp = Math.floor(temp / 256);
+        }
+        
+        // HMAC-SHA1
+        const hmac = this.hmacSha1([...keyBytes], counterBytes);
+        
+        // Dynamic truncation
+        const offset = hmac[hmac.length - 1] & 0x0f;
+        const code = ((hmac[offset] & 0x7f) << 24) |
+                     ((hmac[offset + 1] & 0xff) << 16) |
+                     ((hmac[offset + 2] & 0xff) << 8) |
+                     (hmac[offset + 3] & 0xff);
+        
+        return (code % 1000000).toString().padStart(6, '0');
+    },
+    
+    // Generate otpauth:// URI for authenticator apps
+    generateTOTPUri(secret, email, issuer = 'IFTA Wizard') {
+        const encodedIssuer = encodeURIComponent(issuer);
+        const encodedEmail = encodeURIComponent(email);
+        return `otpauth://totp/${encodedIssuer}:${encodedEmail}?secret=${secret}&issuer=${encodedIssuer}&algorithm=SHA1&digits=6&period=30`;
+    },
+    
+    // Generate QR code URL for TOTP setup
+    generateTOTPQRUrl(secret, email) {
+        const uri = this.generateTOTPUri(secret, email);
+        // Using Google Charts API for QR code generation
+        return `https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(uri)}&choe=UTF-8`;
+    },
+    
+    // Check if user has TOTP enabled
+    async hasTOTPEnabled(email) {
+        // Check local storage first
+        const users = this.getUsers();
+        const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        if (user && user.totpEnabled) {
+            return true;
+        }
+        
+        // Check Firebase
+        if (this.firebaseReady && typeof db !== 'undefined') {
+            try {
+                const userData = await this.findUserInFirebase(email);
+                if (userData && userData.totpEnabled) {
+                    return true;
+                }
+            } catch (e) {
+                console.error('Error checking TOTP status:', e);
+            }
+        }
+        
+        return false;
+    },
+    
+    // Get TOTP secret for user
+    async getTOTPSecret(email) {
+        // Check local storage first
+        const users = this.getUsers();
+        const user = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+        if (user && user.totpSecret) {
+            return user.totpSecret;
+        }
+        
+        // Check Firebase
+        if (this.firebaseReady && typeof db !== 'undefined') {
+            try {
+                const userData = await this.findUserInFirebase(email);
+                if (userData && userData.totpSecret) {
+                    return userData.totpSecret;
+                }
+            } catch (e) {
+                console.error('Error getting TOTP secret:', e);
+            }
+        }
+        
+        return null;
+    },
+    
+    // Enable TOTP for user
+    async enableTOTP(email, secret) {
+        // Update local storage
+        const users = this.getUsers();
+        const userIndex = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+        if (userIndex >= 0) {
+            users[userIndex].totpEnabled = true;
+            users[userIndex].totpSecret = secret;
+            users[userIndex].totpEnabledAt = new Date().toISOString();
+            this.saveUsers(users);
+        }
+        
+        // Update Firebase
+        if (this.firebaseReady && typeof db !== 'undefined') {
+            try {
+                const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+                await db.collection('users').doc(docId).update({
+                    totpEnabled: true,
+                    totpSecret: secret,
+                    totpEnabledAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (e) {
+                console.error('Error enabling TOTP in Firebase:', e);
+            }
+        }
+        
+        return true;
+    },
+    
+    // Disable TOTP for user
+    async disableTOTP(email) {
+        // Update local storage
+        const users = this.getUsers();
+        const userIndex = users.findIndex(u => u.email.toLowerCase() === email.toLowerCase());
+        if (userIndex >= 0) {
+            users[userIndex].totpEnabled = false;
+            delete users[userIndex].totpSecret;
+            this.saveUsers(users);
+        }
+        
+        // Update Firebase
+        if (this.firebaseReady && typeof db !== 'undefined') {
+            try {
+                const docId = email.replace(/[^a-zA-Z0-9]/g, '_');
+                await db.collection('users').doc(docId).update({
+                    totpEnabled: false,
+                    totpSecret: firebase.firestore.FieldValue.delete()
+                });
+            } catch (e) {
+                console.error('Error disabling TOTP in Firebase:', e);
+            }
+        }
+        
+        return true;
+    },
+    
+    // Show TOTP setup modal
+    showTOTPSetup(email) {
+        const secret = this.generateTOTPSecret();
+        this.totpSecret = secret;
+        
+        const qrUrl = this.generateTOTPQRUrl(secret, email);
+        const modal = document.getElementById('totpSetupModal');
+        
+        if (modal) {
+            document.getElementById('totpQRCode').src = qrUrl;
+            document.getElementById('totpSecretKey').textContent = secret.match(/.{1,4}/g).join(' ');
+            document.getElementById('totpEmail').textContent = email;
+            modal.classList.remove('hidden');
+            
+            // Clear any previous code
+            const codeInputs = modal.querySelectorAll('.code-input');
+            codeInputs.forEach(input => input.value = '');
+        }
+    },
+    
+    // Close TOTP setup modal
+    closeTOTPSetup() {
+        const modal = document.getElementById('totpSetupModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        this.totpSecret = null;
+    },
+    
+    // Verify TOTP setup code
+    async verifyTOTPSetup() {
+        const inputs = document.querySelectorAll('#totpSetupCodeInputs .code-input');
+        const code = Array.from(inputs).map(i => i.value).join('');
+        
+        if (code.length !== 6) {
+            this.showTOTPSetupError('Please enter all 6 digits');
+            return;
+        }
+        
+        if (!this.totpSecret) {
+            this.showTOTPSetupError('Setup expired. Please try again.');
+            return;
+        }
+        
+        // Verify the code
+        if (this.verifyTOTPCode(this.totpSecret, code)) {
+            // Enable TOTP for user
+            const email = document.getElementById('totpEmail').textContent;
+            await this.enableTOTP(email, this.totpSecret);
+            
+            this.closeTOTPSetup();
+            
+            if (typeof showToast === 'function') {
+                showToast('Authenticator app enabled successfully!', 'success');
+            }
+            
+            this.totpSecret = null;
+        } else {
+            this.showTOTPSetupError('Invalid code. Please try again.');
+            this.shakeTOTPInputs('totpSetupCodeInputs');
+        }
+    },
+    
+    // Show TOTP verification modal (for login)
+    showTOTPVerify(user) {
+        this.totpPendingUser = user;
+        const modal = document.getElementById('totpVerifyModal');
+        
+        if (modal) {
+            document.getElementById('totpVerifyEmail').textContent = user.email;
+            modal.classList.remove('hidden');
+            
+            // Clear and focus
+            const codeInputs = modal.querySelectorAll('.code-input');
+            codeInputs.forEach(input => input.value = '');
+            setTimeout(() => codeInputs[0]?.focus(), 100);
+        }
+    },
+    
+    // Close TOTP verify modal
+    closeTOTPVerify() {
+        const modal = document.getElementById('totpVerifyModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+        this.totpPendingUser = null;
+    },
+    
+    // Verify TOTP code during login
+    async verifyTOTPLogin() {
+        const inputs = document.querySelectorAll('#totpVerifyCodeInputs .code-input');
+        const code = Array.from(inputs).map(i => i.value).join('');
+        
+        if (code.length !== 6) {
+            this.showTOTPVerifyError('Please enter all 6 digits');
+            return;
+        }
+        
+        if (!this.totpPendingUser) {
+            this.showTOTPVerifyError('Session expired. Please try again.');
+            this.closeTOTPVerify();
+            return;
+        }
+        
+        // Get the secret
+        const secret = await this.getTOTPSecret(this.totpPendingUser.email);
+        
+        if (!secret) {
+            this.showTOTPVerifyError('TOTP not configured. Please contact support.');
+            return;
+        }
+        
+        // Verify the code
+        if (this.verifyTOTPCode(secret, code)) {
+            const user = this.totpPendingUser;
+            this.closeTOTPVerify();
+            
+            // Complete login
+            this.saveUserAndAuthenticate(user);
+            
+            if (typeof IFTASecurity !== 'undefined') {
+                IFTASecurity.recordSuccessfulLogin(user.email);
+            }
+        } else {
+            this.showTOTPVerifyError('Invalid code. Please try again.');
+            this.shakeTOTPInputs('totpVerifyCodeInputs');
+            
+            if (typeof IFTASecurity !== 'undefined') {
+                IFTASecurity.recordFailedLogin(this.totpPendingUser.email);
+            }
+        }
+    },
+    
+    // Show TOTP setup error
+    showTOTPSetupError(message) {
+        const errorEl = document.getElementById('totpSetupError');
+        if (errorEl) {
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+    },
+    
+    // Show TOTP verify error
+    showTOTPVerifyError(message) {
+        const errorEl = document.getElementById('totpVerifyError');
+        if (errorEl) {
+            errorEl.textContent = message;
+            errorEl.style.display = 'block';
+        }
+    },
+    
+    // Shake TOTP inputs on error
+    shakeTOTPInputs(containerId) {
+        const inputs = document.querySelectorAll(`#${containerId} .code-input`);
+        inputs.forEach(input => {
+            input.classList.add('error');
+            setTimeout(() => input.classList.remove('error'), 500);
+        });
+    },
+    
+    // Setup TOTP code input handlers
+    setupTOTPCodeInputs(containerId, onComplete) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        const inputs = container.querySelectorAll('.code-input');
+        
+        inputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                const value = e.target.value.replace(/\D/g, '');
+                e.target.value = value;
+                
+                if (value && index < inputs.length - 1) {
+                    inputs[index + 1].focus();
+                }
+                
+                // Hide error
+                const errorEl = container.parentElement.querySelector('.totp-error');
+                if (errorEl) errorEl.style.display = 'none';
+            });
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    inputs[index - 1].focus();
+                }
+                if (e.key === 'Enter') {
+                    if (onComplete) onComplete();
+                }
+            });
+            
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+                const digits = pastedData.replace(/\D/g, '').slice(0, 6);
+                
+                digits.split('').forEach((digit, i) => {
+                    if (inputs[i]) {
+                        inputs[i].value = digit;
+                    }
+                });
+                
+                const focusIndex = Math.min(digits.length, inputs.length - 1);
+                inputs[focusIndex].focus();
+            });
+        });
     }
 };
 
