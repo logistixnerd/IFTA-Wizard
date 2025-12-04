@@ -101,11 +101,18 @@ const AdminPanel = {
             });
         });
         
-        // Logout
-        document.getElementById('adminLogout')?.addEventListener('click', () => {
-            firebase.auth().signOut().then(() => {
+        // Logout - sign out completely and go to main app login
+        document.getElementById('adminLogout')?.addEventListener('click', async () => {
+            try {
+                await firebase.auth().signOut();
+                // Clear any local storage auth data
+                localStorage.removeItem('ifta_user');
+                // Redirect to main app (will show login modal)
                 window.location.href = 'index.html';
-            });
+            } catch (error) {
+                console.error('Logout error:', error);
+                window.location.href = 'index.html';
+            }
         });
         
         // Search handlers
