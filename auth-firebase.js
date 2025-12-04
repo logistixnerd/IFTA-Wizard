@@ -97,6 +97,12 @@ const IFTAAuth = {
                 this.hideAuthModal();
                 this.updateUIForLoggedInUser();
                 
+                // Show login success notification
+                const firstName = this.user.name?.split(' ')[0] || 'there';
+                if (typeof showToast === 'function') {
+                    showToast(`Welcome back, ${firstName}!`, 'success');
+                }
+                
                 // Sync reports from Firebase
                 if (typeof IFTAReports !== 'undefined' && IFTAReports.syncReportsFromFirebase) {
                     IFTAReports.syncReportsFromFirebase();
@@ -671,20 +677,24 @@ const IFTAAuth = {
     
     // Update UI for logged in user
     updateUIForLoggedInUser() {
-        // Update profile menu
-        const profileName = document.getElementById('profileName');
-        const profileEmail = document.getElementById('profileEmail');
-        const profileAvatar = document.getElementById('profileAvatar');
-        const headerUser = document.getElementById('headerUser');
+        // Get user's first name for display
+        const firstName = this.user?.name?.split(' ')[0] || '';
+        const displayName = firstName || 'Account';
+        const avatarLetter = (firstName || this.user?.email || 'U').charAt(0).toUpperCase();
         
-        if (profileName) profileName.textContent = this.user?.name || 'User';
-        if (profileEmail) profileEmail.textContent = this.user?.email || '';
-        if (profileAvatar && this.user?.name) {
-            profileAvatar.textContent = this.user.name.charAt(0).toUpperCase();
-        }
-        if (headerUser) {
-            headerUser.textContent = this.user?.name?.split(' ')[0] || 'User';
-        }
+        // Update profile button
+        const profileName = document.getElementById('profileName');
+        const profileAvatar = document.getElementById('profileAvatar');
+        
+        if (profileName) profileName.textContent = displayName;
+        if (profileAvatar) profileAvatar.textContent = avatarLetter;
+        
+        // Update profile menu header
+        const menuUserName = document.getElementById('menuUserName');
+        const menuUserEmail = document.getElementById('menuUserEmail');
+        
+        if (menuUserName) menuUserName.textContent = this.user?.name || 'User';
+        if (menuUserEmail) menuUserEmail.textContent = this.user?.email || '';
         
         // Show/hide admin link in profile menu
         const adminLink = document.getElementById('menuAdminConsole');
