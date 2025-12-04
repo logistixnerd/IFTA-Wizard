@@ -457,8 +457,9 @@ function attachRowEventListeners(row, rowId) {
     
     // Total miles change - automatically mirror to taxable miles
     row.querySelector('.total-miles').addEventListener('input', (e) => {
-        // Force whole numbers only
-        const value = Math.round(parseFloat(e.target.value) || 0);
+        // Force positive whole numbers only
+        let value = Math.round(parseFloat(e.target.value) || 0);
+        if (value < 0) value = 0;
         e.target.value = value || '';
         
         console.log(`Total miles input for row ${rowId}: ${value}`);
@@ -486,8 +487,9 @@ function attachRowEventListeners(row, rowId) {
     
     // Taxable miles change - mark as manually edited
     row.querySelector('.taxable-miles').addEventListener('input', (e) => {
-        // Force whole numbers only
-        const value = Math.round(parseFloat(e.target.value) || 0);
+        // Force positive whole numbers only
+        let value = Math.round(parseFloat(e.target.value) || 0);
+        if (value < 0) value = 0;
         e.target.value = value || '';
         
         const rowData = appState.rows.find(r => r.id === rowId);
@@ -501,8 +503,9 @@ function attachRowEventListeners(row, rowId) {
     
     // Tax paid gallons change - whole numbers only
     row.querySelector('.tax-paid-gallons').addEventListener('input', (e) => {
-        // Force whole numbers only
-        const value = Math.round(parseFloat(e.target.value) || 0);
+        // Force positive whole numbers only
+        let value = Math.round(parseFloat(e.target.value) || 0);
+        if (value < 0) value = 0;
         e.target.value = value || '';
         
         updateRowField(rowId, 'taxPaidGallons', value);
@@ -514,8 +517,8 @@ function attachRowEventListeners(row, rowId) {
         const input = row.querySelector(selector);
         if (input) {
             input.addEventListener('keydown', (e) => {
-                // Block decimal point and comma
-                if (e.key === '.' || e.key === ',') {
+                // Block decimal point, comma, and minus sign
+                if (e.key === '.' || e.key === ',' || e.key === '-') {
                     e.preventDefault();
                 }
                 // Enter key - validate and add new row
@@ -524,9 +527,10 @@ function attachRowEventListeners(row, rowId) {
                     handleEnterKeyAddRow(rowId);
                 }
             });
-            // On blur, ensure whole number
+            // On blur, ensure positive whole number
             input.addEventListener('blur', (e) => {
-                const value = Math.round(parseFloat(e.target.value) || 0);
+                let value = Math.round(parseFloat(e.target.value) || 0);
+                if (value < 0) value = 0;
                 e.target.value = value || '';
             });
         }

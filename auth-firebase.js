@@ -218,6 +218,12 @@ const IFTAAuth = {
         }
     },
     
+    // Email validation helper
+    isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    },
+    
     // Handle Sign In
     async handleSignIn() {
         const emailInput = document.getElementById('signinEmail');
@@ -229,6 +235,11 @@ const IFTAAuth = {
         
         if (!email || !password) {
             this.showFormError('signin', 'Please enter email and password');
+            return;
+        }
+        
+        if (!this.isValidEmail(email)) {
+            this.showFormError('signin', 'Please enter a valid email address');
             return;
         }
         
@@ -311,6 +322,11 @@ const IFTAAuth = {
         
         if (!email || !password || !name) {
             this.showFormError('signup', 'Please fill in all required fields');
+            return;
+        }
+        
+        if (!this.isValidEmail(email)) {
+            this.showFormError('signup', 'Please enter a valid email address');
             return;
         }
         
