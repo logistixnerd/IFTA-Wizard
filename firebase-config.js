@@ -427,12 +427,47 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// ADMIN SETUP (Development only - disabled in production)
+// ADMIN SETUP - Make current logged-in user an admin
 // ==========================================
 
-// These functions are disabled in production for security
-// To manage users, use Firebase Console directly:
-// https://console.firebase.google.com/project/ifta-wizard-a9061/firestore
+// Call this from browser console while logged in: makeCurrentUserAdmin()
+window.makeCurrentUserAdmin = async function() {
+    if (!db) {
+        console.error('Firebase not initialized. Please refresh the page and try again.');
+        return;
+    }
+    
+    const currentUser = firebase.auth().currentUser;
+    if (!currentUser) {
+        console.error('❌ You must be logged in first! Sign in with Google or Email, then run this again.');
+        return;
+    }
+    
+    try {
+        const userRef = db.collection('users').doc(currentUser.uid);
+        const userDoc = await userRef.get();
+        
+        if (userDoc.exists) {
+            await userRef.update({
+                role: 'admin',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } else {
+            await userRef.set({
+                email: currentUser.email,
+                name: currentUser.displayName || 'Admin',
+                role: 'admin',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        }
+        
+        console.log(`✅ SUCCESS! ${currentUser.email} (UID: ${currentUser.uid}) is now an ADMIN`);
+        console.log('🔄 Please refresh the page to see admin features.');
+    } catch (error) {
+        console.error('Error setting up admin:', error);
+    }
+};
 
 const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
