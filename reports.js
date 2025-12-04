@@ -49,8 +49,6 @@ const IFTAReports = {
         const dropdown = document.getElementById('profileDropdown');
         
         if (profileBtn && dropdown) {
-            console.log('Profile button found, setting up dropdown');
-            
             // Remove any existing handlers
             profileBtn.onclick = null;
             
@@ -58,11 +56,9 @@ const IFTAReports = {
             profileBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Profile button clicked!');
                 
                 const isOpen = dropdown.classList.contains('open');
                 dropdown.classList.toggle('open');
-                console.log('Dropdown is now:', isOpen ? 'closed' : 'open');
                 
                 if (!isOpen) {
                     this.updateProfileMenuInfo();
@@ -78,8 +74,6 @@ const IFTAReports = {
                     dropdown.classList.remove('open');
                 }
             });
-        } else {
-            console.error('Profile button NOT found!');
         }
         
         // Profile menu items
@@ -1542,14 +1536,78 @@ const IFTAReports = {
     loadPreferences() {
         const prefs = this.getPreferences();
         
-        // Apply defaults if available
+        // Apply saved defaults
         if (typeof appState !== 'undefined') {
+            // Apply default fuel type
             if (prefs.defaultFuelType) {
-                // Could set default fuel type
+                const fuelSelect = document.getElementById('fuelTypeSelect');
+                if (fuelSelect && fuelSelect.querySelector(`option[value="${prefs.defaultFuelType}"]`)) {
+                    fuelSelect.value = prefs.defaultFuelType;
+                }
             }
-            if (prefs.defaultMpg) {
-                // Could set default MPG
+            
+            // Apply default MPG
+            if (prefs.defaultMpg && prefs.defaultMpg > 0) {
+                const mpgInput = document.getElementById('fleetMpg');
+                if (mpgInput) {
+                    mpgInput.value = prefs.defaultMpg;
+                    appState.fleetMpg = prefs.defaultMpg;
+                }
             }
+            
+            // Apply default base jurisdiction
+            if (prefs.defaultBaseJurisdiction) {
+                const baseSelect = document.getElementById('baseJurisdictionSelect');
+                if (baseSelect && baseSelect.querySelector(`option[value="${prefs.defaultBaseJurisdiction}"]`)) {
+                    baseSelect.value = prefs.defaultBaseJurisdiction;
+                    appState.baseJurisdiction = prefs.defaultBaseJurisdiction;
+                }
+            }
+        }
+        
+        // Setup auto-save if enabled
+        if (prefs.autoSave) {
+            this.setupAutoSave();
+        }
+    },
+    
+    // Setup auto-save functionality
+    setupAutoSave() {
+        // Auto-save every 2 minutes if there are changes
+        setInterval(() => {
+            if (typeof appState !== 'undefined' && appState.rows && appState.rows.length > 0) {
+                const hasData = appState.rows.some(r => r.jurisdiction || r.totalMiles > 0);
+                if (hasData) {
+                    this.autoSaveReport();
+                }
+            }
+        }, 2 * 60 * 1000); // 2 minutes
+    },
+    
+    // Auto-save current report
+    autoSaveReport() {
+        try {
+            const reports = JSON.parse(localStorage.getItem(this.STORAGE_KEYS.reports) || '[]');
+            const autoSaveIndex = reports.findIndex(r => r.isAutoSave);
+            
+            const autoSaveData = {
+                id: 'autosave_' + Date.now(),
+                isAutoSave: true,
+                name: 'Auto-saved Report',
+                quarter: typeof appState !== 'undefined' ? appState.selectedQuarter : '',
+                rows: typeof appState !== 'undefined' ? appState.rows : [],
+                timestamp: new Date().toISOString()
+            };
+            
+            if (autoSaveIndex >= 0) {
+                reports[autoSaveIndex] = autoSaveData;
+            } else {
+                reports.unshift(autoSaveData);
+            }
+            
+            localStorage.setItem(this.STORAGE_KEYS.reports, JSON.stringify(reports));
+        } catch (error) {
+            console.warn('Auto-save failed:', error);
         }
     },
     

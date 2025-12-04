@@ -1009,6 +1009,12 @@ function handleCsvImport(event) {
             const csv = e.target.result;
             const lines = csv.split('\n');
             
+            // Get valid jurisdiction codes
+            const validJurisdictions = Object.keys(IFTA_TAX_RATES?.jurisdictions || {});
+            let importedCount = 0;
+            let skippedCount = 0;
+            const skippedJurisdictions = [];
+            
             // Skip header row
             for (let i = 1; i < lines.length; i++) {
                 const line = lines[i].trim();
@@ -1018,8 +1024,19 @@ function handleCsvImport(event) {
                     line.split(',').map(s => s.trim());
                 
                 if (jurisdiction) {
+                    const jurisdictionCode = jurisdiction.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+                    
+                    // Validate jurisdiction code
+                    if (validJurisdictions.length > 0 && !validJurisdictions.includes(jurisdictionCode)) {
+                        skippedCount++;
+                        if (!skippedJurisdictions.includes(jurisdiction)) {
+                            skippedJurisdictions.push(jurisdiction);
+                        }
+                        continue;
+                    }
+                    
                     const rowData = addNewRow();
-                    rowData.jurisdiction = jurisdiction.toUpperCase();
+                    rowData.jurisdiction = jurisdictionCode;
                     rowData.totalMiles = parseFloat(totalMiles) || 0;
                     rowData.taxableMiles = parseFloat(taxableMiles) || 0;
                     rowData.taxPaidGallons = parseFloat(taxPaidGallons) || 0;
@@ -1034,10 +1051,16 @@ function handleCsvImport(event) {
                     }
                     
                     calculateRow(rowData.id);
+                    importedCount++;
                 }
             }
             
-            showToast(`Imported ${lines.length - 1} rows from CSV`, 'success');
+            // Show appropriate message
+            if (skippedCount > 0) {
+                showToast(`Imported ${importedCount} rows. Skipped ${skippedCount} invalid: ${skippedJurisdictions.join(', ')}`, 'warning');
+            } else {
+                showToast(`Imported ${importedCount} rows from CSV`, 'success');
+            }
         } catch (error) {
             console.error('CSV import error:', error);
             showToast('Error importing CSV file', 'error');
