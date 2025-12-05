@@ -142,6 +142,26 @@ body {
     margin: 0;
 }
 
+.auth-about {
+    font-size: 0.6875rem;
+    color: var(--gray-500);
+    line-height: 1.4;
+    margin: 0.75rem 0 0 0;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--gray-200);
+    text-align: center;
+}
+
+.auth-about a {
+    color: var(--primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.auth-about a:hover {
+    text-decoration: underline;
+}
+
 /* Auth Mode Toggle */
 .auth-mode-toggle {
     display: flex;
