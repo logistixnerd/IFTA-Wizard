@@ -31,7 +31,7 @@ const IFTASecurity = {
         this.setupDevToolsDetection();
         this.preventDataExfiltration();
         this.setupIntegrityChecks();
-        console.log('🛡️ Security module initialized');
+        console.log('Security module initialized');
     },
     
     // ==========================================
@@ -144,7 +144,7 @@ const IFTASecurity = {
         // Break out of iframe or hide content
         document.body.innerHTML = `
             <div style="padding: 50px; text-align: center; font-family: sans-serif;">
-                <h1>⚠️ Security Warning</h1>
+                <h1>Security Warning</h1>
                 <p>This page cannot be displayed in a frame for security reasons.</p>
                 <a href="${window.location.href}" target="_top">Click here to open directly</a>
             </div>
@@ -380,7 +380,7 @@ const IFTASecurity = {
         const warningStyle = 'color: red; font-size: 24px; font-weight: bold;';
         const infoStyle = 'color: gray; font-size: 14px;';
         
-        console.log('%c⚠️ STOP!', warningStyle);
+        console.log('%cSTOP!', warningStyle);
         console.log('%cThis is a browser feature for developers. If someone told you to paste something here, it\'s likely a scam.', infoStyle);
         console.log('%cPasting code here could give attackers access to your account.', infoStyle);
     },
@@ -505,7 +505,7 @@ const IFTASecurity = {
             referrer: document.referrer
         };
         
-        console.warn('🔒 Security Event:', eventType, details);
+        console.warn('Security Event:', eventType, details);
         
         // Store locally
         try {

@@ -453,7 +453,7 @@ if (isDevelopment) {
         
         const currentUser = firebase.auth().currentUser;
         if (!currentUser) {
-            console.error('❌ You must be logged in first! Sign in with Google or Email, then run this again.');
+            console.error('You must be logged in first! Sign in with Google or Email, then run this again.');
             return;
         }
         
@@ -476,8 +476,8 @@ if (isDevelopment) {
                 });
             }
             
-            console.log(`✅ SUCCESS! ${currentUser.email} (UID: ${currentUser.uid}) is now an ADMIN`);
-            console.log('🔄 Please refresh the page to see admin features.');
+            console.log(`SUCCESS! ${currentUser.email} (UID: ${currentUser.uid}) is now an ADMIN`);
+            console.log('Please refresh the page to see admin features.');
         } catch (error) {
             console.error('Error setting up admin:', error);
         }
@@ -507,9 +507,9 @@ if (isDevelopment) {
                     role: 'admin',
                     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-                console.log(`✅ ${email} has been upgraded to ADMIN role`);
+                console.log(`SUCCESS! ${email} has been upgraded to ADMIN role`);
             } else {
-                console.error(`❌ No user found with email: ${email}`);
+                console.error(`No user found with email: ${email}`);
                 console.log('The user must sign up first before being made admin.');
             }
         } catch (error) {
@@ -517,10 +517,10 @@ if (isDevelopment) {
         }
     };
     
-    console.log('🔧 Development mode: Admin setup functions available');
+    console.log('Development mode: Admin setup functions available');
     console.log('   - makeCurrentUserAdmin() - Make yourself admin while logged in');
     console.log('   - setupAdmin("email") - Make existing user admin by email');
 } else {
     // Production - no admin functions exposed
-    console.log('🔒 Production mode: Admin functions disabled');
+    console.log('Production mode: Admin functions disabled');
 }

@@ -416,7 +416,9 @@ function createRowHtml(rowData) {
     });
     jurisdictionOptions += '</optgroup>';
     
-    const taxClass = rowData.taxDue >= 0 ? 'positive' : 'negative';
+    // Get display tax amount (may be $0 for credit-only states)
+    const displayTaxDue = getDisplayTaxDue(rowData.taxDue, rowData.jurisdiction);
+    const taxClass = displayTaxDue >= 0 ? 'positive' : 'negative';
     
     // Display values - whole numbers for miles, integers for gallons
     const totalMilesDisplay = rowData.totalMiles ? Math.round(rowData.totalMiles) : '';
@@ -447,7 +449,7 @@ function createRowHtml(rowData) {
         <td class="rate-display" title="Tax rate from IFTA reference - not editable">${formatRate(rowData.taxRate)}</td>
         <td class="taxable-gallons" title="Taxable Miles ÷ Fleet MPG">${formatWholeGallons(rowData.taxableGallons)}</td>
         <td class="net-taxable-gallons" title="Taxable Gallons - Tax Paid Gallons">${formatWholeGallons(rowData.netTaxableGallons)}</td>
-        <td class="tax-amount ${taxClass}" title="Net Taxable Gallons × Tax Rate">${formatCurrency(rowData.taxDue)}</td>
+        <td class="tax-amount ${taxClass}" title="Net Taxable Gallons × Tax Rate">${formatCurrency(displayTaxDue)}</td>
         <td>
             <button class="delete-row" title="Delete row">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -782,6 +784,20 @@ function roundTo(num, decimals) {
     return Math.round(num * factor) / factor;
 }
 
+// Get display value for tax due based on refund policy
+// If jurisdiction has credit-only policy (no cash refund), show $0 for credits
+function getDisplayTaxDue(taxDue, jurisdiction) {
+    if (taxDue >= 0) {
+        return taxDue; // Tax owed - always show actual amount
+    }
+    // Tax credit (negative) - check refund policy
+    const jurisdictionData = IFTA_TAX_RATES?.jurisdictions?.[jurisdiction];
+    if (jurisdictionData?.refundPolicy === 'credit') {
+        return 0; // No cash refund - display $0
+    }
+    return taxDue; // Refund available - show actual credit amount
+}
+
 // Update row UI with calculated values
 function updateRowUI(rowId, rowData) {
     const row = document.getElementById(`row-${rowId}`);
@@ -798,10 +814,11 @@ function updateRowUI(rowId, rowData) {
     netGallonsCell.textContent = formatWholeGallons(rowData.netTaxableGallons);
     netGallonsCell.className = `net-taxable-gallons ${rowData.netTaxableGallons >= 0 ? '' : 'negative'}`;
     
-    // Tax due - currency format
+    // Tax due - currency format (may be $0 for credit-only states)
+    const displayTaxDue = getDisplayTaxDue(rowData.taxDue, rowData.jurisdiction);
     const taxCell = row.querySelector('.tax-amount');
-    taxCell.textContent = formatCurrency(rowData.taxDue);
-    taxCell.className = `tax-amount ${rowData.taxDue >= 0 ? 'positive' : 'negative'}`;
+    taxCell.textContent = formatCurrency(displayTaxDue);
+    taxCell.className = `tax-amount ${displayTaxDue >= 0 ? 'positive' : 'negative'}`;
 }
 
 // Refresh all jurisdiction dropdowns to update disabled states
@@ -905,7 +922,8 @@ function updateTotals() {
         totalGallons += row.taxPaidGallons || 0;
         totalTaxableGallons += row.taxableGallons || 0;
         totalNetGallons += row.netTaxableGallons || 0;
-        totalTax += row.taxDue || 0;
+        // Use display tax (accounts for credit-only states showing $0)
+        totalTax += getDisplayTaxDue(row.taxDue || 0, row.jurisdiction);
     });
     
     // Update table footer - use whole numbers for miles and gallons (with null checks)
@@ -1561,7 +1579,8 @@ function printReportAsPdf() {
     dataRows.forEach(row => {
         const jurisdictionData = IFTA_TAX_RATES.jurisdictions[row.jurisdiction];
         const name = jurisdictionData ? jurisdictionData.name : row.jurisdiction;
-        const taxClass = row.taxDue >= 0 ? 'positive' : 'negative';
+        const displayTaxDue = getDisplayTaxDue(row.taxDue, row.jurisdiction);
+        const taxClass = displayTaxDue >= 0 ? 'positive' : 'negative';
         
         html += `
             <tr>
@@ -1572,7 +1591,7 @@ function printReportAsPdf() {
                 <td>${formatRate(row.taxRate)}</td>
                 <td>${formatGallons(row.taxableGallons)}</td>
                 <td>${formatGallons(row.netTaxableGallons)}</td>
-                <td class="${taxClass}">${formatCurrency(row.taxDue)}</td>
+                <td class="${taxClass}">${formatCurrency(displayTaxDue)}</td>
             </tr>`;
         
         totals.miles += row.totalMiles || 0;
@@ -1580,7 +1599,7 @@ function printReportAsPdf() {
         totals.gallons += row.taxPaidGallons || 0;
         totals.taxableGallons += row.taxableGallons || 0;
         totals.netGallons += row.netTaxableGallons || 0;
-        totals.tax += row.taxDue || 0;
+        totals.tax += getDisplayTaxDue(row.taxDue || 0, row.jurisdiction);
     });
     
     const totalTaxClass = totals.tax >= 0 ? 'positive' : 'negative';
@@ -1935,16 +1954,16 @@ function showToast(message, type = 'info') {
     let icon = '';
     switch (type) {
         case 'success':
-            icon = '✓';
+            icon = '';
             break;
         case 'error':
-            icon = '✕';
+            icon = '';
             break;
         case 'warning':
-            icon = '⚠';
+            icon = '';
             break;
         default:
-            icon = 'ℹ';
+            icon = '';
     }
     
     toast.innerHTML = `<span>${icon}</span><span>${message}</span>`;

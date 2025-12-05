@@ -2,10 +2,15 @@
  * IFTA Tax Rates Data
  * Current Quarter: Q4 2025 (October - December 2025)
  * Source: https://www.iftach.org/taxmatrix4/
+ * Refund Policy Source: https://www.iftach.org/links.php
  * Exchange Rate: US = 1.3797 / Canada = 0.7248
  * 
  * Note: Rates are in USD per gallon for US jurisdictions
  * and converted to USD for Canadian jurisdictions
+ * 
+ * Refund Policy:
+ * - "refund": State will issue a refund check for overpaid taxes
+ * - "credit": Credit only - overpayment carries forward to next quarter (no cash refund)
  */
 
 const IFTA_TAX_RATES = {
@@ -24,6 +29,7 @@ const IFTA_TAX_RATES = {
             name: "Alabama",
             abbrev: "AL",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.310,
                 gasoline: 0.290,
@@ -41,6 +47,7 @@ const IFTA_TAX_RATES = {
             name: "Arizona",
             abbrev: "AZ",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.260,
                 gasoline: 0.180,
@@ -58,6 +65,7 @@ const IFTA_TAX_RATES = {
             name: "Arkansas",
             abbrev: "AR",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.285,
                 gasoline: 0.247,
@@ -75,6 +83,7 @@ const IFTA_TAX_RATES = {
             name: "California",
             abbrev: "CA",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.9710,
                 gasoline: 0.6510,
@@ -92,6 +101,7 @@ const IFTA_TAX_RATES = {
             name: "Colorado",
             abbrev: "CO",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.3250,
                 gasoline: 0.2200,
@@ -108,6 +118,7 @@ const IFTA_TAX_RATES = {
             name: "Connecticut",
             abbrev: "CT",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.4890,
                 gasoline: 0.2500,
@@ -125,6 +136,7 @@ const IFTA_TAX_RATES = {
             name: "Delaware",
             abbrev: "DE",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.2200,
                 gasoline: 0.2300,
@@ -141,6 +153,7 @@ const IFTA_TAX_RATES = {
             name: "Florida",
             abbrev: "FL",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.4027,
                 gasoline: 0.3777,
@@ -158,6 +171,7 @@ const IFTA_TAX_RATES = {
             name: "Georgia",
             abbrev: "GA",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.3710,
                 gasoline: 0.3510,
@@ -175,6 +189,7 @@ const IFTA_TAX_RATES = {
             name: "Idaho",
             abbrev: "ID",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.3800,
                 gasoline: 0.3300,
@@ -192,6 +207,7 @@ const IFTA_TAX_RATES = {
             name: "Illinois",
             abbrev: "IL",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.7490,
                 gasoline: 0.5670,
@@ -209,6 +225,7 @@ const IFTA_TAX_RATES = {
             name: "Indiana",
             abbrev: "IN",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.6100,
                 gasoline: 0.3600,
@@ -226,16 +243,17 @@ const IFTA_TAX_RATES = {
             name: "Iowa",
             abbrev: "IA",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.3250,
                 gasoline: 0.3000,
-                gasohol: 0.2900,
+                gasohol: 0.3000,
                 propane: 0.3000,
                 lng: 0.3250,
-                cng: 0.3140,
-                ethanol: 0.1900,
-                methanol: 0.0000,
-                biodiesel: 0.3250
+                cng: 0.3100,
+                ethanol: 0.2650,
+                methanol: 0.3000,
+                biodiesel: 0.2980
             },
             footnote: "#25"
         },
@@ -243,6 +261,7 @@ const IFTA_TAX_RATES = {
             name: "Kansas",
             abbrev: "KS",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.2600,
                 gasoline: 0.2400,
@@ -259,6 +278,7 @@ const IFTA_TAX_RATES = {
             name: "Kentucky",
             abbrev: "KY",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.3250,
                 gasoline: 0.2870,
@@ -275,6 +295,7 @@ const IFTA_TAX_RATES = {
             name: "Louisiana",
             abbrev: "LA",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.2000,
                 gasoline: 0.2000,
@@ -292,6 +313,7 @@ const IFTA_TAX_RATES = {
             name: "Maine",
             abbrev: "ME",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.3120,
                 gasoline: 0.3000,
@@ -308,6 +330,7 @@ const IFTA_TAX_RATES = {
             name: "Maryland",
             abbrev: "MD",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.4175,
                 gasoline: 0.4700,
@@ -325,6 +348,7 @@ const IFTA_TAX_RATES = {
             name: "Massachusetts",
             abbrev: "MA",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.2540,
                 gasoline: 0.2400,
@@ -341,6 +365,7 @@ const IFTA_TAX_RATES = {
             name: "Michigan",
             abbrev: "MI",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.5070,
                 gasoline: 0.3230,
@@ -357,6 +382,7 @@ const IFTA_TAX_RATES = {
             name: "Minnesota",
             abbrev: "MN",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.2850,
                 gasoline: 0.2850,
@@ -374,6 +400,7 @@ const IFTA_TAX_RATES = {
             name: "Mississippi",
             abbrev: "MS",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.1800,
                 gasoline: 0.1800,
@@ -391,6 +418,7 @@ const IFTA_TAX_RATES = {
             name: "Missouri",
             abbrev: "MO",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.2200,
                 gasoline: 0.2200,
@@ -408,6 +436,7 @@ const IFTA_TAX_RATES = {
             name: "Montana",
             abbrev: "MT",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.2975,
                 gasoline: 0.0000,
@@ -425,6 +454,7 @@ const IFTA_TAX_RATES = {
             name: "Nebraska",
             abbrev: "NE",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.2840,
                 gasoline: 0.2840,
@@ -441,6 +471,7 @@ const IFTA_TAX_RATES = {
             name: "Nevada",
             abbrev: "NV",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.2700,
                 gasoline: 0.2300,
@@ -457,6 +488,7 @@ const IFTA_TAX_RATES = {
             name: "New Hampshire",
             abbrev: "NH",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.2220,
                 gasoline: 0.2220,
@@ -473,6 +505,7 @@ const IFTA_TAX_RATES = {
             name: "New Jersey",
             abbrev: "NJ",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.5190,
                 gasoline: 0.3700,
@@ -489,6 +522,7 @@ const IFTA_TAX_RATES = {
             name: "New Mexico",
             abbrev: "NM",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.2100,
                 gasoline: 0.1700,
@@ -506,6 +540,7 @@ const IFTA_TAX_RATES = {
             name: "New York",
             abbrev: "NY",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.1720,
                 gasoline: 0.0800,
@@ -523,6 +558,7 @@ const IFTA_TAX_RATES = {
             name: "North Carolina",
             abbrev: "NC",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.4080,
                 gasoline: 0.4080,
@@ -540,6 +576,7 @@ const IFTA_TAX_RATES = {
             name: "North Dakota",
             abbrev: "ND",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.2300,
                 gasoline: 0.2300,
@@ -556,6 +593,7 @@ const IFTA_TAX_RATES = {
             name: "Ohio",
             abbrev: "OH",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.4700,
                 gasoline: 0.3850,
@@ -573,6 +611,7 @@ const IFTA_TAX_RATES = {
             name: "Oklahoma",
             abbrev: "OK",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.1900,
                 gasoline: 0.1900,
@@ -589,6 +628,7 @@ const IFTA_TAX_RATES = {
             name: "Oregon",
             abbrev: "OR",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.0000,
                 gasoline: 0.4000,
@@ -605,6 +645,7 @@ const IFTA_TAX_RATES = {
             name: "Pennsylvania",
             abbrev: "PA",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.7410,
                 gasoline: 0.5830,
@@ -622,6 +663,7 @@ const IFTA_TAX_RATES = {
             name: "Rhode Island",
             abbrev: "RI",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.3800,
                 gasoline: 0.3700,
@@ -639,6 +681,7 @@ const IFTA_TAX_RATES = {
             name: "South Carolina",
             abbrev: "SC",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.2875,
                 gasoline: 0.2875,
@@ -656,6 +699,7 @@ const IFTA_TAX_RATES = {
             name: "South Dakota",
             abbrev: "SD",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.3000,
                 gasoline: 0.3000,
@@ -672,6 +716,7 @@ const IFTA_TAX_RATES = {
             name: "Tennessee",
             abbrev: "TN",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.2700,
                 gasoline: 0.2700,
@@ -689,6 +734,7 @@ const IFTA_TAX_RATES = {
             name: "Texas",
             abbrev: "TX",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.2000,
                 gasoline: 0.2000,
@@ -706,6 +752,7 @@ const IFTA_TAX_RATES = {
             name: "Utah",
             abbrev: "UT",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.3250,
                 gasoline: 0.3250,
@@ -723,6 +770,7 @@ const IFTA_TAX_RATES = {
             name: "Vermont",
             abbrev: "VT",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.3100,
                 gasoline: 0.3210,
@@ -739,6 +787,7 @@ const IFTA_TAX_RATES = {
             name: "Virginia",
             abbrev: "VA",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.4700,
                 gasoline: 0.3020,
@@ -756,6 +805,7 @@ const IFTA_TAX_RATES = {
             name: "Washington",
             abbrev: "WA",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.5840,
                 gasoline: 0.5840,
@@ -773,6 +823,7 @@ const IFTA_TAX_RATES = {
             name: "West Virginia",
             abbrev: "WV",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.3570,
                 gasoline: 0.3570,
@@ -789,6 +840,7 @@ const IFTA_TAX_RATES = {
             name: "Wisconsin",
             abbrev: "WI",
             country: "US",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.3290,
                 gasoline: 0.3290,
@@ -805,6 +857,7 @@ const IFTA_TAX_RATES = {
             name: "Wyoming",
             abbrev: "WY",
             country: "US",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.2400,
                 gasoline: 0.2400,
@@ -824,6 +877,7 @@ const IFTA_TAX_RATES = {
             name: "Alberta",
             abbrev: "AB",
             country: "CAN",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.0942,
                 gasoline: 0.0942,
@@ -846,6 +900,7 @@ const IFTA_TAX_RATES = {
             name: "British Columbia",
             abbrev: "BC",
             country: "CAN",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.2427,
                 gasoline: 0.2354,
@@ -867,6 +922,7 @@ const IFTA_TAX_RATES = {
             name: "Manitoba",
             abbrev: "MB",
             country: "CAN",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.1014,
                 gasoline: 0.1014,
@@ -888,6 +944,7 @@ const IFTA_TAX_RATES = {
             name: "New Brunswick",
             abbrev: "NB",
             country: "CAN",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.2129,
                 gasoline: 0.1739,
@@ -908,6 +965,7 @@ const IFTA_TAX_RATES = {
             name: "Newfoundland and Labrador",
             abbrev: "NL",
             country: "CAN",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.1449,
                 gasoline: 0.1377,
@@ -928,6 +986,7 @@ const IFTA_TAX_RATES = {
             name: "Nova Scotia",
             abbrev: "NS",
             country: "CAN",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.1117,
                 gasoline: 0.1117,
@@ -948,6 +1007,7 @@ const IFTA_TAX_RATES = {
             name: "Ontario",
             abbrev: "ON",
             country: "CAN",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.1043,
                 gasoline: 0.0942,
@@ -969,6 +1029,7 @@ const IFTA_TAX_RATES = {
             name: "Prince Edward Island",
             abbrev: "PE",
             country: "CAN",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.1855,
                 gasoline: 0.1072,
@@ -990,6 +1051,7 @@ const IFTA_TAX_RATES = {
             name: "Quebec",
             abbrev: "QC",
             country: "CAN",
+            refundPolicy: "refund",
             rates: {
                 diesel: 0.1464,
                 gasoline: 0.1406,
@@ -1010,6 +1072,7 @@ const IFTA_TAX_RATES = {
             name: "Saskatchewan",
             abbrev: "SK",
             country: "CAN",
+            refundPolicy: "credit",
             rates: {
                 diesel: 0.1087,
                 gasoline: 0.1087,
@@ -1029,35 +1092,278 @@ const IFTA_TAX_RATES = {
     }
 };
 
-// Historical rate adjustments for past quarters (relative to Q4 2025 base rates)
-// This stores any rate changes between quarters
+// Historical rate data from IFTACH Tax Matrix
+// Source: https://www.iftach.org/taxmatrix/charts/
+// Format: Quarter -> Jurisdiction -> { diesel, gasoline }
+// Only includes rates that differ from Q4 2025 base rates
 const QUARTERLY_RATE_HISTORY = {
-    "Q4 2025": {}, // Current quarter - no adjustments
+    // Q4 2025 - Current quarter (October - December 2025)
+    "Q4 2025": {}, // Uses base rates from IFTA_TAX_RATES
+    
+    // Q3 2025 (July - September 2025)
     "Q3 2025": {
-        // Most rates stayed same in Q3 2025
+        "CA": { diesel: 0.9710, gasoline: 0.0000 },  // Special diesel only
+        "CO": { diesel: 0.3250, gasoline: 0.2700 },
+        "CT": { diesel: 0.4890, gasoline: 0.2500 },
+        "IL": { diesel: 0.7490, gasoline: 0.6690 },
+        "IN": { diesel: 0.6100, gasoline: 0.3600 },
+        "KY": { diesel: 0.3250, gasoline: 0.2950 },  // Base + surcharge
+        "MI": { diesel: 0.5070, gasoline: 0.4640 },
+        "MO": { diesel: 0.2950, gasoline: 0.2950 },
+        "NE": { diesel: 0.3180, gasoline: 0.3180 },
+        "NJ": { diesel: 0.5190, gasoline: 0.4490 },
+        "RI": { diesel: 0.4000, gasoline: 0.4000 },
+        "VA": { diesel: 0.4700, gasoline: 0.4700 },  // Base + surcharge
+        "WA": { diesel: 0.5840, gasoline: 0.5540 }
     },
+    
+    // Q2 2025 (April - June 2025)
     "Q2 2025": {
-        // Q2 2025 rates
-        "CA": { diesel: 0.970, gasoline: 0.586 },
+        "CA": { diesel: 1.0230, gasoline: 0.0000 },
+        "CO": { diesel: 0.2850, gasoline: 0.2600 },
+        "CT": { diesel: 0.5240, gasoline: 0.2500 },
+        "IL": { diesel: 0.7360, gasoline: 0.6560 },
+        "IN": { diesel: 0.5900, gasoline: 0.3500 },
+        "KY": { diesel: 0.3460, gasoline: 0.3120 },
+        "MI": { diesel: 0.4870, gasoline: 0.4630 },
+        "MN": { diesel: 0.3180, gasoline: 0.3180 },
+        "MO": { diesel: 0.2700, gasoline: 0.2700 },
+        "NE": { diesel: 0.3040, gasoline: 0.3040 },
+        "NJ": { diesel: 0.5190, gasoline: 0.4490 },
+        "OR": { diesel: 0.0000, gasoline: 0.0000 },
+        "RI": { diesel: 0.3700, gasoline: 0.3700 },
+        "UT": { diesel: 0.3850, gasoline: 0.3850 },
+        "VA": { diesel: 0.4600, gasoline: 0.4600 },
+        "WA": { diesel: 0.4940, gasoline: 0.4940 }
     },
+    
+    // Q1 2025 (January - March 2025)
     "Q1 2025": {
-        "CA": { diesel: 0.960, gasoline: 0.576 },
+        "CA": { diesel: 1.0230, gasoline: 0.0000 },
+        "CO": { diesel: 0.2850, gasoline: 0.2600 },
+        "CT": { diesel: 0.5240, gasoline: 0.2500 },
+        "FL": { diesel: 0.4027, gasoline: 0.4040 },
+        "GA": { diesel: 0.3710, gasoline: 0.3310 },
+        "IL": { diesel: 0.7360, gasoline: 0.6560 },
+        "IN": { diesel: 0.5900, gasoline: 0.3500 },
+        "KY": { diesel: 0.3460, gasoline: 0.3120 },
+        "MI": { diesel: 0.4950, gasoline: 0.4590 },
+        "MN": { diesel: 0.3180, gasoline: 0.3180 },
+        "MO": { diesel: 0.2700, gasoline: 0.2700 },
+        "NE": { diesel: 0.3040, gasoline: 0.3040 },
+        "NJ": { diesel: 0.4930, gasoline: 0.4230 },
+        "OR": { diesel: 0.0000, gasoline: 0.0000 },
+        "RI": { diesel: 0.3700, gasoline: 0.3700 },
+        "UT": { diesel: 0.3850, gasoline: 0.3850 },
+        "VA": { diesel: 0.4600, gasoline: 0.4600 },
+        "WA": { diesel: 0.4940, gasoline: 0.4940 }
     },
+    
+    // Q4 2024 (October - December 2024)
     "Q4 2024": {
-        "CA": { diesel: 0.944, gasoline: 0.564 },
-        "PA": { diesel: 0.741, gasoline: 0.576 },
+        "CA": { diesel: 1.0230, gasoline: 0.0000 },
+        "CO": { diesel: 0.2850, gasoline: 0.2600 },
+        "CT": { diesel: 0.5240, gasoline: 0.2500 },
+        "FL": { diesel: 0.3947, gasoline: 0.3960 },
+        "GA": { diesel: 0.3620, gasoline: 0.3230 },
+        "IL": { diesel: 0.7570, gasoline: 0.6660 },
+        "IN": { diesel: 0.5900, gasoline: 0.3500 },
+        "KY": { diesel: 0.3460, gasoline: 0.3120 },
+        "MI": { diesel: 0.4800, gasoline: 0.4440 },
+        "MN": { diesel: 0.2850, gasoline: 0.2850 },
+        "MO": { diesel: 0.2700, gasoline: 0.2700 },
+        "NE": { diesel: 0.2960, gasoline: 0.2960 },
+        "NJ": { diesel: 0.4930, gasoline: 0.4230 },
+        "NC": { diesel: 0.4040, gasoline: 0.4040 },
+        "OR": { diesel: 0.0000, gasoline: 0.0000 },
+        "PA": { diesel: 0.7410, gasoline: 0.5760 },
+        "RI": { diesel: 0.3700, gasoline: 0.3700 },
+        "UT": { diesel: 0.3650, gasoline: 0.3650 },
+        "VA": { diesel: 0.4600, gasoline: 0.4600 },
+        "WA": { diesel: 0.4940, gasoline: 0.4940 }
     },
+    
+    // Q3 2024 (July - September 2024)
     "Q3 2024": {
-        "CA": { diesel: 0.944, gasoline: 0.564 },
-        "PA": { diesel: 0.741, gasoline: 0.576 },
+        "CA": { diesel: 1.0230, gasoline: 0.0000 },
+        "CO": { diesel: 0.2850, gasoline: 0.2600 },
+        "CT": { diesel: 0.5240, gasoline: 0.2500 },
+        "FL": { diesel: 0.3947, gasoline: 0.3960 },
+        "GA": { diesel: 0.3620, gasoline: 0.3230 },
+        "IL": { diesel: 0.7570, gasoline: 0.6660 },
+        "IN": { diesel: 0.5900, gasoline: 0.3500 },
+        "KY": { diesel: 0.3460, gasoline: 0.3120 },
+        "MI": { diesel: 0.4900, gasoline: 0.4710 },
+        "MN": { diesel: 0.2850, gasoline: 0.2850 },
+        "MO": { diesel: 0.2700, gasoline: 0.2700 },
+        "NE": { diesel: 0.2960, gasoline: 0.2960 },
+        "NJ": { diesel: 0.4930, gasoline: 0.4230 },
+        "NC": { diesel: 0.4040, gasoline: 0.4040 },
+        "OR": { diesel: 0.0000, gasoline: 0.0000 },
+        "PA": { diesel: 0.7410, gasoline: 0.5760 },
+        "RI": { diesel: 0.3700, gasoline: 0.3700 },
+        "UT": { diesel: 0.3650, gasoline: 0.3650 },
+        "VA": { diesel: 0.4600, gasoline: 0.4600 },
+        "WA": { diesel: 0.4940, gasoline: 0.4940 }
     },
+    
+    // Q2 2024 (April - June 2024)
     "Q2 2024": {
-        "CA": { diesel: 0.930, gasoline: 0.550 },
-        "PA": { diesel: 0.741, gasoline: 0.576 },
+        "CA": { diesel: 1.0890, gasoline: 0.0000 },
+        "CO": { diesel: 0.2650, gasoline: 0.2500 },
+        "CT": { diesel: 0.4920, gasoline: 0.2500 },
+        "FL": { diesel: 0.3947, gasoline: 0.3960 },
+        "GA": { diesel: 0.3620, gasoline: 0.3230 },
+        "IL": { diesel: 0.7410, gasoline: 0.6500 },
+        "IN": { diesel: 0.5700, gasoline: 0.3400 },
+        "KY": { diesel: 0.3810, gasoline: 0.3400 },
+        "MI": { diesel: 0.4980, gasoline: 0.4830 },
+        "MN": { diesel: 0.2850, gasoline: 0.2850 },
+        "MO": { diesel: 0.2450, gasoline: 0.2450 },
+        "NE": { diesel: 0.2910, gasoline: 0.2910 },
+        "NJ": { diesel: 0.4930, gasoline: 0.4230 },
+        "NC": { diesel: 0.4040, gasoline: 0.4040 },
+        "OR": { diesel: 0.0000, gasoline: 0.0000 },
+        "PA": { diesel: 0.7410, gasoline: 0.5760 },
+        "RI": { diesel: 0.3700, gasoline: 0.3700 },
+        "UT": { diesel: 0.3650, gasoline: 0.3650 },
+        "VA": { diesel: 0.4480, gasoline: 0.4480 },
+        "WA": { diesel: 0.4940, gasoline: 0.4940 }
     },
+    
+    // Q1 2024 (January - March 2024)
     "Q1 2024": {
-        "CA": { diesel: 0.920, gasoline: 0.540 },
-        "PA": { diesel: 0.741, gasoline: 0.576 },
+        "CA": { diesel: 1.0890, gasoline: 0.0000 },
+        "CO": { diesel: 0.2650, gasoline: 0.2500 },
+        "CT": { diesel: 0.4920, gasoline: 0.2500 },
+        "FL": { diesel: 0.3947, gasoline: 0.3960 },
+        "GA": { diesel: 0.3620, gasoline: 0.3230 },
+        "ID": { diesel: 0.3200, gasoline: 0.0000 },
+        "IL": { diesel: 0.7410, gasoline: 0.6500 },
+        "IN": { diesel: 0.5700, gasoline: 0.3400 },
+        "KY": { diesel: 0.3810, gasoline: 0.3400 },
+        "MD": { diesel: 0.4775, gasoline: 0.4700 },
+        "MI": { diesel: 0.4950, gasoline: 0.4470 },
+        "MN": { diesel: 0.2850, gasoline: 0.2850 },
+        "MO": { diesel: 0.2450, gasoline: 0.2450 },
+        "NE": { diesel: 0.2910, gasoline: 0.2910 },
+        "NJ": { diesel: 0.4930, gasoline: 0.4230 },
+        "NC": { diesel: 0.4040, gasoline: 0.4040 },
+        "NY": { diesel: 0.3955, gasoline: 0.4130 },
+        "OR": { diesel: 0.0000, gasoline: 0.0000 },
+        "PA": { diesel: 0.7410, gasoline: 0.5760 },
+        "RI": { diesel: 0.3700, gasoline: 0.3700 },
+        "UT": { diesel: 0.3650, gasoline: 0.3650 },
+        "VA": { diesel: 0.4480, gasoline: 0.4480 },
+        "WA": { diesel: 0.4940, gasoline: 0.4940 }
+    },
+    
+    // Q4 2023 (October - December 2023) - Estimated from available data
+    "Q4 2023": {
+        "CA": { diesel: 1.0620, gasoline: 0.0000 },
+        "CO": { diesel: 0.2650, gasoline: 0.2500 },
+        "CT": { diesel: 0.4920, gasoline: 0.2500 },
+        "FL": { diesel: 0.3947, gasoline: 0.3960 },
+        "GA": { diesel: 0.3620, gasoline: 0.3230 },
+        "ID": { diesel: 0.3200, gasoline: 0.0000 },
+        "IL": { diesel: 0.7170, gasoline: 0.6260 },
+        "IN": { diesel: 0.5700, gasoline: 0.3400 },
+        "KY": { diesel: 0.3570, gasoline: 0.3160 },
+        "MD": { diesel: 0.4775, gasoline: 0.4700 },
+        "MI": { diesel: 0.4800, gasoline: 0.4320 },
+        "MN": { diesel: 0.2850, gasoline: 0.2850 },
+        "MO": { diesel: 0.2450, gasoline: 0.2450 },
+        "NE": { diesel: 0.2910, gasoline: 0.2910 },
+        "NJ": { diesel: 0.4930, gasoline: 0.4230 },
+        "NC": { diesel: 0.4040, gasoline: 0.4040 },
+        "NY": { diesel: 0.3955, gasoline: 0.4130 },
+        "OR": { diesel: 0.0000, gasoline: 0.0000 },
+        "PA": { diesel: 0.7850, gasoline: 0.5760 },
+        "RI": { diesel: 0.3700, gasoline: 0.3700 },
+        "UT": { diesel: 0.3650, gasoline: 0.3650 },
+        "VA": { diesel: 0.4280, gasoline: 0.4280 },
+        "WA": { diesel: 0.4940, gasoline: 0.4940 }
+    },
+    
+    // Q3 2023 (July - September 2023)
+    "Q3 2023": {
+        "CA": { diesel: 1.0340, gasoline: 0.0000 },
+        "CO": { diesel: 0.2650, gasoline: 0.2500 },
+        "CT": { diesel: 0.4920, gasoline: 0.2500 },
+        "FL": { diesel: 0.3857, gasoline: 0.3870 },
+        "GA": { diesel: 0.3560, gasoline: 0.3180 },
+        "ID": { diesel: 0.3200, gasoline: 0.0000 },
+        "IL": { diesel: 0.6930, gasoline: 0.6020 },
+        "IN": { diesel: 0.5500, gasoline: 0.3300 },
+        "KY": { diesel: 0.3460, gasoline: 0.3050 },
+        "MD": { diesel: 0.4775, gasoline: 0.4700 },
+        "MI": { diesel: 0.4770, gasoline: 0.4290 },
+        "MN": { diesel: 0.2850, gasoline: 0.2850 },
+        "MO": { diesel: 0.2450, gasoline: 0.2450 },
+        "NE": { diesel: 0.2910, gasoline: 0.2910 },
+        "NJ": { diesel: 0.4930, gasoline: 0.4230 },
+        "NC": { diesel: 0.4040, gasoline: 0.4040 },
+        "NY": { diesel: 0.3955, gasoline: 0.4130 },
+        "OR": { diesel: 0.0000, gasoline: 0.0000 },
+        "PA": { diesel: 0.7850, gasoline: 0.5760 },
+        "RI": { diesel: 0.3700, gasoline: 0.3700 },
+        "UT": { diesel: 0.3650, gasoline: 0.3650 },
+        "VA": { diesel: 0.4280, gasoline: 0.4280 },
+        "WA": { diesel: 0.4940, gasoline: 0.4940 }
+    },
+    
+    // Q2 2023 (April - June 2023)
+    "Q2 2023": {
+        "CA": { diesel: 0.9990, gasoline: 0.0000 },
+        "CO": { diesel: 0.2650, gasoline: 0.2500 },
+        "CT": { diesel: 0.4920, gasoline: 0.2500 },
+        "FL": { diesel: 0.3847, gasoline: 0.3860 },
+        "GA": { diesel: 0.3550, gasoline: 0.3170 },
+        "ID": { diesel: 0.3200, gasoline: 0.0000 },
+        "IL": { diesel: 0.6690, gasoline: 0.5780 },
+        "IN": { diesel: 0.5500, gasoline: 0.3300 },
+        "KY": { diesel: 0.3430, gasoline: 0.3020 },
+        "MD": { diesel: 0.4775, gasoline: 0.4700 },
+        "MI": { diesel: 0.4740, gasoline: 0.4260 },
+        "MN": { diesel: 0.2850, gasoline: 0.2850 },
+        "MO": { diesel: 0.2450, gasoline: 0.2450 },
+        "NE": { diesel: 0.2910, gasoline: 0.2910 },
+        "NJ": { diesel: 0.4930, gasoline: 0.4230 },
+        "NC": { diesel: 0.4040, gasoline: 0.4040 },
+        "NY": { diesel: 0.3955, gasoline: 0.4130 },
+        "OR": { diesel: 0.0000, gasoline: 0.0000 },
+        "PA": { diesel: 0.7850, gasoline: 0.5760 },
+        "RI": { diesel: 0.3700, gasoline: 0.3700 },
+        "UT": { diesel: 0.3650, gasoline: 0.3650 },
+        "VA": { diesel: 0.4290, gasoline: 0.4290 },
+        "WA": { diesel: 0.4940, gasoline: 0.4940 }
+    },
+    
+    // Q1 2023 (January - March 2023)
+    "Q1 2023": {
+        "CA": { diesel: 0.9650, gasoline: 0.0000 },
+        "CO": { diesel: 0.2250, gasoline: 0.2050 },
+        "CT": { diesel: 0.4920, gasoline: 0.2500 },
+        "FL": { diesel: 0.3817, gasoline: 0.3830 },
+        "GA": { diesel: 0.3500, gasoline: 0.3120 },
+        "ID": { diesel: 0.3200, gasoline: 0.0000 },
+        "IL": { diesel: 0.6450, gasoline: 0.5540 },
+        "IN": { diesel: 0.5500, gasoline: 0.3300 },
+        "KY": { diesel: 0.3180, gasoline: 0.2780 },
+        "MD": { diesel: 0.4775, gasoline: 0.4700 },
+        "MI": { diesel: 0.4710, gasoline: 0.4230 },
+        "MN": { diesel: 0.2850, gasoline: 0.2850 },
+        "MO": { diesel: 0.2450, gasoline: 0.2450 },
+        "NE": { diesel: 0.2910, gasoline: 0.2910 },
+        "NJ": { diesel: 0.4930, gasoline: 0.4230 },
+        "NC": { diesel: 0.4020, gasoline: 0.4020 },
+        "NY": { diesel: 0.3955, gasoline: 0.4130 },
+        "OR": { diesel: 0.0000, gasoline: 0.0000 },
+        "PA": { diesel: 0.7850, gasoline: 0.5760 },
+        "RI": { diesel: 0.3700, gasoline: 0.3700 },
+        "UT": { diesel: 0.3650, gasoline: 0.3650 },
+        "VA": { diesel: 0.4290, gasoline: 0.4290 },
+        "WA": { diesel: 0.4940, gasoline: 0.4940 }
     }
 };
 

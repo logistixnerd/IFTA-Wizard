@@ -504,7 +504,7 @@ const IFTAReports = {
                 this.formatRate(row.taxRate),
                 this.formatGallons(row.taxableGallons),
                 this.formatGallons(row.netTaxableGallons),
-                this.formatCurrency(row.taxDue)
+                this.formatCurrency(this.getDisplayTaxDue(row.taxDue, row.jurisdiction))
             ]);
             
             // Add totals
@@ -619,7 +619,7 @@ const IFTAReports = {
             : (appState?.selectedQuarter || 'Q4 2025');
         
         const dataRows = (appState?.rows || []).filter(r => r.jurisdiction);
-        const totalTax = dataRows.reduce((sum, r) => sum + (r.taxDue || 0), 0);
+        const totalTax = dataRows.reduce((sum, r) => sum + this.getDisplayTaxDue(r.taxDue || 0, r.jurisdiction), 0);
         
         document.getElementById('reportName').value = `${quarterDisplay} Report`;
         document.getElementById('reportNotes').value = '';
@@ -668,7 +668,7 @@ const IFTAReports = {
             };
             
             const dataRows = (appState?.rows || []).filter(r => r.jurisdiction);
-            const totalTax = dataRows.reduce((sum, r) => sum + (r.taxDue || 0), 0);
+            const totalTax = dataRows.reduce((sum, r) => sum + this.getDisplayTaxDue(r.taxDue || 0, r.jurisdiction), 0);
             const totalMiles = dataRows.reduce((sum, r) => sum + (r.totalMiles || 0), 0);
             const taxableMiles = dataRows.reduce((sum, r) => sum + (r.taxableMiles || 0), 0);
             const gallons = dataRows.reduce((sum, r) => sum + (r.taxPaidGallons || 0), 0);
@@ -1261,7 +1261,7 @@ const IFTAReports = {
                 this.formatRate(row.taxRate),
                 this.formatGallons(row.taxableGallons),
                 this.formatGallons(row.netTaxableGallons),
-                this.formatCurrency(row.taxDue)
+                this.formatCurrency(this.getDisplayTaxDue(row.taxDue, row.jurisdiction))
             ]);
             
             // Add totals
@@ -1413,7 +1413,7 @@ const IFTAReports = {
         const dataRows = (appState?.rows || []).filter(r => r.jurisdiction);
         if (dataRows.length === 0) return null;
         
-        const totalTax = dataRows.reduce((sum, r) => sum + (r.taxDue || 0), 0);
+        const totalTax = dataRows.reduce((sum, r) => sum + this.getDisplayTaxDue(r.taxDue || 0, r.jurisdiction), 0);
         const totalMiles = dataRows.reduce((sum, r) => sum + (r.totalMiles || 0), 0);
         const taxableMiles = dataRows.reduce((sum, r) => sum + (r.taxableMiles || 0), 0);
         const gallons = dataRows.reduce((sum, r) => sum + (r.taxPaidGallons || 0), 0);
@@ -1669,6 +1669,20 @@ const IFTAReports = {
         if (typeof num !== 'number' || isNaN(num)) return '$0.00';
         const rounded = Math.round(num * 100) / 100; // Round to 2 decimal places
         return '$' + rounded.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    },
+    
+    // Get display value for tax due based on refund policy
+    // If jurisdiction has credit-only policy (no cash refund), show $0 for credits
+    getDisplayTaxDue(taxDue, jurisdiction) {
+        if (taxDue >= 0) {
+            return taxDue; // Tax owed - always show actual amount
+        }
+        // Tax credit (negative) - check refund policy
+        const jurisdictionData = IFTA_TAX_RATES?.jurisdictions?.[jurisdiction];
+        if (jurisdictionData?.refundPolicy === 'credit') {
+            return 0; // No cash refund - display $0
+        }
+        return taxDue; // Refund available - show actual credit amount
     }
 };
 

@@ -201,8 +201,10 @@ const AdminPanel = {
     // Load dashboard data
     async loadDashboardData() {
         try {
-            // Get data from localStorage
-            const users = JSON.parse(localStorage.getItem('ifta_users') || '[]');
+            // Get users from Firestore
+            const users = await this.getUsersFromFirestore();
+            
+            // Get data from localStorage for reports and invites
             const reports = JSON.parse(localStorage.getItem('ifta_saved_reports') || '[]');
             const invites = JSON.parse(localStorage.getItem('ifta_invites') || '[]');
             
@@ -226,6 +228,37 @@ const AdminPanel = {
             this.loadDashboardCompanies(companies, users);
         } catch (error) {
             console.error('Error loading dashboard:', error);
+        }
+    },
+    
+    // Get users from Firestore
+    async getUsersFromFirestore() {
+        try {
+            if (typeof db === 'undefined') {
+                console.warn('Firestore not available, falling back to localStorage');
+                return JSON.parse(localStorage.getItem('ifta_users') || '[]');
+            }
+            
+            const snapshot = await db.collection('users').get();
+            const users = [];
+            
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                users.push({
+                    id: doc.id,
+                    name: data.name || data.displayName || 'Unknown',
+                    email: data.email || '',
+                    company: data.company || '',
+                    role: data.role || 'user',
+                    createdAt: data.createdAt?.toDate?.() || data.createdAt || null,
+                    signupMethod: data.signupMethod || 'email'
+                });
+            });
+            
+            return users;
+        } catch (error) {
+            console.error('Error fetching users from Firestore:', error);
+            return JSON.parse(localStorage.getItem('ifta_users') || '[]');
         }
     },
     
@@ -273,9 +306,9 @@ const AdminPanel = {
     },
     
     // View company profile
-    viewCompanyProfile(companyName) {
+    async viewCompanyProfile(companyName) {
         companyName = decodeURIComponent(companyName);
-        const users = JSON.parse(localStorage.getItem('ifta_users') || '[]');
+        const users = await this.getUsersFromFirestore();
         const companyUsers = users.filter(u => u.company && u.company.toLowerCase() === companyName.toLowerCase());
         const reports = JSON.parse(localStorage.getItem('ifta_saved_reports') || '[]');
         const companyReports = reports.filter(r => {
@@ -372,7 +405,7 @@ const AdminPanel = {
     // Load users
     async loadUsers() {
         try {
-            const users = JSON.parse(localStorage.getItem('ifta_users') || '[]');
+            const users = await this.getUsersFromFirestore();
             const tbody = document.getElementById('usersTableBody');
             
             if (users.length === 0) {
@@ -411,14 +444,14 @@ const AdminPanel = {
         }
     },
     
-    // Load companies (from localStorage)
+    // Load companies (from Firestore users)
     async loadCompanies() {
         try {
             const tbody = document.getElementById('companiesTableBody');
             if (!tbody) return;
             
-            // Get companies from localStorage (derived from users)
-            const users = JSON.parse(localStorage.getItem('ifta_users') || '[]');
+            // Get companies from Firestore users
+            const users = await this.getUsersFromFirestore();
             const reports = JSON.parse(localStorage.getItem('ifta_saved_reports') || '[]');
             const companies = this.getCompaniesFromUsers(users);
             
@@ -523,7 +556,7 @@ const AdminPanel = {
         modal.innerHTML = `
             <div class="modal-content modal-large">
                 <button class="modal-close" onclick="AdminPanel.closeModal('companyDetailsModal')">&times;</button>
-                <h2>📊 ${companyName}</h2>
+                <h2>${companyName}</h2>
                 
                 <div class="company-stats-grid">
                     <div class="company-stat">
@@ -545,7 +578,7 @@ const AdminPanel = {
                 </div>
                 
                 <div class="company-section">
-                    <h3>👥 Users</h3>
+                    <h3>Users</h3>
                     <table class="admin-table">
                         <thead>
                             <tr>
@@ -1640,7 +1673,7 @@ const AdminPanel = {
         statusEl.classList.remove('hidden', 'loading', 'error');
         statusEl.classList.add('success');
         statusEl.innerHTML = `
-            📋 IFTACH Tax Matrix opened in new tab<br>
+            IFTACH Tax Matrix opened in new tab<br>
             <small>Copy rates from the matrix and update tax-rates.js manually</small>
         `;
         
@@ -1836,16 +1869,16 @@ const AdminPanel = {
     
     getActivityIcon(action) {
         const icons = {
-            'login': '🔐',
-            'logout': '🚪',
-            'signup': '👤',
-            'report': '📋',
-            'role_change': '👑',
-            'tax_rate_approved': '✅',
-            'tax_rate_rejected': '❌',
-            'error': '⚠️'
+            'login': '',
+            'logout': '',
+            'signup': '',
+            'report': '',
+            'role_change': '',
+            'tax_rate_approved': '',
+            'tax_rate_rejected': '',
+            'error': ''
         };
-        return icons[action] || '📝';
+        return icons[action] || '';
     },
     
     getCurrentQuarter() {

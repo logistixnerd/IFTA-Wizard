@@ -194,7 +194,7 @@
             
             <!-- Step 4: Success -->
             <div id="forgotStep4" class="forgot-step" style="display: none;">
-                <div class="success-icon">✓</div>
+                <div class="success-icon"></div>
                 <h3>password reset</h3>
                 <p class="forgot-description">your password has been updated. you can now sign in.</p>
                 <button class="btn btn-primary btn-full" onclick="IFTAAuth.closeForgotPassword()">sign in</button>
@@ -207,7 +207,7 @@
         <div class="verify-modal">
             <button class="verify-close" onclick="IFTAAuth.closeEmailVerify()" aria-label="Close">&times;</button>
             
-            <div class="verify-icon" id="verifyIcon">✉️</div>
+            <div class="verify-icon" id="verifyIcon"></div>
             <h2 class="verify-title" id="verifyTitle">Verify Your Email</h2>
             <p class="verify-subtitle" id="verifyDescription">We sent a code to <strong id="verifyEmailDisplay">your@email.com</strong></p>
             
@@ -237,7 +237,7 @@
         <div class="verify-modal totp-modal">
             <button class="verify-close" onclick="IFTAAuth.closeTOTPSetup()">&times;</button>
             
-            <div class="verify-icon">🔐</div>
+            <div class="verify-icon"></div>
             <h2 class="verify-title">Setup Authenticator</h2>
             <p class="verify-subtitle">Scan this QR code with Microsoft Authenticator, Google Authenticator, or any TOTP app</p>
             
@@ -273,7 +273,7 @@
         <div class="verify-modal totp-modal">
             <button class="verify-close" onclick="IFTAAuth.closeTOTPVerify()">&times;</button>
             
-            <div class="verify-icon">🔐</div>
+            <div class="verify-icon"></div>
             <h2 class="verify-title">Two-Factor Authentication</h2>
             <p class="verify-subtitle">Enter the 6-digit code from your authenticator app for <strong id="totpVerifyEmail">your@email.com</strong></p>
             
@@ -331,7 +331,7 @@
                                     <span>Admin Console</span>
                                 </a>
                                 <button class="profile-menu-item" id="menuSetupTOTP" style="display: none;">
-                                    <span>🔐 Setup Authenticator</span>
+                                    <span>Setup Authenticator</span>
                                 </button>
                                 <button class="profile-menu-item" id="menuSavedReports">
                                     <span>Saved Reports</span>
@@ -479,7 +479,7 @@
                         <button class="btn btn-secondary btn-sm" id="sendEmail">Email</button>
                         <button class="btn btn-secondary btn-sm" id="saveToDrive">Drive</button>
                         <div class="export-divider"></div>
-                        <button class="btn btn-success btn-sm" id="saveReport">💾 Save Report</button>
+                        <button class="btn btn-success btn-sm" id="saveReport">Save Report</button>
                     </div>
                 </div>
             </section>
