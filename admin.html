@@ -80,6 +80,9 @@
                 <a href="#errors" class="admin-nav-item" data-section="errors">
                     <span class="nav-text">Error Log</span>
                 </a>
+                <a href="#about-editor" class="admin-nav-item" data-section="about-editor">
+                    <span class="nav-text">About Page</span>
+                </a>
             </nav>
             
             <div class="admin-sidebar-footer">
@@ -405,6 +408,72 @@
                                 <tr><td colspan="5" class="empty-state">Loading error log...</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- About Page Editor Section -->
+            <section id="section-about-editor" class="admin-section">
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>About Page Editor</h2>
+                        <div class="admin-card-actions">
+                            <a href="about.html" target="_blank" class="btn btn-secondary">Preview</a>
+                            <button class="btn btn-primary" id="saveAboutBtn" onclick="AdminPanel.saveAboutPage()">Save Changes</button>
+                        </div>
+                    </div>
+                    <div class="admin-card-body">
+                        <div class="about-editor-grid">
+                            <div class="form-group">
+                                <label for="aboutIntro">Introduction</label>
+                                <textarea id="aboutIntro" rows="4" placeholder="I'm Mike — a fleet manager who..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="aboutExperience">Experience Description</label>
+                                <textarea id="aboutExperience" rows="3" placeholder="I've managed trucks, drivers..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="aboutQuote">Quote / Tagline</label>
+                                <textarea id="aboutQuote" rows="2" placeholder="This is my big suck it to..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="aboutWhy">Why I Built This</label>
+                                <textarea id="aboutWhy" rows="3" placeholder="So I built something different..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="aboutHighlight">Highlight Text</label>
+                                <input type="text" id="aboutHighlight" placeholder="No training videos. No manuals...">
+                            </div>
+                            <div class="form-group">
+                                <label for="aboutBackground">Background Points (one per line)</label>
+                                <textarea id="aboutBackground" rows="5" placeholder="Fleet manager with real-world experience&#10;Hands-on with safety, compliance..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="aboutFeatures">What It Does (one per line)</label>
+                                <textarea id="aboutFeatures" rows="5" placeholder="Clean, fast entry of miles and fuel data&#10;Accurate quarterly IFTA calculations..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="aboutBuiltFor">Built For (comma separated)</label>
+                                <input type="text" id="aboutBuiltFor" placeholder="Owner-Operators, Small Carriers, Fleet Managers">
+                            </div>
+                            <div class="form-group">
+                                <label for="aboutVision1">Vision - Paragraph 1</label>
+                                <textarea id="aboutVision1" rows="2" placeholder="My goal is to build the most practical IFTA solution..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="aboutVision2">Vision - Paragraph 2</label>
+                                <textarea id="aboutVision2" rows="2" placeholder="IFTA Wizard is just the start..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="aboutVisionHighlight">Vision Highlight</label>
+                                <input type="text" id="aboutVisionHighlight" placeholder="Real tools for real fleets.">
+                            </div>
+                            <div class="form-group">
+                                <label for="aboutCta">Call to Action Text</label>
+                                <input type="text" id="aboutCta" placeholder="Ready to simplify your IFTA?">
+                            </div>
+                        </div>
+                        <p class="about-editor-note">Changes are saved to Firestore and will update the About page dynamically.</p>
                     </div>
                 </div>
             </section>

@@ -163,7 +163,8 @@ const AdminPanel = {
             'reports': 'Reports',
             'tax-rates': 'Tax Rate Management',
             'activity': 'Activity Log',
-            'errors': 'Error Log'
+            'errors': 'Error Log',
+            'about-editor': 'About Page Editor'
         };
         document.getElementById('pageTitle').textContent = titles[section] || 'Admin';
         
@@ -194,6 +195,9 @@ const AdminPanel = {
                 break;
             case 'errors':
                 await this.loadErrorLog();
+                break;
+            case 'about-editor':
+                await this.loadAboutContent();
                 break;
         }
     },
@@ -2054,6 +2058,129 @@ const AdminPanel = {
         // Keep only last 100 activities
         if (activities.length > 100) activities.pop();
         localStorage.setItem('ifta_admin_activity', JSON.stringify(activities));
+    },
+    
+    // ============ ABOUT PAGE EDITOR ============
+    
+    // Load About page content from Firestore
+    async loadAboutContent() {
+        try {
+            // First try Firestore
+            if (typeof firebase !== 'undefined' && firebase.firestore) {
+                const doc = await firebase.firestore().collection('settings').doc('aboutPage').get();
+                if (doc.exists) {
+                    const data = doc.data();
+                    this.populateAboutForm(data);
+                    return;
+                }
+            }
+            
+            // Fallback: load default content
+            this.populateAboutForm(this.getDefaultAboutContent());
+        } catch (error) {
+            console.error('Error loading about content:', error);
+            this.populateAboutForm(this.getDefaultAboutContent());
+        }
+    },
+    
+    // Get default About page content
+    getDefaultAboutContent() {
+        return {
+            intro: "I'm Mike — a fleet manager who spent years buried in the same headaches every trucking operation deals with: confusing IFTA paperwork, inconsistent mileage logs, missing fuel receipts, and software that promised \"automation\" but delivered clunky interfaces and half-finished features.",
+            experience: "I've managed trucks, drivers, inspections, dispatch, maintenance schedules, DVIR compliance, and all the daily chaos that comes with running a fleet.",
+            quote: "This is my big suck it to overcomplicated and overpriced software made by money hungry tech bros.",
+            why: "So I built something different. I created IFTA Wizard because I needed a tool that actually makes sense in the real world — fast, simple, and made for people who don't have time to learn another complicated system.",
+            highlight: "No training videos. No manuals. No nonsense. Completely free. Just clear results.",
+            background: "Fleet manager with real-world day-to-day experience\nHands-on with safety, compliance, maintenance, inspections, and dispatch\nUnderstand the exact workflow drivers and owners deal with\nBuilt multiple internal tools to simplify fleet operations\nSpecialize in turning messy processes into clean digital workflows",
+            features: "Clean, fast entry of miles and fuel data\nAccurate quarterly IFTA calculations using official tax rates\nAutomatic summaries for each jurisdiction\nExportable PDF reports you can file immediately\nWorks on desktop, tablet, or phone",
+            builtFor: "Owner-Operators, Small Carriers, Fleet Managers, Anyone Who Hates Spreadsheets",
+            vision1: "My goal is to build the most practical IFTA solution in the industry — created by someone who actually understands trucking, not a developer guessing what fleets need.",
+            vision2: "IFTA Wizard is just the start. The long-term plan is to expand into a complete suite of lightweight tools for dispatch, safety, inspections, maintenance, and compliance.",
+            visionHighlight: "Real tools for real fleets.",
+            cta: "Ready to simplify your IFTA?"
+        };
+    },
+    
+    // Populate the About form fields
+    populateAboutForm(data) {
+        document.getElementById('aboutIntro').value = data.intro || '';
+        document.getElementById('aboutExperience').value = data.experience || '';
+        document.getElementById('aboutQuote').value = data.quote || '';
+        document.getElementById('aboutWhy').value = data.why || '';
+        document.getElementById('aboutHighlight').value = data.highlight || '';
+        document.getElementById('aboutBackground').value = data.background || '';
+        document.getElementById('aboutFeatures').value = data.features || '';
+        document.getElementById('aboutBuiltFor').value = data.builtFor || '';
+        document.getElementById('aboutVision1').value = data.vision1 || '';
+        document.getElementById('aboutVision2').value = data.vision2 || '';
+        document.getElementById('aboutVisionHighlight').value = data.visionHighlight || '';
+        document.getElementById('aboutCta').value = data.cta || '';
+    },
+    
+    // Save About page content to Firestore
+    async saveAboutPage() {
+        const saveBtn = document.getElementById('saveAboutBtn');
+        const originalText = saveBtn.textContent;
+        
+        try {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            
+            const data = {
+                intro: document.getElementById('aboutIntro').value.trim(),
+                experience: document.getElementById('aboutExperience').value.trim(),
+                quote: document.getElementById('aboutQuote').value.trim(),
+                why: document.getElementById('aboutWhy').value.trim(),
+                highlight: document.getElementById('aboutHighlight').value.trim(),
+                background: document.getElementById('aboutBackground').value.trim(),
+                features: document.getElementById('aboutFeatures').value.trim(),
+                builtFor: document.getElementById('aboutBuiltFor').value.trim(),
+                vision1: document.getElementById('aboutVision1').value.trim(),
+                vision2: document.getElementById('aboutVision2').value.trim(),
+                visionHighlight: document.getElementById('aboutVisionHighlight').value.trim(),
+                cta: document.getElementById('aboutCta').value.trim(),
+                updatedAt: new Date().toISOString(),
+                updatedBy: this.currentUser?.email || 'admin'
+            };
+            
+            // Save to Firestore
+            if (typeof firebase !== 'undefined' && firebase.firestore) {
+                await firebase.firestore().collection('settings').doc('aboutPage').set(data);
+                this.showToast('About page saved successfully!', 'success');
+                this.logActivity('about_update', 'Updated About page content');
+            } else {
+                // Fallback to localStorage
+                localStorage.setItem('ifta_about_content', JSON.stringify(data));
+                this.showToast('About page saved locally', 'success');
+            }
+        } catch (error) {
+            console.error('Error saving about page:', error);
+            this.showToast('Error saving about page', 'error');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
+        }
+    },
+    
+    // Show toast notification
+    showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `admin-toast ${type}`;
+        toast.textContent = message;
+        toast.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px 16px;
+            background: ${type === 'success' ? '#16a34a' : type === 'error' ? '#dc2626' : '#4f46e5'};
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 9999;
+            animation: slideIn 0.3s ease;
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
     }
 };
 

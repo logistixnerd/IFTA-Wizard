@@ -173,20 +173,20 @@
         
         <section class="about-section">
             <h2>About</h2>
-            <p>I'm Mike — a fleet manager who spent years buried in the same headaches every trucking operation deals with: confusing IFTA paperwork, inconsistent mileage logs, missing fuel receipts, and software that promised "automation" but delivered clunky interfaces and half-finished features.</p>
+            <p id="about-intro">I'm Mike — a fleet manager who spent years buried in the same headaches every trucking operation deals with: confusing IFTA paperwork, inconsistent mileage logs, missing fuel receipts, and software that promised "automation" but delivered clunky interfaces and half-finished features.</p>
             
-            <p>I've managed trucks, drivers, inspections, dispatch, maintenance schedules, DVIR compliance, and all the daily chaos that comes with running a fleet.</p>
+            <p id="about-experience">I've managed trucks, drivers, inspections, dispatch, maintenance schedules, DVIR compliance, and all the daily chaos that comes with running a fleet.</p>
             
-            <p class="quote">This is my big suck it to overcomplicated and overpriced software made by money hungry tech bros.</p>
+            <p class="quote" id="about-quote">This is my big suck it to overcomplicated and overpriced software made by money hungry tech bros.</p>
             
-            <p>So I built something different. I created IFTA Wizard because I needed a tool that actually makes sense in the real world — fast, simple, and made for people who don't have time to learn another complicated system.</p>
+            <p id="about-why">So I built something different. I created IFTA Wizard because I needed a tool that actually makes sense in the real world — fast, simple, and made for people who don't have time to learn another complicated system.</p>
             
-            <p class="highlight">No training videos. No manuals. No nonsense. Completely free. Just clear results.</p>
+            <p class="highlight" id="about-highlight">No training videos. No manuals. No nonsense. Completely free. Just clear results.</p>
         </section>
         
         <section class="about-section">
             <h2>Background</h2>
-            <ul>
+            <ul id="about-background">
                 <li>Fleet manager with real-world day-to-day experience</li>
                 <li>Hands-on with safety, compliance, maintenance, inspections, and dispatch</li>
                 <li>Understand the exact workflow drivers and owners deal with</li>
@@ -215,7 +215,7 @@
         
         <section class="about-section">
             <h2>What It Does</h2>
-            <ul>
+            <ul id="about-features">
                 <li>Clean, fast entry of miles and fuel data</li>
                 <li>Accurate quarterly IFTA calculations using official tax rates</li>
                 <li>Automatic summaries for each jurisdiction</li>
@@ -226,7 +226,7 @@
         
         <section class="about-section">
             <h2>Built For</h2>
-            <div class="built-for">
+            <div class="built-for" id="about-built-for">
                 <span>Owner-Operators</span>
                 <span>Small Carriers</span>
                 <span>Fleet Managers</span>
@@ -236,15 +236,15 @@
         
         <section class="about-section">
             <h2>The Vision</h2>
-            <p>My goal is to build the most practical IFTA solution in the industry — created by someone who actually understands trucking, not a developer guessing what fleets need.</p>
+            <p id="about-vision1">My goal is to build the most practical IFTA solution in the industry — created by someone who actually understands trucking, not a developer guessing what fleets need.</p>
             
-            <p>IFTA Wizard is just the start. The long-term plan is to expand into a complete suite of lightweight tools for dispatch, safety, inspections, maintenance, and compliance.</p>
+            <p id="about-vision2">IFTA Wizard is just the start. The long-term plan is to expand into a complete suite of lightweight tools for dispatch, safety, inspections, maintenance, and compliance.</p>
             
-            <p class="highlight">Real tools for real fleets.</p>
+            <p class="highlight" id="about-vision-highlight">Real tools for real fleets.</p>
         </section>
         
         <div class="about-cta">
-            <p>Ready to simplify your IFTA?</p>
+            <p id="about-cta-text">Ready to simplify your IFTA?</p>
             <a href="index.html" class="btn btn-primary">Try IFTA Wizard Free</a>
         </div>
         
@@ -252,5 +252,58 @@
             <p>© 2025 IFTA Wizard by LogistiXnerd · <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></p>
         </footer>
     </div>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    
+    <script>
+        // Load dynamic content from Firestore if available
+        async function loadAboutContent() {
+            try {
+                if (typeof firebase === 'undefined' || !firebase.firestore) return;
+                
+                const doc = await firebase.firestore().collection('settings').doc('aboutPage').get();
+                if (!doc.exists) return;
+                
+                const data = doc.data();
+                
+                // Update text elements
+                if (data.intro) document.getElementById('about-intro').textContent = data.intro;
+                if (data.experience) document.getElementById('about-experience').textContent = data.experience;
+                if (data.quote) document.getElementById('about-quote').textContent = data.quote;
+                if (data.why) document.getElementById('about-why').textContent = data.why;
+                if (data.highlight) document.getElementById('about-highlight').textContent = data.highlight;
+                if (data.vision1) document.getElementById('about-vision1').textContent = data.vision1;
+                if (data.vision2) document.getElementById('about-vision2').textContent = data.vision2;
+                if (data.visionHighlight) document.getElementById('about-vision-highlight').textContent = data.visionHighlight;
+                if (data.cta) document.getElementById('about-cta-text').textContent = data.cta;
+                
+                // Update list elements (split by newline)
+                if (data.background) {
+                    const items = data.background.split('\n').filter(item => item.trim());
+                    document.getElementById('about-background').innerHTML = items.map(item => `<li>${item}</li>`).join('');
+                }
+                
+                if (data.features) {
+                    const items = data.features.split('\n').filter(item => item.trim());
+                    document.getElementById('about-features').innerHTML = items.map(item => `<li>${item}</li>`).join('');
+                }
+                
+                // Update built-for tags (split by comma)
+                if (data.builtFor) {
+                    const items = data.builtFor.split(',').map(item => item.trim()).filter(item => item);
+                    document.getElementById('about-built-for').innerHTML = items.map(item => `<span>${item}</span>`).join('');
+                }
+                
+            } catch (error) {
+                console.log('Using default about content');
+            }
+        }
+        
+        // Load content when page loads
+        document.addEventListener('DOMContentLoaded', loadAboutContent);
+    </script>
 </body>
 </html>
