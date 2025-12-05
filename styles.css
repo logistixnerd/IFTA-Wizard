@@ -2523,34 +2523,37 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     pointer-events: none;
 }
 
-/* Tooltip text bubble */
+/* Tooltip text bubble - light transparent blue, smaller text, normal case */
 [data-tooltip]::before {
     content: attr(data-tooltip);
     bottom: calc(100% + 8px);
     left: 50%;
     transform: translateX(-50%);
-    padding: 0.5rem 0.75rem;
-    background: var(--gray-900);
-    color: white;
-    font-size: 0.75rem;
+    padding: 0.4rem 0.6rem;
+    background: rgba(59, 130, 246, 0.12);
+    color: var(--gray-600);
+    font-size: 0.6875rem;
     font-weight: 400;
-    line-height: 1.4;
-    white-space: nowrap;
-    max-width: 250px;
+    line-height: 1.5;
+    text-transform: none;
+    letter-spacing: normal;
     white-space: normal;
-    text-align: center;
-    border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    max-width: 220px;
+    text-align: left;
+    border-radius: 6px;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
 }
 
-/* Tooltip arrow */
+/* Tooltip arrow - matching light blue */
 [data-tooltip]::after {
     content: '';
     bottom: calc(100% + 2px);
     left: 50%;
     transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: var(--gray-900);
+    border: 5px solid transparent;
+    border-top-color: rgba(59, 130, 246, 0.15);
 }
 
 /* Show on hover */
@@ -2558,6 +2561,23 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 [data-tooltip]:hover::after {
     opacity: 1;
     visibility: visible;
+}
+
+/* Table cell tooltips - position below instead of above */
+.data-table td[data-tooltip]::before,
+.data-table td input[data-tooltip]::before,
+.data-table td select[data-tooltip]::before {
+    bottom: auto;
+    top: calc(100% + 6px);
+}
+
+.data-table td[data-tooltip]::after,
+.data-table td input[data-tooltip]::after,
+.data-table td select[data-tooltip]::after {
+    bottom: auto;
+    top: calc(100% + 0px);
+    border-top-color: transparent;
+    border-bottom-color: rgba(59, 130, 246, 0.15);
 }
 
 /* Help icon for labeled tooltips */

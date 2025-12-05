@@ -427,29 +427,29 @@ function createRowHtml(rowData) {
     
     return `
         <td>
-            <select class="jurisdiction-select" data-field="jurisdiction">
+            <select class="jurisdiction-select" data-field="jurisdiction" data-tooltip="Select the state or province">
                 ${jurisdictionOptions}
             </select>
         </td>
         <td>
             <input type="number" class="total-miles" data-field="totalMiles" 
                    value="${totalMilesDisplay}" min="0" step="1" placeholder="0"
-                   title="Total miles traveled in this jurisdiction">
+                   data-tooltip="Total miles traveled in this jurisdiction">
         </td>
         <td>
             <input type="number" class="taxable-miles" data-field="taxableMiles" 
                    value="${taxableMilesDisplay}" min="0" step="1" placeholder="0"
-                   title="Taxable miles (defaults to total miles, editable for exemptions)">
+                   data-tooltip="Taxable miles - defaults to total miles, edit for exemptions">
         </td>
         <td>
             <input type="number" class="tax-paid-gallons" data-field="taxPaidGallons" 
                    value="${taxPaidGallonsDisplay}" min="0" step="1" placeholder="0"
-                   title="Gallons purchased with tax already paid in this jurisdiction">
+                   data-tooltip="Gallons purchased with tax paid in this jurisdiction">
         </td>
-        <td class="rate-display" title="Tax rate from IFTA reference - not editable">${formatRate(rowData.taxRate)}</td>
-        <td class="taxable-gallons" title="Taxable Miles ÷ Fleet MPG">${formatWholeGallons(rowData.taxableGallons)}</td>
-        <td class="net-taxable-gallons" title="Taxable Gallons - Tax Paid Gallons">${formatWholeGallons(rowData.netTaxableGallons)}</td>
-        <td class="tax-amount ${taxClass}" title="Net Taxable Gallons × Tax Rate">${formatCurrency(displayTaxDue)}</td>
+        <td class="rate-display" data-tooltip="IFTA tax rate per gallon - auto filled">${formatRate(rowData.taxRate)}</td>
+        <td class="taxable-gallons" data-tooltip="Taxable miles divided by fleet MPG">${formatWholeGallons(rowData.taxableGallons)}</td>
+        <td class="net-taxable-gallons" data-tooltip="Taxable gallons minus tax paid gallons">${formatWholeGallons(rowData.netTaxableGallons)}</td>
+        <td class="tax-amount ${taxClass}" data-tooltip="Net taxable gallons times tax rate">${formatCurrency(displayTaxDue)}</td>
         <td>
             <button class="delete-row" title="Delete row">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
