@@ -429,7 +429,13 @@ const IFTAReports = {
                 appState.rows = report.data.rows || [];
                 appState.selectedQuarter = report.data.quarter || 'Q4 2025';
                 appState.selectedFuelType = report.data.fuelType || 'diesel';
-                appState.fleetMpg = report.data.mpg || 6.5;
+                appState.fleetMpg = report.data.fleetMpg || report.data.mpg || 6.5;
+                
+                // Update the Fleet MPG input field
+                const mpgInput = document.getElementById('fleetMpg');
+                if (mpgInput) {
+                    mpgInput.value = appState.fleetMpg;
+                }
                 
                 // Refresh UI
                 if (typeof recalculateAll === 'function') {
@@ -1563,6 +1569,29 @@ const IFTAReports = {
         }
     },
     
+    // Get MPG from report history (most recent saved report)
+    getMpgFromReportHistory() {
+        try {
+            const reports = this.getSavedReports();
+            
+            // Filter out auto-saves and sort by timestamp (most recent first)
+            const validReports = reports
+                .filter(r => !r.isAutoSave && r.data && (r.data.mpg || r.data.fleetMpg))
+                .sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+            
+            if (validReports.length > 0) {
+                const mpg = validReports[0].data.mpg || validReports[0].data.fleetMpg;
+                console.log('Using MPG from most recent report:', mpg);
+                return mpg;
+            }
+            
+            return null;
+        } catch (e) {
+            console.warn('Could not get MPG from report history:', e);
+            return null;
+        }
+    },
+    
     // Save preferences
     savePreferences() {
         const prefs = {
@@ -1594,12 +1623,24 @@ const IFTAReports = {
                 }
             }
             
-            // Apply default MPG
+            // Apply default MPG - priority: 1) user preference, 2) most recent saved report, 3) default 6.5
+            let mpgToApply = null;
+            
             if (prefs.defaultMpg && prefs.defaultMpg > 0) {
+                mpgToApply = prefs.defaultMpg;
+            } else {
+                // Try to get MPG from most recent saved report
+                const reportMpg = this.getMpgFromReportHistory();
+                if (reportMpg && reportMpg > 0) {
+                    mpgToApply = reportMpg;
+                }
+            }
+            
+            if (mpgToApply) {
                 const mpgInput = document.getElementById('fleetMpg');
                 if (mpgInput) {
-                    mpgInput.value = prefs.defaultMpg;
-                    appState.fleetMpg = prefs.defaultMpg;
+                    mpgInput.value = mpgToApply;
+                    appState.fleetMpg = mpgToApply;
                 }
             }
             
