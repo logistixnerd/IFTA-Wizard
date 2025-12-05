@@ -625,20 +625,34 @@ const IFTAAuth = {
     // Show auth modal
     showAuthModal() {
         const modal = document.getElementById('authModal');
+        const appContainer = document.querySelector('.app-container');
+        
         if (modal) {
             modal.classList.remove('hidden');
             modal.style.display = 'flex'; // Show the modal
             console.log('Auth modal shown');
+        }
+        
+        // Hide app content when showing auth modal
+        if (appContainer) {
+            appContainer.style.display = 'none';
         }
     },
     
     // Hide auth modal
     hideAuthModal() {
         const modal = document.getElementById('authModal');
+        const appContainer = document.querySelector('.app-container');
+        
         if (modal) {
             modal.classList.add('hidden');
             modal.style.display = 'none'; // Force hide as fallback
             console.log('Auth modal hidden');
+        }
+        
+        // Show app content when hiding auth modal
+        if (appContainer) {
+            appContainer.style.display = 'block';
         }
     },
     

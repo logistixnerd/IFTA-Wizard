@@ -69,6 +69,11 @@ body {
     padding: 1rem;
 }
 
+/* Hide app content until auth is verified */
+.app-container.auth-pending {
+    display: none !important;
+}
+
 .auth-modal.hidden {
     display: none;
 }
