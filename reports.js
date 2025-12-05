@@ -722,15 +722,50 @@ const IFTAReports = {
         const quarter = appState?.selectedQuarter || 'Q4 2025';
         document.getElementById('emailSubject').value = `IFTA Report - ${quarter}`;
         
-        // Pre-fill user email if available
-        if (IFTAAuth.user?.email) {
-            document.getElementById('emailTo').value = '';
+        // Pre-fill recipient email from saved preference or user profile
+        const savedEmail = this.getSavedRecipientEmail();
+        const emailToField = document.getElementById('emailTo');
+        if (emailToField) {
+            emailToField.value = savedEmail || '';
         }
         
         // Populate saved reports for attachment
         this.populateSavedReportsForAttach();
         
         this.openModal('emailModal');
+    },
+    
+    // Get saved recipient email from localStorage
+    getSavedRecipientEmail() {
+        try {
+            // First try user-specific key
+            const userId = IFTAAuth.user?.uid;
+            if (userId) {
+                const userEmail = localStorage.getItem(`ifta_recipient_email_${userId}`);
+                if (userEmail) return userEmail;
+            }
+            // Fallback to generic key
+            return localStorage.getItem('ifta_recipient_email') || '';
+        } catch (e) {
+            console.warn('Could not load saved email:', e);
+            return '';
+        }
+    },
+    
+    // Save recipient email to localStorage
+    saveRecipientEmail(email) {
+        try {
+            if (!email) return;
+            // Save with user-specific key if logged in
+            const userId = IFTAAuth.user?.uid;
+            if (userId) {
+                localStorage.setItem(`ifta_recipient_email_${userId}`, email);
+            }
+            // Also save to generic key as fallback
+            localStorage.setItem('ifta_recipient_email', email);
+        } catch (e) {
+            console.warn('Could not save email:', e);
+        }
     },
     
     // Populate saved reports for email attachment
@@ -767,6 +802,9 @@ const IFTAReports = {
             showToast('Please enter recipient email', 'error');
             return;
         }
+        
+        // Save the recipient email for next time
+        this.saveRecipientEmail(to);
         
         // Get selected saved reports
         const selectedReports = [];
