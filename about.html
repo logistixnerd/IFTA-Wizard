@@ -3,19 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>About IFTA Wizard - Built by a Fleet Manager</title>
+    <title>about - ifta wizard</title>
     
-    <meta name="description" content="IFTA Wizard was built by Mike, a fleet manager who got tired of complicated IFTA software. Simple, fast, accurate fuel tax calculations.">
+    <meta name="description" content="ifta wizard was built by mike, a fleet manager who got tired of complicated ifta software.">
     
     <link rel="stylesheet" href="styles.css">
     <style>
-        /* About Page Styles */
         .about-page {
-            max-width: 800px;
+            max-width: 600px;
             margin: 0 auto;
             padding: 2rem 1.5rem 4rem;
             min-height: 100vh;
-            background: var(--gray-100);
+            background: var(--gray-50);
         }
         
         .about-nav {
@@ -28,57 +27,35 @@
         }
         
         .about-nav .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: var(--primary);
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--gray-800);
             text-decoration: none;
         }
         
         .about-nav .btn {
             text-decoration: none;
-        }
-        
-        .about-hero {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-        
-        .about-hero h1 {
-            font-size: 2.5rem;
-            color: var(--gray-900);
-            margin-bottom: 0.5rem;
-        }
-        
-        .about-hero .tagline {
-            font-size: 1.25rem;
-            color: var(--gray-600);
-            font-weight: 400;
+            font-size: 0.75rem;
         }
         
         .about-section {
-            background: var(--white);
-            border: 1px solid var(--gray-200);
-            padding: 2rem;
-            margin-bottom: 2rem;
+            margin-bottom: 2.5rem;
         }
         
         .about-section h2 {
-            font-size: 1.5rem;
-            color: var(--gray-900);
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .about-section h2 .icon {
-            font-size: 1.25rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--gray-500);
+            text-transform: lowercase;
+            margin-bottom: 0.75rem;
+            letter-spacing: 0.025em;
         }
         
         .about-section p {
             color: var(--gray-700);
+            font-size: 0.8125rem;
             line-height: 1.7;
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem;
         }
         
         .about-section p:last-child {
@@ -88,296 +65,191 @@
         .about-section ul {
             list-style: none;
             padding: 0;
-            margin: 1rem 0;
+            margin: 0;
         }
         
         .about-section li {
-            padding: 0.5rem 0;
-            padding-left: 1.5rem;
-            position: relative;
-            color: var(--gray-700);
+            padding: 0.375rem 0;
+            color: var(--gray-600);
+            font-size: 0.8125rem;
+            border-bottom: 1px solid var(--gray-100);
         }
         
-        .about-section li::before {
-            content: "✓";
-            position: absolute;
-            left: 0;
-            color: var(--success);
-            font-weight: bold;
+        .about-section li:last-child {
+            border-bottom: none;
         }
         
-        .highlight-box {
-            background: var(--gray-50);
-            border-left: 4px solid var(--primary);
-            padding: 1rem 1.5rem;
-            margin: 1.5rem 0;
-        }
-        
-        .highlight-box p {
-            margin: 0;
-            font-style: italic;
+        .highlight {
             color: var(--gray-800);
+            font-weight: 500;
         }
         
-        /* How It Works */
-        .how-it-works {
-            display: grid;
-            gap: 1.5rem;
-            margin-top: 1.5rem;
+        .quote {
+            border-left: 2px solid var(--gray-300);
+            padding-left: 1rem;
+            margin: 1rem 0;
+            color: var(--gray-600);
+            font-style: italic;
+        }
+        
+        .steps {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
         }
         
         .step {
             display: flex;
-            gap: 1rem;
-            align-items: flex-start;
+            gap: 0.75rem;
+            align-items: baseline;
         }
         
-        .step-number {
-            width: 40px;
-            height: 40px;
-            background: var(--primary);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 1.125rem;
-            flex-shrink: 0;
-        }
-        
-        .step-content h3 {
-            font-size: 1.125rem;
-            color: var(--gray-900);
-            margin-bottom: 0.25rem;
-        }
-        
-        .step-content p {
-            margin: 0;
-            color: var(--gray-600);
-            font-size: 0.95rem;
-        }
-        
-        /* Built For */
-        .built-for-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-        
-        .built-for-item {
-            background: var(--gray-50);
-            padding: 1rem;
-            text-align: center;
-            border: 1px solid var(--gray-200);
-        }
-        
-        .built-for-item .emoji {
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
-        
-        .built-for-item p {
-            margin: 0;
+        .step-num {
+            font-size: 0.6875rem;
+            color: var(--gray-400);
             font-weight: 500;
-            color: var(--gray-800);
         }
         
-        /* CTA */
+        .step-text {
+            font-size: 0.8125rem;
+            color: var(--gray-700);
+        }
+        
+        .built-for {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+        
+        .built-for span {
+            font-size: 0.75rem;
+            color: var(--gray-600);
+            background: var(--gray-100);
+            padding: 0.25rem 0.625rem;
+        }
+        
         .about-cta {
             text-align: center;
-            padding: 3rem 2rem;
-            background: var(--primary);
-            color: white;
+            padding: 2rem;
+            background: var(--white);
+            border: 1px solid var(--gray-200);
             margin-top: 2rem;
         }
         
-        .about-cta h2 {
-            color: white;
-            margin-bottom: 0.5rem;
-        }
-        
         .about-cta p {
-            color: rgba(255,255,255,0.9);
-            margin-bottom: 1.5rem;
+            font-size: 0.8125rem;
+            color: var(--gray-600);
+            margin-bottom: 1rem;
         }
         
         .about-cta .btn {
-            background: white;
-            color: var(--primary);
-            padding: 0.75rem 2rem;
-            font-weight: 600;
             text-decoration: none;
-            display: inline-block;
-        }
-        
-        .about-cta .btn:hover {
-            background: var(--gray-100);
+            font-size: 0.75rem;
         }
         
         .about-footer {
             text-align: center;
-            padding: 2rem;
-            color: var(--gray-500);
-            font-size: 0.875rem;
+            padding: 2rem 0;
+            color: var(--gray-400);
+            font-size: 0.6875rem;
         }
         
         .about-footer a {
-            color: var(--gray-600);
+            color: var(--gray-500);
+            text-decoration: none;
         }
         
-        @media (max-width: 600px) {
-            .about-hero h1 {
-                font-size: 1.75rem;
-            }
-            
-            .about-section {
-                padding: 1.5rem;
-            }
-            
-            .step {
-                flex-direction: column;
-                text-align: center;
-            }
-            
-            .step-number {
-                margin: 0 auto;
-            }
+        .about-footer a:hover {
+            color: var(--gray-700);
         }
     </style>
 </head>
 <body>
     <div class="about-page">
         <nav class="about-nav">
-            <a href="index.html" class="logo">IFTA Wizard</a>
-            <a href="index.html" class="btn btn-primary">Open App</a>
+            <a href="index.html" class="logo">ifta wizard</a>
+            <a href="index.html" class="btn btn-primary">open app</a>
         </nav>
         
-        <div class="about-hero">
-            <h1>Built by a Fleet Manager</h1>
-            <p class="tagline">Not a tech company. A trucking guy who got tired of bad software.</p>
-        </div>
-        
-        <!-- About Mike -->
         <section class="about-section">
-            <h2><span class="icon">👋</span> Meet Mike</h2>
-            <p>I'm Mike — a fleet manager who spent years buried in the same headaches every trucking operation deals with: confusing IFTA paperwork, inconsistent mileage logs, missing fuel receipts, and software that promised "automation" but delivered clunky interfaces and half-finished features.</p>
+            <h2>about</h2>
+            <p>i'm mike — a fleet manager who spent years buried in the same headaches every trucking operation deals with: confusing ifta paperwork, inconsistent mileage logs, missing fuel receipts, and software that promised "automation" but delivered clunky interfaces and half-finished features.</p>
             
-            <p>I've managed trucks, drivers, inspections, dispatch, maintenance schedules, DVIR compliance, and all the daily chaos that comes with running a fleet. Over time, one thing became obvious:</p>
+            <p>i've managed trucks, drivers, inspections, dispatch, maintenance schedules, dvir compliance, and all the daily chaos that comes with running a fleet.</p>
             
-            <div class="highlight-box">
-                <p>Most so-called "IFTA software" is built by people who have never run a trucking operation.</p>
-            </div>
+            <p class="quote">this is my big suck it to overcomplicated and overpriced software made by money hungry tech bros.</p>
             
-            <p>So I built something different. I created IFTA Wizard because I needed a tool that actually makes sense in the real world — fast, simple, and made for people who don't have time to learn another complicated system.</p>
+            <p>so i built something different. i created ifta wizard because i needed a tool that actually makes sense in the real world — fast, simple, and made for people who don't have time to learn another complicated system.</p>
             
-            <p><strong>No training videos. No manuals. No nonsense. Just clear results.</strong></p>
+            <p class="highlight">no training videos. no manuals. no nonsense. just clear results.</p>
         </section>
         
-        <!-- Background -->
         <section class="about-section">
-            <h2><span class="icon">🚚</span> My Background</h2>
+            <h2>background</h2>
             <ul>
-                <li>Fleet Manager with real-world day-to-day experience</li>
-                <li>Hands-on with safety, compliance, maintenance, inspections, and dispatch</li>
-                <li>Understand the exact workflow drivers and owners deal with</li>
-                <li>Built multiple internal tools to cut down paperwork and simplify fleet operations</li>
-                <li>Specialize in turning messy operational processes into clean digital workflows</li>
+                <li>fleet manager with real-world day-to-day experience</li>
+                <li>hands-on with safety, compliance, maintenance, inspections, and dispatch</li>
+                <li>understand the exact workflow drivers and owners deal with</li>
+                <li>built multiple internal tools to simplify fleet operations</li>
+                <li>specialize in turning messy processes into clean digital workflows</li>
             </ul>
-            <p>I'm not a corporate software developer. I'm a trucking guy who finally got tired of waiting for someone else to build a practical tool.</p>
         </section>
         
-        <!-- How It Works -->
         <section class="about-section">
-            <h2><span class="icon">⚡</span> How It Works</h2>
-            <p>IFTA Wizard is built around one goal: <strong>Make IFTA reporting stupid simple.</strong></p>
-            
-            <div class="how-it-works">
+            <h2>how it works</h2>
+            <div class="steps">
                 <div class="step">
-                    <div class="step-number">1</div>
-                    <div class="step-content">
-                        <h3>Enter Your Miles</h3>
-                        <p>Add each state/province you traveled through and the miles driven. That's it — just the numbers from your logs or ELD.</p>
-                    </div>
+                    <span class="step-num">01</span>
+                    <span class="step-text">enter your miles for each state or province</span>
                 </div>
-                
                 <div class="step">
-                    <div class="step-number">2</div>
-                    <div class="step-content">
-                        <h3>Enter Fuel Purchases</h3>
-                        <p>Add the gallons you bought in each jurisdiction. The app handles tax-paid gallons automatically.</p>
-                    </div>
+                    <span class="step-num">02</span>
+                    <span class="step-text">enter fuel purchases by jurisdiction</span>
                 </div>
-                
                 <div class="step">
-                    <div class="step-number">3</div>
-                    <div class="step-content">
-                        <h3>Get Your Report</h3>
-                        <p>IFTA Wizard calculates everything: taxable gallons, net tax due or credit for each state, and your total. Export and file.</p>
-                    </div>
+                    <span class="step-num">03</span>
+                    <span class="step-text">get your report — export and file</span>
                 </div>
             </div>
         </section>
         
-        <!-- About the App -->
         <section class="about-section">
-            <h2><span class="icon">📊</span> What IFTA Wizard Does</h2>
+            <h2>what it does</h2>
             <ul>
-                <li>Clean, fast entry of miles and fuel data</li>
-                <li>Accurate quarterly IFTA calculations using official tax rates</li>
-                <li>Automatic summaries for each jurisdiction</li>
-                <li>Exportable PDF reports you can file immediately</li>
-                <li>Simple workflow designed for fleets, not accountants</li>
-                <li>Works on desktop, tablet, or phone</li>
+                <li>clean, fast entry of miles and fuel data</li>
+                <li>accurate quarterly ifta calculations using official tax rates</li>
+                <li>automatic summaries for each jurisdiction</li>
+                <li>exportable pdf reports you can file immediately</li>
+                <li>works on desktop, tablet, or phone</li>
             </ul>
-            <p>No bloated dashboards. No outdated interfaces. No nickel-and-dime features. Just a focused tool that does one thing extremely well.</p>
         </section>
         
-        <!-- Built For -->
         <section class="about-section">
-            <h2><span class="icon">🎯</span> Built For</h2>
-            <div class="built-for-grid">
-                <div class="built-for-item">
-                    <div class="emoji">🚛</div>
-                    <p>Owner-Operators</p>
-                </div>
-                <div class="built-for-item">
-                    <div class="emoji">🏢</div>
-                    <p>Small & Medium Carriers</p>
-                </div>
-                <div class="built-for-item">
-                    <div class="emoji">📋</div>
-                    <p>Fleet Managers</p>
-                </div>
-                <div class="built-for-item">
-                    <div class="emoji">⏰</div>
-                    <p>Anyone Who Hates Spreadsheets</p>
-                </div>
+            <h2>built for</h2>
+            <div class="built-for">
+                <span>owner-operators</span>
+                <span>small carriers</span>
+                <span>fleet managers</span>
+                <span>anyone who hates spreadsheets</span>
             </div>
         </section>
         
-        <!-- Vision -->
         <section class="about-section">
-            <h2><span class="icon">🔮</span> The Vision</h2>
-            <p>My goal is to build the most practical, reliable, and user-friendly IFTA solution in the industry — created by someone who actually understands trucking, not a developer guessing what fleets need.</p>
+            <h2>the vision</h2>
+            <p>my goal is to build the most practical ifta solution in the industry — created by someone who actually understands trucking, not a developer guessing what fleets need.</p>
             
-            <p>IFTA Wizard is just the start. My long-term plan is to expand into a complete suite of lightweight tools for dispatch, safety, inspections, maintenance, and compliance — all built with the same philosophy:</p>
+            <p>ifta wizard is just the start. the long-term plan is to expand into a complete suite of lightweight tools for dispatch, safety, inspections, maintenance, and compliance.</p>
             
-            <div class="highlight-box">
-                <p>Real tools for real fleets.</p>
-            </div>
+            <p class="highlight">real tools for real fleets.</p>
         </section>
         
-        <!-- CTA -->
         <div class="about-cta">
-            <h2>Ready to simplify your IFTA?</h2>
-            <p>Stop fighting with spreadsheets. Start in minutes.</p>
-            <a href="index.html" class="btn">Try IFTA Wizard Free</a>
+            <p>ready to simplify your ifta?</p>
+            <a href="index.html" class="btn btn-primary">try ifta wizard free</a>
         </div>
         
         <footer class="about-footer">
-            <p>&copy; 2025 IFTA Wizard by LogistiXnerd. <a href="privacy.html">Privacy</a> · <a href="terms.html">Terms</a></p>
+            <p>© 2025 ifta wizard by logistixnerd · <a href="privacy.html">privacy</a> · <a href="terms.html">terms</a></p>
         </footer>
     </div>
 </body>
