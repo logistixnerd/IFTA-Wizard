@@ -244,7 +244,7 @@ const IFTAAuth = {
     async handleSignIn() {
         const emailInput = document.getElementById('signinEmail');
         const passwordInput = document.getElementById('signinPassword');
-        const rememberMe = document.getElementById('rememberMe')?.checked ?? true;
+        const savePassword = document.getElementById('savePassword')?.checked ?? false;
         
         const email = emailInput?.value?.trim();
         const password = passwordInput?.value;
@@ -267,19 +267,16 @@ const IFTAAuth = {
         }
         
         try {
-            // Set persistence based on "Remember me" checkbox
-            const persistence = rememberMe 
-                ? firebase.auth.Auth.Persistence.LOCAL      // Remember across sessions
-                : firebase.auth.Auth.Persistence.SESSION;   // Only for this session
-            
-            await firebase.auth().setPersistence(persistence);
+            // Always use LOCAL persistence (remember session)
+            await firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL);
             
             const userCredential = await firebase.auth().signInWithEmailAndPassword(email, password);
             
+            // Save credentials (email always, password if checkbox checked)
+            this.saveCredentials(email, password, savePassword);
+            
             // Save login timestamp for 7-day expiry check
-            if (rememberMe) {
-                localStorage.setItem('ifta_login_time', Date.now().toString());
-            }
+            localStorage.setItem('ifta_login_time', Date.now().toString());
             
             // Auth state change listener will handle the rest
             
@@ -636,6 +633,57 @@ const IFTAAuth = {
         // Hide app content when showing auth modal
         if (appContainer) {
             appContainer.style.display = 'none';
+        }
+        
+        // Load saved credentials
+        this.loadSavedCredentials();
+    },
+    
+    // Load saved email and optionally password
+    loadSavedCredentials() {
+        try {
+            const savedEmail = localStorage.getItem('ifta_saved_email');
+            const savedPassword = localStorage.getItem('ifta_saved_password');
+            const hasSavedPassword = !!savedPassword;
+            
+            const emailInput = document.getElementById('signinEmail');
+            const passwordInput = document.getElementById('signinPassword');
+            const savePasswordCheckbox = document.getElementById('savePassword');
+            
+            if (emailInput && savedEmail) {
+                emailInput.value = savedEmail;
+            }
+            
+            if (passwordInput && savedPassword) {
+                // Decode the saved password
+                passwordInput.value = atob(savedPassword);
+            }
+            
+            if (savePasswordCheckbox) {
+                savePasswordCheckbox.checked = hasSavedPassword;
+            }
+        } catch (e) {
+            console.warn('Could not load saved credentials:', e);
+        }
+    },
+    
+    // Save email (always) and password (if checkbox checked)
+    saveCredentials(email, password, savePassword) {
+        try {
+            // Always save email
+            if (email) {
+                localStorage.setItem('ifta_saved_email', email);
+            }
+            
+            // Save or clear password based on checkbox
+            if (savePassword && password) {
+                // Basic encoding (not secure, but prevents casual reading)
+                localStorage.setItem('ifta_saved_password', btoa(password));
+            } else {
+                localStorage.removeItem('ifta_saved_password');
+            }
+        } catch (e) {
+            console.warn('Could not save credentials:', e);
         }
     },
     
