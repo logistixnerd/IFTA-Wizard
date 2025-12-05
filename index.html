@@ -361,12 +361,11 @@
                 <h2>Trip Configuration</h2>
                 <div class="config-grid">
                     <div class="form-group">
-                        <label for="unitNumber">Unit # <span class="optional-hint">(or "All Units")</span></label>
-                        <input type="text" id="unitNumber" placeholder="e.g., 101 or All Units" 
-                               title="Enter truck/unit number for per-unit report, or leave blank for company-wide">
+                        <label for="unitNumber" data-tooltip="Enter truck/trailer number for per-unit reports, or leave blank for all units">Unit # <span class="optional-hint">(or "All Units")</span></label>
+                        <input type="text" id="unitNumber" placeholder="e.g., 101 or All Units">
                     </div>
                     <div class="form-group">
-                        <label for="fuelType">Fuel Type</label>
+                        <label for="fuelType" data-tooltip="Primary fuel type used by this unit">Fuel Type</label>
                         <select id="fuelType">
                             <option value="diesel" selected>Diesel</option>
                             <option value="gasoline">Gasoline</option>
@@ -380,21 +379,19 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="baseJurisdiction">Base Jurisdiction <span class="required">*</span></label>
+                        <label for="baseJurisdiction" data-tooltip="Your home state/province where you're registered for IFTA">Base Jurisdiction <span class="required">*</span></label>
                         <select id="baseJurisdiction" required>
                             <option value="">Select...</option>
                             <!-- Populated by JavaScript -->
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="fleetMpg">Fleet MPG <span class="mpg-hint">(from history)</span></label>
-                        <input type="number" id="fleetMpg" step="0.01" value="6.5" min="1" max="20" 
-                               title="Average MPG calculated from your previous IFTA reports">
+                        <label for="fleetMpg" data-tooltip="Average MPG from your previous IFTA filings (used to calculate Taxable Gallons)">Fleet MPG <span class="mpg-hint">(from history)</span></label>
+                        <input type="number" id="fleetMpg" step="0.01" value="6.5" min="1" max="20">
                     </div>
                     <div class="form-group">
-                        <label for="currentMpg">Current MPG <span class="mpg-hint">(this report)</span></label>
-                        <input type="text" id="currentMpg" value="—" readonly class="mpg-calculated"
-                               title="Calculated from Total Miles ÷ Total Tax Paid Gallons entered below">
+                        <label for="currentMpg" data-tooltip="Calculated automatically: Total Miles ÷ Total Tax Paid Gallons">Current MPG <span class="mpg-hint">(this report)</span></label>
+                        <input type="text" id="currentMpg" value="—" readonly class="mpg-calculated">
                     </div>
                 </div>
             </section>
@@ -415,14 +412,14 @@
                     <table id="dataTable" aria-label="Jurisdiction fuel tax data">
                         <thead>
                             <tr>
-                                <th class="col-jurisdiction">Jurisdiction</th>
-                                <th class="col-miles">Total Miles</th>
-                                <th class="col-taxable">Taxable Miles</th>
-                                <th class="col-gallons">Tax Paid Gal</th>
-                                <th class="col-rate">Rate</th>
-                                <th class="col-taxable-gal">Taxable Gal</th>
-                                <th class="col-net-gal">Net Gal</th>
-                                <th class="col-tax">Tax Due</th>
+                                <th class="col-jurisdiction" data-tooltip="State or province where you traveled">Jurisdiction</th>
+                                <th class="col-miles" data-tooltip="All miles driven in this jurisdiction (including non-taxable)">Total Miles</th>
+                                <th class="col-taxable" data-tooltip="Miles on public roads (usually same as Total Miles)">Taxable Miles</th>
+                                <th class="col-gallons" data-tooltip="Gallons of fuel you purchased IN this jurisdiction">Tax Paid Gal</th>
+                                <th class="col-rate" data-tooltip="IFTA tax rate per gallon (auto-filled)">Rate</th>
+                                <th class="col-taxable-gal" data-tooltip="Taxable Miles ÷ Fleet MPG (calculated)">Taxable Gal</th>
+                                <th class="col-net-gal" data-tooltip="Taxable Gal − Tax Paid Gal (calculated)">Net Gal</th>
+                                <th class="col-tax" data-tooltip="Net Gal × Rate = amount owed or credited">Tax Due</th>
                                 <th class="col-actions"></th>
                             </tr>
                         </thead>
@@ -432,13 +429,13 @@
                         <tfoot>
                             <tr class="totals-row">
                                 <td>Totals</td>
-                                <td id="totalMiles">0</td>
-                                <td id="totalTaxableMiles">0</td>
-                                <td id="totalGallons">0</td>
+                                <td id="totalMiles" data-tooltip="Sum of all Total Miles">0</td>
+                                <td id="totalTaxableMiles" data-tooltip="Sum of all Taxable Miles">0</td>
+                                <td id="totalGallons" data-tooltip="Sum of all fuel purchased">0</td>
                                 <td>—</td>
-                                <td id="totalTaxableGallons">0</td>
-                                <td id="totalNetGallons">0</td>
-                                <td id="totalTax" class="tax-amount">$0.00</td>
+                                <td id="totalTaxableGallons" data-tooltip="Sum of all calculated Taxable Gallons">0</td>
+                                <td id="totalNetGallons" data-tooltip="Total Taxable − Total Purchased">0</td>
+                                <td id="totalTax" class="tax-amount" data-tooltip="Total amount owed (positive) or credit (negative)">$0.00</td>
                                 <td></td>
                             </tr>
                         </tfoot>
@@ -447,19 +444,19 @@
                 
                 <!-- Inline Summary Bar -->
                 <div class="inline-summary">
-                    <div class="summary-item">
+                    <div class="summary-item" data-tooltip="Total miles driven across all jurisdictions">
                         <span class="summary-label">Miles</span>
                         <span class="summary-value" id="summaryMiles">0</span>
                     </div>
-                    <div class="summary-item">
+                    <div class="summary-item" data-tooltip="Total fuel purchased across all jurisdictions">
                         <span class="summary-label">Gallons</span>
                         <span class="summary-value" id="summaryGallons">0</span>
                     </div>
-                    <div class="summary-item">
+                    <div class="summary-item" data-tooltip="Miles per Gallon for this quarter (Total Miles ÷ Total Gallons)">
                         <span class="summary-label">MPG</span>
                         <span class="summary-value" id="summaryMpg">0</span>
                     </div>
-                    <div class="summary-item highlight">
+                    <div class="summary-item highlight" data-tooltip="Total tax owed to all jurisdictions combined">
                         <span class="summary-label">Net Tax</span>
                         <span class="summary-value" id="summaryTax">$0.00</span>
                     </div>
