@@ -139,10 +139,8 @@ const IFTAReports = {
     // Toggle profile menu
     toggleProfileMenu() {
         const dropdown = document.getElementById('profileDropdown');
-        console.log('toggleProfileMenu called, dropdown:', dropdown);
         if (dropdown) {
             dropdown.classList.toggle('open');
-            console.log('Dropdown classes:', dropdown.className);
             this.updateProfileMenuInfo();
         }
     },
@@ -856,7 +854,6 @@ const IFTAReports = {
             
             // Check if EmailJS is available
             if (typeof emailjs !== 'undefined') {
-                console.log('EmailJS available, initializing...');
                 // Initialize EmailJS
                 emailjs.init(this.EMAILJS_CONFIG.publicKey);
                 
@@ -877,17 +874,11 @@ const IFTAReports = {
                     reply_to: IFTAAuth?.user?.email || emailData.to
                 };
                 
-                console.log('Sending email with params:', templateParams);
-                console.log('Using service:', this.EMAILJS_CONFIG.serviceId);
-                console.log('Using template:', this.EMAILJS_CONFIG.templateId);
-                
                 const result = await emailjs.send(
                     this.EMAILJS_CONFIG.serviceId,
                     this.EMAILJS_CONFIG.templateId,
                     templateParams
                 );
-                
-                console.log('EmailJS result:', result);
                 
                 this.closeModal('emailModal');
                 showToast('Email sent successfully!', 'success');
@@ -1019,8 +1010,6 @@ const IFTAReports = {
                 discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
             });
             
-            console.log('Google Drive API client initialized');
-            
             // Initialize token client for OAuth - wrap in try-catch for origin errors
             try {
                 this.tokenClient = google.accounts.oauth2.initTokenClient({
@@ -1028,7 +1017,6 @@ const IFTAReports = {
                     scope: this.GOOGLE_CONFIG.scopes,
                     callback: (response) => this.handleDriveAuthCallback(response)
                 });
-                console.log('Google OAuth token client ready');
             } catch (oauthError) {
                 console.warn('OAuth token client failed (origin may not be authorized):', oauthError);
                 this.driveEnabled = false;
@@ -1088,7 +1076,6 @@ const IFTAReports = {
                 fields: 'user'
             });
             this.driveUser = response.result.user.emailAddress;
-            console.log('Drive user:', this.driveUser);
         } catch (error) {
             console.error('Error getting Drive user info:', error);
             this.driveUser = 'Connected';
@@ -1111,23 +1098,16 @@ const IFTAReports = {
         }
         
         try {
-            console.log('Starting Google Drive connection...');
-            console.log('gapi available:', typeof gapi !== 'undefined');
-            console.log('google.accounts available:', typeof google !== 'undefined' && google.accounts);
-            
             if (!this.tokenClient) {
-                console.log('Token client not ready, initializing...');
                 // Wait for initialization
                 await this.waitForGoogleLibraries();
                 await this.loadGapiClient();
             }
             
             if (this.tokenClient) {
-                console.log('Requesting access token...');
                 // Request access token - this will trigger the OAuth popup
                 this.tokenClient.requestAccessToken({ prompt: 'consent' });
             } else {
-                console.error('Token client still null after init');
                 showToast('Google Drive failed to initialize. Please refresh the page.', 'error');
             }
         } catch (error) {
@@ -1152,7 +1132,7 @@ const IFTAReports = {
                     google.accounts.oauth2.revoke(token.access_token);
                 }
             } catch (e) {
-                console.log('Token revoke skipped');
+                // Token revoke skipped
             }
         }
         
@@ -1581,7 +1561,6 @@ const IFTAReports = {
             
             if (validReports.length > 0) {
                 const mpg = validReports[0].data.mpg || validReports[0].data.fleetMpg;
-                console.log('Using MPG from most recent report:', mpg);
                 return mpg;
             }
             
@@ -1767,13 +1746,10 @@ const IFTAReports = {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM ready, initializing IFTAReports...');
-    
     // Initialize IFTAReports after a brief delay to let auth load
     setTimeout(() => {
         try {
             IFTAReports.init();
-            console.log('IFTAReports initialized');
         } catch (err) {
             console.error('Error initializing IFTAReports:', err);
         }

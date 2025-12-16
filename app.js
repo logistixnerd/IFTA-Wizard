@@ -366,8 +366,6 @@ function addNewRow(data = null) {
     // Add to state FIRST so createRowHtml can see all rows
     appState.rows.push(rowData);
     
-    console.log(`addNewRow: Creating row ${rowId}, appState.rows now has ${appState.rows.length} rows`);
-    
     // Create the row element
     const row = document.createElement('tr');
     row.id = `row-${rowId}`;
@@ -379,8 +377,6 @@ function addNewRow(data = null) {
     
     // Refresh all dropdowns to show updated disabled states
     refreshAllJurisdictionDropdowns();
-    
-    console.log(`addNewRow: Row ${rowId} fully created with event listeners`);
     
     return rowData;
 }
@@ -472,8 +468,6 @@ function attachRowEventListeners(row, rowId) {
     // Jurisdiction change - ALWAYS update tax rate from reference
     row.querySelector('.jurisdiction-select').addEventListener('change', (e) => {
         const newJurisdiction = e.target.value;
-        console.log(`Jurisdiction change for row ${rowId}: ${newJurisdiction}`);
-        console.log(`appState.rows:`, appState.rows.map(r => ({id: r.id, jurisdiction: r.jurisdiction})));
         
         // Check if jurisdiction is already used in another row
         if (newJurisdiction) {
@@ -501,7 +495,6 @@ function attachRowEventListeners(row, rowId) {
         if (value < 0) value = 0;
         e.target.value = value || '';
         
-        console.log(`Total miles input for row ${rowId}: ${value}`);
         updateRowField(rowId, 'totalMiles', value);
         
         // Auto-mirror to taxable miles (always, unless user has manually edited)
@@ -518,7 +511,6 @@ function attachRowEventListeners(row, rowId) {
             taxableMilesInput.value = value || '';
             updateRowField(rowId, 'taxableMiles', value);
             rowData.taxableMilesManuallyEdited = false;
-            console.log(`Taxable miles mirrored to ${value} for row ${rowId}`);
         }
         
         calculateRow(rowId);
@@ -645,7 +637,6 @@ function forceUpdateTaxRate(rowId) {
     
     if (!rowData.jurisdiction) {
         rowData.taxRate = 0;
-        console.log(`forceUpdateTaxRate: Row ${rowId} has no jurisdiction, rate set to 0`);
         return;
     }
     
@@ -653,12 +644,8 @@ function forceUpdateTaxRate(rowId) {
     let taxRate = 0;
     if (typeof getValidatedTaxRate === 'function') {
         taxRate = getValidatedTaxRate(rowData.jurisdiction, appState.selectedFuelType);
-        console.log(`forceUpdateTaxRate: Got rate ${taxRate} for ${rowData.jurisdiction}/${appState.selectedFuelType} via getValidatedTaxRate`);
     } else if (typeof getTaxRate === 'function') {
         taxRate = getTaxRate(rowData.jurisdiction, appState.selectedFuelType);
-        console.log(`forceUpdateTaxRate: Got rate ${taxRate} for ${rowData.jurisdiction}/${appState.selectedFuelType} via getTaxRate`);
-    } else {
-        console.error('forceUpdateTaxRate: No tax rate function available!');
     }
     
     // Validate rate is reasonable
@@ -668,7 +655,6 @@ function forceUpdateTaxRate(rowId) {
     }
     
     rowData.taxRate = taxRate;
-    console.log(`forceUpdateTaxRate: Row ${rowId} rate set to ${taxRate}`);
 }
 
 // Update a field in the row data
@@ -682,15 +668,10 @@ function updateRowField(rowId, field, value) {
 // Calculate values for a single row - IFTA FORMULA
 // This is the critical calculation that must be 100% accurate
 function calculateRow(rowId) {
-    console.log(`calculateRow called for row ${rowId}`);
     const rowData = appState.rows.find(r => r.id === rowId);
     if (!rowData) {
-        console.error(`calculateRow: Row ${rowId} not found in appState.rows!`);
-        console.log(`appState.rows IDs:`, appState.rows.map(r => r.id));
         return;
     }
-    
-    console.log(`calculateRow: Found row ${rowId}, data:`, JSON.stringify(rowData));
     
     try {
         // ==========================================
@@ -756,15 +737,11 @@ function calculateRow(rowId) {
         // Round to 2 decimal places for currency
         rowData.taxDue = roundTo(taxDue, 2);
         
-        console.log(`calculateRow: Final values for row ${rowId}: rate=${rowData.taxRate}, taxableGal=${rowData.taxableGallons}, netGal=${rowData.netTaxableGallons}, taxDue=${rowData.taxDue}`);
-        
         // ==========================================
         // STEP 6: Update UI
         // ==========================================
         updateRowUI(rowId, rowData);
         updateTotals();
-        
-        console.log(`calculateRow: UI updated for row ${rowId}`);
         
     } catch (error) {
         console.error(`Error calculating row ${rowId}:`, error);

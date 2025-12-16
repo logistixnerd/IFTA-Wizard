@@ -27,7 +27,6 @@ const IFTAAuth = {
         // Fallback: if auth state doesn't initialize within 3 seconds, show login
         setTimeout(() => {
             if (!this.authStateInitialized) {
-                console.log('Auth state timeout - showing login modal');
                 this.showAuthModal();
             }
         }, 3000);
@@ -56,8 +55,6 @@ const IFTAAuth = {
         firebase.auth().onAuthStateChanged((user) => {
             this.handleAuthStateChange(user);
         });
-        
-        console.log('Firebase Auth initialized');
     },
     
     // Handle Firebase auth state changes
@@ -71,7 +68,6 @@ const IFTAAuth = {
             
             if (loginTime && (Date.now() - parseInt(loginTime)) > SEVEN_DAYS) {
                 // Session expired - log out
-                console.log('Session expired after 7 days');
                 await this.logout();
                 if (typeof showToast === 'function') {
                     showToast('Session expired. Please sign in again.', 'info');
@@ -627,7 +623,6 @@ const IFTAAuth = {
         if (modal) {
             modal.classList.remove('hidden');
             modal.style.display = 'flex'; // Show the modal
-            console.log('Auth modal shown');
         }
         
         // Hide app content when showing auth modal
@@ -655,15 +650,23 @@ const IFTAAuth = {
             }
             
             if (passwordInput && savedPassword) {
-                // Decode the saved password
-                passwordInput.value = atob(savedPassword);
+                // Decrypt the saved password using security module
+                if (typeof IFTASecurity !== 'undefined' && IFTASecurity.decryptData) {
+                    const decrypted = IFTASecurity.decryptData(savedPassword, 'ifta_pwd_key');
+                    if (decrypted) {
+                        passwordInput.value = decrypted;
+                    }
+                } else {
+                    // Fallback to base64 decode
+                    try { passwordInput.value = atob(savedPassword); } catch(e) {}
+                }
             }
             
             if (savePasswordCheckbox) {
                 savePasswordCheckbox.checked = hasSavedPassword;
             }
         } catch (e) {
-            console.warn('Could not load saved credentials:', e);
+            // Silent fail for credential loading
         }
     },
     
@@ -677,13 +680,19 @@ const IFTAAuth = {
             
             // Save or clear password based on checkbox
             if (savePassword && password) {
-                // Basic encoding (not secure, but prevents casual reading)
-                localStorage.setItem('ifta_saved_password', btoa(password));
+                // Use security module encryption if available
+                if (typeof IFTASecurity !== 'undefined' && IFTASecurity.encryptData) {
+                    const encrypted = IFTASecurity.encryptData(password, 'ifta_pwd_key');
+                    localStorage.setItem('ifta_saved_password', encrypted);
+                } else {
+                    // Fallback to basic encoding
+                    localStorage.setItem('ifta_saved_password', btoa(password));
+                }
             } else {
                 localStorage.removeItem('ifta_saved_password');
             }
         } catch (e) {
-            console.warn('Could not save credentials:', e);
+            // Silent fail for credential saving
         }
     },
     
@@ -695,7 +704,6 @@ const IFTAAuth = {
         if (modal) {
             modal.classList.add('hidden');
             modal.style.display = 'none'; // Force hide as fallback
-            console.log('Auth modal hidden');
         }
         
         // Show app content when hiding auth modal
@@ -765,7 +773,6 @@ const IFTAAuth = {
         if (adminLink) {
             const userEmail = this.user?.email?.toLowerCase() || '';
             const isAdmin = this.adminEmails.some(email => email.toLowerCase() === userEmail);
-            console.log('Admin check:', { userEmail, isAdmin, adminEmails: this.adminEmails });
             adminLink.style.display = isAdmin ? 'flex' : 'none';
         }
         
