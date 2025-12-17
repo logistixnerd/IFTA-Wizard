@@ -4,7 +4,7 @@
 // Firebase Config
 const firebaseConfig = {
     apiKey: "AIzaSyDrjI76QLlhLnmX80_XdFaD4QHP32I9QxY",
-    authDomain: "ifta-wizard-a9061.firebaseapp.com",
+    authDomain: "www.logistixnerd.com",
     projectId: "ifta-wizard-a9061",
     storageBucket: "ifta-wizard-a9061.firebasestorage.app",
     messagingSenderId: "1019904853500",
