@@ -1395,7 +1395,12 @@ input::placeholder {
 .col-rate { min-width: 55px; }
 .col-taxable-gal, .col-net-gal { min-width: 65px; }
 .col-tax { min-width: 70px; }
-.col-actions { min-width: 35px; text-align: center; }
+.col-actions { min-width: 35px; text-align: right; padding-right: 0.5rem; }
+
+#dataTable td:last-child {
+    text-align: right;
+    padding-right: 0.5rem;
+}
 
 /* Totals Row */
 .totals-row {
@@ -1474,13 +1479,13 @@ input::placeholder {
     background: transparent;
     color: var(--gray-400);
     border: none;
-    padding: 0.25rem 0.5rem;
-    border-radius: var(--radius-sm);
-    transition: all 0.2s ease;
-    border-radius: var(--radius-sm);
+    padding: 0.25rem 0.375rem;
     cursor: pointer;
     transition: var(--transition);
     font-size: 0.6875rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .delete-row:hover {
