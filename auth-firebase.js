@@ -102,6 +102,11 @@ const IFTAAuth = {
                 return;
             }
             
+            // If no login time set, set it now (handles returning users)
+            if (!loginTime) {
+                localStorage.setItem('ifta_login_time', Date.now().toString());
+            }
+            
             // User is signed in
             try {
                 // Get additional user data from Firestore
