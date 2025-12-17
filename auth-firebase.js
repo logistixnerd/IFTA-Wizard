@@ -445,7 +445,15 @@ const IFTAAuth = {
     },
     
     // Handle Google Sign In
+    googleSignInInProgress: false,
+    
     async handleGoogleSignIn() {
+        // Prevent multiple simultaneous attempts
+        if (this.googleSignInInProgress) {
+            return;
+        }
+        this.googleSignInInProgress = true;
+        
         const googleBtn = document.getElementById('googleSignIn');
         const originalText = googleBtn?.innerHTML;
         
@@ -503,7 +511,8 @@ const IFTAAuth = {
                 }
             }
         } finally {
-            // Restore button
+            // Reset flag and restore button
+            this.googleSignInInProgress = false;
             if (googleBtn && originalText) {
                 googleBtn.disabled = false;
                 googleBtn.innerHTML = originalText;
