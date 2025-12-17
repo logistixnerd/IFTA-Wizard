@@ -110,10 +110,10 @@ const AdminPanel = {
                 // Clear any local storage auth data
                 localStorage.removeItem('ifta_user');
                 // Redirect to main app (will show login modal)
-                window.location.href = 'index.html';
+                window.location.href = '/';
             } catch (error) {
                 console.error('Logout error:', error);
-                window.location.href = 'index.html';
+                window.location.href = '/';
             }
         });
         
@@ -1950,7 +1950,7 @@ const AdminPanel = {
         try {
             // Generate invite token
             const inviteToken = this.generateInviteToken();
-            const inviteLink = `${window.location.origin}/index.html?invite=${inviteToken}`;
+            const inviteLink = `${window.location.origin}/?invite=${inviteToken}`;
             
             // Store invite in localStorage (in production, use database)
             this.saveInvite({
