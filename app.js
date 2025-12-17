@@ -1861,7 +1861,7 @@ function formatCurrency(num) {
 // Utility: Format tax rate
 function formatRate(rate) {
     if (typeof rate !== 'number' || isNaN(rate) || rate === 0) {
-        return '$0.0000';
+        return '—';
     }
     return '$' + rate.toFixed(4);
 }
