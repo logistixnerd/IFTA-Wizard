@@ -460,31 +460,50 @@ const IFTAAuth = {
             provider.addScope('email');
             provider.addScope('profile');
             
-            // Try redirect instead of popup (works better with custom domains)
-            await firebase.auth().signInWithRedirect(provider);
+            // Use popup for better UX
+            const result = await firebase.auth().signInWithPopup(provider);
+            const user = result.user;
             
-            // Note: The page will redirect, so code below won't run
-            // The result will be handled in initFirebase via getRedirectResult
+            // Save login timestamp for 7-day expiry
+            localStorage.setItem('ifta_login_time', Date.now().toString());
             
-        } catch (error) {
-            console.error('Google sign in error:', error);
+            // Check if this is a new user
+            const isNewUser = result.additionalUserInfo?.isNewUser;
             
-            // Show specific error to help debug
-            let errorMessage = 'Google sign-in failed.';
-            
-            if (error.code === 'auth/unauthorized-domain') {
-                errorMessage = 'Domain not authorized. Add this domain to Firebase Auth settings.';
-            } else if (error.code === 'auth/operation-not-allowed') {
-                errorMessage = 'Google sign-in not enabled. Enable it in Firebase Console.';
-            } else {
-                errorMessage = `Error: ${error.code || error.message || 'Unknown error'}`;
+            if (isNewUser) {
+                await this.saveUserProfile(user.uid, {
+                    email: user.email.toLowerCase(),
+                    name: user.displayName || '',
+                    company: '',
+                    signupMethod: 'google',
+                    emailVerified: true
+                });
             }
             
             if (typeof showToast === 'function') {
-                showToast(errorMessage, 'error');
+                showToast(`Welcome, ${user.displayName || 'User'}!`, 'success');
             }
             
-            // Restore button on error
+        } catch (error) {
+            // Only show error for real failures, not user cancellation
+            if (error.code === 'auth/popup-closed-by-user') {
+                // User closed popup - no error needed
+            } else if (error.code === 'auth/popup-blocked') {
+                if (typeof showToast === 'function') {
+                    showToast('Pop-up blocked. Please allow pop-ups for this site.', 'error');
+                }
+            } else if (error.code === 'auth/unauthorized-domain') {
+                if (typeof showToast === 'function') {
+                    showToast('Domain not authorized for sign-in.', 'error');
+                }
+            } else if (error.code) {
+                console.error('Google sign in error:', error);
+                if (typeof showToast === 'function') {
+                    showToast('Sign-in failed. Please try again.', 'error');
+                }
+            }
+        } finally {
+            // Restore button
             if (googleBtn && originalText) {
                 googleBtn.disabled = false;
                 googleBtn.innerHTML = originalText;
