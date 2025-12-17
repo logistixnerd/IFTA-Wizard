@@ -469,20 +469,41 @@ const IFTAAuth = {
             
         } catch (error) {
             console.error('Google sign in error:', error);
+            console.error('Error code:', error.code);
+            console.error('Error message:', error.message);
+            
+            // Show specific error to help debug
+            let errorMessage = 'Google sign-in failed.';
             
             if (error.code === 'auth/popup-closed-by-user') {
+                errorMessage = 'Sign-in cancelled';
                 if (typeof showToast === 'function') {
-                    showToast('Sign-in cancelled', 'info');
+                    showToast(errorMessage, 'info');
                 }
             } else if (error.code === 'auth/popup-blocked') {
+                errorMessage = 'Pop-up blocked. Please allow pop-ups for this site.';
                 if (typeof showToast === 'function') {
-                    showToast('Pop-up blocked. Please allow pop-ups for this site.', 'error');
+                    showToast(errorMessage, 'error');
+                }
+            } else if (error.code === 'auth/unauthorized-domain') {
+                errorMessage = 'Domain not authorized. Add this domain to Firebase Auth settings.';
+                if (typeof showToast === 'function') {
+                    showToast(errorMessage, 'error');
+                }
+            } else if (error.code === 'auth/operation-not-allowed') {
+                errorMessage = 'Google sign-in not enabled. Enable it in Firebase Console.';
+                if (typeof showToast === 'function') {
+                    showToast(errorMessage, 'error');
                 }
             } else {
+                errorMessage = `Error: ${error.code || error.message || 'Unknown error'}`;
                 if (typeof showToast === 'function') {
-                    showToast('Google sign-in failed. Please try again.', 'error');
+                    showToast(errorMessage, 'error');
                 }
             }
+            
+            // Also alert for debugging
+            alert('Google Sign-In Error:\n\nCode: ' + (error.code || 'none') + '\n\nMessage: ' + (error.message || 'none'));
         } finally {
             // Restore button
             if (googleBtn && originalText) {
