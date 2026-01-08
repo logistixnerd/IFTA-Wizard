@@ -9,6 +9,9 @@ const IFTAAuth = {
     firebaseReady: false,
     authStateInitialized: false,
     
+    // Constants
+    TEST_MODE_DELAY: 1000, // Delay in ms before enabling test mode
+    
     // Admin emails - use centralized list from firebase-config.js or fallback
     get adminEmails() {
         return window.ADMIN_EMAILS || [
@@ -16,6 +19,11 @@ const IFTAAuth = {
             'milanpericic@gmail.com',
             'admin@iftawizard.com'
         ].map(e => e.toLowerCase());
+    },
+    
+    // Check if running in development mode
+    isDevelopmentMode() {
+        return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     },
     
     // Enable test mode for development (when Firebase is not available)
@@ -62,12 +70,11 @@ const IFTAAuth = {
         if (typeof firebase === 'undefined') {
             console.error('Firebase SDK not loaded');
             // In development mode, allow bypass for testing
-            const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            if (isDevelopment) {
+            if (this.isDevelopmentMode()) {
                 console.warn('Development mode: Firebase unavailable, enabling test mode...');
                 setTimeout(() => {
                     this.enableTestMode();
-                }, 1000);
+                }, this.TEST_MODE_DELAY);
             }
             return;
         }
@@ -82,12 +89,11 @@ const IFTAAuth = {
         if (!this.firebaseReady) {
             console.error('Firebase initialization failed');
             // In development mode, allow bypass for testing
-            const isDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            if (isDevelopment) {
+            if (this.isDevelopmentMode()) {
                 console.warn('Development mode: Firebase unavailable, enabling test mode...');
                 setTimeout(() => {
                     this.enableTestMode();
-                }, 1000);
+                }, this.TEST_MODE_DELAY);
             }
             return;
         }
