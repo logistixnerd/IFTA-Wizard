@@ -9,6 +9,9 @@ const IFTAAuth = {
     firebaseReady: false,
     authStateInitialized: false,
     
+    // Constants
+    TEST_MODE_DELAY: 1000, // Delay in ms before enabling test mode
+    
     // Admin emails - use centralized list from firebase-config.js or fallback
     get adminEmails() {
         return window.ADMIN_EMAILS || [
@@ -16,6 +19,36 @@ const IFTAAuth = {
             'milanpericic@gmail.com',
             'admin@iftawizard.com'
         ].map(e => e.toLowerCase());
+    },
+    
+    // Check if running in development mode
+    isDevelopmentMode() {
+        return window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    },
+    
+    // Enable test mode for development (when Firebase is not available)
+    enableTestMode() {
+        console.log('TEST MODE ENABLED - Firebase authentication bypassed');
+        console.log('Using local-only mode for testing calculator functionality');
+        
+        this.user = {
+            uid: 'test-user-' + Date.now(),
+            email: 'test@localhost.local',
+            name: 'Test User',
+            company: 'Test Company',
+            role: 'user',
+            emailVerified: true,
+            signupMethod: 'test'
+        };
+        
+        this.isAuthenticated = true;
+        this.authStateInitialized = true;
+        this.hideAuthModal();
+        this.updateUIForLoggedInUser();
+        
+        if (typeof showToast === 'function') {
+            showToast('Test mode enabled - Calculator ready for testing', 'info');
+        }
     },
     
     // Initialize authentication
@@ -36,6 +69,13 @@ const IFTAAuth = {
     initFirebase() {
         if (typeof firebase === 'undefined') {
             console.error('Firebase SDK not loaded');
+            // In development mode, allow bypass for testing
+            if (this.isDevelopmentMode()) {
+                console.warn('Development mode: Firebase unavailable, enabling test mode...');
+                setTimeout(() => {
+                    this.enableTestMode();
+                }, this.TEST_MODE_DELAY);
+            }
             return;
         }
         
@@ -48,6 +88,13 @@ const IFTAAuth = {
         
         if (!this.firebaseReady) {
             console.error('Firebase initialization failed');
+            // In development mode, allow bypass for testing
+            if (this.isDevelopmentMode()) {
+                console.warn('Development mode: Firebase unavailable, enabling test mode...');
+                setTimeout(() => {
+                    this.enableTestMode();
+                }, this.TEST_MODE_DELAY);
+            }
             return;
         }
         
