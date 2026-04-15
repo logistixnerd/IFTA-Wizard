@@ -240,16 +240,20 @@
         }
         empty.style.display = 'none';
         table.style.display = '';
-        tbody.innerHTML = state.trucks.map(t => `<tr>
-            <td>${escapeHtml(t.unit)}</td>
+        tbody.innerHTML = state.trucks.filter(t => matchesFilter(t, 'truck')).map(t => `<tr>
+            <td><strong>${escapeHtml(t.unit)}</strong></td>
             <td>${vehicleLabel(t.year, t.make, t.model)}</td>
             <td title="${escapeHtml(t.vin)}">${shortenVin(t.vin)}</td>
-            <td>${escapeHtml(t.plate)}${t.plateState ? ' (' + escapeHtml(t.plateState) + ')' : ''}</td>
+            <td>${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</td>
             <td>${fuelLabel(t.fuel)}</td>
             <td>${statusBadge(t.status)}</td>
             <td class="row-actions">
-                <button title="Edit" onclick="Dashboard.editTruck('${t.id}')">✎</button>
-                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTruck('${t.id}')">✕</button>
+                <button title="Edit" onclick="Dashboard.editTruck('${t.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTruck('${t.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
             </td>
         </tr>`).join('');
     }
@@ -329,8 +333,8 @@
         }
         empty.style.display = 'none';
         table.style.display = '';
-        tbody.innerHTML = state.trailers.map(t => `<tr>
-            <td>${escapeHtml(t.unit)}</td>
+        tbody.innerHTML = state.trailers.filter(t => matchesFilter(t, 'trailer')).map(t => `<tr>
+            <td><strong>${escapeHtml(t.unit)}</strong></td>
             <td>${escapeHtml(t.year)}</td>
             <td>${escapeHtml(t.make)}</td>
             <td>${escapeHtml(t.type)}</td>
@@ -338,8 +342,12 @@
             <td>${escapeHtml(t.plate)}</td>
             <td>${statusBadge(t.status)}</td>
             <td class="row-actions">
-                <button title="Edit" onclick="Dashboard.editTrailer('${t.id}')">✎</button>
-                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTrailer('${t.id}')">✕</button>
+                <button title="Edit" onclick="Dashboard.editTrailer('${t.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTrailer('${t.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
             </td>
         </tr>`).join('');
     }
@@ -414,8 +422,8 @@
         }
         empty.style.display = 'none';
         table.style.display = '';
-        tbody.innerHTML = state.drivers.map(d => `<tr>
-            <td>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</td>
+        tbody.innerHTML = state.drivers.filter(d => matchesFilter(d, 'driver')).map(d => `<tr>
+            <td><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></td>
             <td>${escapeHtml(d.cdl)}</td>
             <td>${escapeHtml(d.cdlState)}</td>
             <td>${escapeHtml(d.cdlExp)}</td>
@@ -424,8 +432,12 @@
             <td>${escapeHtml(truckLabel(d.truck))}</td>
             <td>${statusBadge(d.status)}</td>
             <td class="row-actions">
-                <button title="Edit" onclick="Dashboard.editDriver('${d.id}')">✎</button>
-                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteDriver('${d.id}')">✕</button>
+                <button title="Edit" onclick="Dashboard.editDriver('${d.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteDriver('${d.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
             </td>
         </tr>`).join('');
     }
@@ -522,6 +534,93 @@
         return t ? ('Unit ' + t.unit) : '—';
     }
 
+    // ── Search / Filter ──────────────────
+    function matchesFilter(item, type) {
+        const searchEl = $(type + 'Search');
+        const filterEl = $(type + 'StatusFilter');
+        const q = searchEl ? searchEl.value.toLowerCase().trim() : '';
+        const f = filterEl ? filterEl.value : '';
+
+        if (f && item.status !== f) return false;
+        if (!q) return true;
+
+        if (type === 'truck') {
+            return [item.unit, item.make, item.model, item.year, item.vin, item.plate].some(v => v && String(v).toLowerCase().includes(q));
+        }
+        if (type === 'trailer') {
+            return [item.unit, item.make, item.year, item.type, item.vin, item.plate].some(v => v && String(v).toLowerCase().includes(q));
+        }
+        if (type === 'driver') {
+            return [item.firstName, item.lastName, item.cdl, item.cdlState, item.phone, item.email].some(v => v && String(v).toLowerCase().includes(q));
+        }
+        return true;
+    }
+
+    function initSearchFilters() {
+        ['truckSearch', 'truckStatusFilter'].forEach(id => {
+            const el = $(id);
+            if (el) el.addEventListener('input', renderTrucks);
+        });
+        ['trailerSearch', 'trailerStatusFilter'].forEach(id => {
+            const el = $(id);
+            if (el) el.addEventListener('input', renderTrailers);
+        });
+        ['driverSearch', 'driverStatusFilter'].forEach(id => {
+            const el = $(id);
+            if (el) el.addEventListener('input', renderDrivers);
+        });
+    }
+
+    // ── Operational Alerts ────────────────
+    function updateAlerts() {
+        const alerts = [];
+        const today = new Date().toISOString().split('T')[0];
+        const soon = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+
+        // Drivers with expiring CDL (within 30 days)
+        const expiringCdl = state.drivers.filter(d => d.cdlExp && d.cdlExp >= today && d.cdlExp <= soon);
+        if (expiringCdl.length) {
+            alerts.push({ type: 'warning', icon: 'clock', text: expiringCdl.length + ' driver' + (expiringCdl.length > 1 ? 's' : '') + ' with CDL expiring within 30 days' });
+        }
+
+        // Expired CDLs
+        const expiredCdl = state.drivers.filter(d => d.cdlExp && d.cdlExp < today);
+        if (expiredCdl.length) {
+            alerts.push({ type: 'danger', icon: 'alert', text: expiredCdl.length + ' driver' + (expiredCdl.length > 1 ? 's' : '') + ' with expired CDL' });
+        }
+
+        // Trucks in maintenance
+        const maint = state.trucks.filter(t => t.status === 'maintenance');
+        if (maint.length) {
+            alerts.push({ type: 'warning', icon: 'wrench', text: maint.length + ' truck' + (maint.length > 1 ? 's' : '') + ' in maintenance' });
+        }
+
+        // Unassigned active drivers
+        const unassigned = state.drivers.filter(d => d.status === 'active' && !d.truck);
+        if (unassigned.length) {
+            alerts.push({ type: 'info', icon: 'user', text: unassigned.length + ' active driver' + (unassigned.length > 1 ? 's' : '') + ' unassigned to a truck' });
+        }
+
+        const container = $('overviewAlerts');
+        if (!container) return;
+
+        if (alerts.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+
+        const iconMap = {
+            clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+            alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+            user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
+        };
+
+        container.innerHTML = alerts.map(a =>
+            `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`
+        ).join('');
+    }
+
     function populateTruckDropdown() {
         const sel = $('driverTruck');
         const current = sel.value;
@@ -558,6 +657,7 @@
         $('overviewActiveDrivers').textContent = activeDrivers;
         $('overviewMaintenance').textContent = maintenance;
         $('overviewOutOfService').textContent = oos;
+        updateAlerts();
     }
 
     function showMsg(text, isError) {
@@ -651,6 +751,7 @@
         initTrailerForm();
         initDriverForm();
         initModalBackdrops();
+        initSearchFilters();
         initAuth();
     }
 

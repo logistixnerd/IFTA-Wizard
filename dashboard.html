@@ -38,7 +38,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
                     </svg>
-                    <span>Profile</span>
+                    <span>Account</span>
                 </button>
                 <button class="dash-nav-item" data-section="company">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -145,6 +145,7 @@
                     </div>
                 </div>
                 <div class="overview-details">
+                    <div class="overview-alerts" id="overviewAlerts"></div>
                     <div class="dash-card">
                         <div class="dash-card-header">
                             <h2>Fleet Summary</h2>
@@ -181,7 +182,7 @@
             <section class="dash-section" id="section-profile">
                 <div class="dash-card">
                     <div class="dash-card-header">
-                        <h2>User Profile</h2>
+                        <h2>Account</h2>
                     </div>
                     <div class="dash-card-body">
                         <div class="profile-hero">
@@ -286,6 +287,18 @@
                         <button class="btn btn-primary btn-sm" id="addTruckBtn">+ Add Truck</button>
                     </div>
                     <div class="dash-card-body">
+                        <div class="dash-table-toolbar">
+                            <div class="dash-search-wrap">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                <input type="text" class="dash-search" id="truckSearch" placeholder="Search trucks...">
+                            </div>
+                            <select class="dash-filter" id="truckStatusFilter">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="maintenance">Maintenance</option>
+                                <option value="inactive">Out of Service</option>
+                            </select>
+                        </div>
                         <div class="dash-empty" id="trucksEmpty">
                             <p>No trucks added yet</p>
                             <button class="btn btn-secondary btn-sm" id="addFirstTruck">Add your first truck</button>
@@ -316,6 +329,18 @@
                         <button class="btn btn-primary btn-sm" id="addTrailerBtn">+ Add Trailer</button>
                     </div>
                     <div class="dash-card-body">
+                        <div class="dash-table-toolbar">
+                            <div class="dash-search-wrap">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                <input type="text" class="dash-search" id="trailerSearch" placeholder="Search trailers...">
+                            </div>
+                            <select class="dash-filter" id="trailerStatusFilter">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="maintenance">Maintenance</option>
+                                <option value="inactive">Out of Service</option>
+                            </select>
+                        </div>
                         <div class="dash-empty" id="trailersEmpty">
                             <p>No trailers added yet</p>
                             <button class="btn btn-secondary btn-sm" id="addFirstTrailer">Add your first trailer</button>
@@ -347,6 +372,18 @@
                         <button class="btn btn-primary btn-sm" id="addDriverBtn">+ Add Driver</button>
                     </div>
                     <div class="dash-card-body">
+                        <div class="dash-table-toolbar">
+                            <div class="dash-search-wrap">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                <input type="text" class="dash-search" id="driverSearch" placeholder="Search drivers...">
+                            </div>
+                            <select class="dash-filter" id="driverStatusFilter">
+                                <option value="">All Status</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="on-leave">On Leave</option>
+                            </select>
+                        </div>
                         <div class="dash-empty" id="driversEmpty">
                             <p>No drivers added yet</p>
                             <button class="btn btn-secondary btn-sm" id="addFirstDriver">Add your first driver</button>
