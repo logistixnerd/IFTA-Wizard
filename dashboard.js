@@ -106,10 +106,13 @@
                 photoEl.textContent = (data.name || state.user.displayName || 'U').charAt(0).toUpperCase();
             }
 
-            // Form fields
+            // User profile fields
             $('dashFullName').value = data.name || state.user.displayName || '';
-            $('dashCompany').value = data.company || '';
+            $('dashEmail').value = state.user.email || '';
             $('dashPhone').value = data.phone || '';
+
+            // Company fields
+            $('dashCompany').value = data.company || '';
             $('dashDotNumber').value = data.dotNumber || '';
             $('dashMcNumber').value = data.mcNumber || '';
             $('dashEin').value = data.ein || '';
@@ -151,13 +154,29 @@
             }
         });
 
-        // Save profile
+        // Save user profile
         $('dashProfileForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const payload = {
                 name: $('dashFullName').value.trim(),
-                company: $('dashCompany').value.trim(),
                 phone: $('dashPhone').value.trim(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            try {
+                await db.collection('users').doc(uid()).set(payload, { merge: true });
+                $('dashProfileName').textContent = payload.name || 'User';
+                showMsg('Profile saved');
+            } catch (err) {
+                console.error('Save profile error:', err);
+                showMsg('Error saving profile', true);
+            }
+        });
+
+        // Save company info
+        $('dashCompanyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                company: $('dashCompany').value.trim(),
                 dotNumber: $('dashDotNumber').value.trim(),
                 mcNumber: $('dashMcNumber').value.trim(),
                 ein: $('dashEin').value.trim(),
@@ -168,11 +187,10 @@
             };
             try {
                 await db.collection('users').doc(uid()).set(payload, { merge: true });
-                $('dashProfileName').textContent = payload.name || 'User';
-                showMsg('Profile saved');
+                showMsg('Company info saved');
             } catch (err) {
-                console.error('Save profile error:', err);
-                showMsg('Error saving profile', true);
+                console.error('Save company error:', err);
+                showMsg('Error saving company info', true);
             }
         });
     }
