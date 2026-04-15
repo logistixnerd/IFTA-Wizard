@@ -1861,9 +1861,25 @@
                 }
                 return;
             }
+            // Inline edit
             const cell = e.target.closest('.cell-editable');
-            if (!cell || cell.querySelector('.cell-input')) return;
-            startInlineEdit(cell);
+            if (cell) {
+                if (!cell.querySelector('.cell-input')) startInlineEdit(cell);
+                return;
+            }
+            // Row → profile navigation (skip buttons, selects, inputs)
+            if (!e.target.closest('button, select, input')) {
+                const row = e.target.closest('tr[data-id]');
+                if (row) {
+                    const id = row.dataset.id;
+                    const table = row.closest('table');
+                    if (table && id) {
+                        if (table.id === 'trucksTable') openTruckProfile(id);
+                        else if (table.id === 'trailersTable') openTrailerProfile(id);
+                        else if (table.id === 'driversTable') openDriverProfile(id);
+                    }
+                }
+            }
         });
     }
 
