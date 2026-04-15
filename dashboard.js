@@ -713,6 +713,7 @@
                 $('truckModal').classList.add('hidden');
                 await loadTrucks();
                 populateTruckDropdown();
+                updateOverview();
                 showMsg(editId ? 'Truck updated' : 'Truck added');
             } catch (err) {
                 console.error('Save truck error:', err);
@@ -1470,19 +1471,17 @@
                 });
                 if (!data[config.requiredKey]) continue;
 
-                // Collect validation issues for this row
+                // Collect validation issues — store as warnings, never block
                 const issues = [];
                 tr.querySelectorAll('.cell-invalid, .cell-duplicate, .cell-warning').forEach(c => {
                     if (c.title) issues.push(c.title);
                 });
-                if (tr.querySelector('.cell-invalid') || tr.querySelector('.cell-duplicate')) {
-                    data.validationStatus = 'error';
-                } else if (tr.querySelector('.cell-warning')) {
+                if (issues.length) {
                     data.validationStatus = 'warning';
+                    data.validationIssues = issues;
                 } else {
                     data.validationStatus = 'valid';
                 }
-                if (issues.length) data.validationIssues = issues;
 
                 // Apply defaults for empty fields
                 if (config.defaults) {
@@ -1501,7 +1500,7 @@
             }
 
             if (count === 0) {
-                showMsg('Enter at least one ' + config.label + ' with required fields', true);
+                showMsg('Enter at least one ' + config.label + ' with a ' + config.requiredKey, true);
                 return;
             }
 
@@ -1509,6 +1508,7 @@
             $(config.modalId).classList.add('hidden');
             showMsg(count + ' ' + config.label + (count > 1 ? 's' : '') + ' added');
             await config.afterSave();
+            updateOverview();
         } catch (err) {
             console.error('Sheet save error:', err);
             showMsg('Error saving ' + config.label + 's: ' + (err.message || err), true);
@@ -1620,6 +1620,7 @@
                 }
                 $('trailerModal').classList.add('hidden');
                 await loadTrailers();
+                updateOverview();
                 showMsg(editId ? 'Trailer updated' : 'Trailer added');
             } catch (err) {
                 console.error('Save trailer error:', err);
@@ -1733,6 +1734,7 @@
                 }
                 $('driverModal').classList.add('hidden');
                 await loadDrivers();
+                updateOverview();
                 showMsg(editId ? 'Driver updated' : 'Driver added');
             } catch (err) {
                 console.error('Save driver error:', err);
@@ -2222,6 +2224,7 @@
             await col('trucks').doc(id).delete();
             await loadTrucks();
             populateTruckDropdown();
+            updateOverview();
             showMsg('Truck deleted');
         } catch (err) { console.error(err); showMsg('Error deleting truck', true); }
     }
@@ -2231,6 +2234,7 @@
         try {
             await col('trailers').doc(id).delete();
             await loadTrailers();
+            updateOverview();
             showMsg('Trailer deleted');
         } catch (err) { console.error(err); showMsg('Error deleting trailer', true); }
     }
@@ -2240,6 +2244,7 @@
         try {
             await col('drivers').doc(id).delete();
             await loadDrivers();
+            updateOverview();
             showMsg('Driver deleted');
         } catch (err) { console.error(err); showMsg('Error deleting driver', true); }
     }
