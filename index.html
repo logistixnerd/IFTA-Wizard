@@ -370,8 +370,11 @@
                 <h2>Trip Configuration</h2>
                 <div class="config-grid">
                     <div class="form-group">
-                        <label for="unitNumber" data-tooltip="Enter truck/trailer number for per-unit reports, or leave blank for all units">Unit # <span class="optional-hint">(or "All Units")</span></label>
-                        <input type="text" id="unitNumber" placeholder="e.g., 101 or All Units">
+                        <label for="unitNumber" data-tooltip="Select a truck from your fleet, or choose All Units for a combined report">Unit # <span class="optional-hint">(or "All Units")</span></label>
+                        <select id="unitNumber">
+                            <option value="">All Units</option>
+                            <!-- Populated from Firestore trucks -->
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="fuelType" data-tooltip="Primary fuel type used by this unit">Fuel Type</label>

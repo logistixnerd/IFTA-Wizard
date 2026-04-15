@@ -551,6 +551,13 @@ const IFTAReports = {
                 if (mpgInput) {
                     mpgInput.value = appState.fleetMpg;
                 }
+
+                // Restore unit number selection
+                if (report.data.unitNumber) {
+                    appState.unitNumber = report.data.unitNumber;
+                    const unitSel = document.getElementById('unitNumber');
+                    if (unitSel) unitSel.value = report.data.unitNumber;
+                }
                 
                 // Refresh UI
                 if (typeof recalculateAll === 'function') {

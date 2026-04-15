@@ -66,6 +66,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         addNewRow(); // Start with one row
         updateRatesTable();
+
+        // Load fleet trucks into unit dropdown when auth is ready
+        listenForTrucks();
         
         // Load saved data if exists (silently on init)
         loadFromLocalStorage(true);
@@ -233,8 +236,19 @@ function attachEventListeners() {
     document.getElementById('csvFileInput').addEventListener('change', handleCsvImport);
     
     // Configuration changes
-    elements.unitNumberInput.addEventListener('input', (e) => {
-        appState.unitNumber = e.target.value.trim();
+    elements.unitNumberInput.addEventListener('change', (e) => {
+        const val = e.target.value;
+        appState.unitNumber = val;
+
+        // Auto-fill fuel type from selected truck
+        if (val && e.target.selectedOptions && e.target.selectedOptions[0]) {
+            const fuel = e.target.selectedOptions[0].dataset.fuel;
+            if (fuel && elements.fuelTypeSelect) {
+                elements.fuelTypeSelect.value = fuel;
+                appState.selectedFuelType = fuel;
+                recalculateAll();
+            }
+        }
     });
     
     elements.quarterSelect.addEventListener('change', (e) => {
@@ -1951,4 +1965,57 @@ function showToast(message, type = 'info') {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
     }, 4000);
+}
+
+// ── Fleet truck dropdown ────────────────────
+// Fuel type map: dashboard values → IFTA calculator values
+const FUEL_MAP = {
+    diesel: 'diesel',
+    gasoline: 'gasoline',
+    cng: 'cng',
+    lng: 'lng'
+};
+
+function listenForTrucks() {
+    // Wait for Firebase auth, then load trucks
+    const check = setInterval(() => {
+        if (typeof IFTAAuth !== 'undefined' && IFTAAuth.user && typeof db !== 'undefined') {
+            clearInterval(check);
+            loadFleetTrucks();
+        }
+    }, 500);
+    // Stop checking after 15 seconds
+    setTimeout(() => clearInterval(check), 15000);
+}
+
+async function loadFleetTrucks() {
+    try {
+        const userId = IFTAAuth.user.uid;
+        const snap = await db.collection('users').doc(userId).collection('trucks').orderBy('unit').get();
+        const sel = elements.unitNumberInput;
+        if (!sel) return;
+
+        // Preserve current selection
+        const current = appState.unitNumber || '';
+
+        // Clear all but the first "All Units" option
+        while (sel.options.length > 1) sel.remove(1);
+
+        snap.forEach(doc => {
+            const t = doc.data();
+            const opt = document.createElement('option');
+            opt.value = t.unit || doc.id;
+            const label = [t.unit, t.year, t.make, t.model].filter(Boolean).join(' – ');
+            opt.textContent = label || ('Unit ' + doc.id);
+            if (t.fuel && FUEL_MAP[t.fuel]) {
+                opt.dataset.fuel = FUEL_MAP[t.fuel];
+            }
+            sel.appendChild(opt);
+        });
+
+        // Restore selection
+        if (current) sel.value = current;
+    } catch (e) {
+        console.error('Error loading fleet trucks:', e);
+    }
 }
