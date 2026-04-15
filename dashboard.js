@@ -618,12 +618,12 @@
         tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(t)}
             <td class="col-unit"><div class="cell cell-primary" title="Open unit profile for ${escapeHtml(t.unit || ('Unit ' + t.id))}"><strong>${escapeHtml(t.unit || ('Unit ' + t.id))}</strong></div></td>
-            <td class="col-year"><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.year)}</div></td>
-            <td class="col-make"><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.make)}</div></td>
-            <td class="col-model"><div class="cell cell-editable" data-field="model" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.model)}</div></td>
-            <td class="col-vin" data-col="vin"><div class="cell cell-editable vin-cell" data-field="vin" data-id="${t.id}" data-collection="trucks" title="${escapeHtml(t.vin)}">${escapeHtml(t.vin)}</div></td>
-            <td class="col-plate"><div class="cell cell-editable" data-field="plate" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</div></td>
-            <td class="col-fuel"><div class="cell cell-editable" data-field="fuel" data-id="${t.id}" data-collection="trucks">${fuelLabel(t.fuel)}</div></td>
+            <td class="col-year"><div class="cell">${escapeHtml(t.year)}</div></td>
+            <td class="col-make"><div class="cell">${escapeHtml(t.make)}</div></td>
+            <td class="col-model"><div class="cell">${escapeHtml(t.model)}</div></td>
+            <td class="col-vin" data-col="vin"><div class="cell vin-cell" title="${escapeHtml(t.vin)}">${escapeHtml(t.vin)}</div></td>
+            <td class="col-plate"><div class="cell">${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</div></td>
+            <td class="col-fuel"><div class="cell">${fuelLabel(t.fuel)}</div></td>
             <td class="col-status"><div class="cell">${statusSelect(t.status, t.id, 'trucks', 'truck')}</div></td>
             <td class="col-actions row-actions"><div class="cell">
                 <button title="Edit" onclick="Dashboard.editTruck('${t.id}')">
@@ -1555,11 +1555,11 @@
         tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(t)}
             <td><div class="cell cell-primary" title="Open trailer profile for ${escapeHtml(t.unit || ('Trailer ' + t.id))}"><strong>${escapeHtml(t.unit || ('Trailer ' + t.id))}</strong></div></td>
-            <td><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.year)}</div></td>
-            <td><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.make)}</div></td>
-            <td><div class="cell cell-editable" data-field="type" data-id="${t.id}" data-collection="trailers">${trailerTypeLabel(t.type)}</div></td>
-            <td><div class="cell cell-editable" data-field="vin" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.vin)}</div></td>
-            <td><div class="cell cell-editable" data-field="plate" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.plate)}</div></td>
+            <td><div class="cell">${escapeHtml(t.year)}</div></td>
+            <td><div class="cell">${escapeHtml(t.make)}</div></td>
+            <td><div class="cell">${trailerTypeLabel(t.type)}</div></td>
+            <td><div class="cell vin-cell">${escapeHtml(t.vin)}</div></td>
+            <td><div class="cell">${escapeHtml(t.plate)}</div></td>
             <td><div class="cell">${statusSelect(t.status, t.id, 'trailers', 'trailer')}</div></td>
             <td class="row-actions"><div class="cell">
                 <button title="Edit" onclick="Dashboard.editTrailer('${t.id}')">
@@ -1669,11 +1669,11 @@
         tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}" class="${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(d)}
             <td><div class="cell cell-primary" title="Open driver profile for ${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></div></td>
-            <td><div class="cell cell-editable" data-field="cdl" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdl)}</div></td>
-            <td><div class="cell cell-editable" data-field="cdlState" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdlState)}</div></td>
-            <td><div class="cell cell-editable" data-field="cdlExp" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdlExp)}</div></td>
-            <td><div class="cell cell-editable" data-field="phone" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.phone)}</div></td>
-            <td><div class="cell cell-editable" data-field="email" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.email)}</div></td>
+            <td><div class="cell">${escapeHtml(d.cdl)}</div></td>
+            <td><div class="cell">${escapeHtml(d.cdlState)}</div></td>
+            <td><div class="cell">${escapeHtml(d.cdlExp)}</div></td>
+            <td><div class="cell">${escapeHtml(d.phone)}</div></td>
+            <td><div class="cell">${escapeHtml(d.email)}</div></td>
             <td><div class="cell">${escapeHtml(truckLabel(d.truck))}</div></td>
             <td><div class="cell">${statusSelect(d.status, d.id, 'drivers', 'driver')}</div></td>
             <td class="row-actions"><div class="cell">
