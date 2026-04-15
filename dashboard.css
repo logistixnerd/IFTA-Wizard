@@ -393,16 +393,16 @@
 }
 
 /* Column width classes */
-.dash-table-trucks .col-validation { min-width: 30px; width: 30px; flex-shrink: 0; }
-.dash-table-trucks .col-unit { min-width: 72px; }
-.dash-table-trucks .col-year { min-width: 56px; }
-.dash-table-trucks .col-make { min-width: 100px; }
-.dash-table-trucks .col-model { min-width: 100px; }
-.dash-table-trucks .col-vin { min-width: 180px; }
-.dash-table-trucks .col-plate { min-width: 90px; }
-.dash-table-trucks .col-fuel { min-width: 75px; }
-.dash-table-trucks .col-status { min-width: 90px; }
-.dash-table-trucks .col-actions { min-width: 50px; width: 50px; flex-shrink: 0; }
+.dash-table-trucks .col-validation { min-width: 28px; width: 28px; flex-shrink: 0; }
+.dash-table-trucks .col-unit { min-width: 58px; }
+.dash-table-trucks .col-year { min-width: 44px; }
+.dash-table-trucks .col-make { min-width: 75px; }
+.dash-table-trucks .col-model { min-width: 75px; }
+.dash-table-trucks .col-vin { min-width: 140px; }
+.dash-table-trucks .col-plate { min-width: 68px; }
+.dash-table-trucks .col-fuel { min-width: 60px; }
+.dash-table-trucks .col-status { min-width: 70px; }
+.dash-table-trucks .col-actions { min-width: 45px; width: 45px; flex-shrink: 0; }
 
 /* Cell wrapper for click-to-edit */
 .cell {

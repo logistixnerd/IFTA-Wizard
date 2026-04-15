@@ -621,7 +621,7 @@
             <td class="col-year"><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.year)}</div></td>
             <td class="col-make"><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.make)}</div></td>
             <td class="col-model"><div class="cell cell-editable" data-field="model" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.model)}</div></td>
-            <td class="col-vin"><div class="cell cell-editable" data-field="vin" data-id="${t.id}" data-collection="trucks" title="${escapeHtml(t.vin)}">${shortenVin(t.vin)}</div></td>
+            <td class="col-vin"><div class="cell cell-editable" data-field="vin" data-id="${t.id}" data-collection="trucks" title="${escapeHtml(t.vin)}">${escapeHtml(t.vin)}</div></td>
             <td class="col-plate"><div class="cell cell-editable" data-field="plate" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</div></td>
             <td class="col-fuel"><div class="cell cell-editable" data-field="fuel" data-id="${t.id}" data-collection="trucks">${fuelLabel(t.fuel)}</div></td>
             <td class="col-status"><div class="cell">${statusSelect(t.status, t.id, 'trucks', 'truck')}</div></td>
