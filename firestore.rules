@@ -58,6 +58,17 @@ service cloud.firestore {
         // Users can create, update, delete their own reports
         allow create, update, delete: if isOwner(userId);
       }
+      
+      // User's fleet subcollections (trucks, trailers, drivers)
+      match /trucks/{docId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+      match /trailers/{docId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+      match /drivers/{docId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
     }
     
     // ==========================================

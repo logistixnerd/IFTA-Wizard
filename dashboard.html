@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carrier Dashboard - IFTA Wizard</title>
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="dash-layout">
+        <!-- Sidebar -->
+        <aside class="dash-sidebar">
+            <div class="dash-sidebar-header">
+                <a href="index.html" class="dash-logo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-2-4-2-4 2-4 2-2.7.6-4.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"/>
+                        <circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
+                    </svg>
+                    <span>IFTA Wizard</span>
+                </a>
+            </div>
+            <nav class="dash-nav">
+                <button class="dash-nav-item active" data-section="profile">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+                    </svg>
+                    <span>Profile</span>
+                </button>
+                <button class="dash-nav-item" data-section="trucks">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/>
+                        <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                    </svg>
+                    <span>Trucks</span>
+                    <span class="dash-nav-count" id="truckCount">0</span>
+                </button>
+                <button class="dash-nav-item" data-section="trailers">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <rect x="1" y="6" width="18" height="12" rx="1"/><circle cx="7" cy="18" r="2"/><circle cx="15" cy="18" r="2"/>
+                        <path d="M19 12h4"/>
+                    </svg>
+                    <span>Trailers</span>
+                    <span class="dash-nav-count" id="trailerCount">0</span>
+                </button>
+                <button class="dash-nav-item" data-section="drivers">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span>Drivers</span>
+                    <span class="dash-nav-count" id="driverCount">0</span>
+                </button>
+            </nav>
+            <div class="dash-sidebar-footer">
+                <a href="index.html" class="dash-back-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                        <path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/>
+                    </svg>
+                    Back to Calculator
+                </a>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="dash-main">
+            <!-- Top Bar -->
+            <header class="dash-topbar">
+                <h1 class="dash-page-title" id="pageTitle">Profile</h1>
+                <div class="dash-topbar-actions">
+                    <span class="dash-user-email" id="dashUserEmail"></span>
+                </div>
+            </header>
+
+            <!-- Profile Section -->
+            <section class="dash-section active" id="section-profile">
+                <div class="dash-card">
+                    <div class="dash-card-header">
+                        <h2>Carrier Information</h2>
+                    </div>
+                    <div class="dash-card-body">
+                        <div class="profile-hero">
+                            <div class="profile-photo-wrapper">
+                                <div class="profile-photo" id="dashProfilePhoto">U</div>
+                                <label class="profile-photo-edit" title="Change photo">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                        <circle cx="12" cy="13" r="4"/>
+                                    </svg>
+                                    <input type="file" id="dashAvatarUpload" accept="image/*" style="display: none;">
+                                </label>
+                            </div>
+                            <div class="profile-hero-info">
+                                <h3 id="dashProfileName">User Name</h3>
+                                <p id="dashProfileEmail">user@email.com</p>
+                            </div>
+                        </div>
+                        <form id="dashProfileForm" class="dash-form">
+                            <div class="dash-form-grid">
+                                <div class="form-group">
+                                    <label for="dashFullName">Full Name</label>
+                                    <input type="text" id="dashFullName" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="dashCompany">Company / Carrier Name</label>
+                                    <input type="text" id="dashCompany">
+                                </div>
+                                <div class="form-group">
+                                    <label for="dashPhone">Phone</label>
+                                    <input type="tel" id="dashPhone">
+                                </div>
+                                <div class="form-group">
+                                    <label for="dashDotNumber">DOT Number</label>
+                                    <input type="text" id="dashDotNumber" placeholder="e.g., 1234567">
+                                </div>
+                                <div class="form-group">
+                                    <label for="dashMcNumber">MC Number</label>
+                                    <input type="text" id="dashMcNumber" placeholder="e.g., MC-123456">
+                                </div>
+                                <div class="form-group">
+                                    <label for="dashEin">EIN / Tax ID</label>
+                                    <input type="text" id="dashEin" placeholder="XX-XXXXXXX">
+                                </div>
+                                <div class="form-group form-group-full">
+                                    <label for="dashAddress">Business Address</label>
+                                    <input type="text" id="dashAddress" placeholder="Street, City, State ZIP">
+                                </div>
+                                <div class="form-group">
+                                    <label for="dashFleetSize">Fleet Size</label>
+                                    <select id="dashFleetSize">
+                                        <option value="">Select...</option>
+                                        <option value="1-5">1-5 trucks</option>
+                                        <option value="6-20">6-20 trucks</option>
+                                        <option value="21-50">21-50 trucks</option>
+                                        <option value="51-100">51-100 trucks</option>
+                                        <option value="100+">100+ trucks</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="dashBaseState">Base Jurisdiction</label>
+                                    <select id="dashBaseState">
+                                        <option value="">Select...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="dash-form-actions">
+                                <button type="submit" class="btn btn-primary">Save Profile</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Trucks Section -->
+            <section class="dash-section" id="section-trucks">
+                <div class="dash-card">
+                    <div class="dash-card-header">
+                        <h2>Trucks</h2>
+                        <button class="btn btn-primary btn-sm" id="addTruckBtn">+ Add Truck</button>
+                    </div>
+                    <div class="dash-card-body">
+                        <div class="dash-empty" id="trucksEmpty">
+                            <p>No trucks added yet</p>
+                            <button class="btn btn-secondary btn-sm" id="addFirstTruck">Add your first truck</button>
+                        </div>
+                        <table class="dash-table" id="trucksTable" style="display: none;">
+                            <thead>
+                                <tr>
+                                    <th>Unit #</th>
+                                    <th>Year</th>
+                                    <th>Make</th>
+                                    <th>Model</th>
+                                    <th>VIN</th>
+                                    <th>License Plate</th>
+                                    <th>Fuel Type</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="trucksTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Trailers Section -->
+            <section class="dash-section" id="section-trailers">
+                <div class="dash-card">
+                    <div class="dash-card-header">
+                        <h2>Trailers</h2>
+                        <button class="btn btn-primary btn-sm" id="addTrailerBtn">+ Add Trailer</button>
+                    </div>
+                    <div class="dash-card-body">
+                        <div class="dash-empty" id="trailersEmpty">
+                            <p>No trailers added yet</p>
+                            <button class="btn btn-secondary btn-sm" id="addFirstTrailer">Add your first trailer</button>
+                        </div>
+                        <table class="dash-table" id="trailersTable" style="display: none;">
+                            <thead>
+                                <tr>
+                                    <th>Unit #</th>
+                                    <th>Year</th>
+                                    <th>Make</th>
+                                    <th>Type</th>
+                                    <th>VIN</th>
+                                    <th>License Plate</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="trailersTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Drivers Section -->
+            <section class="dash-section" id="section-drivers">
+                <div class="dash-card">
+                    <div class="dash-card-header">
+                        <h2>Drivers</h2>
+                        <button class="btn btn-primary btn-sm" id="addDriverBtn">+ Add Driver</button>
+                    </div>
+                    <div class="dash-card-body">
+                        <div class="dash-empty" id="driversEmpty">
+                            <p>No drivers added yet</p>
+                            <button class="btn btn-secondary btn-sm" id="addFirstDriver">Add your first driver</button>
+                        </div>
+                        <table class="dash-table" id="driversTable" style="display: none;">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>CDL Number</th>
+                                    <th>CDL State</th>
+                                    <th>CDL Exp</th>
+                                    <th>Phone</th>
+                                    <th>Email</th>
+                                    <th>Assigned Truck</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="driversTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Add/Edit Truck Modal -->
+    <div id="truckModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="truckModalTitle">Add Truck</h2>
+                <button class="modal-close" id="closeTruckModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="truckForm">
+                    <input type="hidden" id="truckEditId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="truckUnit">Unit #</label>
+                            <input type="text" id="truckUnit" required placeholder="e.g., 101">
+                        </div>
+                        <div class="form-group">
+                            <label for="truckYear">Year</label>
+                            <input type="number" id="truckYear" min="1990" max="2030" placeholder="e.g., 2022">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="truckMake">Make</label>
+                            <input type="text" id="truckMake" placeholder="e.g., Freightliner">
+                        </div>
+                        <div class="form-group">
+                            <label for="truckModel">Model</label>
+                            <input type="text" id="truckModel" placeholder="e.g., Cascadia">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="truckVin">VIN</label>
+                        <input type="text" id="truckVin" maxlength="17" placeholder="17-character VIN">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="truckPlate">License Plate</label>
+                            <input type="text" id="truckPlate" placeholder="e.g., ABC 1234">
+                        </div>
+                        <div class="form-group">
+                            <label for="truckPlateState">Plate State</label>
+                            <input type="text" id="truckPlateState" maxlength="2" placeholder="e.g., TX">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="truckFuel">Fuel Type</label>
+                            <select id="truckFuel">
+                                <option value="diesel">Diesel</option>
+                                <option value="gasoline">Gasoline</option>
+                                <option value="cng">CNG</option>
+                                <option value="lng">LNG</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="truckStatus">Status</label>
+                            <select id="truckStatus">
+                                <option value="active">Active</option>
+                                <option value="inactive">Out of Service</option>
+                                <option value="maintenance">In Maintenance</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelTruck">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Truck</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Trailer Modal -->
+    <div id="trailerModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="trailerModalTitle">Add Trailer</h2>
+                <button class="modal-close" id="closeTrailerModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="trailerForm">
+                    <input type="hidden" id="trailerEditId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="trailerUnit">Unit #</label>
+                            <input type="text" id="trailerUnit" required placeholder="e.g., T-201">
+                        </div>
+                        <div class="form-group">
+                            <label for="trailerYear">Year</label>
+                            <input type="number" id="trailerYear" min="1990" max="2030" placeholder="e.g., 2020">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="trailerMake">Make</label>
+                            <input type="text" id="trailerMake" placeholder="e.g., Great Dane">
+                        </div>
+                        <div class="form-group">
+                            <label for="trailerType">Type</label>
+                            <select id="trailerType">
+                                <option value="dry-van">Dry Van</option>
+                                <option value="reefer">Reefer</option>
+                                <option value="flatbed">Flatbed</option>
+                                <option value="step-deck">Step Deck</option>
+                                <option value="tanker">Tanker</option>
+                                <option value="lowboy">Lowboy</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="trailerVin">VIN</label>
+                        <input type="text" id="trailerVin" maxlength="17" placeholder="17-character VIN">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="trailerPlate">License Plate</label>
+                            <input type="text" id="trailerPlate" placeholder="e.g., TRL 5678">
+                        </div>
+                        <div class="form-group">
+                            <label for="trailerStatus">Status</label>
+                            <select id="trailerStatus">
+                                <option value="active">Active</option>
+                                <option value="inactive">Out of Service</option>
+                                <option value="maintenance">In Maintenance</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelTrailer">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Trailer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add/Edit Driver Modal -->
+    <div id="driverModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="driverModalTitle">Add Driver</h2>
+                <button class="modal-close" id="closeDriverModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="driverForm">
+                    <input type="hidden" id="driverEditId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="driverFirstName">First Name</label>
+                            <input type="text" id="driverFirstName" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="driverLastName">Last Name</label>
+                            <input type="text" id="driverLastName" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="driverCdl">CDL Number</label>
+                            <input type="text" id="driverCdl" placeholder="License number">
+                        </div>
+                        <div class="form-group">
+                            <label for="driverCdlState">CDL State</label>
+                            <input type="text" id="driverCdlState" maxlength="2" placeholder="e.g., TX">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="driverCdlExp">CDL Expiration</label>
+                            <input type="date" id="driverCdlExp">
+                        </div>
+                        <div class="form-group">
+                            <label for="driverMedExp">Medical Card Exp</label>
+                            <input type="date" id="driverMedExp">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="driverPhone">Phone</label>
+                            <input type="tel" id="driverPhone">
+                        </div>
+                        <div class="form-group">
+                            <label for="driverEmail">Email</label>
+                            <input type="email" id="driverEmail">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="driverTruck">Assigned Truck</label>
+                            <select id="driverTruck">
+                                <option value="">Unassigned</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="driverStatus">Status</label>
+                            <select id="driverStatus">
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                                <option value="on-leave">On Leave</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelDriver">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Driver</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
