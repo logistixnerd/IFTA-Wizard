@@ -295,35 +295,37 @@
                 <div class="dash-card">
                     <div class="dash-card-header">
                         <h2>Trucks</h2>
+                        <div class="dash-card-header-actions">
+                            <button class="btn btn-primary btn-sm dash-toolbar-add" id="addTruckBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                Add Truck(s)
+                            </button>
+                            <button class="btn btn-sm dash-toolbar-secondary" id="importTrucksBtn" title="Import trucks from file">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Import
+                            </button>
+                        </div>
                     </div>
                     <div class="dash-card-body">
                         <div class="dash-table-toolbar">
+                            <div class="dash-toolbar-filters">
+                                <select class="dash-filter" id="truckStatusFilter">
+                                    <option value="">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="maintenance">Maintenance</option>
+                                    <option value="inactive">Out of Service</option>
+                                </select>
+                                <select class="dash-filter" id="truckFuelFilter">
+                                    <option value="">All Fuel</option>
+                                    <option value="diesel">Diesel</option>
+                                    <option value="gasoline">Gasoline</option>
+                                    <option value="cng">CNG</option>
+                                    <option value="lng">LNG</option>
+                                </select>
+                            </div>
                             <div class="dash-search-wrap">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                                 <input type="text" class="dash-search" id="truckSearch" placeholder="Search trucks...">
-                            </div>
-                            <select class="dash-filter" id="truckStatusFilter">
-                                <option value="">All Status</option>
-                                <option value="active">Active</option>
-                                <option value="maintenance">Maintenance</option>
-                                <option value="inactive">Out of Service</option>
-                            </select>
-                            <select class="dash-filter" id="truckFuelFilter">
-                                <option value="">All Fuel</option>
-                                <option value="diesel">Diesel</option>
-                                <option value="gasoline">Gasoline</option>
-                                <option value="cng">CNG</option>
-                                <option value="lng">LNG</option>
-                            </select>
-                            <div class="dash-toolbar-actions">
-                                <button class="btn btn-primary btn-sm dash-toolbar-add" id="addTruckBtn">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                    Add Truck(s)
-                                </button>
-                                <button class="btn btn-sm dash-toolbar-secondary" id="importTrucksBtn" title="Import trucks from file">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                    Import
-                                </button>
                             </div>
                         </div>
                         <div class="dash-empty" id="trucksEmpty">
@@ -358,28 +360,30 @@
                 <div class="dash-card">
                     <div class="dash-card-header">
                         <h2>Trailers</h2>
+                        <div class="dash-card-header-actions">
+                            <button class="btn btn-primary btn-sm dash-toolbar-add" id="addTrailerBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                Add Trailer(s)
+                            </button>
+                            <button class="btn btn-sm dash-toolbar-secondary" id="importTrailersBtn" title="Import trailers from file">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Import
+                            </button>
+                        </div>
                     </div>
                     <div class="dash-card-body">
                         <div class="dash-table-toolbar">
+                            <div class="dash-toolbar-filters">
+                                <select class="dash-filter" id="trailerStatusFilter">
+                                    <option value="">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="maintenance">Maintenance</option>
+                                    <option value="inactive">Out of Service</option>
+                                </select>
+                            </div>
                             <div class="dash-search-wrap">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                                 <input type="text" class="dash-search" id="trailerSearch" placeholder="Search trailers...">
-                            </div>
-                            <select class="dash-filter" id="trailerStatusFilter">
-                                <option value="">All Status</option>
-                                <option value="active">Active</option>
-                                <option value="maintenance">Maintenance</option>
-                                <option value="inactive">Out of Service</option>
-                            </select>
-                            <div class="dash-toolbar-actions">
-                                <button class="btn btn-primary btn-sm dash-toolbar-add" id="addTrailerBtn">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                    Add Trailer(s)
-                                </button>
-                                <button class="btn btn-sm dash-toolbar-secondary" id="importTrailersBtn" title="Import trailers from file">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                    Import
-                                </button>
                             </div>
                         </div>
                         <div class="dash-empty" id="trailersEmpty">
@@ -413,28 +417,30 @@
                 <div class="dash-card">
                     <div class="dash-card-header">
                         <h2>Drivers</h2>
+                        <div class="dash-card-header-actions">
+                            <button class="btn btn-primary btn-sm dash-toolbar-add" id="addDriverBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                Add Driver(s)
+                            </button>
+                            <button class="btn btn-sm dash-toolbar-secondary" id="importDriversBtn" title="Import drivers from file">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Import
+                            </button>
+                        </div>
                     </div>
                     <div class="dash-card-body">
                         <div class="dash-table-toolbar">
+                            <div class="dash-toolbar-filters">
+                                <select class="dash-filter" id="driverStatusFilter">
+                                    <option value="">All Status</option>
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="on-leave">On Leave</option>
+                                </select>
+                            </div>
                             <div class="dash-search-wrap">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
                                 <input type="text" class="dash-search" id="driverSearch" placeholder="Search drivers...">
-                            </div>
-                            <select class="dash-filter" id="driverStatusFilter">
-                                <option value="">All Status</option>
-                                <option value="active">Active</option>
-                                <option value="inactive">Inactive</option>
-                                <option value="on-leave">On Leave</option>
-                            </select>
-                            <div class="dash-toolbar-actions">
-                                <button class="btn btn-primary btn-sm dash-toolbar-add" id="addDriverBtn">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                    Add Driver(s)
-                                </button>
-                                <button class="btn btn-sm dash-toolbar-secondary" id="importDriversBtn" title="Import drivers from file">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                    Import
-                                </button>
                             </div>
                         </div>
                         <div class="dash-empty" id="driversEmpty">
