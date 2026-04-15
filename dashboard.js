@@ -184,6 +184,236 @@
         return div.innerHTML;
     }
 
+    // ── Make / Model Suggestions for Autocomplete ──
+    const TRUCK_MAKES = [
+        'Freightliner', 'Kenworth', 'Peterbilt', 'Volvo', 'International',
+        'Mack', 'Western Star', 'Hino', 'Isuzu', 'Ford', 'Chevrolet',
+        'RAM', 'GMC', 'Navistar', 'Autocar', 'Crane Carrier', 'Capacity'
+    ];
+    const TRUCK_MODELS = [
+        'Cascadia', 'T680', '579', 'VNL', 'LT', 'Anthem', '4900',
+        'W990', 'T880', '389', '567', 'VNR', 'ProStar', 'LoneStar',
+        'Coronado', 'Granite', 'Pinnacle', 'TerraStar', 'MV', 'HV',
+        'HX', '4700', '5900', '122SD', '49X', 'FE', 'L9', 'NRR'
+    ];
+    const TRAILER_MAKES = [
+        'Great Dane', 'Utility', 'Wabash', 'Hyundai Translead', 'Stoughton',
+        'Vanguard', 'Fontaine', 'MAC Trailer', 'Wilson', 'East Manufacturing',
+        'Trail King', 'Manac', 'Reitnouer', 'Benson', 'Travis Body', 'Heil',
+        'Polar', 'Brenner', 'Kentucky', 'Lufkin'
+    ];
+
+    function getSuggestionsFor(colKey, entityType) {
+        if (colKey === 'make') return entityType === 'trailer' ? TRAILER_MAKES : TRUCK_MAKES;
+        if (colKey === 'model') return entityType === 'trailer' ? [] : TRUCK_MODELS;
+        return [];
+    }
+
+    // ── Autocomplete Utility ──────────────
+    let activeAutocomplete = null;
+
+    function attachAutocomplete(inputEl, suggestions) {
+        detachAutocomplete();
+        if (!suggestions || !suggestions.length) return;
+        const wrap = inputEl.parentElement;
+        if (!wrap) return;
+
+        const list = document.createElement('ul');
+        list.className = 'autocomplete-list';
+        list.style.display = 'none';
+
+        // Position relative to the cell / input wrapper
+        wrap.style.position = 'relative';
+        wrap.appendChild(list);
+
+        let items = [];
+        let activeIdx = -1;
+
+        function render(filtered) {
+            items = filtered;
+            activeIdx = -1;
+            if (!filtered.length) { list.style.display = 'none'; return; }
+            list.innerHTML = filtered.map((s, i) =>
+                '<li class="autocomplete-item" data-idx="' + i + '">' + escapeHtml(s) + '</li>'
+            ).join('');
+            list.style.display = '';
+        }
+
+        function highlight(idx) {
+            list.querySelectorAll('.autocomplete-item').forEach((el, i) => {
+                el.classList.toggle('active', i === idx);
+            });
+            activeIdx = idx;
+            const active = list.children[idx];
+            if (active) active.scrollIntoView({ block: 'nearest' });
+        }
+
+        function pick(value) {
+            inputEl.value = value;
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            list.style.display = 'none';
+            inputEl.focus();
+        }
+
+        function onInput() {
+            const q = inputEl.value.trim().toLowerCase();
+            if (!q) { list.style.display = 'none'; return; }
+            const filtered = suggestions.filter(s => s.toLowerCase().includes(q));
+            render(filtered);
+        }
+
+        function onKeydown(e) {
+            if (list.style.display === 'none' || !items.length) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                e.stopPropagation();
+                highlight(activeIdx < items.length - 1 ? activeIdx + 1 : 0);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                e.stopPropagation();
+                highlight(activeIdx > 0 ? activeIdx - 1 : items.length - 1);
+            } else if (e.key === 'Enter' && activeIdx >= 0) {
+                e.preventDefault();
+                e.stopPropagation();
+                pick(items[activeIdx]);
+            } else if (e.key === 'Escape') {
+                list.style.display = 'none';
+            }
+        }
+
+        function onClickList(e) {
+            const li = e.target.closest('.autocomplete-item');
+            if (li) {
+                e.preventDefault();
+                e.stopPropagation();
+                pick(items[+li.dataset.idx]);
+            }
+        }
+
+        // Prevent mousedown on list from blurring input
+        function onMousedownList(e) { e.preventDefault(); }
+
+        inputEl.addEventListener('input', onInput);
+        inputEl.addEventListener('keydown', onKeydown);
+        list.addEventListener('click', onClickList);
+        list.addEventListener('mousedown', onMousedownList);
+
+        activeAutocomplete = {
+            input: inputEl,
+            list: list,
+            onInput: onInput,
+            onKeydown: onKeydown,
+            onClickList: onClickList,
+            onMousedownList: onMousedownList
+        };
+
+        // Show matches immediately if input already has value
+        onInput();
+    }
+
+    function detachAutocomplete() {
+        if (!activeAutocomplete) return;
+        const ac = activeAutocomplete;
+        ac.input.removeEventListener('input', ac.onInput);
+        ac.input.removeEventListener('keydown', ac.onKeydown);
+        ac.list.removeEventListener('click', ac.onClickList);
+        ac.list.removeEventListener('mousedown', ac.onMousedownList);
+        ac.list.remove();
+        activeAutocomplete = null;
+    }
+
+    // ── VIN Decode (NHTSA vPIC API) ───────
+    const vinDecodeCache = {};
+    async function decodeVIN(vin) {
+        vin = (vin || '').trim().toUpperCase();
+        if (vin.length !== 17) return null;
+        if (vinDecodeCache[vin]) return vinDecodeCache[vin];
+        try {
+            const resp = await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/decodevinvalues/' + encodeURIComponent(vin) + '?format=json');
+            if (!resp.ok) return null;
+            const json = await resp.json();
+            const r = (json.Results && json.Results[0]) || {};
+            const errorCode = (r.ErrorCode || '').toString();
+            const codes = errorCode.split(',').map(c => c.trim());
+            // "0" = clean decode, "1" = decoded with gaps, "5" = bad check digit
+            const hasData = !!(r.Make || r.Model);
+            const valid = codes.includes('0') || (codes.includes('1') && hasData) || hasData;
+            const result = {
+                valid: valid,
+                year: r.ModelYear || '',
+                make: r.Make || '',
+                model: r.Model || '',
+                fuelType: (r.FuelTypePrimary || '').toLowerCase()
+            };
+            vinDecodeCache[vin] = result;
+            return result;
+        } catch (e) {
+            console.error('VIN decode error:', e);
+            return null;
+        }
+    }
+
+    function setVinStatus(wrapperId, status, msg) {
+        const wrapper = $(wrapperId);
+        if (!wrapper) return;
+        wrapper.classList.remove('vin-loading', 'vin-valid', 'vin-invalid');
+        const indicator = wrapper.querySelector('.vin-status');
+        if (!indicator) return;
+        if (status === 'loading') {
+            wrapper.classList.add('vin-loading');
+            indicator.innerHTML = '<span class="vin-spinner"></span>';
+            indicator.title = 'Decoding VIN…';
+        } else if (status === 'valid') {
+            wrapper.classList.add('vin-valid');
+            indicator.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" width="16" height="16"><path d="M20 6L9 17l-5-5"/></svg>';
+            indicator.title = msg || 'VIN verified';
+        } else if (status === 'invalid') {
+            wrapper.classList.add('vin-invalid');
+            indicator.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#dc3545" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+            indicator.title = msg || 'Could not verify VIN';
+        } else {
+            indicator.innerHTML = '';
+            indicator.title = '';
+        }
+    }
+
+    let vinDecodeTimer = null;
+    function attachVinAutofill(vinInputId, wrapperId, fieldMap) {
+        const vinInput = $(vinInputId);
+        if (!vinInput) return;
+        vinInput.addEventListener('input', () => {
+            clearTimeout(vinDecodeTimer);
+            const val = vinInput.value.trim();
+            if (val.length < 17) {
+                setVinStatus(wrapperId, '');
+                return;
+            }
+            if (val.length === 17) {
+                setVinStatus(wrapperId, 'loading');
+                vinDecodeTimer = setTimeout(async () => {
+                    const result = await decodeVIN(val);
+                    if (!result) {
+                        setVinStatus(wrapperId, 'invalid', 'Decode failed');
+                        return;
+                    }
+                    if (result.valid) {
+                        setVinStatus(wrapperId, 'valid', result.year + ' ' + result.make + ' ' + result.model);
+                    } else {
+                        setVinStatus(wrapperId, 'invalid', 'VIN not recognized');
+                    }
+                    // Autofill only empty fields
+                    Object.entries(fieldMap).forEach(([key, elId]) => {
+                        const el = $(elId);
+                        if (!el || el.value.trim()) return;
+                        if (key === 'year' && result.year) el.value = result.year;
+                        if (key === 'make' && result.make) el.value = result.make;
+                        if (key === 'model' && result.model) el.value = result.model;
+                    });
+                }, 350);
+            }
+        });
+    }
+
     // ── Auth Guard ─────────────────────────
     function initAuth() {
         firebase.auth().onAuthStateChanged(async (user) => {
@@ -385,9 +615,12 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.trucks.filter(t => matchesFilter(t, 'truck'));
-        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}">
+        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+            ${validationIndicator(t)}
             <td><div class="cell cell-editable" data-field="unit" data-id="${t.id}" data-collection="trucks"><strong>${escapeHtml(t.unit)}</strong></div></td>
-            <td><div class="cell cell-editable" data-field="vehicle" data-id="${t.id}" data-collection="trucks">${vehicleLabel(t.year, t.make, t.model)}</div></td>
+            <td><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.year)}</div></td>
+            <td><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.make)}</div></td>
+            <td><div class="cell cell-editable" data-field="model" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.model)}</div></td>
             <td><div class="cell cell-editable" data-field="vin" data-id="${t.id}" data-collection="trucks" title="${escapeHtml(t.vin)}">${shortenVin(t.vin)}</div></td>
             <td><div class="cell cell-editable" data-field="plate" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</div></td>
             <td><div class="cell cell-editable" data-field="fuel" data-id="${t.id}" data-collection="trucks">${fuelLabel(t.fuel)}</div></td>
@@ -400,7 +633,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </div></td>
-        </tr>`).join('');
+        </tr>${issueDetailRow(t, 10)}`).join('');
     }
 
     function openTruckModal(data) {
@@ -415,6 +648,7 @@
         $('truckPlateState').value = data ? data.plateState || '' : '';
         $('truckFuel').value = data ? data.fuel || 'diesel' : 'diesel';
         $('truckStatus').value = data ? data.status || 'active' : 'active';
+        setVinStatus('truckVinWrap', '');
         const modal = $('truckModal');
         const shouldExpand = data && hasAdvancedData([data.vin, data.plate, data.plateState, data.fuel !== 'diesel' ? data.fuel : '']);
         setExpandState(modal, shouldExpand);
@@ -438,6 +672,21 @@
                 input.click();
             });
         }
+
+        // VIN autofill for single truck form
+        attachVinAutofill('truckVin', 'truckVinWrap', {
+            year: 'truckYear', make: 'truckMake', model: 'truckModel'
+        });
+
+        // Make / Model autocomplete for single truck form
+        function initFormAutocomplete(inputId, suggestions) {
+            const el = $(inputId);
+            if (!el) return;
+            el.addEventListener('focus', () => attachAutocomplete(el, suggestions));
+            el.addEventListener('blur', () => setTimeout(detachAutocomplete, 150));
+        }
+        initFormAutocomplete('truckMake', TRUCK_MAKES);
+        initFormAutocomplete('truckModel', TRUCK_MODELS);
 
         $('truckForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -581,7 +830,7 @@
             cancelId: 'cancelMultiTruck',
             saveId: 'saveMultiTruck',
             defaults: { fuel: 'diesel', status: 'active' },
-            afterSave: () => { loadTrucks(); populateTruckDropdown(); },
+            afterSave: async () => { await loadTrucks(); populateTruckDropdown(); },
             csvAliases: {
                 unit: ['unit', 'unitnumber', 'unitno', 'truckno', 'trucknumber'],
                 year: ['year', 'yr', 'modelyear'],
@@ -628,7 +877,7 @@
             cancelId: 'cancelMultiTrailer',
             saveId: 'saveMultiTrailer',
             defaults: { type: 'dry-van', status: 'active' },
-            afterSave: () => { loadTrailers(); },
+            afterSave: async () => { await loadTrailers(); },
             csvAliases: {
                 unit: ['unit', 'unitnumber', 'unitno', 'trailerno', 'trailernumber'],
                 year: ['year', 'yr', 'modelyear'],
@@ -665,7 +914,7 @@
             cancelId: 'cancelMultiDriver',
             saveId: 'saveMultiDriver',
             defaults: { status: 'active' },
-            afterSave: () => { loadDrivers(); },
+            afterSave: async () => { await loadDrivers(); },
             csvAliases: {
                 firstName: ['firstname', 'first', 'fname', 'givenname'],
                 lastName: ['lastname', 'last', 'lname', 'surname', 'familyname'],
@@ -723,6 +972,7 @@
 
     function commitSheetCell(cell) {
         if (!cell || !cell.classList.contains('cell-editing')) return;
+        detachAutocomplete();
         cell.classList.remove('cell-editing');
         const input = cell.querySelector('input');
         const select = cell.querySelector('select');
@@ -748,6 +998,47 @@
         const tr = cell.closest('tr');
         if (tr) checkRowData(tr);
         validateSheetCell(cell);
+
+        // VIN auto-decode for sheet grid on commit (skip if already decoded this value)
+        if (colKey === 'vin' && input) {
+            const vin = input.value.trim();
+            if (vin.length === 17 && config && (config.collection === 'trucks' || config.collection === 'trailers')
+                && cell.getAttribute('data-vin-decoded') !== vin) {
+                triggerSheetVinDecode(cell, tr, vin, config);
+            }
+        }
+    }
+
+    function triggerSheetVinDecode(cell, tr, vin, config) {
+        cell.setAttribute('data-vin-decoded', vin);
+        cell.classList.remove('vin-sheet-valid');
+        cell.classList.add('vin-sheet-loading');
+        decodeVIN(vin).then(result => {
+            cell.classList.remove('vin-sheet-loading');
+            if (!result) return;
+            if (result.valid) {
+                cell.classList.add('vin-sheet-valid');
+                cell.title = [result.year, result.make, result.model].filter(Boolean).join(' ');
+                setTimeout(() => cell.classList.remove('vin-sheet-valid'), 4000);
+            }
+            // Autofill sibling cells — only if user hasn't manually edited them
+            const fillMap = { year: result.year, make: result.make, model: result.model };
+            Object.entries(fillMap).forEach(([key, val]) => {
+                if (!val) return;
+                const sibling = tr.querySelector('.sheet-cell[data-col-key="' + key + '"]');
+                if (!sibling) return;
+                // Skip if user has manually edited this cell
+                if (sibling.hasAttribute('data-user-edited')) return;
+                const sInput = sibling.querySelector('input');
+                const sText = sibling.querySelector('.sheet-cell-text');
+                if (sInput && !sInput.value.trim()) {
+                    sInput.value = val;
+                    if (sText) { sText.textContent = val; sText.classList.remove('placeholder'); }
+                    sibling.setAttribute('data-vin-filled', 'true');
+                    validateSheetCell(sibling);
+                }
+            });
+        });
     }
 
     function startEditingCell(cell) {
@@ -764,6 +1055,15 @@
             el.tabIndex = 0;
             el.focus();
             if (input) input.select();
+        }
+
+        // Attach autocomplete for make/model columns in sheet grid
+        const colKey = cell.dataset.colKey;
+        if (input && (colKey === 'make' || colKey === 'model')) {
+            const config = getSheetConfig(cell);
+            const entityType = config ? config.label : 'truck';
+            const suggestions = getSuggestionsFor(colKey, entityType);
+            if (suggestions.length) attachAutocomplete(input, suggestions);
         }
     }
 
@@ -994,10 +1294,16 @@
                     commitSheetCell(cell);
                     navigateSheet(cell, e.shiftKey ? 'prev' : 'next');
                 } else if (e.key === 'Enter') {
+                    // Let autocomplete handle Enter if dropdown is visible
+                    if (activeAutocomplete && activeAutocomplete.list.style.display !== 'none') return;
                     e.preventDefault();
                     commitSheetCell(cell);
                     navigateSheet(cell, 'down');
                 } else if (e.key === 'Escape') {
+                    if (activeAutocomplete && activeAutocomplete.list.style.display !== 'none') {
+                        activeAutocomplete.list.style.display = 'none';
+                        return;
+                    }
                     e.preventDefault();
                     commitSheetCell(cell);
                 }
@@ -1014,13 +1320,41 @@
                 }
             });
 
-            // Auto-add empty row when typing in last row
+            // Auto-add empty row when typing in last row + track user edits
             tbody.addEventListener('input', (e) => {
                 const tr = e.target.closest('tr');
                 if (!tr) return;
                 checkRowData(tr);
                 if (tr === tbody.lastElementChild && tr.classList.contains('row-has-data')) {
                     ensureEmptyRow(config);
+                }
+
+                // Mark cell as user-edited (so VIN autofill won't overwrite)
+                const editedCell = e.target.closest('.sheet-cell');
+                if (editedCell && e.target.tagName === 'INPUT' && editedCell.dataset.colKey !== 'vin') {
+                    const val = e.target.value.trim();
+                    if (val && !editedCell.hasAttribute('data-vin-filled')) {
+                        editedCell.setAttribute('data-user-edited', 'true');
+                    } else if (!val) {
+                        editedCell.removeAttribute('data-user-edited');
+                        editedCell.removeAttribute('data-vin-filled');
+                    }
+                }
+
+                // Live VIN decode as user types
+                if (type === 'truck' || type === 'trailer') {
+                    const cell = e.target.closest('.sheet-cell');
+                    if (cell && cell.dataset.colKey === 'vin' && e.target.tagName === 'INPUT') {
+                        const val = e.target.value.trim();
+                        if (val.length < 17) {
+                            cell.classList.remove('vin-sheet-loading', 'vin-sheet-valid');
+                            cell.removeAttribute('data-vin-decoded');
+                            return;
+                        }
+                        if (val.length === 17 && cell.getAttribute('data-vin-decoded') !== val) {
+                            triggerSheetVinDecode(cell, tr, val, config);
+                        }
+                    }
                 }
             });
 
@@ -1123,59 +1457,61 @@
         validateAllSheetCells(config);
 
         const tbody = $(config.tbodyId);
-        const hasInvalid = tbody.querySelector('.cell-invalid');
-        const hasDuplicate = tbody.querySelector('.cell-duplicate');
-        const hasWarning = tbody.querySelector('.cell-warning');
-        if (hasInvalid) {
-            showMsg('Some rows have data but are missing a required field', true);
-            return;
-        }
-        if (hasDuplicate) {
-            if (!confirm('Duplicate values found. Save anyway?')) return;
-        }
-        if (hasWarning) {
-            if (!confirm('Some cells have warnings (hover for details). Save anyway?')) return;
-        }
-
         const rows = Array.from(tbody.children);
-        const batch = firebase.firestore().batch();
-        let count = 0;
-
-        for (const tr of rows) {
-            const data = {};
-            tr.querySelectorAll('[data-key]').forEach(el => {
-                data[el.dataset.key] = el.value.trim();
-            });
-            if (!data[config.requiredKey]) continue;
-            // Apply defaults for empty fields
-            if (config.defaults) {
-                Object.entries(config.defaults).forEach(([k, v]) => {
-                    if (!data[k]) data[k] = v;
-                });
-            }
-            // Uppercase state fields
-            if (data.plateState) data.plateState = data.plateState.toUpperCase();
-            if (data.cdlState) data.cdlState = data.cdlState.toUpperCase();
-            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-            data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-            const doc = col(config.collection).doc();
-            batch.set(doc, data);
-            count++;
-        }
-
-        if (count === 0) {
-            showMsg('Enter at least one ' + config.label + ' with required fields', true);
-            return;
-        }
 
         try {
+            const batch = firebase.firestore().batch();
+            let count = 0;
+
+            for (const tr of rows) {
+                const data = {};
+                tr.querySelectorAll('[data-key]').forEach(el => {
+                    data[el.dataset.key] = el.value.trim();
+                });
+                if (!data[config.requiredKey]) continue;
+
+                // Collect validation issues for this row
+                const issues = [];
+                tr.querySelectorAll('.cell-invalid, .cell-duplicate, .cell-warning').forEach(c => {
+                    if (c.title) issues.push(c.title);
+                });
+                if (tr.querySelector('.cell-invalid') || tr.querySelector('.cell-duplicate')) {
+                    data.validationStatus = 'error';
+                } else if (tr.querySelector('.cell-warning')) {
+                    data.validationStatus = 'warning';
+                } else {
+                    data.validationStatus = 'valid';
+                }
+                if (issues.length) data.validationIssues = issues;
+
+                // Apply defaults for empty fields
+                if (config.defaults) {
+                    Object.entries(config.defaults).forEach(([k, v]) => {
+                        if (!data[k]) data[k] = v;
+                    });
+                }
+                // Uppercase state fields
+                if (data.plateState) data.plateState = data.plateState.toUpperCase();
+                if (data.cdlState) data.cdlState = data.cdlState.toUpperCase();
+                data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                const doc = col(config.collection).doc();
+                batch.set(doc, data);
+                count++;
+            }
+
+            if (count === 0) {
+                showMsg('Enter at least one ' + config.label + ' with required fields', true);
+                return;
+            }
+
             await batch.commit();
-            await config.afterSave();
             $(config.modalId).classList.add('hidden');
             showMsg(count + ' ' + config.label + (count > 1 ? 's' : '') + ' added');
+            await config.afterSave();
         } catch (err) {
             console.error('Sheet save error:', err);
-            showMsg('Error saving ' + config.label + 's', true);
+            showMsg('Error saving ' + config.label + 's: ' + (err.message || err), true);
         }
     }
 
@@ -1201,11 +1537,12 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.trailers.filter(t => matchesFilter(t, 'trailer'));
-        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}">
+        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+            ${validationIndicator(t)}
             <td><div class="cell cell-editable" data-field="unit" data-id="${t.id}" data-collection="trailers"><strong>${escapeHtml(t.unit)}</strong></div></td>
             <td><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.year)}</div></td>
             <td><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.make)}</div></td>
-            <td><div class="cell cell-editable" data-field="type" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.type)}</div></td>
+            <td><div class="cell cell-editable" data-field="type" data-id="${t.id}" data-collection="trailers">${trailerTypeLabel(t.type)}</div></td>
             <td><div class="cell cell-editable" data-field="vin" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.vin)}</div></td>
             <td><div class="cell cell-editable" data-field="plate" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.plate)}</div></td>
             <td><div class="cell">${statusSelect(t.status, t.id, 'trailers', 'trailer')}</div></td>
@@ -1217,7 +1554,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </div></td>
-        </tr>`).join('');
+        </tr>${issueDetailRow(t, 9)}`).join('');
     }
 
     function openTrailerModal(data) {
@@ -1252,6 +1589,14 @@
                 input.click();
             });
         }
+
+        // Make autocomplete for single trailer form
+        (function () {
+            const el = $('trailerMake');
+            if (!el) return;
+            el.addEventListener('focus', () => attachAutocomplete(el, TRAILER_MAKES));
+            el.addEventListener('blur', () => setTimeout(detachAutocomplete, 150));
+        })();
 
         $('trailerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1305,7 +1650,8 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.drivers.filter(d => matchesFilter(d, 'driver'));
-        tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}">
+        tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}" class="${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+            ${validationIndicator(d)}
             <td><div class="cell cell-editable" data-field="name" data-id="${d.id}" data-collection="drivers"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></div></td>
             <td><div class="cell cell-editable" data-field="cdl" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdl)}</div></td>
             <td><div class="cell cell-editable" data-field="cdlState" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdlState)}</div></td>
@@ -1322,7 +1668,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </div></td>
-        </tr>`).join('');
+        </tr>${issueDetailRow(d, 10)}`).join('');
     }
 
     function openDriverModal(data) {
@@ -1435,15 +1781,69 @@
         return match ? match.label : escapeHtml(val || '—');
     }
 
+    function trailerTypeLabel(val) {
+        const opts = getDropdownOptions('trailerType');
+        const match = opts.find(o => o.value === val);
+        return match ? match.label : escapeHtml(val || '—');
+    }
+
     function truckLabel(truckId) {
         if (!truckId) return '—';
         const t = state.trucks.find(tr => tr.id === truckId);
         return t ? ('Unit ' + t.unit) : '—';
     }
 
+    // ── Validation Indicator Helpers ───────
+    function validationIndicator(item) {
+        if (!item.validationStatus || item.validationStatus === 'valid') return '<td class="col-validation"></td>';
+        const isError = item.validationStatus === 'error';
+        const issues = item.validationIssues || [];
+        const cls = isError ? 'error' : 'warning';
+        const label = isError ? 'Error' : 'Warning';
+        const issueText = issues.length ? issues.map(i => escapeHtml(i)).join('\n') : (label + ': check this record');
+        return `<td class="col-validation">
+            <button class="validation-indicator vi-${cls}" data-id="${item.id}" aria-label="${label}" type="button">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                <span class="vi-tooltip"><strong>${label}</strong>${issues.map(i => '<br>• ' + escapeHtml(i)).join('')}</span>
+            </button>
+        </td>`;
+    }
+
+    function issueDetailRow(item, colSpan) {
+        if (!item.validationIssues || !item.validationIssues.length) return '';
+        const isError = item.validationStatus === 'error';
+        const cls = isError ? 'error' : 'warning';
+        return `<tr class="validation-detail-row vd-${cls}" data-detail-for="${item.id}" style="display:none">
+            <td colspan="${colSpan}">
+                <div class="validation-detail">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                        <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+                    </svg>
+                    <ul>${item.validationIssues.map(i => '<li>' + escapeHtml(i) + '</li>').join('')}</ul>
+                </div>
+            </td>
+        </tr>`;
+    }
+
     // ── Inline Editing Engine ──────────────
     function initInlineEditing() {
         document.addEventListener('click', (e) => {
+            // Toggle validation detail row
+            const vBtn = e.target.closest('.validation-indicator');
+            if (vBtn) {
+                e.stopPropagation();
+                const id = vBtn.dataset.id;
+                const detailRow = document.querySelector(`.validation-detail-row[data-detail-for="${id}"]`);
+                if (detailRow) {
+                    const open = detailRow.style.display !== 'none';
+                    detailRow.style.display = open ? 'none' : '';
+                    vBtn.classList.toggle('vi-expanded', !open);
+                }
+                return;
+            }
             const cell = e.target.closest('.cell-editable');
             if (!cell || cell.querySelector('.cell-input')) return;
             startInlineEdit(cell);
@@ -1461,38 +1861,117 @@
         if (!item) return;
 
         let currentVal = '';
-        if (field === 'vehicle') currentVal = [item.year || '', item.make || '', item.model || ''].join(' ').trim();
-        else if (field === 'name') currentVal = (item.firstName || '') + ' ' + (item.lastName || '');
+        if (field === 'name') currentVal = (item.firstName || '') + ' ' + (item.lastName || '');
         else if (field === 'plate' && collection === 'trucks') currentVal = (item.plate || '') + (item.plateState ? ' ' + item.plateState : '');
         else currentVal = item[field] || '';
 
+        // Mark row as editing
+        const row = cell.closest('tr');
+        if (row) row.classList.add('row-editing');
+
+        // Determine field type: select dropdown, text+autocomplete, or plain text
+        const selectFields = {
+            fuel:  { key: 'truckFuel',    collection: 'trucks' },
+            type:  { key: 'trailerType',  collection: 'trailers' }
+        };
+        const autocompleteFields = {
+            make:  function () { return collection === 'trailers' ? TRAILER_MAKES : TRUCK_MAKES; },
+            model: function () { return TRUCK_MODELS; }
+        };
+
+        const isSelect = selectFields[field] && selectFields[field].collection === collection;
+        const hasAutocomplete = !!autocompleteFields[field];
+
+        // Re-render helper
+        function rerender() {
+            if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
+            else if (collection === 'trailers') renderTrailers();
+            else renderDrivers();
+        }
+
+        // Tab navigation helper
+        function tabToNext(shiftKey) {
+            setTimeout(() => {
+                const allCells = Array.from(document.querySelectorAll(
+                    `[data-collection="${collection}"].cell-editable`
+                ));
+                const idx = allCells.findIndex(c => c.dataset.id === id && c.dataset.field === field);
+                const next = shiftKey ? allCells[idx - 1] : allCells[idx + 1];
+                if (next) next.click();
+            }, 50);
+        }
+
+        // ── SELECT dropdown for controlled fields ──
+        if (isSelect) {
+            const options = getDropdownOptions(selectFields[field].key);
+            const select = document.createElement('select');
+            select.className = 'cell-input cell-inline-select';
+            options.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.value;
+                opt.textContent = o.label;
+                if (o.value === currentVal) opt.selected = true;
+                select.appendChild(opt);
+            });
+
+            cell.innerHTML = '';
+            cell.appendChild(select);
+            select.focus();
+
+            let committed = false;
+            const commit = async () => {
+                if (committed) return;
+                committed = true;
+                const newVal = select.value;
+                if (row) row.classList.remove('row-editing');
+                const payload = { [field]: newVal, updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+                try {
+                    await col(collection).doc(id).update(payload);
+                    Object.assign(item, payload);
+                    delete item.updatedAt;
+                    rerender();
+                } catch (err) {
+                    console.error('Inline edit error:', err);
+                    showMsg('Error saving change', true);
+                    rerender();
+                }
+            };
+
+            select.addEventListener('change', () => { commit(); });
+            select.addEventListener('blur', () => { if (!committed) commit(); });
+            select.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') { committed = true; if (row) row.classList.remove('row-editing'); rerender(); }
+                if (e.key === 'Tab') { e.preventDefault(); commit().then(() => tabToNext(e.shiftKey)); }
+            });
+            return;
+        }
+
+        // ── TEXT input (optionally with autocomplete) ──
         const inputType = field === 'cdlExp' ? 'date' : 'text';
         const input = document.createElement('input');
         input.type = inputType;
         input.className = 'cell-input';
         input.value = String(currentVal);
 
-        // Mark row as editing
-        const row = cell.closest('tr');
-        if (row) row.classList.add('row-editing');
-
         cell.innerHTML = '';
         cell.appendChild(input);
         input.focus();
         if (inputType === 'text') input.select();
 
+        // Attach autocomplete for make/model
+        if (hasAutocomplete) {
+            const suggestions = autocompleteFields[field]();
+            if (suggestions.length) attachAutocomplete(input, suggestions);
+        }
+
         const commit = async () => {
+            detachAutocomplete();
             const newVal = input.value.trim();
             if (row) row.classList.remove('row-editing');
 
             // Build update payload
             const payload = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
-            if (field === 'vehicle') {
-                const parts = newVal.split(/\s+/);
-                payload.year = parts[0] || '';
-                payload.make = parts[1] || '';
-                payload.model = parts.slice(2).join(' ') || '';
-            } else if (field === 'name') {
+            if (field === 'name') {
                 const parts = newVal.split(/\s+/);
                 payload.firstName = parts[0] || '';
                 payload.lastName = parts.slice(1).join(' ') || '';
@@ -1515,47 +1994,36 @@
 
             try {
                 await col(collection).doc(id).update(payload);
-                // Update local state
                 Object.assign(item, payload);
                 delete item.updatedAt;
-                // Re-render the table
-                if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
-                else if (collection === 'trailers') renderTrailers();
-                else renderDrivers();
+                rerender();
             } catch (err) {
                 console.error('Inline edit error:', err);
                 showMsg('Error saving change', true);
-                // Re-render to restore original
-                if (collection === 'trucks') renderTrucks();
-                else if (collection === 'trailers') renderTrailers();
-                else renderDrivers();
+                rerender();
             }
         };
 
         let committed = false;
         input.addEventListener('blur', () => { if (!committed) { committed = true; commit(); } });
         input.addEventListener('keydown', (e) => {
+            // Let autocomplete handle its keys
+            if (hasAutocomplete && activeAutocomplete && activeAutocomplete.list.style.display !== 'none') {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') return;
+                if (e.key === 'Enter') return;
+                if (e.key === 'Escape') { activeAutocomplete.list.style.display = 'none'; return; }
+            }
             if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
             if (e.key === 'Escape') {
                 if (row) row.classList.remove('row-editing');
                 committed = true;
-                // Re-render without saving
-                if (collection === 'trucks') renderTrucks();
-                else if (collection === 'trailers') renderTrailers();
-                else renderDrivers();
+                detachAutocomplete();
+                rerender();
             }
-            // Tab to next editable cell
             if (e.key === 'Tab') {
                 e.preventDefault();
                 input.blur();
-                setTimeout(() => {
-                    const allCells = Array.from(document.querySelectorAll(
-                        `[data-collection="${collection}"].cell-editable`
-                    ));
-                    const idx = allCells.findIndex(c => c.dataset.id === id && c.dataset.field === field);
-                    const next = e.shiftKey ? allCells[idx - 1] : allCells[idx + 1];
-                    if (next) next.click();
-                }, 50);
+                tabToNext(e.shiftKey);
             }
         });
     }

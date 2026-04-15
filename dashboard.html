@@ -334,12 +334,15 @@
                             <table class="dash-table" id="trucksTable" style="display: none;">
                                 <thead>
                                     <tr>
-                                        <th style="width:10%">Unit #</th>
-                                        <th style="width:20%">Vehicle</th>
-                                        <th style="width:14%">VIN</th>
-                                        <th style="width:16%">License Plate</th>
+                                        <th class="col-validation"></th>
+                                        <th style="width:9%">Unit #</th>
+                                        <th style="width:7%">Year</th>
+                                        <th style="width:12%">Make</th>
+                                        <th style="width:12%">Model</th>
+                                        <th style="width:13%">VIN</th>
+                                        <th style="width:13%">License Plate</th>
                                         <th style="width:10%">Fuel</th>
-                                        <th style="width:14%">Status</th>
+                                        <th style="width:10%">Status</th>
                                         <th style="width:72px"></th>
                                     </tr>
                                 </thead>
@@ -387,13 +390,14 @@
                             <table class="dash-table" id="trailersTable" style="display: none;">
                                 <thead>
                                     <tr>
+                                        <th class="col-validation"></th>
                                         <th style="width:12%">Unit #</th>
                                         <th style="width:10%">Year</th>
-                                        <th style="width:14%">Make</th>
-                                        <th style="width:14%">Type</th>
+                                        <th style="width:13%">Make</th>
+                                        <th style="width:13%">Type</th>
                                         <th style="width:16%">VIN</th>
-                                        <th style="width:14%">Plate</th>
-                                        <th style="width:14%">Status</th>
+                                        <th style="width:13%">Plate</th>
+                                        <th style="width:13%">Status</th>
                                         <th style="width:72px"></th>
                                     </tr>
                                 </thead>
@@ -441,6 +445,7 @@
                             <table class="dash-table" id="driversTable" style="display: none;">
                                 <thead>
                                     <tr>
+                                        <th class="col-validation"></th>
                                         <th style="width:14%">Name</th>
                                         <th style="width:12%">CDL #</th>
                                         <th style="width:8%">State</th>
@@ -506,7 +511,10 @@
                     <div class="form-expand-section">
                         <div class="form-group">
                             <label for="truckVin">VIN</label>
-                            <input type="text" id="truckVin" maxlength="17" placeholder="17-character VIN">
+                            <div class="vin-input-wrap" id="truckVinWrap">
+                                <input type="text" id="truckVin" maxlength="17" placeholder="17-character VIN">
+                                <span class="vin-status"></span>
+                            </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
@@ -705,15 +713,15 @@
                         <thead>
                             <tr>
                                 <th class="row-num-col">#</th>
-                                <th style="min-width:90px">Unit #</th>
-                                <th style="min-width:70px">Year</th>
-                                <th style="min-width:110px">Make</th>
-                                <th style="min-width:110px">Model</th>
-                                <th style="min-width:160px">VIN</th>
-                                <th style="min-width:100px">Plate</th>
-                                <th style="min-width:60px">State</th>
-                                <th style="min-width:90px">Fuel</th>
-                                <th style="min-width:100px">Status</th>
+                                <th style="min-width:76px">Unit #</th>
+                                <th style="min-width:60px">Year</th>
+                                <th style="min-width:96px">Make</th>
+                                <th style="min-width:96px">Model</th>
+                                <th style="min-width:128px">VIN</th>
+                                <th style="min-width:84px">Plate</th>
+                                <th style="min-width:52px">State</th>
+                                <th style="min-width:82px">Fuel</th>
+                                <th style="min-width:92px">Status</th>
                                 <th class="row-action-col"></th>
                             </tr>
                         </thead>
@@ -730,7 +738,7 @@
                     <button type="button" class="btn btn-secondary" id="cancelMultiTruck">Cancel</button>
                     <button type="button" class="btn btn-primary" id="saveMultiTruck">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                        Save All
+                        Save
                     </button>
                 </div>
             </div>
@@ -780,7 +788,7 @@
                     <button type="button" class="btn btn-secondary" id="cancelMultiTrailer">Cancel</button>
                     <button type="button" class="btn btn-primary" id="saveMultiTrailer">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                        Save All
+                        Save
                     </button>
                 </div>
             </div>
@@ -830,7 +838,7 @@
                     <button type="button" class="btn btn-secondary" id="cancelMultiDriver">Cancel</button>
                     <button type="button" class="btn btn-primary" id="saveMultiDriver">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                        Save All
+                        Save
                     </button>
                 </div>
             </div>
