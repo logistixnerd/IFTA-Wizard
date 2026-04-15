@@ -320,7 +320,7 @@
 .dash-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     table-layout: auto;
 }
 
@@ -328,7 +328,7 @@
     text-align: left;
     padding: 0.25rem 0.4rem;
     font-weight: 600;
-    font-size: 0.55rem;
+    font-size: 0.625rem;
     color: var(--gray-500);
     text-transform: uppercase;
     letter-spacing: 0.4px;
@@ -364,7 +364,7 @@
 
 .dash-table .text-muted {
     color: var(--gray-400);
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
 }
 
 /* Scrollable table container */
@@ -1131,7 +1131,7 @@
 /* Form label refinement for hover-to-edit */
 .dash-form .form-group label,
 .dash-layout ~ .modal .form-group label {
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     font-weight: 600;
     color: var(--gray-500);
     text-transform: uppercase;
