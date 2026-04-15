@@ -369,9 +369,7 @@
 
 /* Scrollable table container */
 .dash-table-scroll {
-    overflow-x: auto;
-    overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
     border-radius: 6px;
 }
 
@@ -393,16 +391,16 @@
 }
 
 /* Column width classes */
-.dash-table-trucks .col-validation { min-width: 28px; width: 28px; flex-shrink: 0; }
-.dash-table-trucks .col-unit { min-width: 58px; }
-.dash-table-trucks .col-year { min-width: 44px; }
-.dash-table-trucks .col-make { min-width: 75px; }
-.dash-table-trucks .col-model { min-width: 75px; }
-.dash-table-trucks .col-vin { min-width: 140px; }
-.dash-table-trucks .col-plate { min-width: 68px; }
-.dash-table-trucks .col-fuel { min-width: 60px; }
-.dash-table-trucks .col-status { min-width: 70px; }
-.dash-table-trucks .col-actions { min-width: 45px; width: 45px; flex-shrink: 0; }
+.dash-table-trucks .col-validation { min-width: 24px; width: 24px; flex-shrink: 0; }
+.dash-table-trucks .col-unit { min-width: 45px; }
+.dash-table-trucks .col-year { min-width: 35px; }
+.dash-table-trucks .col-make { min-width: 60px; }
+.dash-table-trucks .col-model { min-width: 60px; }
+.dash-table-trucks .col-vin { min-width: 110px; }
+.dash-table-trucks .col-plate { min-width: 50px; }
+.dash-table-trucks .col-fuel { min-width: 50px; }
+.dash-table-trucks .col-status { min-width: 55px; }
+.dash-table-trucks .col-actions { min-width: 35px; width: 35px; flex-shrink: 0; }
 
 /* Cell wrapper for click-to-edit */
 .cell {
