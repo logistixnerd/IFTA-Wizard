@@ -368,10 +368,16 @@
                                 <option value="maintenance">Maintenance</option>
                                 <option value="inactive">Out of Service</option>
                             </select>
-                            <button class="btn btn-primary btn-sm dash-toolbar-add" id="addTrailerBtn">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                Add Trailer(s)
-                            </button>
+                            <div class="dash-toolbar-actions">
+                                <button class="btn btn-primary btn-sm dash-toolbar-add" id="addTrailerBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                    Add Trailer(s)
+                                </button>
+                                <button class="btn btn-sm dash-toolbar-secondary" id="importTrailersBtn" title="Import trailers from file">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Import
+                                </button>
+                            </div>
                         </div>
                         <div class="dash-empty" id="trailersEmpty">
                             <p>No trailers added yet</p>
@@ -416,10 +422,16 @@
                                 <option value="inactive">Inactive</option>
                                 <option value="on-leave">On Leave</option>
                             </select>
-                            <button class="btn btn-primary btn-sm dash-toolbar-add" id="addDriverBtn">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                Add Driver(s)
-                            </button>
+                            <div class="dash-toolbar-actions">
+                                <button class="btn btn-primary btn-sm dash-toolbar-add" id="addDriverBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                    Add Driver(s)
+                                </button>
+                                <button class="btn btn-sm dash-toolbar-secondary" id="importDriversBtn" title="Import drivers from file">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Import
+                                </button>
+                            </div>
                         </div>
                         <div class="dash-empty" id="driversEmpty">
                             <p>No drivers added yet</p>

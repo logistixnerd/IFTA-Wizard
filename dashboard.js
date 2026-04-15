@@ -290,7 +290,7 @@
                 const input = document.createElement('input');
                 input.type = 'file';
                 input.accept = '.csv,.tsv,.txt';
-                input.addEventListener('change', (e) => importTrucksFromFile(e.target.files[0]));
+                input.addEventListener('change', (e) => importCSVToSheet(e.target.files[0], 'truck'));
                 input.click();
             });
         }
@@ -328,8 +328,10 @@
         });
     }
 
-    async function importTrucksFromFile(file) {
+    async function importCSVToSheet(file, type) {
         if (!file) return;
+        const config = SHEET_CONFIGS[type];
+        if (!config) return;
         try {
             const text = await file.text();
             const sep = text.includes('\t') ? '\t' : ',';
@@ -337,52 +339,66 @@
             if (lines.length < 2) { showMsg('File must have a header row and data', true); return; }
             const header = lines[0].map(h => h.toLowerCase().replace(/[^a-z]/g, ''));
             const colMap = {};
-            const aliases = {
-                unit: ['unit', 'unitnumber', 'unitno', 'truckno', 'trucknumber'],
-                year: ['year', 'yr', 'modelyear'],
-                make: ['make', 'manufacturer', 'brand'],
-                model: ['model'],
-                vin: ['vin', 'vehicleid'],
-                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag'],
-                plateState: ['platestate', 'state', 'tagstate'],
-                fuel: ['fuel', 'fueltype'],
-                status: ['status']
-            };
+            const aliases = config.csvAliases || {};
             for (const [field, names] of Object.entries(aliases)) {
                 const idx = header.findIndex(h => names.includes(h));
                 if (idx !== -1) colMap[field] = idx;
             }
-            if (!('unit' in colMap)) { showMsg('CSV must have a "Unit" column', true); return; }
-            let count = 0;
-            const batch = firebase.firestore().batch();
+            if (!(config.requiredKey in colMap)) {
+                const label = config.cols.find(c => c.key === config.requiredKey);
+                showMsg('CSV must have a "' + (label ? label.placeholder.replace(/e\.g\.,?\s*/i, '') : config.requiredKey) + '" column', true);
+                return;
+            }
+
+            // Parse rows into data objects
+            const parsed = [];
             for (let i = 1; i < lines.length; i++) {
                 const row = lines[i];
-                if (!row[colMap.unit]) continue;
-                const doc = col('trucks').doc();
-                const payload = {
-                    unit: row[colMap.unit] || '',
-                    year: colMap.year !== undefined ? row[colMap.year] || '' : '',
-                    make: colMap.make !== undefined ? row[colMap.make] || '' : '',
-                    model: colMap.model !== undefined ? row[colMap.model] || '' : '',
-                    vin: colMap.vin !== undefined ? row[colMap.vin] || '' : '',
-                    plate: colMap.plate !== undefined ? row[colMap.plate] || '' : '',
-                    plateState: colMap.plateState !== undefined ? (row[colMap.plateState] || '').toUpperCase() : '',
-                    fuel: colMap.fuel !== undefined ? row[colMap.fuel] || 'diesel' : 'diesel',
-                    status: colMap.status !== undefined ? row[colMap.status] || 'active' : 'active',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                };
-                batch.set(doc, payload);
-                count++;
+                const data = {};
+                let hasValue = false;
+                config.cols.forEach(col => {
+                    if (colMap[col.key] !== undefined) {
+                        let val = row[colMap[col.key]] || '';
+                        if (col.key === 'plateState' || col.key === 'cdlState') val = val.toUpperCase();
+                        // Match select values case-insensitively
+                        if (col.type === 'select' && val) {
+                            const match = col.options.find(o =>
+                                o.value.toLowerCase() === val.toLowerCase() ||
+                                o.label.toLowerCase() === val.toLowerCase()
+                            );
+                            val = match ? match.value : val;
+                        }
+                        data[col.key] = val;
+                        if (val) hasValue = true;
+                    }
+                });
+                if (hasValue) parsed.push(data);
             }
-            if (count === 0) { showMsg('No valid rows found', true); return; }
-            await batch.commit();
-            await loadTrucks();
-            populateTruckDropdown();
-            showMsg(count + ' truck' + (count > 1 ? 's' : '') + ' imported');
+
+            if (parsed.length === 0) { showMsg('No valid rows found in file', true); return; }
+
+            // Open the sheet modal and fill with parsed data
+            const tbody = $(config.tbodyId);
+            tbody.innerHTML = '';
+            parsed.forEach((rowData, i) => {
+                tbody.appendChild(buildSheetRow(i, rowData, config.cols));
+            });
+            // Add one trailing empty row
+            tbody.appendChild(buildSheetRow(parsed.length, null, config.cols));
+            updateSheetRowCount(config);
+            $(config.modalId).classList.remove('hidden');
+
+            // Run validation after a tick so the DOM is ready
+            setTimeout(() => {
+                validateAllSheetCells(config);
+                const first = tbody.querySelector('.sheet-cell');
+                if (first) startEditingCell(first);
+            }, 80);
+
+            showMsg(parsed.length + ' row' + (parsed.length > 1 ? 's' : '') + ' imported for review');
         } catch (err) {
-            console.error('Import trucks error:', err);
-            showMsg('Error importing file', true);
+            console.error('CSV import error:', err);
+            showMsg('Error reading file', true);
         }
     }
 
@@ -421,7 +437,18 @@
             cancelId: 'cancelMultiTruck',
             saveId: 'saveMultiTruck',
             defaults: { fuel: 'diesel', status: 'active' },
-            afterSave: () => { loadTrucks(); populateTruckDropdown(); }
+            afterSave: () => { loadTrucks(); populateTruckDropdown(); },
+            csvAliases: {
+                unit: ['unit', 'unitnumber', 'unitno', 'truckno', 'trucknumber'],
+                year: ['year', 'yr', 'modelyear'],
+                make: ['make', 'manufacturer', 'brand'],
+                model: ['model'],
+                vin: ['vin', 'vehicleid'],
+                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag'],
+                plateState: ['platestate', 'state', 'tagstate'],
+                fuel: ['fuel', 'fueltype'],
+                status: ['status']
+            }
         },
         trailer: {
             cols: [
@@ -457,7 +484,16 @@
             cancelId: 'cancelMultiTrailer',
             saveId: 'saveMultiTrailer',
             defaults: { type: 'dry-van', status: 'active' },
-            afterSave: () => { loadTrailers(); }
+            afterSave: () => { loadTrailers(); },
+            csvAliases: {
+                unit: ['unit', 'unitnumber', 'unitno', 'trailerno', 'trailernumber'],
+                year: ['year', 'yr', 'modelyear'],
+                make: ['make', 'manufacturer', 'brand'],
+                type: ['type', 'trailertype', 'equipmenttype'],
+                vin: ['vin', 'vehicleid'],
+                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag'],
+                status: ['status']
+            }
         },
         driver: {
             cols: [
@@ -485,7 +521,16 @@
             cancelId: 'cancelMultiDriver',
             saveId: 'saveMultiDriver',
             defaults: { status: 'active' },
-            afterSave: () => { loadDrivers(); }
+            afterSave: () => { loadDrivers(); },
+            csvAliases: {
+                firstName: ['firstname', 'first', 'fname', 'givenname'],
+                lastName: ['lastname', 'last', 'lname', 'surname', 'familyname'],
+                phone: ['phone', 'phonenumber', 'mobile', 'cell', 'telephone'],
+                cdl: ['cdl', 'cdlnumber', 'cdlno', 'licensenumber', 'license', 'dl'],
+                cdlState: ['cdlstate', 'licensestate', 'dlstate', 'state'],
+                email: ['email', 'emailaddress', 'mail'],
+                status: ['status']
+            }
         }
     };
 
@@ -937,6 +982,17 @@
         $('closeTrailerModal').addEventListener('click', () => $('trailerModal').classList.add('hidden'));
         $('cancelTrailer').addEventListener('click', () => $('trailerModal').classList.add('hidden'));
 
+        const importTrailerBtn = $('importTrailersBtn');
+        if (importTrailerBtn) {
+            importTrailerBtn.addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.csv,.tsv,.txt';
+                input.addEventListener('change', (e) => importCSVToSheet(e.target.files[0], 'trailer'));
+                input.click();
+            });
+        }
+
         $('trailerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const payload = {
@@ -1034,6 +1090,17 @@
         $('addFirstDriver').addEventListener('click', () => openSheetModal('driver'));
         $('closeDriverModal').addEventListener('click', () => $('driverModal').classList.add('hidden'));
         $('cancelDriver').addEventListener('click', () => $('driverModal').classList.add('hidden'));
+
+        const importDriverBtn = $('importDriversBtn');
+        if (importDriverBtn) {
+            importDriverBtn.addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.csv,.tsv,.txt';
+                input.addEventListener('change', (e) => importCSVToSheet(e.target.files[0], 'driver'));
+                input.click();
+            });
+        }
 
         $('driverForm').addEventListener('submit', async (e) => {
             e.preventDefault();
