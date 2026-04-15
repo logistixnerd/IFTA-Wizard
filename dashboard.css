@@ -210,6 +210,16 @@
     padding: 1.5rem;
 }
 
+/* Card body with table needs no bottom padding */
+.dash-card-body:has(.dash-table-wrap) {
+    padding-bottom: 0;
+}
+
+.dash-card-body:has(.dash-table-wrap) .dash-table-toolbar {
+    padding-left: 0;
+    padding-right: 0;
+}
+
 /* Profile Hero */
 .profile-hero {
     display: flex;
@@ -304,30 +314,52 @@
     gap: 0.625rem;
 }
 
-/* Dashboard Tables */
+/* Dashboard Tables – Spreadsheet Board */
+.dash-table-wrap {
+    overflow-x: auto;
+    overflow-y: visible;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
 .dash-table {
     width: 100%;
-    border-collapse: separate;
-    border-spacing: 0;
+    border-collapse: collapse;
     font-size: 0.8125rem;
+    table-layout: fixed;
 }
 
 .dash-table th {
     text-align: left;
-    padding: 0.75rem 1rem;
+    padding: 0.5rem 0.75rem;
     font-weight: 600;
     font-size: 0.6875rem;
     color: var(--gray-500);
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    background: transparent;
+    border-bottom: 2px solid rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    white-space: nowrap;
+    user-select: none;
 }
 
 .dash-table td {
-    padding: 0.75rem 1rem;
+    padding: 0;
     border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    border-right: 1px solid rgba(0, 0, 0, 0.03);
     color: var(--gray-700);
+    position: relative;
+    height: 40px;
+    vertical-align: middle;
+}
+
+.dash-table td:last-child {
+    border-right: none;
 }
 
 .dash-table td strong {
@@ -340,58 +372,134 @@
     font-size: 0.75rem;
 }
 
+/* Cell wrapper for click-to-edit */
+.cell {
+    display: flex;
+    align-items: center;
+    padding: 0 0.75rem;
+    height: 100%;
+    min-height: 40px;
+    cursor: default;
+    transition: background 0.1s ease;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.cell-editable {
+    cursor: text;
+    border-radius: 0;
+}
+
+.cell-editable:hover {
+    background: rgba(79, 70, 229, 0.04);
+}
+
+.cell-editable:hover::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1.5px solid rgba(79, 70, 229, 0.2);
+    border-radius: 0;
+    pointer-events: none;
+}
+
+/* Inline edit input */
+.cell-input {
+    width: 100%;
+    height: 100%;
+    padding: 0 0.75rem;
+    border: none;
+    background: rgba(255, 255, 255, 0.95);
+    font-size: 0.8125rem;
+    font-family: inherit;
+    color: var(--gray-800);
+    outline: none;
+    box-shadow: inset 0 0 0 2px var(--primary);
+    border-radius: 0;
+}
+
+.cell-input:focus {
+    background: var(--white);
+}
+
+/* Inline status select */
+.cell-status-select {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 100%;
+    height: 100%;
+    padding: 0 0.5rem;
+    border: none;
+    background: transparent;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    font-family: inherit;
+    color: inherit;
+    cursor: pointer;
+    outline: none;
+    border-radius: 0;
+}
+
+.cell-status-select:focus {
+    box-shadow: inset 0 0 0 2px var(--primary);
+}
+
+/* Row states */
 .dash-table tbody tr {
-    transition: all 0.15s ease;
-    border-radius: 10px;
+    transition: background 0.1s ease;
 }
 
 .dash-table tbody tr:hover {
-    background: rgba(79, 70, 229, 0.03);
+    background: rgba(79, 70, 229, 0.025);
 }
 
-.dash-table tbody tr:hover td:first-child {
-    border-radius: 10px 0 0 10px;
-}
-
-.dash-table tbody tr:hover td:last-child {
-    border-radius: 0 10px 10px 0;
+.dash-table tbody tr.row-editing {
+    background: rgba(79, 70, 229, 0.04);
 }
 
 .dash-table tbody tr:last-child td {
     border-bottom: none;
 }
 
-.dash-table .row-actions {
-    text-align: right;
+/* Compact row actions */
+.row-actions {
+    text-align: center;
     white-space: nowrap;
+    width: 72px;
 }
 
-.dash-table .row-actions button {
+.row-actions .cell {
+    justify-content: center;
+    gap: 2px;
+    padding: 0 0.375rem;
+}
+
+.row-actions button {
     background: none;
-    border: 1px solid transparent;
+    border: none;
     cursor: pointer;
-    padding: 0.375rem;
+    padding: 0.3125rem;
     color: var(--gray-400);
-    border-radius: 8px;
-    transition: all 0.15s ease;
-    vertical-align: middle;
+    border-radius: 6px;
+    transition: all 0.12s ease;
     line-height: 1;
+    display: inline-flex;
+    opacity: 0.5;
 }
 
-.dash-table .row-actions button:hover {
+.dash-table tbody tr:hover .row-actions button {
+    opacity: 1;
+}
+
+.row-actions button:hover {
     color: var(--primary);
-    background: rgba(79, 70, 229, 0.08);
-    border-color: rgba(79, 70, 229, 0.15);
+    background: rgba(79, 70, 229, 0.1);
 }
 
-.dash-table .row-actions .btn-delete:hover {
+.row-actions .btn-delete:hover {
     color: var(--danger);
-    background: rgba(220, 38, 38, 0.06);
-    border-color: rgba(220, 38, 38, 0.15);
-}
-
-.dash-table .row-actions button + button {
-    margin-left: 0.25rem;
+    background: rgba(220, 38, 38, 0.08);
 }
 
 /* Table Toolbar (search + filter) */

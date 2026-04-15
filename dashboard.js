@@ -240,21 +240,22 @@
         }
         empty.style.display = 'none';
         table.style.display = '';
-        tbody.innerHTML = state.trucks.filter(t => matchesFilter(t, 'truck')).map(t => `<tr>
-            <td><strong>${escapeHtml(t.unit)}</strong></td>
-            <td>${vehicleLabel(t.year, t.make, t.model)}</td>
-            <td title="${escapeHtml(t.vin)}">${shortenVin(t.vin)}</td>
-            <td>${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</td>
-            <td>${fuelLabel(t.fuel)}</td>
-            <td>${statusBadge(t.status)}</td>
-            <td class="row-actions">
+        const filtered = state.trucks.filter(t => matchesFilter(t, 'truck'));
+        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}">
+            <td><div class="cell cell-editable" data-field="unit" data-id="${t.id}" data-collection="trucks"><strong>${escapeHtml(t.unit)}</strong></div></td>
+            <td><div class="cell cell-editable" data-field="vehicle" data-id="${t.id}" data-collection="trucks">${vehicleLabel(t.year, t.make, t.model)}</div></td>
+            <td><div class="cell cell-editable" data-field="vin" data-id="${t.id}" data-collection="trucks" title="${escapeHtml(t.vin)}">${shortenVin(t.vin)}</div></td>
+            <td><div class="cell cell-editable" data-field="plate" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</div></td>
+            <td><div class="cell cell-editable" data-field="fuel" data-id="${t.id}" data-collection="trucks">${fuelLabel(t.fuel)}</div></td>
+            <td><div class="cell">${statusSelect(t.status, t.id, 'trucks', 'truck')}</div></td>
+            <td class="row-actions"><div class="cell">
                 <button title="Edit" onclick="Dashboard.editTruck('${t.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
                 <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTruck('${t.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
-            </td>
+            </div></td>
         </tr>`).join('');
     }
 
@@ -333,22 +334,23 @@
         }
         empty.style.display = 'none';
         table.style.display = '';
-        tbody.innerHTML = state.trailers.filter(t => matchesFilter(t, 'trailer')).map(t => `<tr>
-            <td><strong>${escapeHtml(t.unit)}</strong></td>
-            <td>${escapeHtml(t.year)}</td>
-            <td>${escapeHtml(t.make)}</td>
-            <td>${escapeHtml(t.type)}</td>
-            <td>${escapeHtml(t.vin)}</td>
-            <td>${escapeHtml(t.plate)}</td>
-            <td>${statusBadge(t.status)}</td>
-            <td class="row-actions">
+        const filtered = state.trailers.filter(t => matchesFilter(t, 'trailer'));
+        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}">
+            <td><div class="cell cell-editable" data-field="unit" data-id="${t.id}" data-collection="trailers"><strong>${escapeHtml(t.unit)}</strong></div></td>
+            <td><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.year)}</div></td>
+            <td><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.make)}</div></td>
+            <td><div class="cell cell-editable" data-field="type" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.type)}</div></td>
+            <td><div class="cell cell-editable" data-field="vin" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.vin)}</div></td>
+            <td><div class="cell cell-editable" data-field="plate" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.plate)}</div></td>
+            <td><div class="cell">${statusSelect(t.status, t.id, 'trailers', 'trailer')}</div></td>
+            <td class="row-actions"><div class="cell">
                 <button title="Edit" onclick="Dashboard.editTrailer('${t.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
                 <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTrailer('${t.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
-            </td>
+            </div></td>
         </tr>`).join('');
     }
 
@@ -422,23 +424,24 @@
         }
         empty.style.display = 'none';
         table.style.display = '';
-        tbody.innerHTML = state.drivers.filter(d => matchesFilter(d, 'driver')).map(d => `<tr>
-            <td><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></td>
-            <td>${escapeHtml(d.cdl)}</td>
-            <td>${escapeHtml(d.cdlState)}</td>
-            <td>${escapeHtml(d.cdlExp)}</td>
-            <td>${escapeHtml(d.phone)}</td>
-            <td>${escapeHtml(d.email)}</td>
-            <td>${escapeHtml(truckLabel(d.truck))}</td>
-            <td>${statusBadge(d.status)}</td>
-            <td class="row-actions">
+        const filtered = state.drivers.filter(d => matchesFilter(d, 'driver'));
+        tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}">
+            <td><div class="cell cell-editable" data-field="name" data-id="${d.id}" data-collection="drivers"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></div></td>
+            <td><div class="cell cell-editable" data-field="cdl" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdl)}</div></td>
+            <td><div class="cell cell-editable" data-field="cdlState" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdlState)}</div></td>
+            <td><div class="cell cell-editable" data-field="cdlExp" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdlExp)}</div></td>
+            <td><div class="cell cell-editable" data-field="phone" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.phone)}</div></td>
+            <td><div class="cell cell-editable" data-field="email" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.email)}</div></td>
+            <td><div class="cell">${escapeHtml(truckLabel(d.truck))}</div></td>
+            <td><div class="cell">${statusSelect(d.status, d.id, 'drivers', 'driver')}</div></td>
+            <td class="row-actions"><div class="cell">
                 <button title="Edit" onclick="Dashboard.editDriver('${d.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
                 <button title="Delete" class="btn-delete" onclick="Dashboard.deleteDriver('${d.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
-            </td>
+            </div></td>
         </tr>`).join('');
     }
 
@@ -512,6 +515,15 @@
         return `<span class="status-badge ${escapeHtml(s)}"><span class="status-dot"></span>${statusLabel(s)}</span>`;
     }
 
+    function statusSelect(val, id, collection, type) {
+        const s = val || 'active';
+        const options = type === 'driver'
+            ? [['active', 'Active'], ['inactive', 'Inactive'], ['on-leave', 'On Leave']]
+            : [['active', 'Active'], ['inactive', 'Out of Service'], ['maintenance', 'In Maintenance']];
+        const opts = options.map(([v, l]) => `<option value="${v}"${v === s ? ' selected' : ''}>${l}</option>`).join('');
+        return `<select class="cell-status-select status-badge ${escapeHtml(s)}" data-id="${id}" data-collection="${collection}" onchange="Dashboard.inlineStatus(this)">${opts}</select>`;
+    }
+
     function vehicleLabel(year, make, model) {
         const parts = [year, make, model].filter(Boolean).map(v => escapeHtml(String(v)));
         return parts.length ? parts.join(' ') : '—';
@@ -532,6 +544,151 @@
         if (!truckId) return '—';
         const t = state.trucks.find(tr => tr.id === truckId);
         return t ? ('Unit ' + t.unit) : '—';
+    }
+
+    // ── Inline Editing Engine ──────────────
+    function initInlineEditing() {
+        document.addEventListener('click', (e) => {
+            const cell = e.target.closest('.cell-editable');
+            if (!cell || cell.querySelector('.cell-input')) return;
+            startInlineEdit(cell);
+        });
+    }
+
+    function startInlineEdit(cell) {
+        const field = cell.dataset.field;
+        const id = cell.dataset.id;
+        const collection = cell.dataset.collection;
+
+        // Resolve current value from state
+        const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : state.drivers;
+        const item = stateArr.find(x => x.id === id);
+        if (!item) return;
+
+        let currentVal = '';
+        if (field === 'vehicle') currentVal = [item.year || '', item.make || '', item.model || ''].join(' ').trim();
+        else if (field === 'name') currentVal = (item.firstName || '') + ' ' + (item.lastName || '');
+        else if (field === 'plate' && collection === 'trucks') currentVal = (item.plate || '') + (item.plateState ? ' ' + item.plateState : '');
+        else currentVal = item[field] || '';
+
+        const inputType = field === 'cdlExp' ? 'date' : 'text';
+        const input = document.createElement('input');
+        input.type = inputType;
+        input.className = 'cell-input';
+        input.value = String(currentVal);
+
+        // Mark row as editing
+        const row = cell.closest('tr');
+        if (row) row.classList.add('row-editing');
+
+        cell.innerHTML = '';
+        cell.appendChild(input);
+        input.focus();
+        if (inputType === 'text') input.select();
+
+        const commit = async () => {
+            const newVal = input.value.trim();
+            if (row) row.classList.remove('row-editing');
+
+            // Build update payload
+            const payload = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+            if (field === 'vehicle') {
+                const parts = newVal.split(/\s+/);
+                payload.year = parts[0] || '';
+                payload.make = parts[1] || '';
+                payload.model = parts.slice(2).join(' ') || '';
+            } else if (field === 'name') {
+                const parts = newVal.split(/\s+/);
+                payload.firstName = parts[0] || '';
+                payload.lastName = parts.slice(1).join(' ') || '';
+            } else if (field === 'plate' && collection === 'trucks') {
+                const parts = newVal.split(/\s+/);
+                if (parts.length > 1) {
+                    const last = parts[parts.length - 1];
+                    if (last.length === 2 && /^[A-Za-z]{2}$/.test(last)) {
+                        payload.plateState = last.toUpperCase();
+                        payload.plate = parts.slice(0, -1).join(' ');
+                    } else {
+                        payload.plate = newVal;
+                    }
+                } else {
+                    payload.plate = newVal;
+                }
+            } else {
+                payload[field] = field === 'cdlState' || field === 'plateState' ? newVal.toUpperCase() : newVal;
+            }
+
+            try {
+                await col(collection).doc(id).update(payload);
+                // Update local state
+                Object.assign(item, payload);
+                delete item.updatedAt;
+                // Re-render the table
+                if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
+                else if (collection === 'trailers') renderTrailers();
+                else renderDrivers();
+            } catch (err) {
+                console.error('Inline edit error:', err);
+                showMsg('Error saving change', true);
+                // Re-render to restore original
+                if (collection === 'trucks') renderTrucks();
+                else if (collection === 'trailers') renderTrailers();
+                else renderDrivers();
+            }
+        };
+
+        let committed = false;
+        input.addEventListener('blur', () => { if (!committed) { committed = true; commit(); } });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+            if (e.key === 'Escape') {
+                if (row) row.classList.remove('row-editing');
+                committed = true;
+                // Re-render without saving
+                if (collection === 'trucks') renderTrucks();
+                else if (collection === 'trailers') renderTrailers();
+                else renderDrivers();
+            }
+            // Tab to next editable cell
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                input.blur();
+                setTimeout(() => {
+                    const allCells = Array.from(document.querySelectorAll(
+                        `[data-collection="${collection}"].cell-editable`
+                    ));
+                    const idx = allCells.findIndex(c => c.dataset.id === id && c.dataset.field === field);
+                    const next = e.shiftKey ? allCells[idx - 1] : allCells[idx + 1];
+                    if (next) next.click();
+                }, 50);
+            }
+        });
+    }
+
+    async function inlineStatus(select) {
+        const id = select.dataset.id;
+        const collection = select.dataset.collection;
+        const newStatus = select.value;
+
+        try {
+            await col(collection).doc(id).update({
+                status: newStatus,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : state.drivers;
+            const item = stateArr.find(x => x.id === id);
+            if (item) item.status = newStatus;
+
+            // Re-render
+            if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
+            else if (collection === 'trailers') renderTrailers();
+            else renderDrivers();
+            updateOverview();
+            showMsg('Status updated');
+        } catch (err) {
+            console.error('Status update error:', err);
+            showMsg('Error updating status', true);
+        }
     }
 
     // ── Search / Filter ──────────────────
@@ -661,7 +818,6 @@
     }
 
     function showMsg(text, isError) {
-        // Use existing toast if available, else brief banner
         if (typeof showToast === 'function') {
             showToast(text, isError ? 'error' : 'success');
             return;
@@ -669,14 +825,23 @@
         const div = document.createElement('div');
         div.textContent = text;
         Object.assign(div.style, {
-            position: 'fixed', top: '1rem', right: '1rem', padding: '0.5rem 1rem',
-            background: isError ? '#fee2e2' : '#dcfce7',
+            position: 'fixed', top: '1rem', right: '1rem', padding: '0.625rem 1.125rem',
+            background: isError ? 'rgba(254,226,226,0.95)' : 'rgba(220,252,231,0.95)',
             color: isError ? '#dc2626' : '#16a34a',
-            fontSize: '0.8125rem', zIndex: '9999',
-            border: '1px solid ' + (isError ? '#fca5a5' : '#86efac')
+            fontSize: '0.8125rem', fontWeight: '600', zIndex: '9999',
+            border: '1px solid ' + (isError ? '#fca5a5' : '#86efac'),
+            borderRadius: '12px', backdropFilter: 'blur(12px)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+            transform: 'translateY(-8px)', opacity: '0',
+            transition: 'all 0.2s ease'
         });
         document.body.appendChild(div);
-        setTimeout(() => div.remove(), 2500);
+        requestAnimationFrame(() => { div.style.transform = 'translateY(0)'; div.style.opacity = '1'; });
+        setTimeout(() => {
+            div.style.transform = 'translateY(-8px)';
+            div.style.opacity = '0';
+            setTimeout(() => div.remove(), 200);
+        }, 2200);
     }
 
     // ── Delete confirms ───────────────────
@@ -752,13 +917,15 @@
         initDriverForm();
         initModalBackdrops();
         initSearchFilters();
+        initInlineEditing();
         initAuth();
     }
 
-    // Expose edit/delete methods for inline onclick
+    // Expose edit/delete/inline methods for inline onclick
     window.Dashboard = {
         editTruck, editTrailer, editDriver,
-        deleteTruck, deleteTrailer, deleteDriver
+        deleteTruck, deleteTrailer, deleteDriver,
+        inlineStatus
     };
 
     // Start when DOM is ready

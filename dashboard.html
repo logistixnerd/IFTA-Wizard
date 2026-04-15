@@ -303,20 +303,22 @@
                             <p>No trucks added yet</p>
                             <button class="btn btn-secondary btn-sm" id="addFirstTruck">Add your first truck</button>
                         </div>
-                        <table class="dash-table" id="trucksTable" style="display: none;">
-                            <thead>
-                                <tr>
-                                    <th>Unit #</th>
-                                    <th>Vehicle</th>
-                                    <th>VIN</th>
-                                    <th>License Plate</th>
-                                    <th>Fuel Type</th>
-                                    <th>Status</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="trucksTableBody"></tbody>
-                        </table>
+                        <div class="dash-table-wrap">
+                            <table class="dash-table" id="trucksTable" style="display: none;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:10%">Unit #</th>
+                                        <th style="width:20%">Vehicle</th>
+                                        <th style="width:14%">VIN</th>
+                                        <th style="width:16%">License Plate</th>
+                                        <th style="width:10%">Fuel</th>
+                                        <th style="width:14%">Status</th>
+                                        <th style="width:72px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="trucksTableBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -345,21 +347,23 @@
                             <p>No trailers added yet</p>
                             <button class="btn btn-secondary btn-sm" id="addFirstTrailer">Add your first trailer</button>
                         </div>
-                        <table class="dash-table" id="trailersTable" style="display: none;">
-                            <thead>
-                                <tr>
-                                    <th>Unit #</th>
-                                    <th>Year</th>
-                                    <th>Make</th>
-                                    <th>Type</th>
-                                    <th>VIN</th>
-                                    <th>License Plate</th>
-                                    <th>Status</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="trailersTableBody"></tbody>
-                        </table>
+                        <div class="dash-table-wrap">
+                            <table class="dash-table" id="trailersTable" style="display: none;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:12%">Unit #</th>
+                                        <th style="width:10%">Year</th>
+                                        <th style="width:14%">Make</th>
+                                        <th style="width:14%">Type</th>
+                                        <th style="width:16%">VIN</th>
+                                        <th style="width:14%">Plate</th>
+                                        <th style="width:14%">Status</th>
+                                        <th style="width:72px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="trailersTableBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -388,22 +392,24 @@
                             <p>No drivers added yet</p>
                             <button class="btn btn-secondary btn-sm" id="addFirstDriver">Add your first driver</button>
                         </div>
-                        <table class="dash-table" id="driversTable" style="display: none;">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>CDL Number</th>
-                                    <th>CDL State</th>
-                                    <th>CDL Exp</th>
-                                    <th>Phone</th>
-                                    <th>Email</th>
-                                    <th>Assigned Truck</th>
-                                    <th>Status</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="driversTableBody"></tbody>
-                        </table>
+                        <div class="dash-table-wrap">
+                            <table class="dash-table" id="driversTable" style="display: none;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:14%">Name</th>
+                                        <th style="width:12%">CDL #</th>
+                                        <th style="width:8%">State</th>
+                                        <th style="width:10%">CDL Exp</th>
+                                        <th style="width:12%">Phone</th>
+                                        <th style="width:14%">Email</th>
+                                        <th style="width:12%">Truck</th>
+                                        <th style="width:12%">Status</th>
+                                        <th style="width:72px"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="driversTableBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </section>
