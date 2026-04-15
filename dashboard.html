@@ -318,11 +318,7 @@
                             <div class="dash-toolbar-actions">
                                 <button class="btn btn-primary btn-sm dash-toolbar-add" id="addTruckBtn">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                    Add Truck
-                                </button>
-                                <button class="btn btn-sm dash-toolbar-secondary" id="addMultipleTrucksBtn" title="Add multiple trucks at once">
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M17.5 14v7m-3.5-3.5h7"/></svg>
-                                    Add Multiple
+                                    Add Truck(s)
                                 </button>
                                 <button class="btn btn-sm dash-toolbar-secondary" id="importTrucksBtn" title="Import trucks from file">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -374,7 +370,7 @@
                             </select>
                             <button class="btn btn-primary btn-sm dash-toolbar-add" id="addTrailerBtn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                Add Trailer
+                                Add Trailer(s)
                             </button>
                         </div>
                         <div class="dash-empty" id="trailersEmpty">
@@ -422,7 +418,7 @@
                             </select>
                             <button class="btn btn-primary btn-sm dash-toolbar-add" id="addDriverBtn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                Add Driver
+                                Add Driver(s)
                             </button>
                         </div>
                         <div class="dash-empty" id="driversEmpty">
@@ -677,13 +673,13 @@
         </div>
     </div>
 
-    <!-- Add Multiple Trucks Modal -->
-    <div id="multiTruckModal" class="modal hidden">
-        <div class="modal-content multi-truck-modal">
+    <!-- Add Truck(s) Sheet Modal -->
+    <div id="multiTruckModal" class="modal hidden" data-sheet-type="truck">
+        <div class="modal-content sheet-modal">
             <div class="modal-header">
-                <h2>Add Multiple Trucks</h2>
-                <div class="multi-truck-header-actions">
-                    <span class="multi-truck-count" id="multiTruckRowCount">5 rows</span>
+                <h2>Add Truck(s)</h2>
+                <div class="sheet-header-actions">
+                    <span class="sheet-row-count" id="multiTruckRowCount">1 row</span>
                     <button class="btn btn-sm dash-toolbar-secondary" id="multiTruckAddRow" title="Add row">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
                         Add Row
@@ -691,9 +687,9 @@
                     <button class="modal-close" id="closeMultiTruckModal">&times;</button>
                 </div>
             </div>
-            <div class="modal-body multi-truck-body">
-                <div class="multi-truck-sheet-wrap">
-                    <table class="multi-truck-sheet" id="multiTruckSheet">
+            <div class="modal-body sheet-modal-body">
+                <div class="sheet-wrap">
+                    <table class="sheet-table" id="multiTruckSheet">
                         <thead>
                             <tr>
                                 <th class="row-num-col">#</th>
@@ -713,14 +709,114 @@
                     </table>
                 </div>
             </div>
-            <div class="multi-truck-footer">
-                <div class="multi-truck-footer-info">
+            <div class="sheet-footer">
+                <div class="sheet-footer-info">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
                     <span>Click any cell to edit. Tab to move between cells. Only rows with a Unit # will be saved.</span>
                 </div>
-                <div class="multi-truck-footer-actions">
+                <div class="sheet-footer-actions">
                     <button type="button" class="btn btn-secondary" id="cancelMultiTruck">Cancel</button>
                     <button type="button" class="btn btn-primary" id="saveMultiTruck">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Save All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Trailer(s) Sheet Modal -->
+    <div id="multiTrailerModal" class="modal hidden" data-sheet-type="trailer">
+        <div class="modal-content sheet-modal">
+            <div class="modal-header">
+                <h2>Add Trailer(s)</h2>
+                <div class="sheet-header-actions">
+                    <span class="sheet-row-count" id="multiTrailerRowCount">1 row</span>
+                    <button class="btn btn-sm dash-toolbar-secondary" id="multiTrailerAddRow" title="Add row">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                        Add Row
+                    </button>
+                    <button class="modal-close" id="closeMultiTrailerModal">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body sheet-modal-body">
+                <div class="sheet-wrap">
+                    <table class="sheet-table" id="multiTrailerSheet">
+                        <thead>
+                            <tr>
+                                <th class="row-num-col">#</th>
+                                <th style="min-width:90px">Unit #</th>
+                                <th style="min-width:70px">Year</th>
+                                <th style="min-width:110px">Make</th>
+                                <th style="min-width:110px">Type</th>
+                                <th style="min-width:160px">VIN</th>
+                                <th style="min-width:100px">Plate</th>
+                                <th style="min-width:100px">Status</th>
+                                <th class="row-action-col"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="multiTrailerBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="sheet-footer">
+                <div class="sheet-footer-info">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    <span>Click any cell to edit. Tab to move between cells. Only rows with a Unit # will be saved.</span>
+                </div>
+                <div class="sheet-footer-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelMultiTrailer">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveMultiTrailer">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Save All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Driver(s) Sheet Modal -->
+    <div id="multiDriverModal" class="modal hidden" data-sheet-type="driver">
+        <div class="modal-content sheet-modal">
+            <div class="modal-header">
+                <h2>Add Driver(s)</h2>
+                <div class="sheet-header-actions">
+                    <span class="sheet-row-count" id="multiDriverRowCount">1 row</span>
+                    <button class="btn btn-sm dash-toolbar-secondary" id="multiDriverAddRow" title="Add row">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                        Add Row
+                    </button>
+                    <button class="modal-close" id="closeMultiDriverModal">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body sheet-modal-body">
+                <div class="sheet-wrap">
+                    <table class="sheet-table" id="multiDriverSheet">
+                        <thead>
+                            <tr>
+                                <th class="row-num-col">#</th>
+                                <th style="min-width:110px">First Name</th>
+                                <th style="min-width:110px">Last Name</th>
+                                <th style="min-width:110px">Phone</th>
+                                <th style="min-width:110px">CDL #</th>
+                                <th style="min-width:70px">CDL State</th>
+                                <th style="min-width:140px">Email</th>
+                                <th style="min-width:100px">Status</th>
+                                <th class="row-action-col"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="multiDriverBody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="sheet-footer">
+                <div class="sheet-footer-info">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    <span>Click any cell to edit. Tab to move between cells. Only rows with a First Name will be saved.</span>
+                </div>
+                <div class="sheet-footer-actions">
+                    <button type="button" class="btn btn-secondary" id="cancelMultiDriver">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveMultiDriver">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
                         Save All
                     </button>

@@ -278,16 +278,10 @@
     }
 
     function initTruckForm() {
-        $('addTruckBtn').addEventListener('click', () => openTruckModal(null));
-        $('addFirstTruck').addEventListener('click', () => openTruckModal(null));
+        $('addTruckBtn').addEventListener('click', () => openSheetModal('truck'));
+        $('addFirstTruck').addEventListener('click', () => openSheetModal('truck'));
         $('closeTruckModal').addEventListener('click', () => $('truckModal').classList.add('hidden'));
         $('cancelTruck').addEventListener('click', () => $('truckModal').classList.add('hidden'));
-
-        // Add Multiple – opens spreadsheet modal
-        const addMultiBtn = $('addMultipleTrucksBtn');
-        if (addMultiBtn) {
-            addMultiBtn.addEventListener('click', () => openMultiTruckModal());
-        }
 
         // Import – trigger CSV file picker
         const importBtn = $('importTrucksBtn');
@@ -392,40 +386,124 @@
         }
     }
 
-    // ── MULTI-TRUCK SPREADSHEET ──────────
-    const MULTI_TRUCK_COLS = [
-        { key: 'unit', placeholder: 'e.g., 101', type: 'text', required: true },
-        { key: 'year', placeholder: 'e.g., 2022', type: 'number' },
-        { key: 'make', placeholder: 'e.g., Freightliner', type: 'text' },
-        { key: 'model', placeholder: 'e.g., Cascadia', type: 'text' },
-        { key: 'vin', placeholder: '17-character VIN', type: 'text', maxlength: 17 },
-        { key: 'plate', placeholder: 'e.g., ABC 1234', type: 'text' },
-        { key: 'plateState', placeholder: 'TX', type: 'text', maxlength: 2 },
-        { key: 'fuel', type: 'select', defaultLabel: 'Diesel', options: [
-            { value: 'diesel', label: 'Diesel' },
-            { value: 'gasoline', label: 'Gasoline' },
-            { value: 'cng', label: 'CNG' },
-            { value: 'lng', label: 'LNG' }
-        ]},
-        { key: 'status', type: 'select', defaultLabel: 'Active', options: [
-            { value: 'active', label: 'Active' },
-            { value: 'inactive', label: 'Out of Service' },
-            { value: 'maintenance', label: 'In Maintenance' }
-        ]}
-    ];
+    // ── SHEET MODAL SYSTEM (Trucks, Trailers, Drivers) ──
+    const SHEET_CONFIGS = {
+        truck: {
+            cols: [
+                { key: 'unit', placeholder: 'e.g., 101', type: 'text', required: true },
+                { key: 'year', placeholder: 'e.g., 2022', type: 'number' },
+                { key: 'make', placeholder: 'e.g., Freightliner', type: 'text' },
+                { key: 'model', placeholder: 'e.g., Cascadia', type: 'text' },
+                { key: 'vin', placeholder: '17-character VIN', type: 'text', maxlength: 17 },
+                { key: 'plate', placeholder: 'e.g., ABC 1234', type: 'text' },
+                { key: 'plateState', placeholder: 'TX', type: 'text', maxlength: 2 },
+                { key: 'fuel', type: 'select', defaultLabel: 'Diesel', options: [
+                    { value: 'diesel', label: 'Diesel' },
+                    { value: 'gasoline', label: 'Gasoline' },
+                    { value: 'cng', label: 'CNG' },
+                    { value: 'lng', label: 'LNG' }
+                ]},
+                { key: 'status', type: 'select', defaultLabel: 'Active', options: [
+                    { value: 'active', label: 'Active' },
+                    { value: 'inactive', label: 'Out of Service' },
+                    { value: 'maintenance', label: 'In Maintenance' }
+                ]}
+            ],
+            collection: 'trucks',
+            label: 'truck',
+            requiredKey: 'unit',
+            duplicateKey: 'unit',
+            modalId: 'multiTruckModal',
+            tbodyId: 'multiTruckBody',
+            countId: 'multiTruckRowCount',
+            addRowId: 'multiTruckAddRow',
+            closeId: 'closeMultiTruckModal',
+            cancelId: 'cancelMultiTruck',
+            saveId: 'saveMultiTruck',
+            defaults: { fuel: 'diesel', status: 'active' },
+            afterSave: () => { loadTrucks(); populateTruckDropdown(); }
+        },
+        trailer: {
+            cols: [
+                { key: 'unit', placeholder: 'e.g., T-201', type: 'text', required: true },
+                { key: 'year', placeholder: 'e.g., 2020', type: 'number' },
+                { key: 'make', placeholder: 'e.g., Utility', type: 'text' },
+                { key: 'type', type: 'select', defaultLabel: 'Dry Van', options: [
+                    { value: 'dry-van', label: 'Dry Van' },
+                    { value: 'reefer', label: 'Reefer' },
+                    { value: 'flatbed', label: 'Flatbed' },
+                    { value: 'step-deck', label: 'Step Deck' },
+                    { value: 'tanker', label: 'Tanker' },
+                    { value: 'lowboy', label: 'Lowboy' },
+                    { value: 'other', label: 'Other' }
+                ]},
+                { key: 'vin', placeholder: '17-character VIN', type: 'text', maxlength: 17 },
+                { key: 'plate', placeholder: 'e.g., ABC 1234', type: 'text' },
+                { key: 'status', type: 'select', defaultLabel: 'Active', options: [
+                    { value: 'active', label: 'Active' },
+                    { value: 'inactive', label: 'Out of Service' },
+                    { value: 'maintenance', label: 'In Maintenance' }
+                ]}
+            ],
+            collection: 'trailers',
+            label: 'trailer',
+            requiredKey: 'unit',
+            duplicateKey: 'unit',
+            modalId: 'multiTrailerModal',
+            tbodyId: 'multiTrailerBody',
+            countId: 'multiTrailerRowCount',
+            addRowId: 'multiTrailerAddRow',
+            closeId: 'closeMultiTrailerModal',
+            cancelId: 'cancelMultiTrailer',
+            saveId: 'saveMultiTrailer',
+            defaults: { type: 'dry-van', status: 'active' },
+            afterSave: () => { loadTrailers(); }
+        },
+        driver: {
+            cols: [
+                { key: 'firstName', placeholder: 'e.g., John', type: 'text', required: true },
+                { key: 'lastName', placeholder: 'e.g., Smith', type: 'text' },
+                { key: 'phone', placeholder: '(555) 123-4567', type: 'text' },
+                { key: 'cdl', placeholder: 'CDL number', type: 'text' },
+                { key: 'cdlState', placeholder: 'TX', type: 'text', maxlength: 2 },
+                { key: 'email', placeholder: 'john@example.com', type: 'text' },
+                { key: 'status', type: 'select', defaultLabel: 'Active', options: [
+                    { value: 'active', label: 'Active' },
+                    { value: 'inactive', label: 'Inactive' },
+                    { value: 'on-leave', label: 'On Leave' }
+                ]}
+            ],
+            collection: 'drivers',
+            label: 'driver',
+            requiredKey: 'firstName',
+            duplicateKey: null,
+            modalId: 'multiDriverModal',
+            tbodyId: 'multiDriverBody',
+            countId: 'multiDriverRowCount',
+            addRowId: 'multiDriverAddRow',
+            closeId: 'closeMultiDriverModal',
+            cancelId: 'cancelMultiDriver',
+            saveId: 'saveMultiDriver',
+            defaults: { status: 'active' },
+            afterSave: () => { loadDrivers(); }
+        }
+    };
 
-    // Get the display label for a select column value
+    function getSheetConfig(el) {
+        const modal = el.closest('[data-sheet-type]');
+        return modal ? SHEET_CONFIGS[modal.dataset.sheetType] : null;
+    }
+
     function sheetSelectLabel(col, value) {
         if (!value && col.defaultLabel) return col.defaultLabel;
         const opt = col.options.find(o => o.value === value);
         return opt ? opt.label : (col.defaultLabel || '');
     }
 
-    // Build one row element. rowData is optional (for pre-filled rows).
-    function buildSheetRow(index, rowData) {
+    function buildSheetRow(index, rowData, cols) {
         const data = rowData || {};
         let cells = `<td class="sheet-row-num">${index + 1}</td>`;
-        MULTI_TRUCK_COLS.forEach(col => {
+        cols.forEach(col => {
             const val = data[col.key] || '';
             const displayText = col.type === 'select'
                 ? sheetSelectLabel(col, val)
@@ -454,15 +532,15 @@
         return tr;
     }
 
-    // Commit the current edit: sync input/select value back into the display text
     function commitSheetCell(cell) {
         if (!cell || !cell.classList.contains('cell-editing')) return;
         cell.classList.remove('cell-editing');
         const input = cell.querySelector('input');
         const select = cell.querySelector('select');
         const textEl = cell.querySelector('.sheet-cell-text');
+        const config = getSheetConfig(cell);
         const colKey = cell.dataset.colKey;
-        const colDef = MULTI_TRUCK_COLS.find(c => c.key === colKey);
+        const colDef = config ? config.cols.find(c => c.key === colKey) : null;
 
         if (select) {
             textEl.textContent = select.options[select.selectedIndex].text;
@@ -478,18 +556,14 @@
             }
         }
 
-        // Update row-has-data state
         const tr = cell.closest('tr');
         if (tr) checkRowData(tr);
-        // Run validation
         validateSheetCell(cell);
     }
 
-    // Start editing a specific cell
     function startEditingCell(cell) {
         if (!cell || cell.classList.contains('cell-editing')) return;
-        // Commit any other currently editing cell
-        const tbody = $('multiTruckBody');
+        const tbody = cell.closest('tbody');
         const prev = tbody.querySelector('.cell-editing');
         if (prev && prev !== cell) commitSheetCell(prev);
 
@@ -504,9 +578,9 @@
         }
     }
 
-    // Navigate to the next (or previous) editable cell from the current one
     function navigateSheet(fromCell, direction) {
-        const tbody = $('multiTruckBody');
+        const tbody = fromCell.closest('tbody');
+        const config = getSheetConfig(fromCell);
         const allCells = Array.from(tbody.querySelectorAll('.sheet-cell'));
         const idx = allCells.indexOf(fromCell);
         if (idx === -1) return;
@@ -514,11 +588,10 @@
         if (direction === 'next') {
             if (idx < allCells.length - 1) {
                 startEditingCell(allCells[idx + 1]);
-            } else {
-                // Last cell – add a new row and focus its first cell
-                const row = buildSheetRow(tbody.children.length);
+            } else if (config) {
+                const row = buildSheetRow(tbody.children.length, null, config.cols);
                 tbody.appendChild(row);
-                updateMultiTruckRowCount();
+                updateSheetRowCount(config);
                 const first = row.querySelector('.sheet-cell');
                 if (first) startEditingCell(first);
             }
@@ -543,33 +616,32 @@
         }
     }
 
-    // Validate a cell (required, duplicate unit, etc.)
     function validateSheetCell(cell) {
         cell.classList.remove('cell-invalid', 'cell-duplicate');
+        const config = getSheetConfig(cell);
+        if (!config) return;
         const colKey = cell.dataset.colKey;
         const input = cell.querySelector('input');
         if (!input) return;
         const val = input.value.trim();
 
-        // Required field check (only on save, not live — but mark empty required fields with data in row)
-        if (colKey === 'unit' && !val) {
+        if (colKey === config.requiredKey && !val) {
             const tr = cell.closest('tr');
             const hasOtherData = Array.from(tr.querySelectorAll('input[data-key]'))
-                .some(i => i.dataset.key !== 'unit' && i.value.trim());
+                .some(i => i.dataset.key !== config.requiredKey && i.value.trim());
             if (hasOtherData) cell.classList.add('cell-invalid');
         }
 
-        // Duplicate unit check
-        if (colKey === 'unit' && val) {
-            const tbody = $('multiTruckBody');
-            const allUnitCells = tbody.querySelectorAll('.sheet-cell[data-col-key="unit"]');
+        if (config.duplicateKey && colKey === config.duplicateKey && val) {
+            const tbody = cell.closest('tbody');
+            const allKeyCells = tbody.querySelectorAll('.sheet-cell[data-col-key="' + config.duplicateKey + '"]');
             let dupeCount = 0;
-            allUnitCells.forEach(c => {
+            allKeyCells.forEach(c => {
                 const inp = c.querySelector('input');
                 if (inp && inp.value.trim().toLowerCase() === val.toLowerCase()) dupeCount++;
             });
             if (dupeCount > 1) {
-                allUnitCells.forEach(c => {
+                allKeyCells.forEach(c => {
                     const inp = c.querySelector('input');
                     if (inp && inp.value.trim().toLowerCase() === val.toLowerCase()) {
                         c.classList.add('cell-duplicate');
@@ -579,15 +651,15 @@
         }
     }
 
-    function validateAllSheetCells() {
-        const tbody = $('multiTruckBody');
+    function validateAllSheetCells(config) {
+        const tbody = $(config.tbodyId);
         tbody.querySelectorAll('.sheet-cell').forEach(c => validateSheetCell(c));
     }
 
-    function updateMultiTruckRowCount() {
-        const tbody = $('multiTruckBody');
+    function updateSheetRowCount(config) {
+        const tbody = $(config.tbodyId);
         const count = tbody ? tbody.children.length : 0;
-        const el = $('multiTruckRowCount');
+        const el = $(config.countId);
         if (el) el.textContent = count + ' row' + (count !== 1 ? 's' : '');
         if (tbody) {
             Array.from(tbody.children).forEach((tr, i) => {
@@ -597,123 +669,35 @@
         }
     }
 
-    function openMultiTruckModal() {
-        const tbody = $('multiTruckBody');
-        tbody.innerHTML = '';
-        for (let i = 0; i < 5; i++) {
-            tbody.appendChild(buildSheetRow(i));
+    function ensureEmptyRow(config) {
+        const tbody = $(config.tbodyId);
+        if (!tbody) return;
+        const rows = Array.from(tbody.children);
+        if (rows.length === 0 || rows[rows.length - 1].classList.contains('row-has-data')) {
+            tbody.appendChild(buildSheetRow(rows.length, null, config.cols));
+            updateSheetRowCount(config);
         }
-        updateMultiTruckRowCount();
-        $('multiTruckModal').classList.remove('hidden');
-        // Start editing first cell
+    }
+
+    function openSheetModal(type) {
+        const config = SHEET_CONFIGS[type];
+        if (!config) return;
+        const tbody = $(config.tbodyId);
+        tbody.innerHTML = '';
+        tbody.appendChild(buildSheetRow(0, null, config.cols));
+        updateSheetRowCount(config);
+        $(config.modalId).classList.remove('hidden');
         const first = tbody.querySelector('.sheet-cell');
         if (first) setTimeout(() => startEditingCell(first), 80);
     }
 
-    function initMultiTruckModal() {
-        const modal = $('multiTruckModal');
-        if (!modal) return;
-
-        $('closeMultiTruckModal').addEventListener('click', () => { commitActiveCell(); modal.classList.add('hidden'); });
-        $('cancelMultiTruck').addEventListener('click', () => { commitActiveCell(); modal.classList.add('hidden'); });
-
-        // Add row
-        $('multiTruckAddRow').addEventListener('click', () => {
-            const tbody = $('multiTruckBody');
-            commitActiveCell();
-            const row = buildSheetRow(tbody.children.length);
-            tbody.appendChild(row);
-            updateMultiTruckRowCount();
-            const first = row.querySelector('.sheet-cell');
-            if (first) startEditingCell(first);
-        });
-
-        const tbody = $('multiTruckBody');
-
-        // Click to edit – delegated
-        tbody.addEventListener('click', (e) => {
-            const deleteBtn = e.target.closest('.sheet-row-delete');
-            if (deleteBtn) {
-                const tr = deleteBtn.closest('tr');
-                if (tbody.children.length <= 1) {
-                    tr.querySelectorAll('input').forEach(i => { i.value = ''; });
-                    tr.querySelectorAll('select').forEach(s => { s.selectedIndex = 0; });
-                    tr.classList.remove('row-has-data');
-                    // Reset display text
-                    tr.querySelectorAll('.sheet-cell').forEach(c => {
-                        const colKey = c.dataset.colKey;
-                        const colDef = MULTI_TRUCK_COLS.find(cc => cc.key === colKey);
-                        const textEl = c.querySelector('.sheet-cell-text');
-                        if (colDef && colDef.type === 'select') {
-                            textEl.textContent = colDef.defaultLabel || colDef.options[0].label;
-                            textEl.classList.remove('placeholder');
-                        } else if (textEl) {
-                            textEl.textContent = colDef ? colDef.placeholder || '' : '';
-                            textEl.classList.add('placeholder');
-                        }
-                        c.classList.remove('cell-editing', 'cell-invalid', 'cell-duplicate');
-                    });
-                    return;
-                }
-                tr.remove();
-                updateMultiTruckRowCount();
-                validateAllSheetCells();
-                return;
-            }
-
-            const cell = e.target.closest('.sheet-cell');
-            if (cell) startEditingCell(cell);
-        });
-
-        // Keyboard navigation
-        tbody.addEventListener('keydown', (e) => {
-            const cell = e.target.closest('.sheet-cell');
-            if (!cell) return;
-
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                commitSheetCell(cell);
-                navigateSheet(cell, e.shiftKey ? 'prev' : 'next');
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                commitSheetCell(cell);
-                navigateSheet(cell, 'down');
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                commitSheetCell(cell);
-            }
-        });
-
-        // Commit on select change (for fuel/status dropdowns)
-        tbody.addEventListener('change', (e) => {
-            if (e.target.tagName === 'SELECT') {
-                const cell = e.target.closest('.sheet-cell');
-                if (cell) {
-                    commitSheetCell(cell);
-                    navigateSheet(cell, 'next');
-                }
-            }
-        });
-
-        // Clicking outside the table commits
-        modal.addEventListener('mousedown', (e) => {
-            if (e.target === modal) {
-                commitActiveCell();
-                modal.classList.add('hidden');
-                return;
-            }
-            if (!e.target.closest('.multi-truck-sheet tbody')) {
-                commitActiveCell();
-            }
-        });
-
-        // Save all
-        $('saveMultiTruck').addEventListener('click', saveMultiTrucks);
-    }
-
-    function commitActiveCell() {
-        const active = document.querySelector('#multiTruckBody .cell-editing');
-        if (active) commitSheetCell(active);
+    function commitActiveCell(config) {
+        if (config) {
+            const active = $(config.tbodyId).querySelector('.cell-editing');
+            if (active) commitSheetCell(active);
+        } else {
+            document.querySelectorAll('[data-sheet-type] .cell-editing').forEach(c => commitSheetCell(c));
+        }
     }
 
     function checkRowData(tr) {
@@ -721,20 +705,131 @@
         tr.classList.toggle('row-has-data', hasData);
     }
 
-    async function saveMultiTrucks() {
-        commitActiveCell();
-        validateAllSheetCells();
+    function initSheetModals() {
+        Object.keys(SHEET_CONFIGS).forEach(type => {
+            const config = SHEET_CONFIGS[type];
+            const modal = $(config.modalId);
+            if (!modal) return;
+            const tbody = $(config.tbodyId);
 
-        // Check for validation errors
-        const tbody = $('multiTruckBody');
+            $(config.closeId).addEventListener('click', () => { commitActiveCell(config); modal.classList.add('hidden'); });
+            $(config.cancelId).addEventListener('click', () => { commitActiveCell(config); modal.classList.add('hidden'); });
+
+            $(config.addRowId).addEventListener('click', () => {
+                commitActiveCell(config);
+                const row = buildSheetRow(tbody.children.length, null, config.cols);
+                tbody.appendChild(row);
+                updateSheetRowCount(config);
+                const first = row.querySelector('.sheet-cell');
+                if (first) startEditingCell(first);
+            });
+
+            // Click to edit / delete row
+            tbody.addEventListener('click', (e) => {
+                const deleteBtn = e.target.closest('.sheet-row-delete');
+                if (deleteBtn) {
+                    const tr = deleteBtn.closest('tr');
+                    if (tbody.children.length <= 1) {
+                        tr.querySelectorAll('input').forEach(i => { i.value = ''; });
+                        tr.querySelectorAll('select').forEach(s => { s.selectedIndex = 0; });
+                        tr.classList.remove('row-has-data');
+                        tr.querySelectorAll('.sheet-cell').forEach(c => {
+                            const colKey = c.dataset.colKey;
+                            const colDef = config.cols.find(cc => cc.key === colKey);
+                            const textEl = c.querySelector('.sheet-cell-text');
+                            if (colDef && colDef.type === 'select') {
+                                textEl.textContent = colDef.defaultLabel || colDef.options[0].label;
+                                textEl.classList.remove('placeholder');
+                            } else if (textEl) {
+                                textEl.textContent = colDef ? colDef.placeholder || '' : '';
+                                textEl.classList.add('placeholder');
+                            }
+                            c.classList.remove('cell-editing', 'cell-invalid', 'cell-duplicate');
+                        });
+                        return;
+                    }
+                    tr.remove();
+                    updateSheetRowCount(config);
+                    validateAllSheetCells(config);
+                    ensureEmptyRow(config);
+                    return;
+                }
+
+                const cell = e.target.closest('.sheet-cell');
+                if (cell) startEditingCell(cell);
+            });
+
+            // Keyboard navigation
+            tbody.addEventListener('keydown', (e) => {
+                const cell = e.target.closest('.sheet-cell');
+                if (!cell) return;
+
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    commitSheetCell(cell);
+                    navigateSheet(cell, e.shiftKey ? 'prev' : 'next');
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    commitSheetCell(cell);
+                    navigateSheet(cell, 'down');
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    commitSheetCell(cell);
+                }
+            });
+
+            // Commit on select change
+            tbody.addEventListener('change', (e) => {
+                if (e.target.tagName === 'SELECT') {
+                    const cell = e.target.closest('.sheet-cell');
+                    if (cell) {
+                        commitSheetCell(cell);
+                        navigateSheet(cell, 'next');
+                    }
+                }
+            });
+
+            // Auto-add empty row when typing in last row
+            tbody.addEventListener('input', (e) => {
+                const tr = e.target.closest('tr');
+                if (!tr) return;
+                checkRowData(tr);
+                if (tr === tbody.lastElementChild && tr.classList.contains('row-has-data')) {
+                    ensureEmptyRow(config);
+                }
+            });
+
+            // Clicking outside table commits
+            modal.addEventListener('mousedown', (e) => {
+                if (e.target === modal) {
+                    commitActiveCell(config);
+                    modal.classList.add('hidden');
+                    return;
+                }
+                if (!e.target.closest('.sheet-table tbody')) {
+                    commitActiveCell(config);
+                }
+            });
+
+            // Save
+            $(config.saveId).addEventListener('click', () => saveSheetData(type));
+        });
+    }
+
+    async function saveSheetData(type) {
+        const config = SHEET_CONFIGS[type];
+        commitActiveCell(config);
+        validateAllSheetCells(config);
+
+        const tbody = $(config.tbodyId);
         const hasInvalid = tbody.querySelector('.cell-invalid');
         const hasDuplicate = tbody.querySelector('.cell-duplicate');
         if (hasInvalid) {
-            showMsg('Some rows have data but are missing a Unit #', true);
+            showMsg('Some rows have data but are missing a required field', true);
             return;
         }
         if (hasDuplicate) {
-            if (!confirm('Duplicate Unit # found. Save anyway?')) return;
+            if (!confirm('Duplicate values found. Save anyway?')) return;
         }
 
         const rows = Array.from(tbody.children);
@@ -746,31 +841,36 @@
             tr.querySelectorAll('[data-key]').forEach(el => {
                 data[el.dataset.key] = el.value.trim();
             });
-            if (!data.unit) continue;
+            if (!data[config.requiredKey]) continue;
+            // Apply defaults for empty fields
+            if (config.defaults) {
+                Object.entries(config.defaults).forEach(([k, v]) => {
+                    if (!data[k]) data[k] = v;
+                });
+            }
+            // Uppercase state fields
             if (data.plateState) data.plateState = data.plateState.toUpperCase();
-            if (!data.fuel) data.fuel = 'diesel';
-            if (!data.status) data.status = 'active';
+            if (data.cdlState) data.cdlState = data.cdlState.toUpperCase();
             data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
             data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-            const doc = col('trucks').doc();
+            const doc = col(config.collection).doc();
             batch.set(doc, data);
             count++;
         }
 
         if (count === 0) {
-            showMsg('Enter at least one truck with a Unit #', true);
+            showMsg('Enter at least one ' + config.label + ' with required fields', true);
             return;
         }
 
         try {
             await batch.commit();
-            await loadTrucks();
-            populateTruckDropdown();
-            $('multiTruckModal').classList.add('hidden');
-            showMsg(count + ' truck' + (count > 1 ? 's' : '') + ' added');
+            await config.afterSave();
+            $(config.modalId).classList.add('hidden');
+            showMsg(count + ' ' + config.label + (count > 1 ? 's' : '') + ' added');
         } catch (err) {
-            console.error('Multi-truck save error:', err);
-            showMsg('Error saving trucks', true);
+            console.error('Sheet save error:', err);
+            showMsg('Error saving ' + config.label + 's', true);
         }
     }
 
@@ -832,8 +932,8 @@
     }
 
     function initTrailerForm() {
-        $('addTrailerBtn').addEventListener('click', () => openTrailerModal(null));
-        $('addFirstTrailer').addEventListener('click', () => openTrailerModal(null));
+        $('addTrailerBtn').addEventListener('click', () => openSheetModal('trailer'));
+        $('addFirstTrailer').addEventListener('click', () => openSheetModal('trailer'));
         $('closeTrailerModal').addEventListener('click', () => $('trailerModal').classList.add('hidden'));
         $('cancelTrailer').addEventListener('click', () => $('trailerModal').classList.add('hidden'));
 
@@ -930,8 +1030,8 @@
     }
 
     function initDriverForm() {
-        $('addDriverBtn').addEventListener('click', () => openDriverModal(null));
-        $('addFirstDriver').addEventListener('click', () => openDriverModal(null));
+        $('addDriverBtn').addEventListener('click', () => openSheetModal('driver'));
+        $('addFirstDriver').addEventListener('click', () => openSheetModal('driver'));
         $('closeDriverModal').addEventListener('click', () => $('driverModal').classList.add('hidden'));
         $('cancelDriver').addEventListener('click', () => $('driverModal').classList.add('hidden'));
 
@@ -1424,7 +1524,7 @@
         initExpandToggles();
         initProfileForm();
         initTruckForm();
-        initMultiTruckModal();
+        initSheetModals();
         initTrailerForm();
         initDriverForm();
         initModalBackdrops();
