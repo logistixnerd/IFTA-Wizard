@@ -63,6 +63,9 @@ service cloud.firestore {
       match /trucks/{docId} {
         allow read, create, update, delete: if isOwner(userId);
       }
+      match /trucks/{truckId}/{document=**} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
       match /trailers/{docId} {
         allow read, create, update, delete: if isOwner(userId);
       }

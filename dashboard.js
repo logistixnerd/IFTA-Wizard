@@ -617,7 +617,7 @@
         const filtered = state.trucks.filter(t => matchesFilter(t, 'truck'));
         tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(t)}
-            <td class="col-unit"><div class="cell cell-editable" data-field="unit" data-id="${t.id}" data-collection="trucks"><strong>${escapeHtml(t.unit)}</strong></div></td>
+            <td class="col-unit"><button type="button" class="cell cell-link cell-link-unit" onclick="Dashboard.openTruckProfile('${t.id}')" title="Open unit profile for ${escapeHtml(t.unit || ('Unit ' + t.id))}"><strong>${escapeHtml(t.unit || ('Unit ' + t.id))}</strong></button></td>
             <td class="col-year"><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.year)}</div></td>
             <td class="col-make"><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.make)}</div></td>
             <td class="col-model"><div class="cell cell-editable" data-field="model" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.model)}</div></td>
@@ -634,6 +634,11 @@
                 </button>
             </div></td>
         </tr>${issueDetailRow(t, 10)}`).join('');
+    }
+
+    function openTruckProfile(id) {
+        if (!id) return;
+        window.location.href = 'unit-profile.html?truck=' + encodeURIComponent(id);
     }
 
     function openTruckModal(data) {
@@ -2453,7 +2458,8 @@
     window.Dashboard = {
         editTruck, editTrailer, editDriver,
         deleteTruck, deleteTrailer, deleteDriver,
-        inlineStatus
+        inlineStatus,
+        openTruckProfile
     };
 
     // Start when DOM is ready

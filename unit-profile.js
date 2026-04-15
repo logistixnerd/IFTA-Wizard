@@ -1,0 +1,387 @@
+(function () {
+    'use strict';
+
+    const state = {
+        user: null,
+        truckId: '',
+        truck: null,
+        history: [],
+        photos: [],
+        reports: []
+    };
+
+    function $(id) {
+        return document.getElementById(id);
+    }
+
+    function col(name) {
+        return db.collection('users').doc(state.user.uid).collection(name);
+    }
+
+    function truckRef() {
+        return col('trucks').doc(state.truckId);
+    }
+
+    function historyRef() {
+        return truckRef().collection('history');
+    }
+
+    function photoRef() {
+        return truckRef().collection('photos');
+    }
+
+    function escapeHtml(value) {
+        if (value == null) return '';
+        const div = document.createElement('div');
+        div.textContent = String(value);
+        return div.innerHTML;
+    }
+
+    function normalizeUnit(value) {
+        return String(value || '').trim().toUpperCase();
+    }
+
+    function fuelLabel(value) {
+        switch ((value || '').toLowerCase()) {
+        case 'diesel': return 'Diesel';
+        case 'gasoline': return 'Gasoline';
+        case 'cng': return 'CNG';
+        case 'lng': return 'LNG';
+        default: return value || 'Unknown';
+        }
+    }
+
+    function statusLabel(value) {
+        switch ((value || '').toLowerCase()) {
+        case 'active': return 'Active';
+        case 'inactive': return 'Out of Service';
+        case 'maintenance': return 'In Maintenance';
+        default: return value || 'Unknown';
+        }
+    }
+
+    function toDate(value) {
+        if (!value) return null;
+        if (typeof value.toDate === 'function') return value.toDate();
+        const parsed = new Date(value);
+        return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    function formatDate(value) {
+        const date = toDate(value);
+        if (!date) return 'Unknown date';
+        return new Intl.DateTimeFormat('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit'
+        }).format(date);
+    }
+
+    function setAlert(message) {
+        const alert = $('unitAlert');
+        if (!message) {
+            alert.classList.add('hidden');
+            alert.textContent = '';
+            return;
+        }
+        alert.textContent = message;
+        alert.classList.remove('hidden');
+    }
+
+    function renderTruck() {
+        const truck = state.truck;
+        if (!truck) return;
+        const unitLabel = truck.unit || ('Unit ' + state.truckId);
+        $('unitTitle').textContent = unitLabel;
+        $('unitSubtitle').textContent = [truck.year, truck.make, truck.model].filter(Boolean).join(' ') || 'No make/model details saved yet.';
+        $('unitStatusChip').textContent = statusLabel(truck.status);
+        $('unitFuelChip').textContent = fuelLabel(truck.fuel);
+        $('unitPlateChip').textContent = truck.plate ? (truck.plateState ? truck.plate + ' (' + truck.plateState + ')' : truck.plate) : 'No plate';
+
+        $('detailUnit').textContent = unitLabel;
+        $('detailYear').textContent = truck.year || '-';
+        $('detailMake').textContent = truck.make || '-';
+        $('detailModel').textContent = truck.model || '-';
+        $('detailVin').textContent = truck.vin || '-';
+        $('detailPlate').textContent = truck.plate ? (truck.plateState ? truck.plate + ' (' + truck.plateState + ')' : truck.plate) : '-';
+
+        document.title = unitLabel + ' - Unit Profile - IFTA Wizard';
+    }
+
+    function renderHistory() {
+        $('historyCount').textContent = String(state.history.length);
+        const list = $('historyList');
+        if (!state.history.length) {
+            list.innerHTML = '<div class="empty-state">No history yet. Add the first note, service update, or invoice reference for this unit.</div>';
+            return;
+        }
+
+        list.innerHTML = state.history.map(item => `
+            <article class="timeline-item">
+                <div class="timeline-head">
+                    <div>
+                        <span class="timeline-type">${escapeHtml(item.type || 'note')}</span>
+                        <div class="timeline-text">${escapeHtml(item.text || '')}</div>
+                    </div>
+                    <div class="item-actions">
+                        <span class="timeline-date">${escapeHtml(formatDate(item.createdAt || item.createdAtIso))}</span>
+                        <button type="button" data-delete-history="${escapeHtml(item.id)}">Delete</button>
+                    </div>
+                </div>
+            </article>
+        `).join('');
+
+        list.querySelectorAll('[data-delete-history]').forEach(button => {
+            button.addEventListener('click', async () => {
+                const entryId = button.getAttribute('data-delete-history');
+                if (!entryId || !confirm('Delete this history entry?')) return;
+                await historyRef().doc(entryId).delete();
+                await loadHistory();
+            });
+        });
+    }
+
+    function renderPhotos() {
+        $('photoCount').textContent = String(state.photos.length);
+        const grid = $('photoGrid');
+        if (!state.photos.length) {
+            grid.innerHTML = '<div class="empty-state">No photos uploaded yet. Add inspection shots, damage photos, invoices, or registration images.</div>';
+            return;
+        }
+
+        grid.innerHTML = state.photos.map(photo => `
+            <article class="photo-card">
+                <img src="${escapeHtml(photo.imageUrl || '')}" alt="${escapeHtml(photo.caption || 'Unit photo')}">
+                <div class="photo-card-body">
+                    <div class="photo-card-head">
+                        <strong>${escapeHtml(photo.caption || 'Unit photo')}</strong>
+                        <div class="item-actions">
+                            <span class="photo-date">${escapeHtml(formatDate(photo.createdAt || photo.createdAtIso))}</span>
+                            <button type="button" data-delete-photo="${escapeHtml(photo.id)}">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        `).join('');
+
+        grid.querySelectorAll('[data-delete-photo]').forEach(button => {
+            button.addEventListener('click', async () => {
+                const photoId = button.getAttribute('data-delete-photo');
+                if (!photoId || !confirm('Delete this photo?')) return;
+                await photoRef().doc(photoId).delete();
+                await loadPhotos();
+            });
+        });
+    }
+
+    function renderReports() {
+        $('reportCount').textContent = String(state.reports.length);
+        const list = $('reportList');
+        if (!state.reports.length) {
+            list.innerHTML = '<div class="empty-state">No saved reports are linked to this unit yet. Reports saved from the calculator with this unit selected will appear here.</div>';
+            return;
+        }
+
+        list.innerHTML = state.reports.map(report => {
+            const summary = report.summary || {};
+            return `
+                <article class="report-item">
+                    <div class="report-head">
+                        <div>
+                            <strong>${escapeHtml(report.name || 'Saved report')}</strong>
+                            <div class="report-meta">${escapeHtml(report.quarter || '')}${report.data?.fuelType ? ' • ' + escapeHtml(fuelLabel(report.data.fuelType)) : ''}${summary.totalMiles != null ? ' • ' + escapeHtml(String(summary.totalMiles)) + ' miles' : ''}</div>
+                        </div>
+                        <span class="report-date">${escapeHtml(formatDate(report.createdAt))}</span>
+                    </div>
+                    <div class="report-notes">${escapeHtml(report.notes || 'No notes added to this report.')}</div>
+                </article>
+            `;
+        }).join('');
+    }
+
+    async function loadTruck() {
+        const doc = await truckRef().get();
+        if (!doc.exists) {
+            setAlert('This unit could not be found. It may have been deleted.');
+            $('unitTitle').textContent = 'Unit not found';
+            $('unitSubtitle').textContent = 'Return to the dashboard and select another truck.';
+            return false;
+        }
+        state.truck = { id: doc.id, ...doc.data() };
+        renderTruck();
+        return true;
+    }
+
+    async function loadHistory() {
+        let snapshot;
+        try {
+            snapshot = await historyRef().orderBy('createdAt', 'desc').get();
+        } catch (error) {
+            snapshot = await historyRef().get();
+        }
+
+        state.history = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .sort((left, right) => {
+                const leftTime = toDate(left.createdAt || left.createdAtIso)?.getTime() || 0;
+                const rightTime = toDate(right.createdAt || right.createdAtIso)?.getTime() || 0;
+                return rightTime - leftTime;
+            });
+        renderHistory();
+    }
+
+    async function loadPhotos() {
+        let snapshot;
+        try {
+            snapshot = await photoRef().orderBy('createdAt', 'desc').get();
+        } catch (error) {
+            snapshot = await photoRef().get();
+        }
+
+        state.photos = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .sort((left, right) => {
+                const leftTime = toDate(left.createdAt || left.createdAtIso)?.getTime() || 0;
+                const rightTime = toDate(right.createdAt || right.createdAtIso)?.getTime() || 0;
+                return rightTime - leftTime;
+            });
+        renderPhotos();
+    }
+
+    async function loadReports() {
+        const unitValue = normalizeUnit(state.truck?.unit);
+        if (!unitValue) {
+            state.reports = [];
+            renderReports();
+            return;
+        }
+
+        let snapshot;
+        try {
+            snapshot = await db.collection('users').doc(state.user.uid).collection('reports').orderBy('createdAt', 'desc').get();
+        } catch (error) {
+            snapshot = await db.collection('users').doc(state.user.uid).collection('reports').get();
+        }
+
+        state.reports = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .filter(report => normalizeUnit(report.data?.unitNumber) === unitValue)
+            .sort((left, right) => {
+                const leftTime = toDate(left.createdAt)?.getTime() || 0;
+                const rightTime = toDate(right.createdAt)?.getTime() || 0;
+                return rightTime - leftTime;
+            });
+        renderReports();
+    }
+
+    async function resizeImage(file, maxSize) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error('Failed to read file.'));
+            reader.onload = () => {
+                const image = new Image();
+                image.onerror = () => reject(new Error('Invalid image file.'));
+                image.onload = () => {
+                    const ratio = Math.min(1, maxSize / Math.max(image.width, image.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.max(1, Math.round(image.width * ratio));
+                    canvas.height = Math.max(1, Math.round(image.height * ratio));
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                    resolve(canvas.toDataURL('image/jpeg', 0.82));
+                };
+                image.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    function bindForms() {
+        $('historyForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const type = $('historyType').value;
+            const text = $('historyText').value.trim();
+            if (!text) {
+                setAlert('History text is required.');
+                return;
+            }
+
+            setAlert('');
+            await historyRef().add({
+                type,
+                text,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAtIso: new Date().toISOString()
+            });
+            $('historyForm').reset();
+            $('historyType').value = 'note';
+            await loadHistory();
+        });
+
+        $('photoForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const file = $('photoUpload').files[0];
+            const caption = $('photoCaption').value.trim();
+            if (!file) {
+                setAlert('Select a photo to upload.');
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                setAlert('Photo must be smaller than 5 MB.');
+                return;
+            }
+
+            setAlert('');
+            const imageUrl = await resizeImage(file, 1600);
+            await photoRef().add({
+                caption,
+                imageUrl,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAtIso: new Date().toISOString()
+            });
+            $('photoForm').reset();
+            await loadPhotos();
+        });
+    }
+
+    async function loadPage() {
+        const ok = await loadTruck();
+        if (!ok) return;
+        await Promise.all([loadHistory(), loadPhotos(), loadReports()]);
+    }
+
+    function initAuth() {
+        firebase.auth().onAuthStateChanged(async user => {
+            if (!user) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            state.user = user;
+            $('unitUserEmail').textContent = user.email || '';
+            state.truckId = new URLSearchParams(window.location.search).get('truck') || '';
+
+            if (!state.truckId) {
+                setAlert('No unit was selected. Return to the dashboard and open a truck profile from the Unit button.');
+                $('unitTitle').textContent = 'No unit selected';
+                $('unitSubtitle').textContent = 'A truck id is required in the page URL.';
+                return;
+            }
+
+            bindForms();
+            await loadPage();
+        });
+    }
+
+    function init() {
+        initAuth();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
