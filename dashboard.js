@@ -621,7 +621,7 @@
             <td class="col-year"><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.year)}</div></td>
             <td class="col-make"><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.make)}</div></td>
             <td class="col-model"><div class="cell cell-editable" data-field="model" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.model)}</div></td>
-            <td class="col-vin"><div class="cell cell-editable" data-field="vin" data-id="${t.id}" data-collection="trucks" title="${escapeHtml(t.vin)}">${escapeHtml(t.vin)}</div></td>
+            <td class="col-vin" data-col="vin"><div class="cell cell-editable vin-cell" data-field="vin" data-id="${t.id}" data-collection="trucks" title="${escapeHtml(t.vin)}">${escapeHtml(t.vin)}</div></td>
             <td class="col-plate"><div class="cell cell-editable" data-field="plate" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</div></td>
             <td class="col-fuel"><div class="cell cell-editable" data-field="fuel" data-id="${t.id}" data-collection="trucks">${fuelLabel(t.fuel)}</div></td>
             <td class="col-status"><div class="cell">${statusSelect(t.status, t.id, 'trucks', 'truck')}</div></td>
@@ -639,6 +639,16 @@
     function openTruckProfile(id) {
         if (!id) return;
         window.location.href = 'unit-profile.html?truck=' + encodeURIComponent(id);
+    }
+
+    function openTrailerProfile(id) {
+        if (!id) return;
+        window.location.href = 'trailer-profile.html?trailer=' + encodeURIComponent(id);
+    }
+
+    function openDriverProfile(id) {
+        if (!id) return;
+        window.location.href = 'driver-profile.html?driver=' + encodeURIComponent(id);
     }
 
     function openTruckModal(data) {
@@ -1544,7 +1554,7 @@
         const filtered = state.trailers.filter(t => matchesFilter(t, 'trailer'));
         tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(t)}
-            <td><div class="cell cell-editable" data-field="unit" data-id="${t.id}" data-collection="trailers"><strong>${escapeHtml(t.unit)}</strong></div></td>
+            <td><button type="button" class="cell cell-link cell-link-unit" onclick="Dashboard.openTrailerProfile('${t.id}')" title="Open trailer profile for ${escapeHtml(t.unit || ('Trailer ' + t.id))}"><strong>${escapeHtml(t.unit || ('Trailer ' + t.id))}</strong></button></td>
             <td><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.year)}</div></td>
             <td><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.make)}</div></td>
             <td><div class="cell cell-editable" data-field="type" data-id="${t.id}" data-collection="trailers">${trailerTypeLabel(t.type)}</div></td>
@@ -1658,7 +1668,7 @@
         const filtered = state.drivers.filter(d => matchesFilter(d, 'driver'));
         tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}" class="${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(d)}
-            <td><div class="cell cell-editable" data-field="name" data-id="${d.id}" data-collection="drivers"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></div></td>
+            <td><button type="button" class="cell cell-link cell-link-unit" onclick="Dashboard.openDriverProfile('${d.id}')" title="Open driver profile for ${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></button></td>
             <td><div class="cell cell-editable" data-field="cdl" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdl)}</div></td>
             <td><div class="cell cell-editable" data-field="cdlState" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdlState)}</div></td>
             <td><div class="cell cell-editable" data-field="cdlExp" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdlExp)}</div></td>
@@ -2459,7 +2469,7 @@
         editTruck, editTrailer, editDriver,
         deleteTruck, deleteTrailer, deleteDriver,
         inlineStatus,
-        openTruckProfile
+        openTruckProfile, openTrailerProfile, openDriverProfile
     };
 
     // Start when DOM is ready

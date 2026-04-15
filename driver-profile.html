@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Driver Profile - IFTA Wizard</title>
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="unit-profile.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="unit-page">
+        <header class="unit-topbar">
+            <a class="unit-back-link" href="dashboard.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
+                Back to Dashboard
+            </a>
+            <span class="unit-user-email" id="unitUserEmail"></span>
+        </header>
+
+        <main class="unit-shell">
+            <section class="unit-hero card">
+                <div class="unit-hero-copy">
+                    <p class="eyebrow">Driver profile</p>
+                    <h1 id="unitTitle">Loading driver...</h1>
+                    <p class="unit-subtitle" id="unitSubtitle">Pulling driver details and history.</p>
+                    <div class="unit-chip-row">
+                        <span class="unit-chip" id="unitStatusChip">Status</span>
+                        <span class="unit-chip unit-chip-muted" id="unitCdlChip">CDL</span>
+                        <span class="unit-chip unit-chip-muted" id="unitTruckChip">Assigned truck</span>
+                    </div>
+                </div>
+                <div class="unit-hero-stats">
+                    <div class="hero-stat">
+                        <span class="hero-stat-label">History entries</span>
+                        <strong id="historyCount">0</strong>
+                    </div>
+                    <div class="hero-stat">
+                        <span class="hero-stat-label">Photos</span>
+                        <strong id="photoCount">0</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="unit-alert hidden" id="unitAlert"></section>
+
+            <section class="unit-grid">
+                <article class="card unit-card">
+                    <div class="card-header">
+                        <div>
+                            <p class="eyebrow">Driver details</p>
+                            <h2>Personal summary</h2>
+                        </div>
+                    </div>
+                    <dl class="unit-details-list">
+                        <div><dt>Full name</dt><dd id="detailName">-</dd></div>
+                        <div><dt>Phone</dt><dd id="detailPhone">-</dd></div>
+                        <div><dt>Email</dt><dd id="detailEmail">-</dd></div>
+                        <div><dt>CDL number</dt><dd id="detailCdl">-</dd></div>
+                        <div><dt>CDL state</dt><dd id="detailCdlState">-</dd></div>
+                        <div><dt>CDL expiration</dt><dd id="detailCdlExp">-</dd></div>
+                        <div><dt>Medical card exp.</dt><dd id="detailMedExp">-</dd></div>
+                        <div><dt>Assigned truck</dt><dd id="detailTruck">-</dd></div>
+                    </dl>
+                </article>
+
+                <article class="card unit-card unit-card-wide">
+                    <div class="card-header card-header-stacked">
+                        <div>
+                            <p class="eyebrow">History</p>
+                            <h2>Notes and activity</h2>
+                        </div>
+                        <form class="history-form" id="historyForm">
+                            <div class="form-field">
+                                <label for="historyType">Entry type</label>
+                                <select id="historyType">
+                                    <option value="note">General note</option>
+                                    <option value="incident">Incident</option>
+                                    <option value="training">Training</option>
+                                    <option value="inspection">Inspection / roadside</option>
+                                    <option value="license">License / certification</option>
+                                    <option value="review">Performance review</option>
+                                </select>
+                            </div>
+                            <div class="form-field">
+                                <label for="historyText">What happened?</label>
+                                <textarea id="historyText" rows="4" placeholder="Add training completions, roadside inspection results, CDL renewal notes, or any driver-specific history."></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Save entry</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="timeline-list" id="historyList"></div>
+                </article>
+
+                <article class="card unit-card">
+                    <div class="card-header card-header-stacked">
+                        <div>
+                            <p class="eyebrow">Documents &amp; photos</p>
+                            <h2>Driver documents</h2>
+                        </div>
+                        <form class="photo-form" id="photoForm">
+                            <div class="form-field">
+                                <label for="photoUpload">Upload photo / document</label>
+                                <input type="file" id="photoUpload" accept="image/*" required>
+                            </div>
+                            <div class="form-field">
+                                <label for="photoCaption">Caption</label>
+                                <input type="text" id="photoCaption" maxlength="120" placeholder="CDL front, medical card, training certificate...">
+                            </div>
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Add document</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="photo-grid" id="photoGrid"></div>
+                </article>
+            </section>
+        </main>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="driver-profile.js"></script>
+</body>
+</html>
