@@ -321,7 +321,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 0.6875rem;
-    table-layout: auto;
+    table-layout: fixed;
 }
 
 .dash-table th {
@@ -392,40 +392,10 @@
     background: rgba(0, 0, 0, 0.15);
 }
 
-/* Column width classes */
-.dash-table-trucks {
-    width: 100%;
-    min-width: 1180px;
-    table-layout: auto;
-    border-collapse: separate;
-    border-spacing: 0;
-}
+/* Shared column helpers */
+.col-validation { width: 3%; min-width: 28px; }
 
-.dash-table-trucks th,
-.dash-table-trucks td {
-    padding: 10px 12px;
-    vertical-align: middle;
-    white-space: nowrap;
-    line-height: 1.25;
-}
-
-.dash-table-trucks tbody tr {
-    height: 52px;
-}
-
-.dash-table-trucks .col-validation { width: 32px; }
-.dash-table-trucks .col-unit { min-width: 90px; }
-.dash-table-trucks .col-year { min-width: 70px; }
-.dash-table-trucks .col-make { min-width: 120px; }
-.dash-table-trucks .col-model { min-width: 120px; }
-.dash-table-trucks .col-vin { min-width: 190px; }
-.dash-table-trucks .col-plate { min-width: 150px; }
-.dash-table-trucks .col-fuel { min-width: 90px; }
-.dash-table-trucks .col-status { min-width: 110px; }
-.dash-table-trucks .col-actions { width: 72px; }
-
-.dash-table-trucks td[data-col="vin"],
-.dash-table-trucks .vin-cell {
+.vin-cell {
     font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 12px;
 }
@@ -470,7 +440,7 @@
     background: rgba(79, 70, 229, 0.08);
 }
 
-.dash-table-trucks .row-actions {
+.row-actions {
     display: inline-flex;
     align-items: center;
     gap: 8px;
