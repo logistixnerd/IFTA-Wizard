@@ -407,7 +407,7 @@
     padding: 0 0.15rem;
     height: 100%;
     min-height: 24px;
-    cursor: default;
+    cursor: inherit;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -518,6 +518,12 @@
 }
 
 .dash-table tbody tr[data-id] {
+    cursor: pointer;
+}
+
+.dash-table tbody tr[data-id] td:not(.col-status):not(.row-actions):not(.col-validation),
+.dash-table tbody tr[data-id] td:not(.col-status):not(.row-actions):not(.col-validation) .cell,
+.dash-table tbody tr[data-id] td:not(.col-status):not(.row-actions):not(.col-validation) strong {
     cursor: pointer;
 }
 
@@ -1928,12 +1934,11 @@ th.col-validation {
     align-items: center;
     justify-content: center;
     background: none;
-    border: none;
     padding: 2px;
-    cursor: pointer;
+    cursor: default;
     position: relative;
     border-radius: 4px;
-    transition: background 0.15s;
+    pointer-events: auto;
 }
 
 .dash-table th.col-validation + th {
@@ -1946,9 +1951,6 @@ th.col-validation {
 .dash-table td.col-validation + td .cell-input {
     padding-left: 0.05rem;
 }
-.validation-indicator:hover {
-    background: rgba(0,0,0,0.06);
-}
 .validation-indicator svg {
     flex-shrink: 0;
 }
@@ -1958,10 +1960,6 @@ th.col-validation {
 .vi-error svg {
     stroke: #dc3545;
 }
-.vi-expanded {
-    background: rgba(0,0,0,0.08);
-}
-
 /* Custom tooltip on hover */
 .vi-tooltip {
     display: none;

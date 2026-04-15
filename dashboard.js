@@ -633,7 +633,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </div></td>
-        </tr>${issueDetailRow(t, 10)}`).join('');
+        </tr>`).join('');
     }
 
     function openTruckProfile(id) {
@@ -1569,7 +1569,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </div></td>
-        </tr>${issueDetailRow(t, 9)}`).join('');
+        </tr>`).join('');
     }
 
     function openTrailerModal(data) {
@@ -1684,7 +1684,7 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </div></td>
-        </tr>${issueDetailRow(d, 10)}`).join('');
+        </tr>`).join('');
     }
 
     function openDriverModal(data) {
@@ -1817,15 +1817,14 @@
         const issues = item.validationIssues || [];
         const cls = isError ? 'error' : 'warning';
         const label = isError ? 'Error' : 'Warning';
-        const issueText = issues.length ? issues.map(i => escapeHtml(i)).join('\n') : (label + ': check this record');
         return `<td class="col-validation">
-            <button class="validation-indicator vi-${cls}" data-id="${item.id}" aria-label="${label}" type="button">
+            <span class="validation-indicator vi-${cls}" aria-label="${label}" role="img">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
                 <span class="vi-tooltip"><strong>${label}</strong>${issues.map(i => '<br>• ' + escapeHtml(i)).join('')}</span>
-            </button>
+            </span>
         </td>`;
     }
 
@@ -1848,25 +1847,6 @@
     // ── Inline Editing Engine ──────────────
     function initInlineEditing() {
         document.addEventListener('click', (e) => {
-            // Toggle validation detail row
-            const vBtn = e.target.closest('.validation-indicator');
-            if (vBtn) {
-                e.stopPropagation();
-                const id = vBtn.dataset.id;
-                const detailRow = document.querySelector(`.validation-detail-row[data-detail-for="${id}"]`);
-                if (detailRow) {
-                    const open = detailRow.style.display !== 'none';
-                    detailRow.style.display = open ? 'none' : '';
-                    vBtn.classList.toggle('vi-expanded', !open);
-                }
-                return;
-            }
-            // Inline edit
-            const cell = e.target.closest('.cell-editable');
-            if (cell) {
-                if (!cell.querySelector('.cell-input')) startInlineEdit(cell);
-                return;
-            }
             // Row → profile navigation (skip buttons, selects, inputs)
             if (!e.target.closest('button, select, input')) {
                 const row = e.target.closest('tr[data-id]');
