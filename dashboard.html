@@ -837,6 +837,31 @@
         </div>
     </div>
 
+    <!-- Dropdown Options Editor Modal -->
+    <div id="dropdownEditorModal" class="modal hidden">
+        <div class="modal-content dropdown-editor-modal">
+            <div class="modal-header">
+                <h2 id="dropdownEditorTitle">Edit Options</h2>
+                <button class="modal-close" id="closeDropdownEditor">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="dropdown-editor-list" id="dropdownEditorList"></div>
+                <div class="dropdown-editor-add">
+                    <input type="text" id="dropdownNewValue" placeholder="Value (e.g., electric)">
+                    <input type="text" id="dropdownNewLabel" placeholder="Label (e.g., Electric)">
+                    <button class="btn btn-primary btn-sm" id="dropdownAddBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                        Add
+                    </button>
+                </div>
+            </div>
+            <div class="dropdown-editor-footer">
+                <button class="btn btn-secondary btn-sm" id="dropdownEditorCancel">Cancel</button>
+                <button class="btn btn-primary btn-sm" id="dropdownEditorSave">Save Options</button>
+            </div>
+        </div>
+    </div>
+
     <script src="firebase-config.js"></script>
     <script src="dashboard.js"></script>
 </body>

@@ -11,8 +11,143 @@
         trucks: [],
         trailers: [],
         drivers: [],
-        profile: {}
+        profile: {},
+        dropdownOptions: {}
     };
+
+    // ── Editable Dropdown Definitions ──
+    const DROPDOWN_DEFS = {
+        truckFuel: {
+            label: 'Truck Fuel Types',
+            defaults: [
+                { value: 'diesel', label: 'Diesel' },
+                { value: 'gasoline', label: 'Gasoline' },
+                { value: 'cng', label: 'CNG' },
+                { value: 'lng', label: 'LNG' }
+            ],
+            formIds: ['truckFuel'],
+            filterIds: ['truckFuelFilter'],
+            sheetPath: { type: 'truck', colKey: 'fuel' }
+        },
+        truckStatus: {
+            label: 'Truck Status',
+            defaults: [
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Out of Service' },
+                { value: 'maintenance', label: 'In Maintenance' }
+            ],
+            formIds: ['truckStatus'],
+            filterIds: ['truckStatusFilter'],
+            sheetPath: { type: 'truck', colKey: 'status' }
+        },
+        trailerType: {
+            label: 'Trailer Types',
+            defaults: [
+                { value: 'dry-van', label: 'Dry Van' },
+                { value: 'reefer', label: 'Reefer' },
+                { value: 'flatbed', label: 'Flatbed' },
+                { value: 'step-deck', label: 'Step Deck' },
+                { value: 'tanker', label: 'Tanker' },
+                { value: 'lowboy', label: 'Lowboy' },
+                { value: 'other', label: 'Other' }
+            ],
+            formIds: ['trailerType'],
+            filterIds: [],
+            sheetPath: { type: 'trailer', colKey: 'type' }
+        },
+        trailerStatus: {
+            label: 'Trailer Status',
+            defaults: [
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Out of Service' },
+                { value: 'maintenance', label: 'In Maintenance' }
+            ],
+            formIds: ['trailerStatus'],
+            filterIds: ['trailerStatusFilter'],
+            sheetPath: { type: 'trailer', colKey: 'status' }
+        },
+        driverStatus: {
+            label: 'Driver Status',
+            defaults: [
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+                { value: 'on-leave', label: 'On Leave' }
+            ],
+            formIds: ['driverStatus'],
+            filterIds: ['driverStatusFilter'],
+            sheetPath: { type: 'driver', colKey: 'status' }
+        },
+        fleetSize: {
+            label: 'Fleet Size Ranges',
+            defaults: [
+                { value: '1-5', label: '1-5 trucks' },
+                { value: '6-20', label: '6-20 trucks' },
+                { value: '21-50', label: '21-50 trucks' },
+                { value: '51-100', label: '51-100 trucks' },
+                { value: '100+', label: '100+ trucks' }
+            ],
+            formIds: ['dashFleetSize'],
+            filterIds: [],
+            sheetPath: null
+        }
+    };
+
+    function getDropdownOptions(key) {
+        return state.dropdownOptions[key] || DROPDOWN_DEFS[key].defaults;
+    }
+
+    function syncDropdownOptions(key) {
+        const def = DROPDOWN_DEFS[key];
+        const options = getDropdownOptions(key);
+        // Update form selects
+        def.formIds.forEach(id => {
+            const sel = $(id);
+            if (!sel) return;
+            const current = sel.value;
+            const hasBlank = sel.options.length && sel.options[0].value === '';
+            sel.innerHTML = '';
+            if (hasBlank) {
+                const blank = document.createElement('option');
+                blank.value = '';
+                blank.textContent = 'Select...';
+                sel.appendChild(blank);
+            }
+            options.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.value;
+                opt.textContent = o.label;
+                sel.appendChild(opt);
+            });
+            sel.value = current;
+        });
+        // Update filter selects (preserve "All ..." first option)
+        def.filterIds.forEach(id => {
+            const sel = $(id);
+            if (!sel) return;
+            const current = sel.value;
+            const first = sel.options[0];
+            sel.innerHTML = '';
+            if (first) sel.appendChild(first);
+            options.forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.value;
+                opt.textContent = o.label;
+                sel.appendChild(opt);
+            });
+            sel.value = current;
+        });
+        // Update SHEET_CONFIGS
+        if (def.sheetPath) {
+            const cfg = SHEET_CONFIGS[def.sheetPath.type];
+            if (cfg) {
+                const c = cfg.cols.find(col => col.key === def.sheetPath.colKey);
+                if (c) {
+                    c.options = options.map(o => ({ ...o }));
+                    c.defaultLabel = options[0] ? options[0].label : '';
+                }
+            }
+        }
+    }
 
     // ── US / CA jurisdictions for Base State dropdown ──
     const JURISDICTIONS = [
@@ -57,7 +192,7 @@
                 return;
             }
             state.user = user;
-            $('dashUserEmail').textContent = user.email || '';
+            $('dashUserEmail').textContent = 'Welcome, ' + (user.displayName || 'User') + '!';
             await loadAll();
         });
     }
@@ -79,6 +214,9 @@
     // ── Load All Data ─────────────────────
     async function loadAll() {
         await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers()]);
+        renderTrucks();
+        renderTrailers();
+        renderDrivers();
         updateOverview();
     }
 
@@ -89,9 +227,14 @@
             const data = doc.exists ? doc.data() : {};
             state.profile = data;
 
+            // Load custom dropdown options
+            state.dropdownOptions = data.dropdownOptions || {};
+            Object.keys(DROPDOWN_DEFS).forEach(key => syncDropdownOptions(key));
+
             // Hero area
             $('dashProfileName').textContent = data.name || state.user.displayName || 'User';
             $('dashProfileEmail').textContent = state.user.email || '';
+            $('dashUserEmail').textContent = 'Welcome, ' + (data.name || state.user.displayName || 'User') + '!';
 
             // Avatar
             const photoUrl = state.user.photoURL || localStorage.getItem('ifta_avatar') || null;
@@ -165,6 +308,7 @@
             try {
                 await db.collection('users').doc(uid()).set(payload, { merge: true });
                 $('dashProfileName').textContent = payload.name || 'User';
+                $('dashUserEmail').textContent = 'Welcome, ' + (payload.name || 'User') + '!';
                 showMsg('Profile saved');
             } catch (err) {
                 console.error('Save profile error:', err);
@@ -407,12 +551,12 @@
         truck: {
             cols: [
                 { key: 'unit', placeholder: 'e.g., 101', type: 'text', required: true },
-                { key: 'year', placeholder: 'e.g., 2022', type: 'number' },
+                { key: 'year', placeholder: 'e.g., 2022', type: 'number', min: 1900, max: 2099 },
                 { key: 'make', placeholder: 'e.g., Freightliner', type: 'text' },
                 { key: 'model', placeholder: 'e.g., Cascadia', type: 'text' },
-                { key: 'vin', placeholder: '17-character VIN', type: 'text', maxlength: 17 },
+                { key: 'vin', placeholder: '17-character VIN', type: 'text', maxlength: 17, exactLength: 17, warnMsg: 'VIN must be 17 characters' },
                 { key: 'plate', placeholder: 'e.g., ABC 1234', type: 'text' },
-                { key: 'plateState', placeholder: 'TX', type: 'text', maxlength: 2 },
+                { key: 'plateState', placeholder: 'TX', type: 'text', maxlength: 2, pattern: /^[A-Z]{2}$/, warnMsg: 'Invalid state code' },
                 { key: 'fuel', type: 'select', defaultLabel: 'Diesel', options: [
                     { value: 'diesel', label: 'Diesel' },
                     { value: 'gasoline', label: 'Gasoline' },
@@ -453,7 +597,7 @@
         trailer: {
             cols: [
                 { key: 'unit', placeholder: 'e.g., T-201', type: 'text', required: true },
-                { key: 'year', placeholder: 'e.g., 2020', type: 'number' },
+                { key: 'year', placeholder: 'e.g., 2020', type: 'number', min: 1900, max: 2099 },
                 { key: 'make', placeholder: 'e.g., Utility', type: 'text' },
                 { key: 'type', type: 'select', defaultLabel: 'Dry Van', options: [
                     { value: 'dry-van', label: 'Dry Van' },
@@ -464,7 +608,7 @@
                     { value: 'lowboy', label: 'Lowboy' },
                     { value: 'other', label: 'Other' }
                 ]},
-                { key: 'vin', placeholder: '17-character VIN', type: 'text', maxlength: 17 },
+                { key: 'vin', placeholder: '17-character VIN', type: 'text', maxlength: 17, exactLength: 17, warnMsg: 'VIN must be 17 characters' },
                 { key: 'plate', placeholder: 'e.g., ABC 1234', type: 'text' },
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
@@ -501,7 +645,7 @@
                 { key: 'lastName', placeholder: 'e.g., Smith', type: 'text' },
                 { key: 'phone', placeholder: '(555) 123-4567', type: 'text' },
                 { key: 'cdl', placeholder: 'CDL number', type: 'text' },
-                { key: 'cdlState', placeholder: 'TX', type: 'text', maxlength: 2 },
+                { key: 'cdlState', placeholder: 'TX', type: 'text', maxlength: 2, pattern: /^[A-Z]{2}$/, warnMsg: 'Invalid state code' },
                 { key: 'email', placeholder: 'john@example.com', type: 'text' },
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
@@ -564,7 +708,7 @@
                     col.options.map(o => `<option value="${escapeHtml(o.value)}"${o.value === (val || col.options[0].value) ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') +
                     '</select>';
             } else {
-                cells += `<input type="${col.type === 'number' ? 'text' : col.type}" data-key="${col.key}" value="${escapeHtml(val)}" placeholder="${col.placeholder || ''}"${col.maxlength ? ' maxlength="' + col.maxlength + '"' : ''} tabindex="-1">`;
+                cells += `<input type="${col.type || 'text'}" data-key="${col.key}" value="${escapeHtml(val)}" placeholder="${col.placeholder || ''}"${col.maxlength ? ' maxlength="' + col.maxlength + '"' : ''}${col.min != null ? ' min="' + col.min + '"' : ''}${col.max != null ? ' max="' + col.max + '"' : ''} tabindex="-1">`;
             }
             cells += '</div></td>';
         });
@@ -662,21 +806,29 @@
     }
 
     function validateSheetCell(cell) {
-        cell.classList.remove('cell-invalid', 'cell-duplicate');
+        cell.classList.remove('cell-invalid', 'cell-duplicate', 'cell-warning');
+        cell.removeAttribute('title');
         const config = getSheetConfig(cell);
         if (!config) return;
         const colKey = cell.dataset.colKey;
+        const colDef = config.cols.find(c => c.key === colKey);
         const input = cell.querySelector('input');
         if (!input) return;
         const val = input.value.trim();
 
+        // Required field check (only flag if row has other data)
         if (colKey === config.requiredKey && !val) {
             const tr = cell.closest('tr');
             const hasOtherData = Array.from(tr.querySelectorAll('input[data-key]'))
                 .some(i => i.dataset.key !== config.requiredKey && i.value.trim());
-            if (hasOtherData) cell.classList.add('cell-invalid');
+            if (hasOtherData) {
+                cell.classList.add('cell-invalid');
+                cell.title = colDef ? (colDef.placeholder ? colKey + ' is required' : 'Required') : 'Required';
+                return;
+            }
         }
 
+        // Duplicate check
         if (config.duplicateKey && colKey === config.duplicateKey && val) {
             const tbody = cell.closest('tbody');
             const allKeyCells = tbody.querySelectorAll('.sheet-cell[data-col-key="' + config.duplicateKey + '"]');
@@ -690,8 +842,36 @@
                     const inp = c.querySelector('input');
                     if (inp && inp.value.trim().toLowerCase() === val.toLowerCase()) {
                         c.classList.add('cell-duplicate');
+                        c.title = 'Duplicate ' + colKey;
                     }
                 });
+            }
+        }
+
+        // Column-specific validation (only if cell has a value)
+        if (!val || !colDef) return;
+
+        // Exact length (e.g. VIN = 17)
+        if (colDef.exactLength && val.length !== colDef.exactLength) {
+            cell.classList.add('cell-warning');
+            cell.title = colDef.warnMsg || (colKey + ' must be ' + colDef.exactLength + ' characters');
+            return;
+        }
+
+        // Regex pattern (e.g. state code = /^[A-Z]{2}$/)
+        if (colDef.pattern && !colDef.pattern.test(val.toUpperCase())) {
+            cell.classList.add('cell-warning');
+            cell.title = colDef.warnMsg || ('Invalid ' + colKey);
+            return;
+        }
+
+        // Number range (e.g. year 1900-2099)
+        if (colDef.type === 'number' && (colDef.min != null || colDef.max != null)) {
+            const num = parseInt(val, 10);
+            if (isNaN(num) || (colDef.min != null && num < colDef.min) || (colDef.max != null && num > colDef.max)) {
+                cell.classList.add('cell-warning');
+                cell.title = colKey + ' must be between ' + (colDef.min || '') + ' and ' + (colDef.max || '');
+                return;
             }
         }
     }
@@ -856,6 +1036,82 @@
                 }
             });
 
+            // Paste from Excel / spreadsheet
+            tbody.addEventListener('paste', (e) => {
+                const clipText = (e.clipboardData || window.clipboardData).getData('text');
+                if (!clipText) return;
+                const pasteRows = clipText.replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');
+                if (pasteRows.length <= 1 && pasteRows[0].indexOf('\t') === -1) return; // single value, let default handle it
+
+                e.preventDefault();
+                commitActiveCell(config);
+
+                // Determine starting row + col from active cell
+                const activeCell = e.target.closest('.sheet-cell');
+                let startRow = 0, startCol = 0;
+                if (activeCell) {
+                    const tr = activeCell.closest('tr');
+                    startRow = Array.from(tbody.children).indexOf(tr);
+                    startCol = Array.from(tr.querySelectorAll('.sheet-cell')).indexOf(activeCell);
+                }
+
+                pasteRows.forEach((line, ri) => {
+                    const vals = line.split('\t');
+                    const rowIdx = startRow + ri;
+
+                    // Add rows if needed
+                    while (tbody.children.length <= rowIdx) {
+                        tbody.appendChild(buildSheetRow(tbody.children.length, null, config.cols));
+                    }
+
+                    const tr = tbody.children[rowIdx];
+                    const cells = tr.querySelectorAll('.sheet-cell');
+
+                    vals.forEach((raw, ci) => {
+                        const colIdx = startCol + ci;
+                        if (colIdx >= cells.length) return;
+                        const cell = cells[colIdx];
+                        const colDef = config.cols[colIdx];
+                        let val = raw.trim();
+
+                        const input = cell.querySelector('input');
+                        const select = cell.querySelector('select');
+                        const textEl = cell.querySelector('.sheet-cell-text');
+
+                        if (select && colDef && colDef.type === 'select') {
+                            const match = colDef.options.find(o =>
+                                o.value.toLowerCase() === val.toLowerCase() ||
+                                o.label.toLowerCase() === val.toLowerCase()
+                            );
+                            if (match) {
+                                select.value = match.value;
+                                textEl.textContent = match.label;
+                            } else if (val) {
+                                select.value = colDef.options[0].value;
+                                textEl.textContent = colDef.options[0].label;
+                            }
+                            textEl.classList.remove('placeholder');
+                        } else if (input) {
+                            if (colDef && (colDef.key === 'plateState' || colDef.key === 'cdlState')) val = val.toUpperCase();
+                            input.value = val;
+                            if (val) {
+                                textEl.textContent = val;
+                                textEl.classList.remove('placeholder');
+                            } else {
+                                textEl.textContent = colDef ? colDef.placeholder || '' : '';
+                                textEl.classList.add('placeholder');
+                            }
+                        }
+                    });
+                    checkRowData(tr);
+                });
+
+                updateSheetRowCount(config);
+                ensureEmptyRow(config);
+                validateAllSheetCells(config);
+                showMsg(pasteRows.length + ' row' + (pasteRows.length > 1 ? 's' : '') + ' pasted');
+            });
+
             // Save
             $(config.saveId).addEventListener('click', () => saveSheetData(type));
         });
@@ -869,12 +1125,16 @@
         const tbody = $(config.tbodyId);
         const hasInvalid = tbody.querySelector('.cell-invalid');
         const hasDuplicate = tbody.querySelector('.cell-duplicate');
+        const hasWarning = tbody.querySelector('.cell-warning');
         if (hasInvalid) {
             showMsg('Some rows have data but are missing a required field', true);
             return;
         }
         if (hasDuplicate) {
             if (!confirm('Duplicate values found. Save anyway?')) return;
+        }
+        if (hasWarning) {
+            if (!confirm('Some cells have warnings (hover for details). Save anyway?')) return;
         }
 
         const rows = Array.from(tbody.children);
@@ -1137,11 +1397,12 @@
 
     // ── Shared Helpers ────────────────────
     function statusLabel(val) {
-        const map = {
-            active: 'Active', inactive: 'Inactive',
-            maintenance: 'Maintenance', 'on-leave': 'On Leave'
-        };
-        return map[val] || 'Active';
+        for (const key of ['truckStatus', 'trailerStatus', 'driverStatus']) {
+            const opts = getDropdownOptions(key);
+            const match = opts.find(o => o.value === val);
+            if (match) return match.label;
+        }
+        return escapeHtml(val || 'Active');
     }
 
     function statusBadge(val) {
@@ -1151,10 +1412,9 @@
 
     function statusSelect(val, id, collection, type) {
         const s = val || 'active';
-        const options = type === 'driver'
-            ? [['active', 'Active'], ['inactive', 'Inactive'], ['on-leave', 'On Leave']]
-            : [['active', 'Active'], ['inactive', 'Out of Service'], ['maintenance', 'In Maintenance']];
-        const opts = options.map(([v, l]) => `<option value="${v}"${v === s ? ' selected' : ''}>${l}</option>`).join('');
+        const key = type === 'driver' ? 'driverStatus' : (collection === 'trailers' ? 'trailerStatus' : 'truckStatus');
+        const options = getDropdownOptions(key);
+        const opts = options.map(o => `<option value="${escapeHtml(o.value)}"${o.value === s ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('');
         return `<select class="cell-status-select status-badge ${escapeHtml(s)}" data-id="${id}" data-collection="${collection}" onchange="Dashboard.inlineStatus(this)">${opts}</select>`;
     }
 
@@ -1170,8 +1430,9 @@
     }
 
     function fuelLabel(val) {
-        const map = { diesel: 'Diesel', gasoline: 'Gas', cng: 'CNG', lng: 'LNG' };
-        return map[val] || escapeHtml(val || '—');
+        const opts = getDropdownOptions('truckFuel');
+        const match = opts.find(o => o.value === val);
+        return match ? match.label : escapeHtml(val || '—');
     }
 
     function truckLabel(truckId) {
@@ -1584,6 +1845,120 @@
         return fields.some(v => v && v.toString().trim() !== '' && v !== 'diesel' && v !== 'dry-van');
     }
 
+    // ── Dropdown Options Editor ───────────
+    let currentDropdownKey = null;
+    let currentDropdownEdits = [];
+
+    function openDropdownEditor(key) {
+        currentDropdownKey = key;
+        const def = DROPDOWN_DEFS[key];
+        currentDropdownEdits = getDropdownOptions(key).map(o => ({ ...o }));
+        $('dropdownEditorTitle').textContent = 'Edit ' + def.label;
+        renderDropdownEditorList();
+        $('dropdownNewValue').value = '';
+        $('dropdownNewLabel').value = '';
+        $('dropdownEditorModal').classList.remove('hidden');
+    }
+
+    function renderDropdownEditorList() {
+        const list = $('dropdownEditorList');
+        list.innerHTML = currentDropdownEdits.map((o, i) =>
+            `<div class="dropdown-editor-item" data-index="${i}">
+                <span class="dropdown-editor-value">${escapeHtml(o.value)}</span>
+                <span class="dropdown-editor-label">${escapeHtml(o.label)}</span>
+                <button class="dropdown-editor-remove" title="Remove option" data-index="${i}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                </button>
+            </div>`
+        ).join('');
+    }
+
+    function closeDropdownEditor() {
+        $('dropdownEditorModal').classList.add('hidden');
+        currentDropdownKey = null;
+        currentDropdownEdits = [];
+    }
+
+    async function saveDropdownEdits() {
+        if (!currentDropdownKey || !currentDropdownEdits.length) return;
+        const key = currentDropdownKey;
+        state.dropdownOptions[key] = currentDropdownEdits.map(o => ({ value: o.value, label: o.label }));
+        try {
+            const payload = {};
+            payload['dropdownOptions.' + key] = state.dropdownOptions[key];
+            await db.collection('users').doc(uid()).set(payload, { merge: true });
+            syncDropdownOptions(key);
+            closeDropdownEditor();
+            showMsg('Options updated');
+        } catch (err) {
+            console.error('Error saving dropdown options:', err);
+            showMsg('Error saving options', true);
+        }
+    }
+
+    function initDropdownEditors() {
+        // Inject edit buttons next to editable form selects
+        const selectMap = {};
+        Object.entries(DROPDOWN_DEFS).forEach(([key, def]) => {
+            def.formIds.forEach(id => { selectMap[id] = key; });
+        });
+        Object.entries(selectMap).forEach(([selectId, dropdownKey]) => {
+            const sel = $(selectId);
+            if (!sel) return;
+            const btn = document.createElement('button');
+            btn.className = 'dropdown-edit-btn';
+            btn.type = 'button';
+            btn.title = 'Edit options';
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openDropdownEditor(dropdownKey);
+            });
+            sel.parentNode.style.position = 'relative';
+            sel.parentNode.appendChild(btn);
+        });
+
+        // Editor modal events
+        $('closeDropdownEditor').addEventListener('click', closeDropdownEditor);
+        $('dropdownEditorCancel').addEventListener('click', closeDropdownEditor);
+        $('dropdownEditorSave').addEventListener('click', saveDropdownEdits);
+        $('dropdownEditorModal').addEventListener('click', (e) => {
+            if (e.target === $('dropdownEditorModal')) closeDropdownEditor();
+        });
+
+        $('dropdownAddBtn').addEventListener('click', () => {
+            const value = $('dropdownNewValue').value.trim().toLowerCase().replace(/\s+/g, '-');
+            const label = $('dropdownNewLabel').value.trim();
+            if (!value || !label) return;
+            if (currentDropdownEdits.some(o => o.value === value)) {
+                showMsg('Option already exists', true);
+                return;
+            }
+            currentDropdownEdits.push({ value, label });
+            renderDropdownEditorList();
+            $('dropdownNewValue').value = '';
+            $('dropdownNewLabel').value = '';
+            $('dropdownNewValue').focus();
+        });
+
+        $('dropdownNewLabel').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); $('dropdownAddBtn').click(); }
+        });
+
+        $('dropdownEditorList').addEventListener('click', (e) => {
+            const btn = e.target.closest('.dropdown-editor-remove');
+            if (!btn) return;
+            const idx = parseInt(btn.dataset.index, 10);
+            if (currentDropdownEdits.length <= 1) {
+                showMsg('Must have at least one option', true);
+                return;
+            }
+            currentDropdownEdits.splice(idx, 1);
+            renderDropdownEditorList();
+        });
+    }
+
     // ── Init ──────────────────────────────
     function init() {
         initNav();
@@ -1594,6 +1969,7 @@
         initSheetModals();
         initTrailerForm();
         initDriverForm();
+        initDropdownEditors();
         initModalBackdrops();
         initSearchFilters();
         initInlineEditing();
