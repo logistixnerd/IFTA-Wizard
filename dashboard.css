@@ -394,6 +394,15 @@
     background: rgba(0, 0, 0, 0.15);
 }
 
+/* Trucks table: auto layout so VIN/make/model/plate aren't clipped */
+#trucksTable {
+    table-layout: auto;
+    min-width: 860px;
+}
+#trucksTable td {
+    height: 32px;
+}
+
 /* Shared column helpers */
 .col-validation { width: 3%; min-width: 28px; }
 
