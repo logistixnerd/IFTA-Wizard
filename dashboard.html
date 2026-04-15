@@ -330,20 +330,20 @@
                             <p>No trucks added yet</p>
                             <button class="btn btn-secondary btn-sm" id="addFirstTruck">Add your first truck</button>
                         </div>
-                        <div class="dash-table-wrap">
-                            <table class="dash-table" id="trucksTable" style="display: none;">
+                        <div class="dash-table-wrap dash-table-scroll">
+                            <table class="dash-table dash-table-trucks" id="trucksTable" style="display: none;">
                                 <thead>
                                     <tr>
                                         <th class="col-validation"></th>
-                                        <th style="width:9%">Unit #</th>
-                                        <th style="width:7%">Year</th>
-                                        <th style="width:12%">Make</th>
-                                        <th style="width:12%">Model</th>
-                                        <th style="width:13%">VIN</th>
-                                        <th style="width:13%">License Plate</th>
-                                        <th style="width:10%">Fuel</th>
-                                        <th style="width:10%">Status</th>
-                                        <th style="width:72px"></th>
+                                        <th class="col-unit">Unit #</th>
+                                        <th class="col-year">Year</th>
+                                        <th class="col-make">Make</th>
+                                        <th class="col-model">Model</th>
+                                        <th class="col-vin">VIN</th>
+                                        <th class="col-plate">License Plate</th>
+                                        <th class="col-fuel">Fuel</th>
+                                        <th class="col-status">Status</th>
+                                        <th class="col-actions"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="trucksTableBody"></tbody>

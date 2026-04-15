@@ -321,7 +321,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 0.75rem;
-    table-layout: fixed;
+    table-layout: auto;
 }
 
 .dash-table th {
@@ -349,7 +349,7 @@
     border-right: 1px solid rgba(0, 0, 0, 0.03);
     color: var(--gray-700);
     position: relative;
-    height: 32px;
+    height: 36px;
     vertical-align: middle;
 }
 
@@ -367,13 +367,60 @@
     font-size: 0.75rem;
 }
 
+/* Scrollable table container */
+.dash-table-scroll {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 6px;
+}
+
+.dash-table-scroll::-webkit-scrollbar {
+    height: 6px;
+}
+
+.dash-table-scroll::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.dash-table-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 3px;
+}
+
+.dash-table-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+/* Column width classes */
+.dash-table-trucks th:nth-child(1),
+.dash-table-trucks td:nth-child(1) { min-width: 30px; width: 30px; }
+.dash-table-trucks th:nth-child(2),
+.dash-table-trucks td:nth-child(2) { min-width: 72px; }
+.dash-table-trucks th:nth-child(3),
+.dash-table-trucks td:nth-child(3) { min-width: 56px; }
+.dash-table-trucks th:nth-child(4),
+.dash-table-trucks td:nth-child(4) { min-width: 100px; }
+.dash-table-trucks th:nth-child(5),
+.dash-table-trucks td:nth-child(5) { min-width: 100px; }
+.dash-table-trucks th:nth-child(6),
+.dash-table-trucks td:nth-child(6) { min-width: 180px; }
+.dash-table-trucks th:nth-child(7),
+.dash-table-trucks td:nth-child(7) { min-width: 90px; }
+.dash-table-trucks th:nth-child(8),
+.dash-table-trucks td:nth-child(8) { min-width: 75px; }
+.dash-table-trucks th:nth-child(9),
+.dash-table-trucks td:nth-child(9) { min-width: 90px; }
+.dash-table-trucks th:nth-child(10),
+.dash-table-trucks td:nth-child(10) { min-width: 50px; width: 50px; }
+
 /* Cell wrapper for click-to-edit */
 .cell {
     display: flex;
     align-items: center;
     padding: 0 0.5rem;
     height: 100%;
-    min-height: 32px;
+    min-height: 36px;
     cursor: default;
     white-space: nowrap;
     overflow: hidden;
@@ -469,7 +516,9 @@
 .row-actions {
     text-align: center;
     white-space: nowrap;
-    width: 72px;
+    min-width: 60px;
+    width: 60px;
+    flex-shrink: 0;
 }
 
 .row-actions .cell {
