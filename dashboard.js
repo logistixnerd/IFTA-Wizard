@@ -271,7 +271,10 @@
         $('truckPlateState').value = data ? data.plateState || '' : '';
         $('truckFuel').value = data ? data.fuel || 'diesel' : 'diesel';
         $('truckStatus').value = data ? data.status || 'active' : 'active';
-        $('truckModal').classList.remove('hidden');
+        const modal = $('truckModal');
+        const shouldExpand = data && hasAdvancedData([data.vin, data.plate, data.plateState, data.fuel !== 'diesel' ? data.fuel : '']);
+        setExpandState(modal, shouldExpand);
+        modal.classList.remove('hidden');
     }
 
     function initTruckForm() {
@@ -364,7 +367,10 @@
         $('trailerVin').value = data ? data.vin || '' : '';
         $('trailerPlate').value = data ? data.plate || '' : '';
         $('trailerStatus').value = data ? data.status || 'active' : 'active';
-        $('trailerModal').classList.remove('hidden');
+        const modal = $('trailerModal');
+        const shouldExpand = data && hasAdvancedData([data.vin, data.plate]);
+        setExpandState(modal, shouldExpand);
+        modal.classList.remove('hidden');
     }
 
     function initTrailerForm() {
@@ -459,7 +465,10 @@
         $('driverTruck').value = data ? data.truck || '' : '';
         $('driverStatus').value = data ? data.status || 'active' : 'active';
         populateTruckDropdown();
-        $('driverModal').classList.remove('hidden');
+        const modal = $('driverModal');
+        const shouldExpand = data && hasAdvancedData([data.cdlState, data.cdlExp, data.medExp, data.email, data.truck]);
+        setExpandState(modal, shouldExpand);
+        modal.classList.remove('hidden');
     }
 
     function initDriverForm() {
@@ -907,10 +916,46 @@
         });
     }
 
+    // ── Expandable form sections ──────────
+    function initExpandToggles() {
+        document.querySelectorAll('.form-expand-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const section = btn.nextElementSibling;
+                if (!section || !section.classList.contains('form-expand-section')) return;
+                const expanded = btn.getAttribute('aria-expanded') === 'true';
+                btn.setAttribute('aria-expanded', !expanded);
+                section.classList.toggle('open', !expanded);
+                btn.childNodes.forEach(n => {
+                    if (n.nodeType === 3 && n.textContent.trim()) {
+                        n.textContent = !expanded ? ' Less Details' : ' More Details';
+                    }
+                });
+            });
+        });
+    }
+
+    function setExpandState(container, shouldOpen) {
+        const toggle = container.querySelector('.form-expand-toggle');
+        const section = container.querySelector('.form-expand-section');
+        if (!toggle || !section) return;
+        toggle.setAttribute('aria-expanded', shouldOpen);
+        section.classList.toggle('open', shouldOpen);
+        toggle.childNodes.forEach(n => {
+            if (n.nodeType === 3 && n.textContent.trim()) {
+                n.textContent = shouldOpen ? ' Less Details' : ' More Details';
+            }
+        });
+    }
+
+    function hasAdvancedData(fields) {
+        return fields.some(v => v && v.toString().trim() !== '' && v !== 'diesel' && v !== 'dry-van');
+    }
+
     // ── Init ──────────────────────────────
     function init() {
         initNav();
         initOverviewCards();
+        initExpandToggles();
         initProfileForm();
         initTruckForm();
         initTrailerForm();

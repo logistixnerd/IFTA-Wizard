@@ -1074,6 +1074,68 @@
     font-weight: 600;
 }
 
+/* ── Expandable form sections ────────── */
+.form-expand-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    margin: 0.75rem 0 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--gray-400);
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+
+.form-expand-toggle:hover {
+    color: var(--primary);
+    background: rgba(79, 70, 229, 0.04);
+    border-color: rgba(79, 70, 229, 0.08);
+}
+
+.form-expand-toggle svg {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+}
+
+.form-expand-toggle[aria-expanded="true"] svg {
+    transform: rotate(180deg);
+}
+
+.form-expand-toggle[aria-expanded="true"] {
+    color: var(--primary);
+}
+
+.form-expand-section {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.25s ease,
+                margin 0.35s ease;
+    margin-top: 0;
+}
+
+.form-expand-section.open {
+    max-height: 600px;
+    opacity: 1;
+    margin-top: 0.75rem;
+}
+
+/* Expand section inner spacing */
+.form-expand-section > .form-group:first-child,
+.form-expand-section > .form-row:first-child,
+.form-expand-section > .dash-form-grid:first-child {
+    padding-top: 0.75rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.04);
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .dash-sidebar {

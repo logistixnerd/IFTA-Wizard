@@ -245,33 +245,41 @@
                                     <input type="text" id="dashDotNumber" placeholder="e.g., 1234567">
                                 </div>
                                 <div class="form-group">
-                                    <label for="dashMcNumber">MC Number</label>
-                                    <input type="text" id="dashMcNumber" placeholder="e.g., MC-123456">
-                                </div>
-                                <div class="form-group">
-                                    <label for="dashEin">EIN / Tax ID</label>
-                                    <input type="text" id="dashEin" placeholder="XX-XXXXXXX">
-                                </div>
-                                <div class="form-group">
                                     <label for="dashBaseState">Base Jurisdiction</label>
                                     <select id="dashBaseState">
                                         <option value="">Select...</option>
                                     </select>
                                 </div>
-                                <div class="form-group form-group-full">
-                                    <label for="dashAddress">Business Address</label>
-                                    <input type="text" id="dashAddress" placeholder="Street, City, State ZIP">
-                                </div>
-                                <div class="form-group">
-                                    <label for="dashFleetSize">Fleet Size</label>
-                                    <select id="dashFleetSize">
-                                        <option value="">Select...</option>
-                                        <option value="1-5">1-5 trucks</option>
-                                        <option value="6-20">6-20 trucks</option>
-                                        <option value="21-50">21-50 trucks</option>
-                                        <option value="51-100">51-100 trucks</option>
-                                        <option value="100+">100+ trucks</option>
-                                    </select>
+                            </div>
+                            <button type="button" class="form-expand-toggle" aria-expanded="false">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
+                                More Details
+                            </button>
+                            <div class="form-expand-section">
+                                <div class="dash-form-grid">
+                                    <div class="form-group">
+                                        <label for="dashMcNumber">MC Number</label>
+                                        <input type="text" id="dashMcNumber" placeholder="e.g., MC-123456">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dashEin">EIN / Tax ID</label>
+                                        <input type="text" id="dashEin" placeholder="XX-XXXXXXX">
+                                    </div>
+                                    <div class="form-group form-group-full">
+                                        <label for="dashAddress">Business Address</label>
+                                        <input type="text" id="dashAddress" placeholder="Street, City, State ZIP">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="dashFleetSize">Fleet Size</label>
+                                        <select id="dashFleetSize">
+                                            <option value="">Select...</option>
+                                            <option value="1-5">1-5 trucks</option>
+                                            <option value="6-20">6-20 trucks</option>
+                                            <option value="21-50">21-50 trucks</option>
+                                            <option value="51-100">51-100 trucks</option>
+                                            <option value="100+">100+ trucks</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             <div class="dash-form-actions">
@@ -444,35 +452,47 @@
                             <input type="text" id="truckUnit" required placeholder="e.g., 101">
                         </div>
                         <div class="form-group">
-                            <label for="truckYear">Year</label>
-                            <input type="number" id="truckYear" min="1990" max="2030" placeholder="e.g., 2022">
+                            <label for="truckStatus">Status</label>
+                            <select id="truckStatus">
+                                <option value="active">Active</option>
+                                <option value="inactive">Out of Service</option>
+                                <option value="maintenance">In Maintenance</option>
+                            </select>
                         </div>
                     </div>
                     <div class="form-row">
+                        <div class="form-group">
+                            <label for="truckYear">Year</label>
+                            <input type="number" id="truckYear" min="1990" max="2030" placeholder="e.g., 2022">
+                        </div>
                         <div class="form-group">
                             <label for="truckMake">Make</label>
                             <input type="text" id="truckMake" placeholder="e.g., Freightliner">
                         </div>
-                        <div class="form-group">
-                            <label for="truckModel">Model</label>
-                            <input type="text" id="truckModel" placeholder="e.g., Cascadia">
-                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="truckVin">VIN</label>
-                        <input type="text" id="truckVin" maxlength="17" placeholder="17-character VIN">
+                        <label for="truckModel">Model</label>
+                        <input type="text" id="truckModel" placeholder="e.g., Cascadia">
                     </div>
-                    <div class="form-row">
+                    <button type="button" class="form-expand-toggle" aria-expanded="false">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
+                        More Details
+                    </button>
+                    <div class="form-expand-section">
                         <div class="form-group">
-                            <label for="truckPlate">License Plate</label>
-                            <input type="text" id="truckPlate" placeholder="e.g., ABC 1234">
+                            <label for="truckVin">VIN</label>
+                            <input type="text" id="truckVin" maxlength="17" placeholder="17-character VIN">
                         </div>
-                        <div class="form-group">
-                            <label for="truckPlateState">Plate State</label>
-                            <input type="text" id="truckPlateState" maxlength="2" placeholder="e.g., TX">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="truckPlate">License Plate</label>
+                                <input type="text" id="truckPlate" placeholder="e.g., ABC 1234">
+                            </div>
+                            <div class="form-group">
+                                <label for="truckPlateState">Plate State</label>
+                                <input type="text" id="truckPlateState" maxlength="2" placeholder="e.g., TX">
+                            </div>
                         </div>
-                    </div>
-                    <div class="form-row">
                         <div class="form-group">
                             <label for="truckFuel">Fuel Type</label>
                             <select id="truckFuel">
@@ -480,14 +500,6 @@
                                 <option value="gasoline">Gasoline</option>
                                 <option value="cng">CNG</option>
                                 <option value="lng">LNG</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="truckStatus">Status</label>
-                            <select id="truckStatus">
-                                <option value="active">Active</option>
-                                <option value="inactive">Out of Service</option>
-                                <option value="maintenance">In Maintenance</option>
                             </select>
                         </div>
                     </div>
@@ -516,44 +528,48 @@
                             <input type="text" id="trailerUnit" required placeholder="e.g., T-201">
                         </div>
                         <div class="form-group">
-                            <label for="trailerYear">Year</label>
-                            <input type="number" id="trailerYear" min="1990" max="2030" placeholder="e.g., 2020">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="trailerMake">Make</label>
-                            <input type="text" id="trailerMake" placeholder="e.g., Great Dane">
-                        </div>
-                        <div class="form-group">
-                            <label for="trailerType">Type</label>
-                            <select id="trailerType">
-                                <option value="dry-van">Dry Van</option>
-                                <option value="reefer">Reefer</option>
-                                <option value="flatbed">Flatbed</option>
-                                <option value="step-deck">Step Deck</option>
-                                <option value="tanker">Tanker</option>
-                                <option value="lowboy">Lowboy</option>
-                                <option value="other">Other</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="trailerVin">VIN</label>
-                        <input type="text" id="trailerVin" maxlength="17" placeholder="17-character VIN">
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="trailerPlate">License Plate</label>
-                            <input type="text" id="trailerPlate" placeholder="e.g., TRL 5678">
-                        </div>
-                        <div class="form-group">
                             <label for="trailerStatus">Status</label>
                             <select id="trailerStatus">
                                 <option value="active">Active</option>
                                 <option value="inactive">Out of Service</option>
                                 <option value="maintenance">In Maintenance</option>
                             </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="trailerYear">Year</label>
+                            <input type="number" id="trailerYear" min="1990" max="2030" placeholder="e.g., 2020">
+                        </div>
+                        <div class="form-group">
+                            <label for="trailerMake">Make</label>
+                            <input type="text" id="trailerMake" placeholder="e.g., Great Dane">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="trailerType">Type</label>
+                        <select id="trailerType">
+                            <option value="dry-van">Dry Van</option>
+                            <option value="reefer">Reefer</option>
+                            <option value="flatbed">Flatbed</option>
+                            <option value="step-deck">Step Deck</option>
+                            <option value="tanker">Tanker</option>
+                            <option value="lowboy">Lowboy</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <button type="button" class="form-expand-toggle" aria-expanded="false">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
+                        More Details
+                    </button>
+                    <div class="form-expand-section">
+                        <div class="form-group">
+                            <label for="trailerVin">VIN</label>
+                            <input type="text" id="trailerVin" maxlength="17" placeholder="17-character VIN">
+                        </div>
+                        <div class="form-group">
+                            <label for="trailerPlate">License Plate</label>
+                            <input type="text" id="trailerPlate" placeholder="e.g., TRL 5678">
                         </div>
                     </div>
                     <div class="form-actions">
@@ -587,40 +603,8 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
-                            <label for="driverCdl">CDL Number</label>
-                            <input type="text" id="driverCdl" placeholder="License number">
-                        </div>
-                        <div class="form-group">
-                            <label for="driverCdlState">CDL State</label>
-                            <input type="text" id="driverCdlState" maxlength="2" placeholder="e.g., TX">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="driverCdlExp">CDL Expiration</label>
-                            <input type="date" id="driverCdlExp">
-                        </div>
-                        <div class="form-group">
-                            <label for="driverMedExp">Medical Card Exp</label>
-                            <input type="date" id="driverMedExp">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
                             <label for="driverPhone">Phone</label>
                             <input type="tel" id="driverPhone">
-                        </div>
-                        <div class="form-group">
-                            <label for="driverEmail">Email</label>
-                            <input type="email" id="driverEmail">
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="driverTruck">Assigned Truck</label>
-                            <select id="driverTruck">
-                                <option value="">Unassigned</option>
-                            </select>
                         </div>
                         <div class="form-group">
                             <label for="driverStatus">Status</label>
@@ -628,6 +612,42 @@
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
                                 <option value="on-leave">On Leave</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="driverCdl">CDL Number</label>
+                        <input type="text" id="driverCdl" placeholder="License number">
+                    </div>
+                    <button type="button" class="form-expand-toggle" aria-expanded="false">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M6 9l6 6 6-6"/></svg>
+                        More Details
+                    </button>
+                    <div class="form-expand-section">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="driverCdlState">CDL State</label>
+                                <input type="text" id="driverCdlState" maxlength="2" placeholder="e.g., TX">
+                            </div>
+                            <div class="form-group">
+                                <label for="driverCdlExp">CDL Expiration</label>
+                                <input type="date" id="driverCdlExp">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="driverMedExp">Medical Card Exp</label>
+                                <input type="date" id="driverMedExp">
+                            </div>
+                            <div class="form-group">
+                                <label for="driverEmail">Email</label>
+                                <input type="email" id="driverEmail">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="driverTruck">Assigned Truck</label>
+                            <select id="driverTruck">
+                                <option value="">Unassigned</option>
                             </select>
                         </div>
                     </div>
