@@ -242,13 +242,11 @@
         table.style.display = '';
         tbody.innerHTML = state.trucks.map(t => `<tr>
             <td>${escapeHtml(t.unit)}</td>
-            <td>${escapeHtml(t.year)}</td>
-            <td>${escapeHtml(t.make)}</td>
-            <td>${escapeHtml(t.model)}</td>
-            <td>${escapeHtml(t.vin)}</td>
+            <td>${vehicleLabel(t.year, t.make, t.model)}</td>
+            <td title="${escapeHtml(t.vin)}">${shortenVin(t.vin)}</td>
             <td>${escapeHtml(t.plate)}${t.plateState ? ' (' + escapeHtml(t.plateState) + ')' : ''}</td>
-            <td>${escapeHtml(t.fuel)}</td>
-            <td><span class="status-badge ${t.status || 'active'}">${statusLabel(t.status)}</span></td>
+            <td>${fuelLabel(t.fuel)}</td>
+            <td>${statusBadge(t.status)}</td>
             <td class="row-actions">
                 <button title="Edit" onclick="Dashboard.editTruck('${t.id}')">✎</button>
                 <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTruck('${t.id}')">✕</button>
@@ -338,7 +336,7 @@
             <td>${escapeHtml(t.type)}</td>
             <td>${escapeHtml(t.vin)}</td>
             <td>${escapeHtml(t.plate)}</td>
-            <td><span class="status-badge ${t.status || 'active'}">${statusLabel(t.status)}</span></td>
+            <td>${statusBadge(t.status)}</td>
             <td class="row-actions">
                 <button title="Edit" onclick="Dashboard.editTrailer('${t.id}')">✎</button>
                 <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTrailer('${t.id}')">✕</button>
@@ -424,7 +422,7 @@
             <td>${escapeHtml(d.phone)}</td>
             <td>${escapeHtml(d.email)}</td>
             <td>${escapeHtml(truckLabel(d.truck))}</td>
-            <td><span class="status-badge ${d.status || 'active'}">${statusLabel(d.status)}</span></td>
+            <td>${statusBadge(d.status)}</td>
             <td class="row-actions">
                 <button title="Edit" onclick="Dashboard.editDriver('${d.id}')">✎</button>
                 <button title="Delete" class="btn-delete" onclick="Dashboard.deleteDriver('${d.id}')">✕</button>
@@ -495,6 +493,27 @@
             maintenance: 'Maintenance', 'on-leave': 'On Leave'
         };
         return map[val] || 'Active';
+    }
+
+    function statusBadge(val) {
+        const s = val || 'active';
+        return `<span class="status-badge ${escapeHtml(s)}"><span class="status-dot"></span>${statusLabel(s)}</span>`;
+    }
+
+    function vehicleLabel(year, make, model) {
+        const parts = [year, make, model].filter(Boolean).map(v => escapeHtml(String(v)));
+        return parts.length ? parts.join(' ') : '—';
+    }
+
+    function shortenVin(vin) {
+        if (!vin) return '—';
+        const v = String(vin);
+        return v.length > 10 ? '…' + escapeHtml(v.slice(-8)) : escapeHtml(v);
+    }
+
+    function fuelLabel(val) {
+        const map = { diesel: 'Diesel', gasoline: 'Gas', cng: 'CNG', lng: 'LNG' };
+        return map[val] || escapeHtml(val || '—');
     }
 
     function truckLabel(truckId) {
