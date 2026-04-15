@@ -351,6 +351,106 @@
     margin-bottom: 0.75rem;
 }
 
+/* Overview Cards */
+.overview-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.overview-card {
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.overview-card:hover {
+    border-color: var(--gray-300);
+    box-shadow: var(--shadow);
+}
+
+.overview-card-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.overview-card-icon.trucks {
+    background: var(--info-light);
+    color: var(--info);
+}
+
+.overview-card-icon.trailers {
+    background: var(--warning-light);
+    color: var(--warning);
+}
+
+.overview-card-icon.drivers {
+    background: #f3e8ff;
+    color: #7c3aed;
+}
+
+.overview-card-icon.active-units {
+    background: var(--success-light);
+    color: var(--success);
+}
+
+.overview-card-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gray-800);
+    line-height: 1.2;
+}
+
+.overview-card-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    margin-top: 0.125rem;
+}
+
+.overview-details {
+    max-width: 480px;
+}
+
+.overview-breakdown {
+    display: flex;
+    flex-direction: column;
+}
+
+.overview-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 0;
+    border-bottom: 1px solid var(--gray-50);
+}
+
+.overview-row:last-child {
+    border-bottom: none;
+}
+
+.overview-row-label {
+    font-size: 0.8125rem;
+    color: var(--gray-600);
+}
+
+.overview-row-value {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .dash-sidebar {
@@ -396,6 +496,10 @@
 
     .dash-section {
         padding: 1rem;
+    }
+
+    .overview-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
 
     .dash-form-grid {

@@ -79,6 +79,7 @@
     // ── Load All Data ─────────────────────
     async function loadAll() {
         await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers()]);
+        updateOverview();
     }
 
     // ── PROFILE ───────────────────────────
@@ -502,6 +503,26 @@
         if (el) el.textContent = n;
     }
 
+    function updateOverview() {
+        const activeTrucks = state.trucks.filter(t => t.status === 'active').length;
+        const activeTrailers = state.trailers.filter(t => t.status === 'active').length;
+        const activeDrivers = state.drivers.filter(d => d.status === 'active').length;
+        const maintenance = state.trucks.filter(t => t.status === 'maintenance').length
+            + state.trailers.filter(t => t.status === 'maintenance').length;
+        const oos = state.trucks.filter(t => t.status === 'inactive').length
+            + state.trailers.filter(t => t.status === 'inactive').length;
+
+        $('overviewTrucks').textContent = state.trucks.length;
+        $('overviewTrailers').textContent = state.trailers.length;
+        $('overviewDrivers').textContent = state.drivers.length;
+        $('overviewActive').textContent = activeTrucks + activeTrailers;
+        $('overviewActiveTrucks').textContent = activeTrucks;
+        $('overviewActiveTrailers').textContent = activeTrailers;
+        $('overviewActiveDrivers').textContent = activeDrivers;
+        $('overviewMaintenance').textContent = maintenance;
+        $('overviewOutOfService').textContent = oos;
+    }
+
     function showMsg(text, isError) {
         // Use existing toast if available, else brief banner
         if (typeof showToast === 'function') {
@@ -573,9 +594,21 @@
         });
     }
 
+    // ── Overview card click → navigate ─────
+    function initOverviewCards() {
+        document.querySelectorAll('.overview-card[data-nav]').forEach(card => {
+            card.addEventListener('click', () => {
+                const target = card.dataset.nav;
+                const btn = document.querySelector('.dash-nav-item[data-section="' + target + '"]');
+                if (btn) btn.click();
+            });
+        });
+    }
+
     // ── Init ──────────────────────────────
     function init() {
         initNav();
+        initOverviewCards();
         initProfileForm();
         initTruckForm();
         initTrailerForm();

@@ -27,7 +27,14 @@
                 </a>
             </div>
             <nav class="dash-nav">
-                <button class="dash-nav-item active" data-section="profile">
+                <button class="dash-nav-item active" data-section="overview">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+                        <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+                    </svg>
+                    <span>Overview</span>
+                </button>
+                <button class="dash-nav-item" data-section="profile">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
                     </svg>
@@ -72,14 +79,99 @@
         <main class="dash-main">
             <!-- Top Bar -->
             <header class="dash-topbar">
-                <h1 class="dash-page-title" id="pageTitle">Profile</h1>
+                <h1 class="dash-page-title" id="pageTitle">Overview</h1>
                 <div class="dash-topbar-actions">
                     <span class="dash-user-email" id="dashUserEmail"></span>
                 </div>
             </header>
 
+            <!-- Overview Section -->
+            <section class="dash-section active" id="section-overview">
+                <div class="overview-grid">
+                    <div class="overview-card" data-nav="trucks">
+                        <div class="overview-card-icon trucks">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                                <path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/>
+                                <circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                            </svg>
+                        </div>
+                        <div class="overview-card-info">
+                            <span class="overview-card-value" id="overviewTrucks">0</span>
+                            <span class="overview-card-label">Trucks</span>
+                        </div>
+                    </div>
+                    <div class="overview-card" data-nav="trailers">
+                        <div class="overview-card-icon trailers">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                                <rect x="1" y="6" width="18" height="12" rx="1"/><circle cx="7" cy="18" r="2"/><circle cx="15" cy="18" r="2"/>
+                                <path d="M19 12h4"/>
+                            </svg>
+                        </div>
+                        <div class="overview-card-info">
+                            <span class="overview-card-value" id="overviewTrailers">0</span>
+                            <span class="overview-card-label">Trailers</span>
+                        </div>
+                    </div>
+                    <div class="overview-card" data-nav="drivers">
+                        <div class="overview-card-icon drivers">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                        </div>
+                        <div class="overview-card-info">
+                            <span class="overview-card-value" id="overviewDrivers">0</span>
+                            <span class="overview-card-label">Drivers</span>
+                        </div>
+                    </div>
+                    <div class="overview-card active-card">
+                        <div class="overview-card-icon active-units">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                                <polyline points="22 4 12 14.01 9 11.01"/>
+                            </svg>
+                        </div>
+                        <div class="overview-card-info">
+                            <span class="overview-card-value" id="overviewActive">0</span>
+                            <span class="overview-card-label">Active Units</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="overview-details">
+                    <div class="dash-card">
+                        <div class="dash-card-header">
+                            <h2>Fleet Summary</h2>
+                        </div>
+                        <div class="dash-card-body">
+                            <div class="overview-breakdown">
+                                <div class="overview-row">
+                                    <span class="overview-row-label">Active Trucks</span>
+                                    <span class="overview-row-value" id="overviewActiveTrucks">0</span>
+                                </div>
+                                <div class="overview-row">
+                                    <span class="overview-row-label">Active Trailers</span>
+                                    <span class="overview-row-value" id="overviewActiveTrailers">0</span>
+                                </div>
+                                <div class="overview-row">
+                                    <span class="overview-row-label">Active Drivers</span>
+                                    <span class="overview-row-value" id="overviewActiveDrivers">0</span>
+                                </div>
+                                <div class="overview-row">
+                                    <span class="overview-row-label">In Maintenance</span>
+                                    <span class="overview-row-value" id="overviewMaintenance">0</span>
+                                </div>
+                                <div class="overview-row">
+                                    <span class="overview-row-label">Out of Service</span>
+                                    <span class="overview-row-value" id="overviewOutOfService">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             <!-- Profile Section -->
-            <section class="dash-section active" id="section-profile">
+            <section class="dash-section" id="section-profile">
                 <div class="dash-card">
                     <div class="dash-card-header">
                         <h2>Carrier Information</h2>
