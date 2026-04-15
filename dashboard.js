@@ -617,15 +617,15 @@
         const filtered = state.trucks.filter(t => matchesFilter(t, 'truck'));
         tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(t)}
-            <td><div class="cell cell-editable" data-field="unit" data-id="${t.id}" data-collection="trucks"><strong>${escapeHtml(t.unit)}</strong></div></td>
-            <td><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.year)}</div></td>
-            <td><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.make)}</div></td>
-            <td><div class="cell cell-editable" data-field="model" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.model)}</div></td>
-            <td><div class="cell cell-editable" data-field="vin" data-id="${t.id}" data-collection="trucks" title="${escapeHtml(t.vin)}">${shortenVin(t.vin)}</div></td>
-            <td><div class="cell cell-editable" data-field="plate" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</div></td>
-            <td><div class="cell cell-editable" data-field="fuel" data-id="${t.id}" data-collection="trucks">${fuelLabel(t.fuel)}</div></td>
-            <td><div class="cell">${statusSelect(t.status, t.id, 'trucks', 'truck')}</div></td>
-            <td class="row-actions"><div class="cell">
+            <td class="col-unit"><div class="cell cell-editable" data-field="unit" data-id="${t.id}" data-collection="trucks"><strong>${escapeHtml(t.unit)}</strong></div></td>
+            <td class="col-year"><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.year)}</div></td>
+            <td class="col-make"><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.make)}</div></td>
+            <td class="col-model"><div class="cell cell-editable" data-field="model" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.model)}</div></td>
+            <td class="col-vin"><div class="cell cell-editable" data-field="vin" data-id="${t.id}" data-collection="trucks" title="${escapeHtml(t.vin)}">${shortenVin(t.vin)}</div></td>
+            <td class="col-plate"><div class="cell cell-editable" data-field="plate" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</div></td>
+            <td class="col-fuel"><div class="cell cell-editable" data-field="fuel" data-id="${t.id}" data-collection="trucks">${fuelLabel(t.fuel)}</div></td>
+            <td class="col-status"><div class="cell">${statusSelect(t.status, t.id, 'trucks', 'truck')}</div></td>
+            <td class="col-actions row-actions"><div class="cell">
                 <button title="Edit" onclick="Dashboard.editTruck('${t.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>

@@ -393,26 +393,16 @@
 }
 
 /* Column width classes */
-.dash-table-trucks th:nth-child(1),
-.dash-table-trucks td:nth-child(1) { min-width: 30px; width: 30px; }
-.dash-table-trucks th:nth-child(2),
-.dash-table-trucks td:nth-child(2) { min-width: 72px; }
-.dash-table-trucks th:nth-child(3),
-.dash-table-trucks td:nth-child(3) { min-width: 56px; }
-.dash-table-trucks th:nth-child(4),
-.dash-table-trucks td:nth-child(4) { min-width: 100px; }
-.dash-table-trucks th:nth-child(5),
-.dash-table-trucks td:nth-child(5) { min-width: 100px; }
-.dash-table-trucks th:nth-child(6),
-.dash-table-trucks td:nth-child(6) { min-width: 180px; }
-.dash-table-trucks th:nth-child(7),
-.dash-table-trucks td:nth-child(7) { min-width: 90px; }
-.dash-table-trucks th:nth-child(8),
-.dash-table-trucks td:nth-child(8) { min-width: 75px; }
-.dash-table-trucks th:nth-child(9),
-.dash-table-trucks td:nth-child(9) { min-width: 90px; }
-.dash-table-trucks th:nth-child(10),
-.dash-table-trucks td:nth-child(10) { min-width: 50px; width: 50px; }
+.dash-table-trucks .col-validation { min-width: 30px; width: 30px; flex-shrink: 0; }
+.dash-table-trucks .col-unit { min-width: 72px; }
+.dash-table-trucks .col-year { min-width: 56px; }
+.dash-table-trucks .col-make { min-width: 100px; }
+.dash-table-trucks .col-model { min-width: 100px; }
+.dash-table-trucks .col-vin { min-width: 180px; }
+.dash-table-trucks .col-plate { min-width: 90px; }
+.dash-table-trucks .col-fuel { min-width: 75px; }
+.dash-table-trucks .col-status { min-width: 90px; }
+.dash-table-trucks .col-actions { min-width: 50px; width: 50px; flex-shrink: 0; }
 
 /* Cell wrapper for click-to-edit */
 .cell {
