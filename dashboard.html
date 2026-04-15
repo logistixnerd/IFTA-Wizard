@@ -308,10 +308,27 @@
                                 <option value="maintenance">Maintenance</option>
                                 <option value="inactive">Out of Service</option>
                             </select>
-                            <button class="btn btn-primary btn-sm dash-toolbar-add" id="addTruckBtn">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                Add Truck
-                            </button>
+                            <select class="dash-filter" id="truckFuelFilter">
+                                <option value="">All Fuel</option>
+                                <option value="diesel">Diesel</option>
+                                <option value="gasoline">Gasoline</option>
+                                <option value="cng">CNG</option>
+                                <option value="lng">LNG</option>
+                            </select>
+                            <div class="dash-toolbar-actions">
+                                <button class="btn btn-primary btn-sm dash-toolbar-add" id="addTruckBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                    Add Truck
+                                </button>
+                                <button class="btn btn-sm dash-toolbar-secondary" id="addMultipleTrucksBtn" title="Add multiple trucks at once">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M17.5 14v7m-3.5-3.5h7"/></svg>
+                                    Add Multiple
+                                </button>
+                                <button class="btn btn-sm dash-toolbar-secondary" id="importTrucksBtn" title="Import trucks from file">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    Import
+                                </button>
+                            </div>
                         </div>
                         <div class="dash-empty" id="trucksEmpty">
                             <p>No trucks added yet</p>

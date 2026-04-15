@@ -283,6 +283,27 @@
         $('closeTruckModal').addEventListener('click', () => $('truckModal').classList.add('hidden'));
         $('cancelTruck').addEventListener('click', () => $('truckModal').classList.add('hidden'));
 
+        // Add Multiple – opens modal in quick-add mode
+        const addMultiBtn = $('addMultipleTrucksBtn');
+        if (addMultiBtn) {
+            addMultiBtn.addEventListener('click', () => {
+                openTruckModal(null);
+                showMsg('Add a truck, then click Add Truck again to continue adding');
+            });
+        }
+
+        // Import – trigger CSV file picker
+        const importBtn = $('importTrucksBtn');
+        if (importBtn) {
+            importBtn.addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.csv,.tsv,.txt';
+                input.addEventListener('change', (e) => importTrucksFromFile(e.target.files[0]));
+                input.click();
+            });
+        }
+
         $('truckForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const payload = {
@@ -314,6 +335,64 @@
                 showMsg('Error saving truck', true);
             }
         });
+    }
+
+    async function importTrucksFromFile(file) {
+        if (!file) return;
+        try {
+            const text = await file.text();
+            const sep = text.includes('\t') ? '\t' : ',';
+            const lines = text.trim().split('\n').map(l => l.split(sep).map(c => c.trim().replace(/^"|"$/g, '')));
+            if (lines.length < 2) { showMsg('File must have a header row and data', true); return; }
+            const header = lines[0].map(h => h.toLowerCase().replace(/[^a-z]/g, ''));
+            const colMap = {};
+            const aliases = {
+                unit: ['unit', 'unitnumber', 'unitno', 'truckno', 'trucknumber'],
+                year: ['year', 'yr', 'modelyear'],
+                make: ['make', 'manufacturer', 'brand'],
+                model: ['model'],
+                vin: ['vin', 'vehicleid'],
+                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag'],
+                plateState: ['platestate', 'state', 'tagstate'],
+                fuel: ['fuel', 'fueltype'],
+                status: ['status']
+            };
+            for (const [field, names] of Object.entries(aliases)) {
+                const idx = header.findIndex(h => names.includes(h));
+                if (idx !== -1) colMap[field] = idx;
+            }
+            if (!('unit' in colMap)) { showMsg('CSV must have a "Unit" column', true); return; }
+            let count = 0;
+            const batch = firebase.firestore().batch();
+            for (let i = 1; i < lines.length; i++) {
+                const row = lines[i];
+                if (!row[colMap.unit]) continue;
+                const doc = col('trucks').doc();
+                const payload = {
+                    unit: row[colMap.unit] || '',
+                    year: colMap.year !== undefined ? row[colMap.year] || '' : '',
+                    make: colMap.make !== undefined ? row[colMap.make] || '' : '',
+                    model: colMap.model !== undefined ? row[colMap.model] || '' : '',
+                    vin: colMap.vin !== undefined ? row[colMap.vin] || '' : '',
+                    plate: colMap.plate !== undefined ? row[colMap.plate] || '' : '',
+                    plateState: colMap.plateState !== undefined ? (row[colMap.plateState] || '').toUpperCase() : '',
+                    fuel: colMap.fuel !== undefined ? row[colMap.fuel] || 'diesel' : 'diesel',
+                    status: colMap.status !== undefined ? row[colMap.status] || 'active' : 'active',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                batch.set(doc, payload);
+                count++;
+            }
+            if (count === 0) { showMsg('No valid rows found', true); return; }
+            await batch.commit();
+            await loadTrucks();
+            populateTruckDropdown();
+            showMsg(count + ' truck' + (count > 1 ? 's' : '') + ' imported');
+        } catch (err) {
+            console.error('Import trucks error:', err);
+            showMsg('Error importing file', true);
+        }
     }
 
     // ── TRAILERS ──────────────────────────
@@ -708,6 +787,14 @@
         const f = filterEl ? filterEl.value : '';
 
         if (f && item.status !== f) return false;
+
+        // Truck-specific fuel filter
+        if (type === 'truck') {
+            const fuelEl = $('truckFuelFilter');
+            const fuelVal = fuelEl ? fuelEl.value : '';
+            if (fuelVal && item.fuel !== fuelVal) return false;
+        }
+
         if (!q) return true;
 
         if (type === 'truck') {
@@ -723,7 +810,7 @@
     }
 
     function initSearchFilters() {
-        ['truckSearch', 'truckStatusFilter'].forEach(id => {
+        ['truckSearch', 'truckStatusFilter', 'truckFuelFilter'].forEach(id => {
             const el = $(id);
             if (el) el.addEventListener('input', renderTrucks);
         });
