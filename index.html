@@ -321,12 +321,23 @@
                             <span class="profile-name" id="profileName">Account</span>
                         </button>
                         <div class="profile-menu" id="profileMenu" role="menu" aria-label="Account menu">
-                            <div class="profile-menu-header">
+                            <button class="profile-menu-header" id="menuProfileHeader" type="button">
+                                <div class="menu-avatar-wrapper">
+                                    <span class="menu-avatar" id="menuAvatar">U</span>
+                                    <label class="avatar-edit-btn" id="avatarEditBtn" title="Change photo">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12">
+                                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                                            <circle cx="12" cy="13" r="4"/>
+                                        </svg>
+                                        <input type="file" id="avatarUpload" accept="image/*" style="display: none;">
+                                    </label>
+                                </div>
                                 <div class="profile-info">
                                     <span class="profile-user-name" id="menuUserName">User</span>
                                     <span class="profile-user-email" id="menuUserEmail">user@email.com</span>
+                                    <span class="profile-edit-hint">Click to edit profile</span>
                                 </div>
-                            </div>
+                            </button>
                             <div class="profile-menu-items">
                                 <a href="admin.html" class="profile-menu-item" id="menuAdminConsole" style="display: none;">
                                     <span>Admin Console</span>
@@ -337,9 +348,6 @@
                                 <button class="profile-menu-item" id="menuSavedReports">
                                     <span>Saved Reports</span>
                                     <span class="menu-badge" id="reportsCount">0</span>
-                                </button>
-                                <button class="profile-menu-item" id="menuProfile">
-                                    <span>Profile Settings</span>
                                 </button>
                                 <button class="profile-menu-item" id="menuPreferences">
                                     <span>Preferences</span>

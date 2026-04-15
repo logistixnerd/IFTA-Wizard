@@ -80,9 +80,17 @@ const IFTAReports = {
         
         // Profile menu items
         document.getElementById('menuSavedReports')?.addEventListener('click', () => this.openSavedReportsModal());
-        document.getElementById('menuProfile')?.addEventListener('click', () => this.openProfileModal());
+        document.getElementById('menuProfileHeader')?.addEventListener('click', (e) => {
+            // Don't open profile modal if clicking on avatar edit button
+            if (!e.target.closest('.avatar-edit-btn')) {
+                this.openProfileModal();
+            }
+        });
         document.getElementById('menuPreferences')?.addEventListener('click', () => this.openPreferencesModal());
         document.getElementById('menuLogout')?.addEventListener('click', () => this.logout());
+        
+        // Avatar upload handler
+        document.getElementById('avatarUpload')?.addEventListener('change', (e) => this.handleAvatarUpload(e));
         
         // Export buttons
         document.getElementById('sendEmail')?.addEventListener('click', () => this.openEmailModal());
@@ -153,11 +161,120 @@ const IFTAReports = {
         const userEmail = document.getElementById('menuUserEmail');
         const profileAvatar = document.getElementById('profileAvatar');
         const profileName = document.getElementById('profileName');
+        const menuAvatar = document.getElementById('menuAvatar');
         
         if (userName) userName.textContent = IFTAAuth.user.name || 'User';
         if (userEmail) userEmail.textContent = IFTAAuth.user.email || '';
-        if (profileAvatar) profileAvatar.textContent = (IFTAAuth.user.name || 'U').charAt(0).toUpperCase();
-        if (profileName) profileName.textContent = (IFTAAuth.user.name || 'Account').split(' ')[0];
+        
+        const initial = (IFTAAuth.user.name || 'U').charAt(0).toUpperCase();
+        const firstName = (IFTAAuth.user.name || 'Account').split(' ')[0];
+        
+        if (profileName) profileName.textContent = firstName;
+        
+        // Update avatars with photo or initial
+        const photoURL = IFTAAuth.user.photoURL || localStorage.getItem('ifta_avatar');
+        
+        if (photoURL) {
+            if (profileAvatar) profileAvatar.innerHTML = `<img src="${photoURL}" alt="Profile">`;
+            if (menuAvatar) menuAvatar.innerHTML = `<img src="${photoURL}" alt="Profile">`;
+        } else {
+            if (profileAvatar) profileAvatar.textContent = initial;
+            if (menuAvatar) menuAvatar.textContent = initial;
+        }
+    },
+    
+    // Handle avatar upload
+    async handleAvatarUpload(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            showToast('Please select an image file', 'error');
+            return;
+        }
+        
+        // Validate file size (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            showToast('Image must be less than 2MB', 'error');
+            return;
+        }
+        
+        try {
+            // Convert to base64 for localStorage storage
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const dataURL = e.target.result;
+                
+                // Resize image to reasonable size
+                const resizedURL = await this.resizeImage(dataURL, 150);
+                
+                // Save to localStorage
+                localStorage.setItem('ifta_avatar', resizedURL);
+                
+                // Update user object
+                if (IFTAAuth.user) {
+                    IFTAAuth.user.photoURL = resizedURL;
+                }
+                
+                // Save to Firebase if available
+                if (typeof db !== 'undefined' && IFTAAuth.user?.uid) {
+                    try {
+                        await db.collection('users').doc(IFTAAuth.user.uid).update({
+                            photoURL: resizedURL,
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                    } catch (error) {
+                        console.error('Error saving avatar to Firebase:', error);
+                    }
+                }
+                
+                // Update UI
+                this.updateProfileMenuInfo();
+                showToast('Profile photo updated!', 'success');
+                
+                // Close dropdown
+                document.getElementById('profileDropdown')?.classList.remove('open');
+            };
+            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Error uploading avatar:', error);
+            showToast('Failed to update photo', 'error');
+        }
+    },
+    
+    // Resize image helper
+    resizeImage(dataURL, maxSize) {
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+                
+                // Calculate new dimensions
+                if (width > height) {
+                    if (width > maxSize) {
+                        height = Math.round(height * maxSize / width);
+                        width = maxSize;
+                    }
+                } else {
+                    if (height > maxSize) {
+                        width = Math.round(width * maxSize / height);
+                        height = maxSize;
+                    }
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                resolve(canvas.toDataURL('image/jpeg', 0.8));
+            };
+            img.src = dataURL;
+        });
     },
     
     // Open modal helper
