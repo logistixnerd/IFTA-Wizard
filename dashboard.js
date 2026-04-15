@@ -432,13 +432,31 @@
         document.querySelectorAll('.dash-nav-item').forEach(btn => {
             btn.addEventListener('click', () => {
                 const section = btn.dataset.section;
-                document.querySelectorAll('.dash-nav-item').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
-                $('section-' + section).classList.add('active');
-                $('pageTitle').textContent = btn.querySelector('span').textContent;
+                showSection(section, true);
             });
         });
+    }
+
+    function showSection(section, syncNavState) {
+        document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
+        const sectionEl = $('section-' + section);
+        if (!sectionEl) return;
+        sectionEl.classList.add('active');
+
+        const activeNav = document.querySelector('.dash-nav-item[data-section="' + section + '"]');
+        if (syncNavState) {
+            document.querySelectorAll('.dash-nav-item').forEach(b => b.classList.remove('active'));
+            if (activeNav) activeNav.classList.add('active');
+        }
+
+        const pageTitle = activeNav ? activeNav.querySelector('span').textContent : 'Account';
+        $('pageTitle').textContent = pageTitle;
+    }
+
+    function initTopbarAccountButton() {
+        const accountButton = $('dashAccountButton');
+        if (!accountButton) return;
+        accountButton.addEventListener('click', () => showSection('profile', true));
     }
 
     // ── Load All Data ─────────────────────
@@ -2435,6 +2453,7 @@
     // ── Init ──────────────────────────────
     function init() {
         initNav();
+        initTopbarAccountButton();
         initOverviewCards();
         initExpandToggles();
         initProfileForm();

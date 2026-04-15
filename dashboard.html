@@ -34,12 +34,6 @@
                     </svg>
                     <span>Overview</span>
                 </button>
-                <button class="dash-nav-item" data-section="profile">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
-                    </svg>
-                    <span>Account</span>
-                </button>
                 <button class="dash-nav-item" data-section="company">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -88,7 +82,9 @@
             <header class="dash-topbar">
                 <h1 class="dash-page-title" id="pageTitle">Overview</h1>
                 <div class="dash-topbar-actions">
-                    <span class="dash-user-email" id="dashUserEmail"></span>
+                    <button type="button" class="dash-account-button" id="dashAccountButton" title="Open account">
+                        <span class="dash-user-email" id="dashUserEmail"></span>
+                    </button>
                 </div>
             </header>
 
