@@ -617,7 +617,7 @@
         const filtered = state.trucks.filter(t => matchesFilter(t, 'truck'));
         tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(t)}
-            <td class="col-unit"><button type="button" class="cell cell-link cell-link-unit" onclick="Dashboard.openTruckProfile('${t.id}')" title="Open unit profile for ${escapeHtml(t.unit || ('Unit ' + t.id))}"><strong>${escapeHtml(t.unit || ('Unit ' + t.id))}</strong></button></td>
+            <td class="col-unit"><div class="cell cell-primary" title="Open unit profile for ${escapeHtml(t.unit || ('Unit ' + t.id))}"><strong>${escapeHtml(t.unit || ('Unit ' + t.id))}</strong></div></td>
             <td class="col-year"><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.year)}</div></td>
             <td class="col-make"><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.make)}</div></td>
             <td class="col-model"><div class="cell cell-editable" data-field="model" data-id="${t.id}" data-collection="trucks">${escapeHtml(t.model)}</div></td>
@@ -1554,7 +1554,7 @@
         const filtered = state.trailers.filter(t => matchesFilter(t, 'trailer'));
         tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(t)}
-            <td><button type="button" class="cell cell-link cell-link-unit" onclick="Dashboard.openTrailerProfile('${t.id}')" title="Open trailer profile for ${escapeHtml(t.unit || ('Trailer ' + t.id))}"><strong>${escapeHtml(t.unit || ('Trailer ' + t.id))}</strong></button></td>
+            <td><div class="cell cell-primary" title="Open trailer profile for ${escapeHtml(t.unit || ('Trailer ' + t.id))}"><strong>${escapeHtml(t.unit || ('Trailer ' + t.id))}</strong></div></td>
             <td><div class="cell cell-editable" data-field="year" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.year)}</div></td>
             <td><div class="cell cell-editable" data-field="make" data-id="${t.id}" data-collection="trailers">${escapeHtml(t.make)}</div></td>
             <td><div class="cell cell-editable" data-field="type" data-id="${t.id}" data-collection="trailers">${trailerTypeLabel(t.type)}</div></td>
@@ -1668,7 +1668,7 @@
         const filtered = state.drivers.filter(d => matchesFilter(d, 'driver'));
         tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}" class="${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(d)}
-            <td><button type="button" class="cell cell-link cell-link-unit" onclick="Dashboard.openDriverProfile('${d.id}')" title="Open driver profile for ${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></button></td>
+            <td><div class="cell cell-primary" title="Open driver profile for ${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></div></td>
             <td><div class="cell cell-editable" data-field="cdl" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdl)}</div></td>
             <td><div class="cell cell-editable" data-field="cdlState" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdlState)}</div></td>
             <td><div class="cell cell-editable" data-field="cdlExp" data-id="${d.id}" data-collection="drivers">${escapeHtml(d.cdlExp)}</div></td>
