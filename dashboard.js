@@ -283,13 +283,10 @@
         $('closeTruckModal').addEventListener('click', () => $('truckModal').classList.add('hidden'));
         $('cancelTruck').addEventListener('click', () => $('truckModal').classList.add('hidden'));
 
-        // Add Multiple – opens modal in quick-add mode
+        // Add Multiple – opens spreadsheet modal
         const addMultiBtn = $('addMultipleTrucksBtn');
         if (addMultiBtn) {
-            addMultiBtn.addEventListener('click', () => {
-                openTruckModal(null);
-                showMsg('Add a truck, then click Add Truck again to continue adding');
-            });
+            addMultiBtn.addEventListener('click', () => openMultiTruckModal());
         }
 
         // Import – trigger CSV file picker
@@ -392,6 +389,209 @@
         } catch (err) {
             console.error('Import trucks error:', err);
             showMsg('Error importing file', true);
+        }
+    }
+
+    // ── MULTI-TRUCK SPREADSHEET ──────────
+    const MULTI_TRUCK_COLS = [
+        { key: 'unit', placeholder: 'e.g., 101', type: 'text' },
+        { key: 'year', placeholder: 'e.g., 2022', type: 'number' },
+        { key: 'make', placeholder: 'e.g., Freightliner', type: 'text' },
+        { key: 'model', placeholder: 'e.g., Cascadia', type: 'text' },
+        { key: 'vin', placeholder: '17-character VIN', type: 'text', maxlength: 17 },
+        { key: 'plate', placeholder: 'e.g., ABC 1234', type: 'text' },
+        { key: 'plateState', placeholder: 'TX', type: 'text', maxlength: 2 },
+        { key: 'fuel', type: 'select', options: [
+            { value: 'diesel', label: 'Diesel' },
+            { value: 'gasoline', label: 'Gasoline' },
+            { value: 'cng', label: 'CNG' },
+            { value: 'lng', label: 'LNG' }
+        ]},
+        { key: 'status', type: 'select', options: [
+            { value: 'active', label: 'Active' },
+            { value: 'inactive', label: 'Out of Service' },
+            { value: 'maintenance', label: 'In Maintenance' }
+        ]}
+    ];
+
+    function buildSheetRow(index) {
+        let cells = `<td class="sheet-row-num">${index + 1}</td>`;
+        MULTI_TRUCK_COLS.forEach((col, ci) => {
+            cells += '<td><div class="sheet-cell">';
+            if (col.type === 'select') {
+                cells += `<select data-key="${col.key}" tabindex="0">` +
+                    col.options.map(o => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('') +
+                    '</select>';
+            } else {
+                cells += `<input type="${col.type}" data-key="${col.key}" placeholder="${col.placeholder || ''}"${col.maxlength ? ' maxlength="' + col.maxlength + '"' : ''} tabindex="0">`;
+            }
+            cells += '</div></td>';
+        });
+        cells += `<td class="sheet-row-action"><button class="sheet-row-delete" title="Remove row" tabindex="-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+        </button></td>`;
+        const tr = document.createElement('tr');
+        tr.innerHTML = cells;
+        return tr;
+    }
+
+    function updateMultiTruckRowCount() {
+        const tbody = $('multiTruckBody');
+        const count = tbody ? tbody.children.length : 0;
+        const el = $('multiTruckRowCount');
+        if (el) el.textContent = count + ' row' + (count !== 1 ? 's' : '');
+        // Re-number rows
+        if (tbody) {
+            Array.from(tbody.children).forEach((tr, i) => {
+                const numCell = tr.querySelector('.sheet-row-num');
+                if (numCell) numCell.textContent = i + 1;
+            });
+        }
+    }
+
+    function openMultiTruckModal() {
+        const tbody = $('multiTruckBody');
+        tbody.innerHTML = '';
+        for (let i = 0; i < 5; i++) {
+            tbody.appendChild(buildSheetRow(i));
+        }
+        updateMultiTruckRowCount();
+        $('multiTruckModal').classList.remove('hidden');
+        // Focus first input
+        const first = tbody.querySelector('input');
+        if (first) setTimeout(() => first.focus(), 80);
+    }
+
+    function initMultiTruckModal() {
+        const modal = $('multiTruckModal');
+        if (!modal) return;
+
+        $('closeMultiTruckModal').addEventListener('click', () => modal.classList.add('hidden'));
+        $('cancelMultiTruck').addEventListener('click', () => modal.classList.add('hidden'));
+
+        // Add row
+        $('multiTruckAddRow').addEventListener('click', () => {
+            const tbody = $('multiTruckBody');
+            const row = buildSheetRow(tbody.children.length);
+            tbody.appendChild(row);
+            updateMultiTruckRowCount();
+            const first = row.querySelector('input');
+            if (first) first.focus();
+        });
+
+        // Delegated events on the table body
+        const tbody = $('multiTruckBody');
+
+        // Focus/blur on cells
+        tbody.addEventListener('focusin', (e) => {
+            const cell = e.target.closest('.sheet-cell');
+            if (cell) cell.classList.add('cell-focused');
+            // Highlight row with data
+            const tr = e.target.closest('tr');
+            if (tr) checkRowData(tr);
+        });
+
+        tbody.addEventListener('focusout', (e) => {
+            const cell = e.target.closest('.sheet-cell');
+            if (cell) cell.classList.remove('cell-focused');
+            const tr = e.target.closest('tr');
+            if (tr) checkRowData(tr);
+        });
+
+        // Tab navigation between cells
+        tbody.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                const inputs = Array.from(tbody.querySelectorAll('input, select'));
+                const idx = inputs.indexOf(e.target);
+                if (idx === -1) return;
+
+                if (!e.shiftKey && idx === inputs.length - 1) {
+                    // Tab on last cell – add a new row
+                    e.preventDefault();
+                    const row = buildSheetRow(tbody.children.length);
+                    tbody.appendChild(row);
+                    updateMultiTruckRowCount();
+                    const first = row.querySelector('input');
+                    if (first) first.focus();
+                }
+            }
+            if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
+                e.preventDefault();
+                // Move to next cell
+                const inputs = Array.from(tbody.querySelectorAll('input, select'));
+                const idx = inputs.indexOf(e.target);
+                if (idx < inputs.length - 1) {
+                    inputs[idx + 1].focus();
+                }
+            }
+        });
+
+        // Delete row
+        tbody.addEventListener('click', (e) => {
+            const btn = e.target.closest('.sheet-row-delete');
+            if (!btn) return;
+            const tr = btn.closest('tr');
+            if (tbody.children.length <= 1) {
+                // Don't remove last row, just clear it
+                tr.querySelectorAll('input').forEach(i => { i.value = ''; });
+                tr.querySelectorAll('select').forEach(s => { s.selectedIndex = 0; });
+                tr.classList.remove('row-has-data');
+                return;
+            }
+            tr.remove();
+            updateMultiTruckRowCount();
+        });
+
+        // Save all
+        $('saveMultiTruck').addEventListener('click', saveMultiTrucks);
+
+        // Backdrop click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.classList.add('hidden');
+        });
+    }
+
+    function checkRowData(tr) {
+        const hasData = Array.from(tr.querySelectorAll('input')).some(i => i.value.trim() !== '');
+        tr.classList.toggle('row-has-data', hasData);
+    }
+
+    async function saveMultiTrucks() {
+        const tbody = $('multiTruckBody');
+        const rows = Array.from(tbody.children);
+        const batch = firebase.firestore().batch();
+        let count = 0;
+
+        for (const tr of rows) {
+            const data = {};
+            tr.querySelectorAll('[data-key]').forEach(el => {
+                data[el.dataset.key] = el.value.trim();
+            });
+            if (!data.unit) continue;
+            if (data.plateState) data.plateState = data.plateState.toUpperCase();
+            if (!data.fuel) data.fuel = 'diesel';
+            if (!data.status) data.status = 'active';
+            data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+            data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+            const doc = col('trucks').doc();
+            batch.set(doc, data);
+            count++;
+        }
+
+        if (count === 0) {
+            showMsg('Enter at least one truck with a Unit #', true);
+            return;
+        }
+
+        try {
+            await batch.commit();
+            await loadTrucks();
+            populateTruckDropdown();
+            $('multiTruckModal').classList.add('hidden');
+            showMsg(count + ' truck' + (count > 1 ? 's' : '') + ' added');
+        } catch (err) {
+            console.error('Multi-truck save error:', err);
+            showMsg('Error saving trucks', true);
         }
     }
 
@@ -1045,6 +1245,7 @@
         initExpandToggles();
         initProfileForm();
         initTruckForm();
+        initMultiTruckModal();
         initTrailerForm();
         initDriverForm();
         initModalBackdrops();
