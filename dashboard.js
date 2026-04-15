@@ -394,36 +394,54 @@
 
     // ── MULTI-TRUCK SPREADSHEET ──────────
     const MULTI_TRUCK_COLS = [
-        { key: 'unit', placeholder: 'e.g., 101', type: 'text' },
+        { key: 'unit', placeholder: 'e.g., 101', type: 'text', required: true },
         { key: 'year', placeholder: 'e.g., 2022', type: 'number' },
         { key: 'make', placeholder: 'e.g., Freightliner', type: 'text' },
         { key: 'model', placeholder: 'e.g., Cascadia', type: 'text' },
         { key: 'vin', placeholder: '17-character VIN', type: 'text', maxlength: 17 },
         { key: 'plate', placeholder: 'e.g., ABC 1234', type: 'text' },
         { key: 'plateState', placeholder: 'TX', type: 'text', maxlength: 2 },
-        { key: 'fuel', type: 'select', options: [
+        { key: 'fuel', type: 'select', defaultLabel: 'Diesel', options: [
             { value: 'diesel', label: 'Diesel' },
             { value: 'gasoline', label: 'Gasoline' },
             { value: 'cng', label: 'CNG' },
             { value: 'lng', label: 'LNG' }
         ]},
-        { key: 'status', type: 'select', options: [
+        { key: 'status', type: 'select', defaultLabel: 'Active', options: [
             { value: 'active', label: 'Active' },
             { value: 'inactive', label: 'Out of Service' },
             { value: 'maintenance', label: 'In Maintenance' }
         ]}
     ];
 
-    function buildSheetRow(index) {
+    // Get the display label for a select column value
+    function sheetSelectLabel(col, value) {
+        if (!value && col.defaultLabel) return col.defaultLabel;
+        const opt = col.options.find(o => o.value === value);
+        return opt ? opt.label : (col.defaultLabel || '');
+    }
+
+    // Build one row element. rowData is optional (for pre-filled rows).
+    function buildSheetRow(index, rowData) {
+        const data = rowData || {};
         let cells = `<td class="sheet-row-num">${index + 1}</td>`;
-        MULTI_TRUCK_COLS.forEach((col, ci) => {
-            cells += '<td><div class="sheet-cell">';
+        MULTI_TRUCK_COLS.forEach(col => {
+            const val = data[col.key] || '';
+            const displayText = col.type === 'select'
+                ? sheetSelectLabel(col, val)
+                : escapeHtml(val);
+            const isPlaceholder = !val && col.type !== 'select';
+            const textClass = 'sheet-cell-text' + (isPlaceholder ? ' placeholder' : '');
+            const placeholderText = isPlaceholder ? (col.placeholder || '') : displayText;
+
+            cells += `<td><div class="sheet-cell" data-col-key="${col.key}">`;
+            cells += `<span class="${textClass}">${isPlaceholder ? escapeHtml(placeholderText) : displayText}</span>`;
             if (col.type === 'select') {
-                cells += `<select data-key="${col.key}" tabindex="0">` +
-                    col.options.map(o => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('') +
+                cells += `<select data-key="${col.key}" tabindex="-1">` +
+                    col.options.map(o => `<option value="${escapeHtml(o.value)}"${o.value === (val || col.options[0].value) ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') +
                     '</select>';
             } else {
-                cells += `<input type="${col.type}" data-key="${col.key}" placeholder="${col.placeholder || ''}"${col.maxlength ? ' maxlength="' + col.maxlength + '"' : ''} tabindex="0">`;
+                cells += `<input type="${col.type === 'number' ? 'text' : col.type}" data-key="${col.key}" value="${escapeHtml(val)}" placeholder="${col.placeholder || ''}"${col.maxlength ? ' maxlength="' + col.maxlength + '"' : ''} tabindex="-1">`;
             }
             cells += '</div></td>';
         });
@@ -432,7 +450,138 @@
         </button></td>`;
         const tr = document.createElement('tr');
         tr.innerHTML = cells;
+        if (rowData && Object.values(rowData).some(v => v)) tr.classList.add('row-has-data');
         return tr;
+    }
+
+    // Commit the current edit: sync input/select value back into the display text
+    function commitSheetCell(cell) {
+        if (!cell || !cell.classList.contains('cell-editing')) return;
+        cell.classList.remove('cell-editing');
+        const input = cell.querySelector('input');
+        const select = cell.querySelector('select');
+        const textEl = cell.querySelector('.sheet-cell-text');
+        const colKey = cell.dataset.colKey;
+        const colDef = MULTI_TRUCK_COLS.find(c => c.key === colKey);
+
+        if (select) {
+            textEl.textContent = select.options[select.selectedIndex].text;
+            textEl.classList.remove('placeholder');
+        } else if (input) {
+            const val = input.value.trim();
+            if (val) {
+                textEl.textContent = val;
+                textEl.classList.remove('placeholder');
+            } else {
+                textEl.textContent = colDef ? colDef.placeholder || '' : '';
+                textEl.classList.add('placeholder');
+            }
+        }
+
+        // Update row-has-data state
+        const tr = cell.closest('tr');
+        if (tr) checkRowData(tr);
+        // Run validation
+        validateSheetCell(cell);
+    }
+
+    // Start editing a specific cell
+    function startEditingCell(cell) {
+        if (!cell || cell.classList.contains('cell-editing')) return;
+        // Commit any other currently editing cell
+        const tbody = $('multiTruckBody');
+        const prev = tbody.querySelector('.cell-editing');
+        if (prev && prev !== cell) commitSheetCell(prev);
+
+        cell.classList.add('cell-editing');
+        const input = cell.querySelector('input');
+        const select = cell.querySelector('select');
+        const el = input || select;
+        if (el) {
+            el.tabIndex = 0;
+            el.focus();
+            if (input) input.select();
+        }
+    }
+
+    // Navigate to the next (or previous) editable cell from the current one
+    function navigateSheet(fromCell, direction) {
+        const tbody = $('multiTruckBody');
+        const allCells = Array.from(tbody.querySelectorAll('.sheet-cell'));
+        const idx = allCells.indexOf(fromCell);
+        if (idx === -1) return;
+
+        if (direction === 'next') {
+            if (idx < allCells.length - 1) {
+                startEditingCell(allCells[idx + 1]);
+            } else {
+                // Last cell – add a new row and focus its first cell
+                const row = buildSheetRow(tbody.children.length);
+                tbody.appendChild(row);
+                updateMultiTruckRowCount();
+                const first = row.querySelector('.sheet-cell');
+                if (first) startEditingCell(first);
+            }
+        } else if (direction === 'prev') {
+            if (idx > 0) startEditingCell(allCells[idx - 1]);
+        } else if (direction === 'down') {
+            const row = fromCell.closest('tr');
+            const cellIdx = Array.from(row.querySelectorAll('.sheet-cell')).indexOf(fromCell);
+            const nextRow = row.nextElementSibling;
+            if (nextRow) {
+                const targetCell = nextRow.querySelectorAll('.sheet-cell')[cellIdx];
+                if (targetCell) startEditingCell(targetCell);
+            }
+        } else if (direction === 'up') {
+            const row = fromCell.closest('tr');
+            const cellIdx = Array.from(row.querySelectorAll('.sheet-cell')).indexOf(fromCell);
+            const prevRow = row.previousElementSibling;
+            if (prevRow) {
+                const targetCell = prevRow.querySelectorAll('.sheet-cell')[cellIdx];
+                if (targetCell) startEditingCell(targetCell);
+            }
+        }
+    }
+
+    // Validate a cell (required, duplicate unit, etc.)
+    function validateSheetCell(cell) {
+        cell.classList.remove('cell-invalid', 'cell-duplicate');
+        const colKey = cell.dataset.colKey;
+        const input = cell.querySelector('input');
+        if (!input) return;
+        const val = input.value.trim();
+
+        // Required field check (only on save, not live — but mark empty required fields with data in row)
+        if (colKey === 'unit' && !val) {
+            const tr = cell.closest('tr');
+            const hasOtherData = Array.from(tr.querySelectorAll('input[data-key]'))
+                .some(i => i.dataset.key !== 'unit' && i.value.trim());
+            if (hasOtherData) cell.classList.add('cell-invalid');
+        }
+
+        // Duplicate unit check
+        if (colKey === 'unit' && val) {
+            const tbody = $('multiTruckBody');
+            const allUnitCells = tbody.querySelectorAll('.sheet-cell[data-col-key="unit"]');
+            let dupeCount = 0;
+            allUnitCells.forEach(c => {
+                const inp = c.querySelector('input');
+                if (inp && inp.value.trim().toLowerCase() === val.toLowerCase()) dupeCount++;
+            });
+            if (dupeCount > 1) {
+                allUnitCells.forEach(c => {
+                    const inp = c.querySelector('input');
+                    if (inp && inp.value.trim().toLowerCase() === val.toLowerCase()) {
+                        c.classList.add('cell-duplicate');
+                    }
+                });
+            }
+        }
+    }
+
+    function validateAllSheetCells() {
+        const tbody = $('multiTruckBody');
+        tbody.querySelectorAll('.sheet-cell').forEach(c => validateSheetCell(c));
     }
 
     function updateMultiTruckRowCount() {
@@ -440,7 +589,6 @@
         const count = tbody ? tbody.children.length : 0;
         const el = $('multiTruckRowCount');
         if (el) el.textContent = count + ' row' + (count !== 1 ? 's' : '');
-        // Re-number rows
         if (tbody) {
             Array.from(tbody.children).forEach((tr, i) => {
                 const numCell = tr.querySelector('.sheet-row-num');
@@ -457,107 +605,138 @@
         }
         updateMultiTruckRowCount();
         $('multiTruckModal').classList.remove('hidden');
-        // Focus first input
-        const first = tbody.querySelector('input');
-        if (first) setTimeout(() => first.focus(), 80);
+        // Start editing first cell
+        const first = tbody.querySelector('.sheet-cell');
+        if (first) setTimeout(() => startEditingCell(first), 80);
     }
 
     function initMultiTruckModal() {
         const modal = $('multiTruckModal');
         if (!modal) return;
 
-        $('closeMultiTruckModal').addEventListener('click', () => modal.classList.add('hidden'));
-        $('cancelMultiTruck').addEventListener('click', () => modal.classList.add('hidden'));
+        $('closeMultiTruckModal').addEventListener('click', () => { commitActiveCell(); modal.classList.add('hidden'); });
+        $('cancelMultiTruck').addEventListener('click', () => { commitActiveCell(); modal.classList.add('hidden'); });
 
         // Add row
         $('multiTruckAddRow').addEventListener('click', () => {
             const tbody = $('multiTruckBody');
+            commitActiveCell();
             const row = buildSheetRow(tbody.children.length);
             tbody.appendChild(row);
             updateMultiTruckRowCount();
-            const first = row.querySelector('input');
-            if (first) first.focus();
+            const first = row.querySelector('.sheet-cell');
+            if (first) startEditingCell(first);
         });
 
-        // Delegated events on the table body
         const tbody = $('multiTruckBody');
 
-        // Focus/blur on cells
-        tbody.addEventListener('focusin', (e) => {
-            const cell = e.target.closest('.sheet-cell');
-            if (cell) cell.classList.add('cell-focused');
-            // Highlight row with data
-            const tr = e.target.closest('tr');
-            if (tr) checkRowData(tr);
-        });
-
-        tbody.addEventListener('focusout', (e) => {
-            const cell = e.target.closest('.sheet-cell');
-            if (cell) cell.classList.remove('cell-focused');
-            const tr = e.target.closest('tr');
-            if (tr) checkRowData(tr);
-        });
-
-        // Tab navigation between cells
-        tbody.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                const inputs = Array.from(tbody.querySelectorAll('input, select'));
-                const idx = inputs.indexOf(e.target);
-                if (idx === -1) return;
-
-                if (!e.shiftKey && idx === inputs.length - 1) {
-                    // Tab on last cell – add a new row
-                    e.preventDefault();
-                    const row = buildSheetRow(tbody.children.length);
-                    tbody.appendChild(row);
-                    updateMultiTruckRowCount();
-                    const first = row.querySelector('input');
-                    if (first) first.focus();
-                }
-            }
-            if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
-                e.preventDefault();
-                // Move to next cell
-                const inputs = Array.from(tbody.querySelectorAll('input, select'));
-                const idx = inputs.indexOf(e.target);
-                if (idx < inputs.length - 1) {
-                    inputs[idx + 1].focus();
-                }
-            }
-        });
-
-        // Delete row
+        // Click to edit – delegated
         tbody.addEventListener('click', (e) => {
-            const btn = e.target.closest('.sheet-row-delete');
-            if (!btn) return;
-            const tr = btn.closest('tr');
-            if (tbody.children.length <= 1) {
-                // Don't remove last row, just clear it
-                tr.querySelectorAll('input').forEach(i => { i.value = ''; });
-                tr.querySelectorAll('select').forEach(s => { s.selectedIndex = 0; });
-                tr.classList.remove('row-has-data');
+            const deleteBtn = e.target.closest('.sheet-row-delete');
+            if (deleteBtn) {
+                const tr = deleteBtn.closest('tr');
+                if (tbody.children.length <= 1) {
+                    tr.querySelectorAll('input').forEach(i => { i.value = ''; });
+                    tr.querySelectorAll('select').forEach(s => { s.selectedIndex = 0; });
+                    tr.classList.remove('row-has-data');
+                    // Reset display text
+                    tr.querySelectorAll('.sheet-cell').forEach(c => {
+                        const colKey = c.dataset.colKey;
+                        const colDef = MULTI_TRUCK_COLS.find(cc => cc.key === colKey);
+                        const textEl = c.querySelector('.sheet-cell-text');
+                        if (colDef && colDef.type === 'select') {
+                            textEl.textContent = colDef.defaultLabel || colDef.options[0].label;
+                            textEl.classList.remove('placeholder');
+                        } else if (textEl) {
+                            textEl.textContent = colDef ? colDef.placeholder || '' : '';
+                            textEl.classList.add('placeholder');
+                        }
+                        c.classList.remove('cell-editing', 'cell-invalid', 'cell-duplicate');
+                    });
+                    return;
+                }
+                tr.remove();
+                updateMultiTruckRowCount();
+                validateAllSheetCells();
                 return;
             }
-            tr.remove();
-            updateMultiTruckRowCount();
+
+            const cell = e.target.closest('.sheet-cell');
+            if (cell) startEditingCell(cell);
+        });
+
+        // Keyboard navigation
+        tbody.addEventListener('keydown', (e) => {
+            const cell = e.target.closest('.sheet-cell');
+            if (!cell) return;
+
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                commitSheetCell(cell);
+                navigateSheet(cell, e.shiftKey ? 'prev' : 'next');
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                commitSheetCell(cell);
+                navigateSheet(cell, 'down');
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                commitSheetCell(cell);
+            }
+        });
+
+        // Commit on select change (for fuel/status dropdowns)
+        tbody.addEventListener('change', (e) => {
+            if (e.target.tagName === 'SELECT') {
+                const cell = e.target.closest('.sheet-cell');
+                if (cell) {
+                    commitSheetCell(cell);
+                    navigateSheet(cell, 'next');
+                }
+            }
+        });
+
+        // Clicking outside the table commits
+        modal.addEventListener('mousedown', (e) => {
+            if (e.target === modal) {
+                commitActiveCell();
+                modal.classList.add('hidden');
+                return;
+            }
+            if (!e.target.closest('.multi-truck-sheet tbody')) {
+                commitActiveCell();
+            }
         });
 
         // Save all
         $('saveMultiTruck').addEventListener('click', saveMultiTrucks);
+    }
 
-        // Backdrop click
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) modal.classList.add('hidden');
-        });
+    function commitActiveCell() {
+        const active = document.querySelector('#multiTruckBody .cell-editing');
+        if (active) commitSheetCell(active);
     }
 
     function checkRowData(tr) {
-        const hasData = Array.from(tr.querySelectorAll('input')).some(i => i.value.trim() !== '');
+        const hasData = Array.from(tr.querySelectorAll('input[data-key]')).some(i => i.value.trim() !== '');
         tr.classList.toggle('row-has-data', hasData);
     }
 
     async function saveMultiTrucks() {
+        commitActiveCell();
+        validateAllSheetCells();
+
+        // Check for validation errors
         const tbody = $('multiTruckBody');
+        const hasInvalid = tbody.querySelector('.cell-invalid');
+        const hasDuplicate = tbody.querySelector('.cell-duplicate');
+        if (hasInvalid) {
+            showMsg('Some rows have data but are missing a Unit #', true);
+            return;
+        }
+        if (hasDuplicate) {
+            if (!confirm('Duplicate Unit # found. Save anyway?')) return;
+        }
+
         const rows = Array.from(tbody.children);
         const batch = firebase.firestore().batch();
         let count = 0;

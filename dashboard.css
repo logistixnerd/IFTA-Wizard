@@ -1245,7 +1245,7 @@
 .multi-truck-sheet thead {
     position: sticky;
     top: 0;
-    z-index: 2;
+    z-index: 5;
 }
 
 .multi-truck-sheet thead th {
@@ -1317,33 +1317,83 @@
     cursor: text;
 }
 
-/* Editable cell wrapper */
+/* ── Sheet cell: read-only display ────── */
 .sheet-cell {
     display: flex;
     align-items: center;
     min-height: 38px;
-    padding: 0 0.5rem;
+    padding: 0 0.625rem;
     border: 1px solid transparent;
-    border-radius: 0;
     transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
-}
-
-.sheet-cell:hover {
-    background: rgba(79, 70, 229, 0.035);
-    border-color: rgba(79, 70, 229, 0.12);
-}
-
-.sheet-cell.cell-focused {
-    background: var(--white);
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12), 0 1px 4px rgba(0, 0, 0, 0.04);
-    z-index: 1;
+    user-select: none;
     position: relative;
 }
 
-/* Cell input */
+.sheet-cell-text {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--gray-800);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 38px;
+}
+
+.sheet-cell-text.placeholder {
+    color: var(--gray-300);
+    font-weight: 400;
+}
+
+/* Hover affordance — subtle dashed underline + faint background */
+.sheet-cell:hover {
+    background: rgba(79, 70, 229, 0.03);
+    border-color: rgba(79, 70, 229, 0.1);
+}
+
+/* Pencil icon hint on hover */
+.sheet-cell::after {
+    content: '';
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7'/%3E%3Cpath d='M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z'/%3E%3C/svg%3E");
+    background-size: contain;
+    background-repeat: no-repeat;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+
+.sheet-cell:hover::after {
+    opacity: 0.5;
+}
+
+/* ── Sheet cell: editing state ────────── */
+.sheet-cell.cell-editing {
+    background: var(--white);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.14), 0 2px 8px rgba(0, 0, 0, 0.06);
+    z-index: 3;
+    position: relative;
+}
+
+.sheet-cell.cell-editing::after {
+    display: none;
+}
+
+.sheet-cell.cell-editing .sheet-cell-text {
+    display: none;
+}
+
+/* Cell input (only visible when editing) */
 .sheet-cell input,
 .sheet-cell select {
+    display: none;
     width: 100%;
     height: 100%;
     min-height: 36px;
@@ -1356,6 +1406,11 @@
     font-family: inherit;
     color: var(--gray-800);
     font-weight: 500;
+}
+
+.sheet-cell.cell-editing input,
+.sheet-cell.cell-editing select {
+    display: block;
 }
 
 .sheet-cell input::placeholder {
@@ -1371,6 +1426,35 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.25rem center;
+}
+
+/* Validation error */
+.sheet-cell.cell-invalid {
+    background: rgba(220, 38, 38, 0.04);
+    border-color: rgba(220, 38, 38, 0.3);
+}
+
+.sheet-cell.cell-invalid .sheet-cell-text {
+    color: #dc2626;
+}
+
+.sheet-cell.cell-invalid::after {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23dc2626' stroke-width='2'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cline x1='12' y1='8' x2='12' y2='12'/%3E%3Cline x1='12' y1='16' x2='12.01' y2='16'/%3E%3C/svg%3E");
+    opacity: 0.7;
+}
+
+.sheet-cell.cell-invalid:hover::after {
+    opacity: 1;
+}
+
+/* Duplicate unit warning */
+.sheet-cell.cell-duplicate {
+    background: rgba(217, 119, 6, 0.06);
+    border-color: rgba(217, 119, 6, 0.3);
+}
+
+.sheet-cell.cell-duplicate .sheet-cell-text {
+    color: #b45309;
 }
 
 /* Row delete */
