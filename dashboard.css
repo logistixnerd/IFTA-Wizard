@@ -166,6 +166,20 @@
     border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
+.dash-account-button {
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+}
+
+.dash-account-button:hover .dash-user-email,
+.dash-account-button:focus-visible .dash-user-email {
+    color: var(--primary);
+    border-color: rgba(79, 70, 229, 0.24);
+    background: rgba(224, 231, 255, 0.6);
+}
+
 /* Sections */
 .dash-section {
     display: none;
