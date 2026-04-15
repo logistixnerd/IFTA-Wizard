@@ -315,6 +315,7 @@
     overflow-y: visible;
     border-radius: 10px;
     border: 1px solid rgba(0, 0, 0, 0.06);
+    cursor: default;
 }
 
 .dash-table {
@@ -322,6 +323,7 @@
     border-collapse: collapse;
     font-size: 0.6875rem;
     table-layout: fixed;
+    cursor: default;
 }
 
 .dash-table th {
@@ -518,7 +520,7 @@
 }
 
 .dash-table tbody tr[data-id] {
-    cursor: pointer;
+    cursor: default;
 }
 
 .dash-table tbody tr[data-id] td:not(.col-status):not(.row-actions):not(.col-validation),
