@@ -606,24 +606,94 @@
 
     function navigateToSection(section) {
         if (!section) return;
+        
+        // Handle external pages
+        if (section === 'task-manager') {
+            window.location.href = 'task-manager.html';
+            return;
+        }
+        
+        // Map sections to their parent department groups
+        const sectionGroups = {
+            // Safety
+            'safety-dashboard': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'violations': 'safety',
+            // Fleet Maintenance
+            'maintenance-dashboard': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
+            // Dispatch
+            'dispatch-board': 'dispatch', 'active-loads': 'dispatch', 'driver-assignments': 'dispatch',
+            // Track & Trace
+            'live-map': 'tracking', 'load-status': 'tracking', 'eta-tracking': 'tracking',
+            // Accounting
+            'invoices': 'accounting', 'settlements': 'accounting', 'expenses': 'accounting', 'payroll': 'accounting',
+            // Hiring
+            'applications': 'hiring', 'hiring-pipeline': 'hiring', 'onboarding': 'hiring',
+            // Claims
+            'accidents': 'claims', 'cargo-claims': 'claims', 'insurance': 'claims',
+            // Afterhours
+            'on-call': 'afterhours', 'emergency-contacts': 'afterhours', 'driver-support': 'afterhours',
+            // Operations
+            'command-center': 'operations', 'cross-dept-alerts': 'operations', 'reports': 'operations',
+            // Reports
+            'task-manager': 'reports'
+        };
+        
+        const activeGroup = sectionGroups[section] || null;
+        
+        // Update nav items active state
         document.querySelectorAll('.dash-nav-item').forEach(b => {
             b.classList.toggle('active', b.dataset.section === section);
         });
+        
+        // Update sections visibility
         document.querySelectorAll('.dash-section').forEach(s => {
             s.classList.toggle('active', s.id === 'section-' + section);
         });
-        const group = document.querySelector('.dash-nav-group');
-        if (group) group.classList.toggle('open', ['trucks', 'trailers', 'drivers'].includes(section));
+        
+        // Update nav groups - open the correct one, close others
+        document.querySelectorAll('.dash-nav-group').forEach(group => {
+            const trigger = group.querySelector('.dash-nav-group-trigger');
+            const triggerSection = trigger ? trigger.dataset.section : null;
+            const isActiveGroup = triggerSection === activeGroup;
+            group.classList.toggle('open', isActiveGroup);
+            if (trigger) trigger.classList.toggle('active', isActiveGroup);
+        });
+        
+        // Update page title
         const btn = document.querySelector('.dash-nav-item[data-section="' + section + '"]');
-        if (btn) $('pageTitle').textContent = btn.querySelector('span').textContent;
-        else if (section === 'profile') $('pageTitle').textContent = 'Account';
+        if (btn) {
+            const span = btn.querySelector('span');
+            $('pageTitle').textContent = span ? span.textContent : section;
+        } else if (section === 'profile') {
+            $('pageTitle').textContent = 'Account';
+        } else if (section === 'overview') {
+            $('pageTitle').textContent = 'Dashboard Overview';
+        }
     }
 
     // ── Navigation ────────────────────────
     function initNav() {
+        // Handle nav item clicks
         document.querySelectorAll('.dash-nav-item').forEach(btn => {
             btn.addEventListener('click', () => {
                 navigateToSection(btn.dataset.section);
+            });
+        });
+        
+        // Handle nav group trigger clicks (toggle expand/collapse)
+        document.querySelectorAll('.dash-nav-group-trigger').forEach(trigger => {
+            trigger.addEventListener('click', () => {
+                const group = trigger.closest('.dash-nav-group');
+                if (group) {
+                    // Close other groups when opening this one
+                    document.querySelectorAll('.dash-nav-group').forEach(g => {
+                        if (g !== group) g.classList.remove('open');
+                    });
+                    document.querySelectorAll('.dash-nav-group-trigger').forEach(t => {
+                        if (t !== trigger) t.classList.remove('active');
+                    });
+                    group.classList.toggle('open');
+                    trigger.classList.toggle('active', group.classList.contains('open'));
+                }
             });
         });
 
@@ -2963,7 +3033,7 @@
                 kind: 'unassigned-drivers',
                 text: unassigned.length + ' active driver' + (unassigned.length > 1 ? 's' : '') + ' unassigned to a truck',
                 drivers: unassigned.map((d) => ({
-                    name: (d.name || '').trim() || 'Unnamed driver',
+                    name: [d.firstName, d.lastName].filter(Boolean).join(' ').trim() || 'Unnamed driver',
                     phone: (d.phone || '').trim(),
                     cdl: (d.cdl || '').trim()
                 }))
