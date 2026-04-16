@@ -929,6 +929,27 @@
     max-width: 540px;
 }
 
+.dash-nav .overview-lookup {
+    margin: 0.125rem 0 0.5rem;
+    max-width: none;
+    width: 100%;
+}
+
+.dash-nav .overview-lookup-input {
+    height: 34px;
+    border-radius: 10px;
+    padding: 0 0.625rem 0 2rem;
+    font-size: 0.75rem;
+    box-shadow: none;
+}
+
+.dash-nav .overview-lookup-results {
+    left: 0;
+    right: 0;
+    top: calc(100% + 0.375rem);
+    z-index: 60;
+}
+
 .overview-lookup-shell {
     position: relative;
 }
@@ -1966,6 +1987,10 @@
 
     .dash-nav-item-company {
         margin-top: 0;
+    }
+
+    .dash-nav .overview-lookup {
+        display: none;
     }
 
     .dash-nav-count {

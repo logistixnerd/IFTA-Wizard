@@ -27,6 +27,13 @@
                 </a>
             </div>
             <nav class="dash-nav">
+                <div class="overview-lookup">
+                    <div class="overview-lookup-shell">
+                        <svg class="overview-lookup-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        <input type="text" id="overviewLookup" class="overview-lookup-input" placeholder="Search trucks, trailers, or drivers..." autocomplete="off">
+                    </div>
+                    <div class="overview-lookup-results" id="overviewLookupResults"></div>
+                </div>
                 <button class="dash-nav-item active" data-section="overview">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                         <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
@@ -93,13 +100,6 @@
 
             <!-- Overview Section -->
             <section class="dash-section active" id="section-overview">
-                <div class="overview-lookup">
-                    <div class="overview-lookup-shell">
-                        <svg class="overview-lookup-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                        <input type="text" id="overviewLookup" class="overview-lookup-input" placeholder="Search trucks, trailers, or drivers..." autocomplete="off">
-                    </div>
-                    <div class="overview-lookup-results" id="overviewLookupResults"></div>
-                </div>
                 <div class="overview-grid">
                     <div class="overview-card" data-nav="trucks">
                         <div class="overview-card-icon trucks">
