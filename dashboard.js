@@ -2954,8 +2954,8 @@
     }
 
     function initDriverForm() {
-        $('addDriverBtn').addEventListener('click', () => openSheetModal('driver'));
-        $('addFirstDriver').addEventListener('click', () => openSheetModal('driver'));
+        $('addDriverBtn').addEventListener('click', () => openDriverModal());
+        $('addFirstDriver').addEventListener('click', () => openDriverModal());
         $('closeDriverModal').addEventListener('click', () => $('driverModal').classList.add('hidden'));
         $('cancelDriver').addEventListener('click', () => $('driverModal').classList.add('hidden'));
 
@@ -4123,7 +4123,7 @@
         toggleDriverColumn,
         addTruck: () => openSheetModal('truck'),
         addTrailer: () => openSheetModal('trailer'),
-        addDriver: () => openSheetModal('driver')
+        addDriver: () => openDriverModal()
     };
 
     // Start when DOM is ready
