@@ -537,6 +537,14 @@ const IFTAAuth = {
                     showToast('Firebase API key is restricted/misconfigured for Auth (' + (error.code || 'unknown') + ').', 'error');
                 }
                 console.error('Google sign in API key/config error:', error);
+            } else if (
+                /identitytoolkit\.googleapis\.com/i.test(String(error.message || ''))
+                || /projectconfigservice\.getprojectconfig-are-blocked/i.test(String(error.message || ''))
+            ) {
+                if (typeof showToast === 'function') {
+                    showToast('Auth is blocked by API key restrictions. Allow Identity Toolkit API on your Firebase key.', 'error');
+                }
+                console.error('Google sign in blocked by API restrictions:', error);
             } else if (error.code === 'auth/operation-not-allowed') {
                 if (typeof showToast === 'function') {
                     showToast('Google provider is disabled in Firebase Auth. Enable it in Firebase Console.', 'error');
