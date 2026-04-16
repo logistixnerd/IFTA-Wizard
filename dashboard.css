@@ -541,7 +541,6 @@
     transition: transform 0.2s ease, color 0.18s ease;
 }
 
-.dash-nav-group:hover .dash-nav-group-chevron,
 .dash-nav-group.open .dash-nav-group-chevron {
     transform: rotate(180deg);
     color: var(--gray-600);
@@ -553,7 +552,6 @@
     transition: max-height 0.22s ease;
 }
 
-.dash-nav-group:hover .dash-nav-group-dropdown,
 .dash-nav-group.open .dash-nav-group-dropdown {
     max-height: 200px;
 }

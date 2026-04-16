@@ -616,9 +616,9 @@
         // Map sections to their parent department groups
         const sectionGroups = {
             // Safety
-            'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'violations': 'safety',
+            'safety-dashboard': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'violations': 'safety',
             // Fleet Maintenance
-            'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
+            'maintenance-dashboard': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
             // Dispatch
             'dispatch-board': 'dispatch', 'active-loads': 'dispatch', 'driver-assignments': 'dispatch',
             // Track & Trace
@@ -632,7 +632,7 @@
             // Afterhours
             'on-call': 'afterhours', 'emergency-contacts': 'afterhours', 'driver-support': 'afterhours',
             // Operations
-            'cross-dept-alerts': 'operations', 'reports': 'operations',
+            'command-center': 'operations', 'cross-dept-alerts': 'operations', 'reports': 'operations',
             // Reports
             'task-manager': 'reports'
         };
@@ -672,6 +672,9 @@
 
     // ── Navigation ────────────────────────
     function initNav() {
+        const HOVER_OPEN_DELAY_MS = 280;
+        const HOVER_CLOSE_DELAY_MS = 180;
+
         // Handle nav item clicks
         document.querySelectorAll('.dash-nav-item').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -696,6 +699,52 @@
                 }
             });
         });
+
+        // Open dropdowns only after a short hover pause to prevent accidental popups.
+        if (window.matchMedia && window.matchMedia('(hover: hover)').matches) {
+            document.querySelectorAll('.dash-nav-group').forEach(group => {
+                let openTimer = null;
+                let closeTimer = null;
+                const trigger = group.querySelector('.dash-nav-group-trigger');
+
+                const isPinnedOpen = () => Boolean(group.querySelector('.dash-nav-item.active'));
+
+                const openGroup = () => {
+                    document.querySelectorAll('.dash-nav-group').forEach(g => {
+                        if (g !== group) g.classList.remove('open');
+                    });
+                    document.querySelectorAll('.dash-nav-group-trigger').forEach(t => {
+                        if (t !== trigger) t.classList.remove('active');
+                    });
+                    group.classList.add('open');
+                    if (trigger) trigger.classList.add('active');
+                };
+
+                const closeGroup = () => {
+                    if (isPinnedOpen()) return;
+                    group.classList.remove('open');
+                    if (trigger) trigger.classList.remove('active');
+                };
+
+                group.addEventListener('mouseenter', () => {
+                    if (closeTimer) {
+                        clearTimeout(closeTimer);
+                        closeTimer = null;
+                    }
+                    if (openTimer) clearTimeout(openTimer);
+                    openTimer = setTimeout(openGroup, HOVER_OPEN_DELAY_MS);
+                });
+
+                group.addEventListener('mouseleave', () => {
+                    if (openTimer) {
+                        clearTimeout(openTimer);
+                        openTimer = null;
+                    }
+                    if (closeTimer) clearTimeout(closeTimer);
+                    closeTimer = setTimeout(closeGroup, HOVER_CLOSE_DELAY_MS);
+                });
+            });
+        }
 
         const logo = $('dashLogo');
         if (logo) {
