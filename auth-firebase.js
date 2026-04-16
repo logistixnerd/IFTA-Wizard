@@ -141,8 +141,10 @@ const IFTAAuth = {
                 // Log activity
                 this.logActivity('login', `${this.user.email} signed in`);
 
-                // Default landing after auth is Carrier Dashboard.
-                if (window.location.pathname.toLowerCase().endsWith('/index.html') || window.location.pathname === '/') {
+                // Default landing after auth is Carrier Dashboard (unless coming from dashboard).
+                const params = new URLSearchParams(window.location.search);
+                const isFromDashboard = params.has('origin') && params.get('origin') === 'dashboard';
+                if (!isFromDashboard && (window.location.pathname.toLowerCase().endsWith('/index.html') || window.location.pathname === '/')) {
                     window.location.assign('dashboard.html');
                     return;
                 }
@@ -165,7 +167,9 @@ const IFTAAuth = {
                     IFTAReports.syncReportsFromFirebase();
                 }
 
-                if (window.location.pathname.toLowerCase().endsWith('/index.html') || window.location.pathname === '/') {
+                const params2 = new URLSearchParams(window.location.search);
+                const isFromDashboard2 = params2.has('origin') && params2.get('origin') === 'dashboard';
+                if (!isFromDashboard2 && (window.location.pathname.toLowerCase().endsWith('/index.html') || window.location.pathname === '/')) {
                     window.location.assign('dashboard.html');
                     return;
                 }
