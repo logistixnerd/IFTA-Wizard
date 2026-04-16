@@ -696,9 +696,16 @@
                 ? data.sameShopAsOffice
                 : (legacySameAll !== null ? legacySameAll : (!shopAddress || shopAddress === officeAddress));
 
+            const yardAddress = data.yardAddress || '';
+            const sameYardAsOffice = typeof data.sameYardAsOffice === 'boolean'
+                ? data.sameYardAsOffice
+                : (!yardAddress || yardAddress === officeAddress);
+
             $('dashAddress').value = officeAddress;
             $('dashSameShopAddressToggle').checked = !sameShopAsOffice;
             $('dashShopAddress').value = shopAddress;
+            $('dashSameYardAddressToggle').checked = !sameYardAsOffice;
+            $('dashYardAddress').value = yardAddress;
             setCompanyAddressMode();
             $('dashFleetSize').value = data.fleetSize || '';
             $('dashBaseState').value = data.baseState || '';
@@ -723,6 +730,7 @@
 
         initAddressLookup('dashAddress');
         initAddressLookup('dashShopAddress');
+        initAddressLookup('dashYardAddress');
         initCompanyAddressFields();
 
         // Avatar upload
@@ -769,8 +777,10 @@
         $('dashCompanyForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const separateShopAddress = !!$('dashSameShopAddressToggle').checked;
+            const separateYardAddress = !!$('dashSameYardAddressToggle').checked;
             const officeAddress = $('dashAddress').value.trim();
             const shopAddress = separateShopAddress ? $('dashShopAddress').value.trim() : officeAddress;
+            const yardAddress = separateYardAddress ? $('dashYardAddress').value.trim() : officeAddress;
             const payload = {
                 company: $('dashCompany').value.trim(),
                 dotNumber: $('dashDotNumber').value.trim(),
@@ -781,7 +791,8 @@
                 sameAddressForFacilities: !separateShopAddress,
                 sameShopAsOffice: !separateShopAddress,
                 shopAddress: shopAddress,
-                yardAddress: shopAddress,
+                sameYardAsOffice: !separateYardAddress,
+                yardAddress: yardAddress,
                 fleetSize: $('dashFleetSize').value,
                 baseState: $('dashBaseState').value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -800,18 +811,27 @@
         const separateShopAddress = !!($('dashSameShopAddressToggle') && $('dashSameShopAddressToggle').checked);
         const shopGroup = $('dashShopAddressGroup');
         const shopInput = $('dashShopAddress');
-        if (!shopGroup || !shopInput) return;
+        if (shopGroup && shopInput) {
+            shopGroup.hidden = !separateShopAddress;
+            shopInput.disabled = !separateShopAddress;
+        }
 
-        shopGroup.hidden = !separateShopAddress;
-        shopInput.disabled = !separateShopAddress;
+        const separateYardAddress = !!($('dashSameYardAddressToggle') && $('dashSameYardAddressToggle').checked);
+        const yardGroup = $('dashYardAddressGroup');
+        const yardInput = $('dashYardAddress');
+        if (yardGroup && yardInput) {
+            yardGroup.hidden = !separateYardAddress;
+            yardInput.disabled = !separateYardAddress;
+        }
     }
 
     function initCompanyAddressFields() {
         const sameShopToggle = $('dashSameShopAddressToggle');
-        if (!sameShopToggle) return;
+        const sameYardToggle = $('dashSameYardAddressToggle');
 
         setCompanyAddressMode();
-        sameShopToggle.addEventListener('change', setCompanyAddressMode);
+        if (sameShopToggle) sameShopToggle.addEventListener('change', setCompanyAddressMode);
+        if (sameYardToggle) sameYardToggle.addEventListener('change', setCompanyAddressMode);
     }
 
     function initAddressLookup(inputId) {
