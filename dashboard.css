@@ -896,24 +896,24 @@
 
 /* Give Drivers table more vertical room so bottom rows remain visible */
 #section-drivers .dash-card {
-    min-height: 620px;
+    min-height: 760px;
 }
 
 #section-drivers .dash-card-body {
-    padding-bottom: 0.75rem;
+    padding-bottom: 1.1rem;
 }
 
 #section-drivers .dash-table-wrap {
-    min-height: 460px;
+    min-height: 580px;
 }
 
 @media (max-width: 1024px) {
     #section-drivers .dash-card {
-        min-height: 520px;
+        min-height: 620px;
     }
 
     #section-drivers .dash-table-wrap {
-        min-height: 380px;
+        min-height: 460px;
     }
 }
 
@@ -967,10 +967,10 @@
 }
 
 .col-picker-panel {
-    position: absolute;
-    top: 34px;
-    right: 8px;
-    z-index: 20;
+    position: fixed;
+    top: 90px;
+    left: 90px;
+    z-index: 9999;
     width: 260px;
     max-height: 320px;
     overflow-y: auto;

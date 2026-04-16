@@ -3443,6 +3443,34 @@
         const close = $('driverColPickerClose');
         if (!panel || !close) return;
 
+        function openDriverColPicker(btn) {
+            if (!btn) return;
+            renderDriverColPickerList();
+            panel.style.display = 'block';
+
+            const rect = btn.getBoundingClientRect();
+            // Reset first so width/height are measurable.
+            panel.style.left = '0px';
+            panel.style.top = '0px';
+
+            const pad = 8;
+            const panelRect = panel.getBoundingClientRect();
+            let left = rect.right - panelRect.width;
+            let top = rect.bottom + 8;
+
+            if (left < pad) left = pad;
+            if (left + panelRect.width > window.innerWidth - pad) {
+                left = window.innerWidth - panelRect.width - pad;
+            }
+            if (top + panelRect.height > window.innerHeight - pad) {
+                top = rect.top - panelRect.height - 8;
+            }
+            if (top < pad) top = pad;
+
+            panel.style.left = `${left}px`;
+            panel.style.top = `${top}px`;
+        }
+
         close.addEventListener('click', () => {
             panel.style.display = 'none';
         });
@@ -3451,12 +3479,22 @@
             const btn = $('driverColPickerBtn');
             if (btn && btn.contains(e.target)) {
                 e.stopPropagation();
-                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-                if (panel.style.display === 'block') renderDriverColPickerList();
+                if (panel.style.display === 'block') {
+                    panel.style.display = 'none';
+                } else {
+                    openDriverColPicker(btn);
+                }
                 return;
             }
             if (panel.style.display === 'block' && !panel.contains(e.target)) {
                 panel.style.display = 'none';
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            if (panel.style.display === 'block') {
+                const btn = $('driverColPickerBtn');
+                openDriverColPicker(btn);
             }
         });
     }
