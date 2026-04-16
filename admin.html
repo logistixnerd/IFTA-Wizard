@@ -83,6 +83,9 @@
                 <a href="#about-editor" class="admin-nav-item" data-section="about-editor">
                     <span class="nav-text">About Page</span>
                 </a>
+                <a href="#task-statuses" class="admin-nav-item" data-section="task-statuses">
+                    <span class="nav-text">Task Statuses</span>
+                </a>
             </nav>
             
             <div class="admin-sidebar-footer">
@@ -477,7 +480,52 @@
                     </div>
                 </div>
             </section>
+
+            <!-- Task Statuses Section -->
+            <section id="section-task-statuses" class="admin-section">
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2>Task Statuses</h2>
+                        <div class="admin-card-actions">
+                            <button class="btn btn-primary" id="addStatusBtn" onclick="AdminPanel.openAddStatusForm()">Add Status</button>
+                        </div>
+                    </div>
+                    <div class="admin-card-body">
+                        <p class="info-text">Customize the task statuses available in your task management system.</p>
+                        <div id="statusesList" class="statuses-list">
+                            <p class="empty-state">Loading task statuses...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
         </main>
+    </div>
+
+    <!-- Add/Edit Status Modal -->
+    <div id="statusModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <button class="modal-close" onclick="AdminPanel.closeStatusModal()">&times;</button>
+            <h2 id="statusModalTitle">Add Task Status</h2>
+            <form id="statusForm" onsubmit="AdminPanel.saveTaskStatus(event)">
+                <div class="form-group">
+                    <label for="statusName">Status Name *</label>
+                    <input type="text" id="statusName" placeholder="e.g., Open, In Progress, Resolved" required>
+                </div>
+                <div class="form-group">
+                    <label for="statusColor">Status Color *</label>
+                    <div class="color-picker-wrapper">
+                        <input type="color" id="statusColor" value="#ef4444" required>
+                        <span id="statusColorPreview" class="color-preview"></span>
+                    </div>
+                </div>
+                <p id="statusFormError" class="error-message" style="display: none;"></p>
+                <div class="modal-actions">
+                    <button type="button" class="btn" onclick="AdminPanel.closeStatusModal()">Cancel</button>
+                    <button type="button" class="btn btn-danger" id="deleteStatusBtn" onclick="AdminPanel.deleteTaskStatus()" style="display: none;">Delete</button>
+                    <button type="submit" class="btn btn-primary">Save Status</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Role Change Modal -->

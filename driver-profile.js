@@ -172,6 +172,60 @@
         });
     }
 
+    function renderTasks(tasks) {
+        const container = $('profileTasksList');
+        if (!container) return;
+
+        const openTasks = tasks.filter(t => t.status !== 'Resolved');
+        
+        if (!openTasks.length) {
+            container.innerHTML = '<p class="empty-state" style="padding: 1rem; margin: 0;">No open tasks</p>';
+            return;
+        }
+
+        container.innerHTML = openTasks.slice(0, 3).map(task => {
+            const overdue = task.dueDate ? toDate(task.dueDate)?.getTime?.() < Date.now() : false;
+            const dueDate = task.dueDate ? formatDate(task.dueDate) : 'No due date';
+            const statusColor = getStatusColor(task.status);
+            
+            return `
+                <div class="profile-task-item" style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100); display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <p style="margin: 0 0 0.25rem; font-weight: 500; color: var(--gray-900); font-size: 0.875rem;">${escapeHtml(task.text.substring(0, 60))}</p>
+                        <p style="margin: 0; font-size: 0.75rem; color: var(--gray-500);">${escapeHtml(dueDate)}${overdue ? ' <span style="color: #dc2626; font-weight: 600;">OVERDUE</span>' : ''}</p>
+                    </div>
+                    <span style="display: inline-block; padding: 0.25rem 0.625rem; background-color: ${statusColor}40; color: ${statusColor}; font-size: 0.75rem; font-weight: 600; border-radius: 3px; margin-left: 1rem; white-space: nowrap;">${escapeHtml(task.status)}</span>
+                </div>
+            `;
+        }).join('');
+
+        if (openTasks.length > 3) {
+            container.innerHTML += `<p style="padding: 0.75rem; margin: 0; text-align: center; color: var(--gray-500); font-size: 0.8rem;">+${openTasks.length - 3} more tasks</p>`;
+        }
+    }
+
+    function getStatusColor(status) {
+        const statusMap = {
+            'Open': '#ef4444',
+            'In Progress': '#f59e0b',
+            'Resolved': '#10b981'
+        };
+        return statusMap[status] || '#6b7280';
+    }
+
+    async function loadTasks() {
+        try {
+            const result = await FirebaseDB.getTasks(state.user.uid, 'drivers', state.driverId);
+            if (result.success) {
+                renderTasks(result.data || []);
+            }
+        } catch (error) {
+            console.error('Error loading tasks:', error);
+            const container = $('profileTasksList');
+            if (container) container.innerHTML = '<p class="empty-state" style="padding: 1rem; margin: 0; color: #dc2626;">Error loading tasks</p>';
+        }
+    }
+
     async function loadDriver() {
         const doc = await driverRef().get();
         if (!doc.exists) {
@@ -290,7 +344,7 @@
     async function loadPage() {
         const ok = await loadDriver();
         if (!ok) return;
-        await Promise.all([loadHistory(), loadPhotos()]);
+        await Promise.all([loadHistory(), loadPhotos(), loadTasks()]);
     }
 
     function initAuth() {

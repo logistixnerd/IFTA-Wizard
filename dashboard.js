@@ -616,9 +616,9 @@
         // Map sections to their parent department groups
         const sectionGroups = {
             // Safety
-            'safety-dashboard': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'violations': 'safety',
+            'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'violations': 'safety',
             // Fleet Maintenance
-            'maintenance-dashboard': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
+            'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
             // Dispatch
             'dispatch-board': 'dispatch', 'active-loads': 'dispatch', 'driver-assignments': 'dispatch',
             // Track & Trace
@@ -632,7 +632,7 @@
             // Afterhours
             'on-call': 'afterhours', 'emergency-contacts': 'afterhours', 'driver-support': 'afterhours',
             // Operations
-            'command-center': 'operations', 'cross-dept-alerts': 'operations', 'reports': 'operations',
+            'cross-dept-alerts': 'operations', 'reports': 'operations',
             // Reports
             'task-manager': 'reports'
         };

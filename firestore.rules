@@ -207,6 +207,51 @@ service cloud.firestore {
     }
     
     // ==========================================
+    // HISTORY/TASKS SUBCOLLECTIONS (under drivers, trucks, trailers)
+    // ==========================================
+    match /users/{userId}/drivers/{driverId}/history/{taskId} {
+      // Owner can read their own driver's tasks
+      allow read: if isOwner(userId);
+      
+      // Any authenticated user can create tasks
+      allow create: if isAuthenticated();
+      
+      // Owner and admin can update tasks
+      allow update: if isOwner(userId) || isAdmin();
+      
+      // Owner and admin can delete tasks
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    match /users/{userId}/trucks/{truckId}/history/{taskId} {
+      // Owner can read their own truck's tasks
+      allow read: if isOwner(userId);
+      
+      // Any authenticated user can create tasks
+      allow create: if isAuthenticated();
+      
+      // Owner and admin can update tasks
+      allow update: if isOwner(userId) || isAdmin();
+      
+      // Owner and admin can delete tasks
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    match /users/{userId}/trailers/{trailerId}/history/{taskId} {
+      // Owner can read their own trailer's tasks
+      allow read: if isOwner(userId);
+      
+      // Any authenticated user can create tasks
+      allow create: if isAuthenticated();
+      
+      // Owner and admin can update tasks
+      allow update: if isOwner(userId) || isAdmin();
+      
+      // Owner and admin can delete tasks
+      allow delete: if isOwner(userId) || isAdmin();
+    }
+    
+    // ==========================================
     // DEFAULT DENY
     // ==========================================
     match /{document=**} {

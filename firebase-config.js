@@ -418,6 +418,239 @@ const FirebaseDB = {
             console.error('Error getting all reports:', error);
             return { success: false, error: error.message };
         }
+    },
+    
+    // ----- TASK MANAGEMENT (History/Tasks in subcollections) -----
+    
+    // Get custom task statuses from company dashboard
+    async getCustomStatuses(userId) {
+        try {
+            const userDoc = await db.collection('users').doc(userId).get();
+            if (!userDoc.exists) return { success: false, error: 'User not found' };
+            
+            const data = userDoc.data();
+            const statuses = data.companyDashboard?.taskStatuses || [
+                { name: 'Open', color: '#ef4444' },
+                { name: 'In Progress', color: '#f59e0b' },
+                { name: 'Resolved', color: '#10b981' }
+            ];
+            
+            return { success: true, data: statuses };
+        } catch (error) {
+            console.error('Error getting custom statuses:', error);
+            return { success: false, error: error.message };
+        }
+    },
+    
+    // Create a new task
+    async createTask(userId, entityType, entityId, taskData) {
+        try {
+            if (!['drivers', 'trucks', 'trailers'].includes(entityType)) {
+                return { success: false, error: 'Invalid entity type' };
+            }
+            
+            const taskRef = db.collection('users').doc(userId)
+                .collection(entityType).doc(entityId)
+                .collection('history').doc();
+            
+            const newTask = {
+                ...taskData,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAtIso: new Date().toISOString(),
+                resolvedAt: null,
+                resolvedBy: null,
+                resolutionNotes: null
+            };
+            
+            await taskRef.set(newTask);
+            return { success: true, id: taskRef.id };
+        } catch (error) {
+            console.error('Error creating task:', error);
+            return { success: false, error: error.message };
+        }
+    },
+    
+    // Get tasks for a specific entity
+    async getTasks(userId, entityType, entityId, filters = {}) {
+        try {
+            let query = db.collection('users').doc(userId)
+                .collection(entityType).doc(entityId)
+                .collection('history');
+            
+            // Filter by status if provided
+            if (filters.status && filters.status.length > 0) {
+                query = query.where('status', 'in', filters.status);
+            }
+            
+            // Order by creation date
+            query = query.orderBy('createdAt', 'desc');
+            
+            // Apply limit
+            if (filters.limit) query = query.limit(filters.limit);
+            
+            const snapshot = await query.get();
+            const tasks = [];
+            snapshot.forEach(doc => {
+                tasks.push({ id: doc.id, ...doc.data() });
+            });
+            
+            return { success: true, data: tasks };
+        } catch (error) {
+            console.error('Error getting tasks:', error);
+            return { success: false, error: error.message };
+        }
+    },
+    
+    // Get all tasks across entities for task board
+    async getAllTasks(userId, filters = {}) {
+        try {
+            const allTasks = [];
+            const entityTypes = ['drivers', 'trucks', 'trailers'];
+            
+            for (const entityType of entityTypes) {
+                const entitiesSnapshot = await db.collection('users').doc(userId)
+                    .collection(entityType).get();
+                
+                for (const entityDoc of entitiesSnapshot.docs) {
+                    let query = entityDoc.ref.collection('history');
+                    
+                    // Filter by status if provided
+                    if (filters.status && filters.status.length > 0) {
+                        query = query.where('status', 'in', filters.status);
+                    }
+                    
+                    // Filter by assigned user if provided
+                    if (filters.assignedTo) {
+                        query = query.where('assignedTo', 'array-contains', filters.assignedTo);
+                    }
+                    
+                    // Filter by due date range if provided
+                    if (filters.dueDateFrom) {
+                        query = query.where('dueDate', '>=', filters.dueDateFrom);
+                    }
+                    if (filters.dueDateTo) {
+                        query = query.where('dueDate', '<=', filters.dueDateTo);
+                    }
+                    
+                    const tasksSnapshot = await query.orderBy('createdAt', 'desc').get();
+                    
+                    tasksSnapshot.forEach(taskDoc => {
+                        allTasks.push({
+                            id: taskDoc.id,
+                            entityType: entityType,
+                            entityId: entityDoc.id,
+                            entityName: entityDoc.data()[entityType === 'drivers' ? 'firstName' : 'unit'] || entityDoc.id,
+                            ...taskDoc.data()
+                        });
+                    });
+                }
+            }
+            
+            // Sort by creation date
+            allTasks.sort((a, b) => {
+                const aTime = a.createdAt?.toDate?.() || new Date(a.createdAtIso || 0);
+                const bTime = b.createdAt?.toDate?.() || new Date(b.createdAtIso || 0);
+                return bTime - aTime;
+            });
+            
+            return { success: true, data: allTasks };
+        } catch (error) {
+            console.error('Error getting all tasks:', error);
+            return { success: false, error: error.message };
+        }
+    },
+    
+    // Update task status
+    async updateTaskStatus(userId, entityType, entityId, taskId, newStatus) {
+        try {
+            await db.collection('users').doc(userId)
+                .collection(entityType).doc(entityId)
+                .collection('history').doc(taskId)
+                .update({
+                    status: newStatus,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            
+            return { success: true };
+        } catch (error) {
+            console.error('Error updating task status:', error);
+            return { success: false, error: error.message };
+        }
+    },
+    
+    // Update task (text, type, assignees, dueDate)
+    async updateTask(userId, entityType, entityId, taskId, updateData) {
+        try {
+            await db.collection('users').doc(userId)
+                .collection(entityType).doc(entityId)
+                .collection('history').doc(taskId)
+                .update({
+                    ...updateData,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            
+            return { success: true };
+        } catch (error) {
+            console.error('Error updating task:', error);
+            return { success: false, error: error.message };
+        }
+    },
+    
+    // Resolve a task
+    async resolveTask(userId, entityType, entityId, taskId, resolutionNotes, resolvedBy) {
+        try {
+            await db.collection('users').doc(userId)
+                .collection(entityType).doc(entityId)
+                .collection('history').doc(taskId)
+                .update({
+                    status: 'Resolved',
+                    resolutionNotes: resolutionNotes || '',
+                    resolvedBy: resolvedBy,
+                    resolvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            
+            return { success: true };
+        } catch (error) {
+            console.error('Error resolving task:', error);
+            return { success: false, error: error.message };
+        }
+    },
+    
+    // Reopen a resolved task
+    async reopenTask(userId, entityType, entityId, taskId) {
+        try {
+            await db.collection('users').doc(userId)
+                .collection(entityType).doc(entityId)
+                .collection('history').doc(taskId)
+                .update({
+                    status: 'Open',
+                    resolutionNotes: null,
+                    resolvedBy: null,
+                    resolvedAt: null,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            
+            return { success: true };
+        } catch (error) {
+            console.error('Error reopening task:', error);
+            return { success: false, error: error.message };
+        }
+    },
+    
+    // Delete a task
+    async deleteTask(userId, entityType, entityId, taskId) {
+        try {
+            await db.collection('users').doc(userId)
+                .collection(entityType).doc(entityId)
+                .collection('history').doc(taskId)
+                .delete();
+            
+            return { success: true };
+        } catch (error) {
+            console.error('Error deleting task:', error);
+            return { success: false, error: error.message };
+        }
     }
 };
 

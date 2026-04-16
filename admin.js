@@ -139,6 +139,14 @@ const AdminPanel = {
         document.getElementById('sendReminderBtn')?.addEventListener('click', () => {
             this.sendTaxRateReminder();
         });
+
+        // Task Status Color Picker
+        document.getElementById('statusColor')?.addEventListener('input', (e) => {
+            const preview = document.getElementById('statusColorPreview');
+            if (preview) {
+                preview.style.background = e.target.value;
+            }
+        });
     },
     
     // Switch section
@@ -164,7 +172,8 @@ const AdminPanel = {
             'tax-rates': 'Tax Rate Management',
             'activity': 'Activity Log',
             'errors': 'Error Log',
-            'about-editor': 'About Page Editor'
+            'about-editor': 'About Page Editor',
+            'task-statuses': 'Task Statuses'
         };
         document.getElementById('pageTitle').textContent = titles[section] || 'Admin';
         
@@ -198,6 +207,9 @@ const AdminPanel = {
                 break;
             case 'about-editor':
                 await this.loadAboutContent();
+                break;
+            case 'task-statuses':
+                await this.loadTaskStatuses();
                 break;
         }
     },
@@ -2181,6 +2193,150 @@ const AdminPanel = {
         `;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 3000);
+    },
+
+    // Task Statuses Management
+    async loadTaskStatuses() {
+        try {
+            const result = await FirebaseDB.getCustomStatuses(uid());
+            if (!result.success || !result.data) return;
+
+            const statuses = result.data;
+            const container = document.getElementById('statusesList');
+            
+            if (!statuses.length) {
+                container.innerHTML = '<p class="empty-state">No custom statuses configured yet.</p>';
+                return;
+            }
+
+            container.innerHTML = statuses.map((status, index) => `
+                <div class="status-item">
+                    <div class="status-item-content">
+                        <div class="status-item-color" style="background-color: ${escapeHtml(status.color)}"></div>
+                        <div class="status-item-name">${escapeHtml(status.name)}</div>
+                    </div>
+                    <div class="status-item-actions">
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="AdminPanel.editTaskStatus(${index})">Edit</button>
+                        <button type="button" class="btn btn-sm btn-danger" onclick="AdminPanel.confirmDeleteStatus(${index})">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        } catch (error) {
+            console.error('Error loading task statuses:', error);
+        }
+    },
+
+    openAddStatusForm() {
+        document.getElementById('statusModalTitle').textContent = 'Add Task Status';
+        document.getElementById('statusForm').reset();
+        document.getElementById('statusColor').value = '#4f46e5';
+        document.getElementById('statusColorPreview').style.background = '#4f46e5';
+        document.getElementById('deleteStatusBtn').style.display = 'none';
+        document.getElementById('statusFormError').style.display = 'none';
+        document.getElementById('statusModal').classList.remove('hidden');
+        document.getElementById('statusName').focus();
+        this.currentStatusIndex = null;
+    },
+
+    editTaskStatus(index) {
+        const result = FirebaseDB.getCustomStatuses(uid());
+        result.then(res => {
+            if (!res.success || !res.data) return;
+            const status = res.data[index];
+            if (!status) return;
+
+            document.getElementById('statusModalTitle').textContent = 'Edit Task Status';
+            document.getElementById('statusName').value = status.name;
+            document.getElementById('statusColor').value = status.color;
+            document.getElementById('statusColorPreview').style.background = status.color;
+            document.getElementById('deleteStatusBtn').style.display = '';
+            document.getElementById('statusFormError').style.display = 'none';
+            document.getElementById('statusModal').classList.remove('hidden');
+            this.currentStatusIndex = index;
+        });
+    },
+
+    closeStatusModal() {
+        document.getElementById('statusModal').classList.add('hidden');
+        this.currentStatusIndex = null;
+    },
+
+    async saveTaskStatus(e) {
+        e.preventDefault();
+        
+        const name = document.getElementById('statusName').value.trim();
+        const color = document.getElementById('statusColor').value;
+        const errorEl = document.getElementById('statusFormError');
+
+        if (!name) {
+            errorEl.textContent = 'Status name is required';
+            errorEl.style.display = '';
+            return;
+        }
+
+        try {
+            const result = await FirebaseDB.getCustomStatuses(uid());
+            if (!result.success) throw new Error('Failed to load current statuses');
+
+            let statuses = result.data || [];
+            
+            if (this.currentStatusIndex !== null) {
+                // Edit existing
+                statuses[this.currentStatusIndex] = { name, color };
+            } else {
+                // Add new
+                if (statuses.some(s => s.name.toLowerCase() === name.toLowerCase())) {
+                    errorEl.textContent = 'A status with this name already exists';
+                    errorEl.style.display = '';
+                    return;
+                }
+                statuses.push({ name, color });
+            }
+
+            // Save to Firestore
+            await db.collection('users').doc(uid()).set({
+                'companyDashboard.taskStatuses': statuses
+            }, { merge: true });
+
+            this.closeStatusModal();
+            await this.loadTaskStatuses();
+            this.showToast(`Status ${this.currentStatusIndex !== null ? 'updated' : 'added'} successfully`, 'success');
+        } catch (error) {
+            console.error('Error saving status:', error);
+            errorEl.textContent = 'Failed to save status: ' + error.message;
+            errorEl.style.display = '';
+        }
+    },
+
+    confirmDeleteStatus(index) {
+        if (confirm('Are you sure you want to delete this status? Tasks using this status will need to be updated.')) {
+            this.currentStatusIndex = index;
+            this.deleteTaskStatus();
+        }
+    },
+
+    async deleteTaskStatus() {
+        if (this.currentStatusIndex === null) return;
+        
+        try {
+            const result = await FirebaseDB.getCustomStatuses(uid());
+            if (!result.success || !result.data) throw new Error('Failed to load statuses');
+
+            let statuses = result.data;
+            statuses.splice(this.currentStatusIndex, 1);
+
+            // Save to Firestore
+            await db.collection('users').doc(uid()).set({
+                'companyDashboard.taskStatuses': statuses
+            }, { merge: true });
+
+            this.closeStatusModal();
+            await this.loadTaskStatuses();
+            this.showToast('Status deleted successfully', 'success');
+        } catch (error) {
+            console.error('Error deleting status:', error);
+            this.showToast('Failed to delete status: ' + error.message, 'error');
+        }
     }
 };
 

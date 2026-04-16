@@ -3346,7 +3346,6 @@ th.col-validation {
     background: rgba(99, 102, 241, 0.1);
 }
 .dash-nav-group-trigger.active[data-section="operations"],
-.dash-nav-group .dash-nav-item.active[data-section="command-center"],
 .dash-nav-group .dash-nav-item.active[data-section="cross-dept-alerts"],
 .dash-nav-group .dash-nav-item.active[data-section="reports"] {
     background: rgba(20, 184, 166, 0.1);
