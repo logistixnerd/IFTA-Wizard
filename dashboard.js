@@ -3443,6 +3443,11 @@
         const close = $('driverColPickerClose');
         if (!panel || !close) return;
 
+        // Keep the picker outside scroll/clip containers so it stays visible.
+        if (panel.parentElement !== document.body) {
+            document.body.appendChild(panel);
+        }
+
         function openDriverColPicker(btn) {
             if (!btn) return;
             renderDriverColPickerList();
