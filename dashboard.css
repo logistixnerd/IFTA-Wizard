@@ -894,6 +894,29 @@
     position: relative;
 }
 
+/* Give Drivers table more vertical room so bottom rows remain visible */
+#section-drivers .dash-card {
+    min-height: 620px;
+}
+
+#section-drivers .dash-card-body {
+    padding-bottom: 0.75rem;
+}
+
+#section-drivers .dash-table-wrap {
+    min-height: 460px;
+}
+
+@media (max-width: 1024px) {
+    #section-drivers .dash-card {
+        min-height: 520px;
+    }
+
+    #section-drivers .dash-table-wrap {
+        min-height: 380px;
+    }
+}
+
 .dash-table {
     width: 100%;
     border-collapse: collapse;
