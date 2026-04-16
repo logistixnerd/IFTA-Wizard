@@ -131,6 +131,50 @@
     gap: 1rem;
 }
 
+.company-tabs {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem;
+    background: rgba(79, 70, 229, 0.05);
+    border: 1px solid rgba(79, 70, 229, 0.08);
+    border-radius: 12px;
+    width: fit-content;
+    max-width: 100%;
+    flex-wrap: wrap;
+}
+
+.company-tab {
+    border: none;
+    background: transparent;
+    color: var(--gray-500);
+    border-radius: 9px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.company-tab:hover {
+    color: var(--gray-700);
+    background: rgba(255, 255, 255, 0.65);
+}
+
+.company-tab.active {
+    color: var(--primary);
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.company-tab-panel {
+    display: none;
+}
+
+.company-tab-panel.active {
+    display: block;
+}
+
 .company-block-head {
     display: flex;
     align-items: center;
@@ -150,13 +194,7 @@
 }
 
 .company-dashboard-layout {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.75rem;
-}
-
-.company-dashboard-layout .company-dashboard-panel:first-child {
-    grid-column: 1 / -1;
+    display: block;
 }
 
 .company-dashboard-panel {
@@ -164,6 +202,10 @@
     border: 1px solid rgba(0, 0, 0, 0.05);
     border-radius: 10px;
     padding: 0.75rem;
+}
+
+.company-dashboard-panel-wide {
+    width: 100%;
 }
 
 .company-dashboard-panel-head {
@@ -1753,7 +1795,11 @@
     }
 
     .company-dashboard-layout {
-        grid-template-columns: 1fr;
+        display: block;
+    }
+
+    .company-tabs {
+        width: 100%;
     }
 
     .company-dashboard-check-grid {

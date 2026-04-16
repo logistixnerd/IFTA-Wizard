@@ -1180,6 +1180,27 @@
         });
     }
 
+    function initCompanyTabs() {
+        const tabs = Array.from(document.querySelectorAll('.company-tab'));
+        const panels = Array.from(document.querySelectorAll('.company-tab-panel'));
+        if (!tabs.length || !panels.length) return;
+
+        function activateTab(name) {
+            tabs.forEach(tab => {
+                const active = tab.dataset.companyTab === name;
+                tab.classList.toggle('active', active);
+                tab.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+            panels.forEach(panel => {
+                panel.classList.toggle('active', panel.dataset.companyPanel === name);
+            });
+        }
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => activateTab(tab.dataset.companyTab));
+        });
+    }
+
     function resizeImage(file, maxSize) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -3192,6 +3213,7 @@
         initOverviewLookup();
         initExpandToggles();
         initProfileForm();
+        initCompanyTabs();
         initCompanyDashboard();
         initTruckForm();
         initSheetModals();

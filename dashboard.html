@@ -270,137 +270,149 @@
                         <h2>Company</h2>
                     </div>
                     <div class="dash-card-body company-unified-body">
-                        <div class="company-block">
-                            <div class="company-block-head">
-                                <h3>Company Information</h3>
-                            </div>
-                            <form id="dashCompanyForm" class="dash-form">
-                                <div class="dash-form-grid">
-                                    <div class="form-group form-group-full">
-                                        <label for="dashCompany">Company / Carrier Name</label>
-                                        <input type="text" id="dashCompany">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dashDotNumber">DOT Number</label>
-                                        <input type="text" id="dashDotNumber" placeholder="e.g., 1234567">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dashBaseState">Base Jurisdiction</label>
-                                        <select id="dashBaseState">
-                                            <option value="">Select...</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dashMcNumber">MC Number</label>
-                                        <input type="text" id="dashMcNumber" placeholder="e.g., MC-123456">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dashEin">EIN / Tax ID</label>
-                                        <input type="text" id="dashEin" placeholder="XX-XXXXXXX">
-                                    </div>
-                                    <div class="form-group form-group-full">
-                                        <label for="dashAddress">Business Address</label>
-                                        <input type="text" id="dashAddress" placeholder="Street, City, State ZIP" autocomplete="off">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="dashFleetSize">Fleet Size</label>
-                                        <select id="dashFleetSize">
-                                            <option value="">Select...</option>
-                                            <option value="1-5">1-5 trucks</option>
-                                            <option value="6-20">6-20 trucks</option>
-                                            <option value="21-50">21-50 trucks</option>
-                                            <option value="51-100">51-100 trucks</option>
-                                            <option value="100+">100+ trucks</option>
-                                        </select>
-                                    </div>
+                        <div class="company-tabs" role="tablist" aria-label="Company sections">
+                            <button type="button" class="company-tab active" data-company-tab="info" role="tab" aria-selected="true">Information</button>
+                            <button type="button" class="company-tab" data-company-tab="tools" role="tab" aria-selected="false">Tools & Options</button>
+                            <button type="button" class="company-tab" data-company-tab="users" role="tab" aria-selected="false">Users & Roles</button>
+                            <button type="button" class="company-tab" data-company-tab="templates" role="tab" aria-selected="false">Templates</button>
+                        </div>
+
+                        <div class="company-tab-panel active" data-company-panel="info" role="tabpanel">
+                            <div class="company-block">
+                                <div class="company-block-head">
+                                    <h3>Company Information</h3>
                                 </div>
-                                <div class="dash-form-actions">
-                                    <button type="submit" class="btn btn-primary">Save Company Info</button>
+                                <form id="dashCompanyForm" class="dash-form">
+                                    <div class="dash-form-grid">
+                                        <div class="form-group form-group-full">
+                                            <label for="dashCompany">Company / Carrier Name</label>
+                                            <input type="text" id="dashCompany">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="dashDotNumber">DOT Number</label>
+                                            <input type="text" id="dashDotNumber" placeholder="e.g., 1234567">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="dashBaseState">Base Jurisdiction</label>
+                                            <select id="dashBaseState">
+                                                <option value="">Select...</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="dashMcNumber">MC Number</label>
+                                            <input type="text" id="dashMcNumber" placeholder="e.g., MC-123456">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="dashEin">EIN / Tax ID</label>
+                                            <input type="text" id="dashEin" placeholder="XX-XXXXXXX">
+                                        </div>
+                                        <div class="form-group form-group-full">
+                                            <label for="dashAddress">Business Address</label>
+                                            <input type="text" id="dashAddress" placeholder="Street, City, State ZIP" autocomplete="off">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="dashFleetSize">Fleet Size</label>
+                                            <select id="dashFleetSize">
+                                                <option value="">Select...</option>
+                                                <option value="1-5">1-5 trucks</option>
+                                                <option value="6-20">6-20 trucks</option>
+                                                <option value="21-50">21-50 trucks</option>
+                                                <option value="51-100">51-100 trucks</option>
+                                                <option value="100+">100+ trucks</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="dash-form-actions">
+                                        <button type="submit" class="btn btn-primary">Save Company Info</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <div class="company-tab-panel" data-company-panel="tools" role="tabpanel">
+                            <div class="company-dashboard-panel company-dashboard-panel-wide">
+                                <div class="company-dashboard-panel-head">
+                                    <h3>Tools & Options</h3>
+                                    <button type="button" class="btn btn-primary btn-sm" id="companyToolsSaveBtn">Save</button>
                                 </div>
-                            </form>
-                        </div>
-
-                        <div class="company-block-divider"></div>
-
-                        <div class="company-block company-dashboard-layout">
-                        <div class="company-dashboard-panel">
-                            <div class="company-dashboard-panel-head">
-                                <h3>Tools & Options</h3>
-                                <button type="button" class="btn btn-primary btn-sm" id="companyToolsSaveBtn">Save</button>
-                            </div>
-                            <div class="company-dashboard-check-grid">
-                                <label class="company-check-item"><input type="checkbox" id="toolIfta"><span><strong>IFTA Wizard</strong><small>Fuel tax calculations and quarterly filing workflows.</small></span></label>
-                                <label class="company-check-item"><input type="checkbox" id="toolSafety"><span><strong>Safety Workspace</strong><small>Safety dashboards, alerts, and compliance tracking.</small></span></label>
-                                <label class="company-check-item"><input type="checkbox" id="toolDriver"><span><strong>Driver Management</strong><small>Driver profile maintenance and assignment controls.</small></span></label>
-                                <label class="company-check-item"><input type="checkbox" id="toolReports"><span><strong>Reports</strong><small>Scheduled exports and KPI reports.</small></span></label>
-                                <label class="company-check-item"><input type="checkbox" id="toolBilling"><span><strong>Billing</strong><small>Carrier billing and invoice generation tools.</small></span></label>
-                                <label class="company-check-item"><input type="checkbox" id="toolIntegrations"><span><strong>Integrations</strong><small>Sync with third-party ELD and accounting systems.</small></span></label>
-                            </div>
-                            <div class="company-dashboard-subtitle">Global Options</div>
-                            <div class="company-dashboard-check-grid">
-                                <label class="company-check-item"><input type="checkbox" id="optionSelfServe"><span><strong>Driver self-service access</strong><small>Allow drivers to update profile and compliance docs.</small></span></label>
-                                <label class="company-check-item"><input type="checkbox" id="optionRoleApproval"><span><strong>Role changes require approval</strong><small>Any role promotion must be approved by Owner/Admin.</small></span></label>
-                                <label class="company-check-item"><input type="checkbox" id="optionTemplateEnforce"><span><strong>Auto-apply department templates</strong><small>Assign tools/options automatically from selected template.</small></span></label>
+                                <div class="company-dashboard-check-grid">
+                                    <label class="company-check-item"><input type="checkbox" id="toolIfta"><span><strong>IFTA Wizard</strong><small>Fuel tax calculations and quarterly filing workflows.</small></span></label>
+                                    <label class="company-check-item"><input type="checkbox" id="toolSafety"><span><strong>Safety Workspace</strong><small>Safety dashboards, alerts, and compliance tracking.</small></span></label>
+                                    <label class="company-check-item"><input type="checkbox" id="toolDriver"><span><strong>Driver Management</strong><small>Driver profile maintenance and assignment controls.</small></span></label>
+                                    <label class="company-check-item"><input type="checkbox" id="toolReports"><span><strong>Reports</strong><small>Scheduled exports and KPI reports.</small></span></label>
+                                    <label class="company-check-item"><input type="checkbox" id="toolBilling"><span><strong>Billing</strong><small>Carrier billing and invoice generation tools.</small></span></label>
+                                    <label class="company-check-item"><input type="checkbox" id="toolIntegrations"><span><strong>Integrations</strong><small>Sync with third-party ELD and accounting systems.</small></span></label>
+                                </div>
+                                <div class="company-dashboard-subtitle">Global Options</div>
+                                <div class="company-dashboard-check-grid">
+                                    <label class="company-check-item"><input type="checkbox" id="optionSelfServe"><span><strong>Driver self-service access</strong><small>Allow drivers to update profile and compliance docs.</small></span></label>
+                                    <label class="company-check-item"><input type="checkbox" id="optionRoleApproval"><span><strong>Role changes require approval</strong><small>Any role promotion must be approved by Owner/Admin.</small></span></label>
+                                    <label class="company-check-item"><input type="checkbox" id="optionTemplateEnforce"><span><strong>Auto-apply department templates</strong><small>Assign tools/options automatically from selected template.</small></span></label>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="company-dashboard-panel">
-                            <div class="company-dashboard-panel-head">
-                                <h3>User Access & Roles</h3>
-                            </div>
-                            <div class="company-user-invite-row">
-                                <input type="text" id="companyUserName" placeholder="Full name">
-                                <input type="email" id="companyUserEmail" placeholder="Email address">
-                                <select id="companyUserRole">
-                                    <option value="Admin">Admin</option>
-                                    <option value="Safety Manager">Safety Manager</option>
-                                    <option value="Dispatcher">Dispatcher</option>
-                                    <option value="Driver">Driver</option>
-                                    <option value="Viewer" selected>Viewer</option>
-                                    <option value="Owner">Owner</option>
-                                </select>
-                                <button type="button" class="btn btn-secondary btn-sm" id="companyInviteUserBtn">Invite / Add</button>
-                            </div>
-                            <div class="company-user-table-wrap">
-                                <table class="dash-table company-user-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Name</th>
-                                            <th>Email</th>
-                                            <th>Role</th>
-                                            <th>Status</th>
-                                            <th></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="companyUsersTableBody"></tbody>
-                                </table>
+                        <div class="company-tab-panel" data-company-panel="users" role="tabpanel">
+                            <div class="company-dashboard-panel company-dashboard-panel-wide">
+                                <div class="company-dashboard-panel-head">
+                                    <h3>User Access & Roles</h3>
+                                </div>
+                                <div class="company-user-invite-row">
+                                    <input type="text" id="companyUserName" placeholder="Full name">
+                                    <input type="email" id="companyUserEmail" placeholder="Email address">
+                                    <select id="companyUserRole">
+                                        <option value="Admin">Admin</option>
+                                        <option value="Safety Manager">Safety Manager</option>
+                                        <option value="Dispatcher">Dispatcher</option>
+                                        <option value="Driver">Driver</option>
+                                        <option value="Viewer" selected>Viewer</option>
+                                        <option value="Owner">Owner</option>
+                                    </select>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="companyInviteUserBtn">Invite / Add</button>
+                                </div>
+                                <div class="company-user-table-wrap">
+                                    <table class="dash-table company-user-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Name</th>
+                                                <th>Email</th>
+                                                <th>Role</th>
+                                                <th>Status</th>
+                                                <th></th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="companyUsersTableBody"></tbody>
+                                    </table>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="company-dashboard-panel">
-                            <div class="company-dashboard-panel-head">
-                                <h3>Department Templates</h3>
+                        <div class="company-tab-panel" data-company-panel="templates" role="tabpanel">
+                            <div class="company-dashboard-panel company-dashboard-panel-wide">
+                                <div class="company-dashboard-panel-head">
+                                    <h3>Department Templates</h3>
+                                </div>
+                                <div class="company-template-form">
+                                    <input type="text" id="companyTemplateName" placeholder="Template name (e.g. Safety Ops)">
+                                    <select id="companyTemplateDepartment">
+                                        <option value="Operations">Operations</option>
+                                        <option value="Safety">Safety</option>
+                                        <option value="Dispatch">Dispatch</option>
+                                        <option value="Accounting">Accounting</option>
+                                        <option value="Executive">Executive</option>
+                                    </select>
+                                    <button type="button" class="btn btn-secondary btn-sm" id="companyTemplateCreateBtn">Create Template</button>
+                                </div>
+                                <div class="company-template-tool-grid">
+                                    <label><input type="checkbox" value="ifta"> IFTA Wizard</label>
+                                    <label><input type="checkbox" value="safety"> Safety Workspace</label>
+                                    <label><input type="checkbox" value="driver"> Driver Management</label>
+                                    <label><input type="checkbox" value="reports"> Reports</label>
+                                    <label><input type="checkbox" value="billing"> Billing</label>
+                                    <label><input type="checkbox" value="integrations"> Integrations</label>
+                                </div>
+                                <div class="company-template-list" id="companyTemplateList"></div>
                             </div>
-                            <div class="company-template-form">
-                                <input type="text" id="companyTemplateName" placeholder="Template name (e.g. Safety Ops)">
-                                <select id="companyTemplateDepartment">
-                                    <option value="Operations">Operations</option>
-                                    <option value="Safety">Safety</option>
-                                    <option value="Dispatch">Dispatch</option>
-                                    <option value="Accounting">Accounting</option>
-                                    <option value="Executive">Executive</option>
-                                </select>
-                                <button type="button" class="btn btn-secondary btn-sm" id="companyTemplateCreateBtn">Create Template</button>
-                            </div>
-                            <div class="company-template-tool-grid">
-                                <label><input type="checkbox" value="ifta"> IFTA Wizard</label>
-                                <label><input type="checkbox" value="safety"> Safety Workspace</label>
-                                <label><input type="checkbox" value="driver"> Driver Management</label>
-                                <label><input type="checkbox" value="reports"> Reports</label>
-                                <label><input type="checkbox" value="billing"> Billing</label>
-                                <label><input type="checkbox" value="integrations"> Integrations</label>
-                            </div>
-                            <div class="company-template-list" id="companyTemplateList"></div>
                         </div>
                     </div>
                 </div>
