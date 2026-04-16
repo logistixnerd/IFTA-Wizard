@@ -188,7 +188,7 @@
 
 .dash-account-trigger {
     display: inline-flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 0.5rem;
     padding: 0;
     border: none;
@@ -231,8 +231,9 @@
 .dash-account-copy {
     display: flex;
     flex-direction: row;
-    align-items: center;
+    align-items: flex-end;
     line-height: 1;
+    padding-bottom: 0.125rem;
 }
 
 .dash-user-email {
