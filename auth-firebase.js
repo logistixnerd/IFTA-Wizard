@@ -140,6 +140,12 @@ const IFTAAuth = {
                 
                 // Log activity
                 this.logActivity('login', `${this.user.email} signed in`);
+
+                // Default landing after auth is Carrier Dashboard.
+                if (window.location.pathname.toLowerCase().endsWith('/index.html') || window.location.pathname === '/') {
+                    window.location.assign('dashboard.html');
+                    return;
+                }
                 
             } catch (error) {
                 console.error('Error loading user profile:', error);
@@ -157,6 +163,11 @@ const IFTAAuth = {
                 // Still try to sync reports
                 if (typeof IFTAReports !== 'undefined' && IFTAReports.syncReportsFromFirebase) {
                     IFTAReports.syncReportsFromFirebase();
+                }
+
+                if (window.location.pathname.toLowerCase().endsWith('/index.html') || window.location.pathname === '/') {
+                    window.location.assign('dashboard.html');
+                    return;
                 }
             }
         } else {
