@@ -18,11 +18,12 @@
         <!-- Sidebar -->
         <aside class="dash-sidebar">
             <div class="dash-sidebar-header">
-                <a href="index.html" class="dash-logo">
-                    <span class="dash-logo-mark">
-                        <img src="LOGO - logistiXnerd dude.png" alt="LogistiXnerd" class="dash-logo-image">
-                    </span>
-                    <span class="dash-logo-wordmark">LogistiXnerd</span>
+                <a href="#section-overview" class="dash-logo" id="dashLogo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-2-4-2-4 2-4 2-2.7.6-4.5 1.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"/>
+                        <circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
+                    </svg>
+                    <span>LogistiXnerd</span>
                 </a>
             </div>
             <nav class="dash-nav">
@@ -93,6 +94,13 @@
 
             <!-- Overview Section -->
             <section class="dash-section active" id="section-overview">
+                <div class="overview-lookup">
+                    <div class="overview-lookup-shell">
+                        <svg class="overview-lookup-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                        <input type="text" id="overviewLookup" class="overview-lookup-input" placeholder="Search trucks, trailers, or drivers..." autocomplete="off">
+                    </div>
+                    <div class="overview-lookup-results" id="overviewLookupResults"></div>
+                </div>
                 <div class="overview-grid">
                     <div class="overview-card" data-nav="trucks">
                         <div class="overview-card-icon trucks">
