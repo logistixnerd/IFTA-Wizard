@@ -588,6 +588,11 @@
     color: var(--gray-500);
     text-decoration: none;
     transition: color 0.18s ease;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+    padding: 0;
 }
 
 .dash-back-link:hover {
