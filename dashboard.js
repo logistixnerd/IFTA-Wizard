@@ -12,170 +12,8 @@
         trailers: [],
         drivers: [],
         profile: {},
-        dropdownOptions: {},
-        companyDashboard: null
+        dropdownOptions: {}
     };
-
-    const COMPANY_TOOL_LABELS = {
-        ifta: 'IFTA Wizard',
-        safety: 'Safety Workspace',
-        driver: 'Driver Management',
-        reports: 'Reports',
-        billing: 'Billing',
-        integrations: 'Integrations'
-    };
-
-    const COMPANY_ROLE_OPTIONS = ['Owner', 'Admin', 'Safety Manager', 'Dispatcher', 'Driver', 'Viewer'];
-
-    function getDefaultCompanyDashboard() {
-        return {
-            tools: {
-                ifta: true,
-                safety: true,
-                driver: true,
-                reports: true,
-                billing: false,
-                integrations: false
-            },
-            options: {
-                selfServe: false,
-                roleApproval: true,
-                templateEnforce: false
-            },
-            users: [],
-            templates: []
-        };
-    }
-
-    function normalizeCompanyDashboard(raw) {
-        const base = getDefaultCompanyDashboard();
-        const data = raw && typeof raw === 'object' ? raw : {};
-        return {
-            tools: { ...base.tools, ...(data.tools || {}) },
-            options: { ...base.options, ...(data.options || {}) },
-            users: Array.isArray(data.users) ? data.users.map(u => ({ ...u })) : [],
-            templates: Array.isArray(data.templates) ? data.templates.map(t => ({ ...t })) : []
-        };
-    }
-
-    function makeEntityId(prefix) {
-        return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    }
-
-    function ensureCompanyOwnerMember() {
-        if (!state.user) return;
-        if (!state.companyDashboard) state.companyDashboard = getDefaultCompanyDashboard();
-        const users = state.companyDashboard.users;
-        const email = (state.user.email || '').toLowerCase();
-        const existing = users.find(u => u.id === uid() || ((u.email || '').toLowerCase() === email));
-
-        if (existing) {
-            existing.id = existing.id || uid();
-            existing.name = existing.name || state.user.displayName || 'Owner';
-            existing.email = existing.email || state.user.email || '';
-            existing.role = existing.role || 'Owner';
-            existing.status = 'Active';
-            return;
-        }
-
-        users.unshift({
-            id: uid(),
-            name: state.user.displayName || 'Owner',
-            email: state.user.email || '',
-            role: 'Owner',
-            status: 'Active',
-            invitedAt: new Date().toISOString()
-        });
-    }
-
-    async function saveCompanyDashboard(successMessage) {
-        if (!uid() || !state.companyDashboard) return;
-        await db.collection('users').doc(uid()).set({
-            companyDashboard: state.companyDashboard,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-        if (successMessage) showMsg(successMessage);
-    }
-
-    function renderCompanyDashboard() {
-        const data = state.companyDashboard || getDefaultCompanyDashboard();
-
-        const toolMap = {
-            toolIfta: !!data.tools.ifta,
-            toolSafety: !!data.tools.safety,
-            toolDriver: !!data.tools.driver,
-            toolReports: !!data.tools.reports,
-            toolBilling: !!data.tools.billing,
-            toolIntegrations: !!data.tools.integrations,
-            optionSelfServe: !!data.options.selfServe,
-            optionRoleApproval: !!data.options.roleApproval,
-            optionTemplateEnforce: !!data.options.templateEnforce
-        };
-
-        Object.entries(toolMap).forEach(([id, value]) => {
-            const el = $(id);
-            if (el) el.checked = value;
-        });
-
-        const tbody = $('companyUsersTableBody');
-        if (tbody) {
-            if (!data.users.length) {
-                tbody.innerHTML = '<tr><td colspan="5">No users added yet.</td></tr>';
-            } else {
-                tbody.innerHTML = data.users.map(user => {
-                    const roleOptions = COMPANY_ROLE_OPTIONS.map(role =>
-                        '<option value="' + escapeHtml(role) + '"' + (user.role === role ? ' selected' : '') + '>' + escapeHtml(role) + '</option>'
-                    ).join('');
-                    const statusRaw = (user.status || 'Pending').toString();
-                    const statusClass = statusRaw.toLowerCase() === 'active' ? 'active' : 'pending';
-                    const locked = user.id === uid();
-                    return `
-                        <tr>
-                            <td>${escapeHtml(user.name || 'User')}</td>
-                            <td>${escapeHtml(user.email || '')}</td>
-                            <td>
-                                <select class="company-user-row-role" data-id="${escapeHtml(user.id || '')}" ${locked ? 'disabled' : ''}>
-                                    ${roleOptions}
-                                </select>
-                            </td>
-                            <td><span class="company-user-status ${statusClass}">${escapeHtml(statusRaw)}</span></td>
-                            <td>
-                                <button type="button" class="btn btn-sm ${locked ? 'btn-secondary' : 'btn-danger'} company-user-remove" data-id="${escapeHtml(user.id || '')}" ${locked ? 'disabled' : ''}>${locked ? 'Owner' : 'Remove'}</button>
-                            </td>
-                        </tr>
-                    `;
-                }).join('');
-            }
-        }
-
-        const templateList = $('companyTemplateList');
-        if (templateList) {
-            if (!data.templates.length) {
-                templateList.innerHTML = '<div class="company-template-item">No templates created yet.</div>';
-            } else {
-                templateList.innerHTML = data.templates.map(template => {
-                    const pills = (Array.isArray(template.tools) ? template.tools : [])
-                        .map(tool => '<span class="company-template-pill">' + escapeHtml(COMPANY_TOOL_LABELS[tool] || tool) + '</span>')
-                        .join('');
-                    return `
-                        <div class="company-template-item">
-                            <div class="company-template-head">
-                                <div>
-                                    <div class="company-template-name">${escapeHtml(template.name || 'Template')}</div>
-                                    <div class="company-template-dept">${escapeHtml(template.department || 'Operations')}</div>
-                                </div>
-                                <div class="company-template-actions">
-                                    <label class="company-template-toggle"><input type="checkbox" class="company-template-active" data-id="${escapeHtml(template.id || '')}" ${template.active ? 'checked' : ''}> Active</label>
-                                    <button type="button" class="btn btn-danger btn-sm company-template-delete" data-id="${escapeHtml(template.id || '')}">Delete</button>
-                                </div>
-                            </div>
-                            <div class="company-template-tools">${pills || '<span class="company-template-pill">No tools</span>'}</div>
-                        </div>
-                    `;
-                }).join('');
-            }
-        }
-    }
 
     // ── Editable Dropdown Definitions ──
     const DROPDOWN_DEFS = {
@@ -382,8 +220,9 @@
 
         const list = document.createElement('ul');
         list.className = 'autocomplete-list';
-        list.style.cssText = 'display:none;position:absolute;top:100%;left:0;right:0;';
+        list.style.display = 'none';
 
+        // Position relative to the cell / input wrapper
         wrap.style.position = 'relative';
         wrap.appendChild(list);
 
@@ -583,139 +422,23 @@
                 return;
             }
             state.user = user;
-            setTopbarAccount(user.displayName || 'User', user.photoURL || localStorage.getItem('ifta_avatar') || null);
+            $('dashUserEmail').textContent = 'Welcome, ' + (user.displayName || 'User') + '!';
             await loadAll();
         });
     }
 
-    function setTopbarAccount(name, photoUrl) {
-        const firstName = String(name || 'User').trim().split(/\s+/)[0] || 'User';
-        $('dashUserEmail').textContent = 'Welcome, ' + firstName + '!';
-        const avatar = $('dashTopbarAvatar');
-        if (!avatar) return;
-        if (photoUrl) {
-            avatar.innerHTML = '';
-            const img = document.createElement('img');
-            img.src = photoUrl;
-            img.alt = 'Profile';
-            avatar.appendChild(img);
-        } else {
-            avatar.textContent = firstName.charAt(0).toUpperCase();
-        }
-    }
-
-    function navigateToSection(section) {
-        if (!section) return;
-
-        const departmentLandingSections = {
-            safety: 'violations',
-            maintenance: 'work-orders',
-            operations: 'cross-dept-alerts'
-        };
-        const targetSection = departmentLandingSections[section] || section;
-        
-        // Handle external pages
-        if (targetSection === 'task-manager') {
-            window.location.href = 'task-manager.html';
-            return;
-        }
-        
-        // Map sections to their parent department groups
-        const sectionGroups = {
-            // Safety
-            'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'violations': 'safety',
-            // Fleet Maintenance
-            'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
-            // Dispatch
-            'dispatch-board': 'dispatch', 'active-loads': 'dispatch', 'driver-assignments': 'dispatch',
-            // Track & Trace
-            'live-map': 'tracking', 'load-status': 'tracking', 'eta-tracking': 'tracking',
-            // Accounting
-            'invoices': 'accounting', 'settlements': 'accounting', 'expenses': 'accounting', 'payroll': 'accounting',
-            // Hiring
-            'applications': 'hiring', 'hiring-pipeline': 'hiring', 'onboarding': 'hiring',
-            // Claims
-            'accidents': 'claims', 'cargo-claims': 'claims', 'insurance': 'claims',
-            // Afterhours
-            'on-call': 'afterhours', 'emergency-contacts': 'afterhours', 'driver-support': 'afterhours',
-            // Operations
-            'cross-dept-alerts': 'operations', 'reports': 'operations',
-            // Reports
-            'task-manager': 'reports'
-        };
-        
-        const activeGroup = sectionGroups[targetSection] || sectionGroups[section] || null;
-        
-        // Update nav items active state
-        document.querySelectorAll('.dash-nav-item').forEach(b => {
-            b.classList.toggle('active', b.dataset.section === section);
-        });
-        
-        // Update sections visibility
-        document.querySelectorAll('.dash-section').forEach(s => {
-            s.classList.toggle('active', s.id === 'section-' + targetSection);
-        });
-        
-        // Update nav groups - open the correct one, close others
-        document.querySelectorAll('.dash-nav-group').forEach(group => {
-            const trigger = group.querySelector('.dash-nav-group-trigger');
-            const triggerSection = trigger ? trigger.dataset.section : null;
-            const isActiveGroup = triggerSection === activeGroup;
-            group.classList.toggle('open', isActiveGroup);
-            if (trigger) trigger.classList.toggle('active', isActiveGroup);
-        });
-        
-        // Update page title
-        const btn = document.querySelector('.dash-nav-item[data-section="' + section + '"]');
-        if (btn) {
-            const span = btn.querySelector('span');
-            $('pageTitle').textContent = span ? span.textContent : section;
-        } else if (section === 'profile') {
-            $('pageTitle').textContent = 'Account';
-        } else if (section === 'overview') {
-            $('pageTitle').textContent = 'Dashboard Overview';
-        }
-    }
-
     // ── Navigation ────────────────────────
     function initNav() {
-        // Handle nav item clicks
         document.querySelectorAll('.dash-nav-item').forEach(btn => {
             btn.addEventListener('click', () => {
-                navigateToSection(btn.dataset.section);
+                const section = btn.dataset.section;
+                document.querySelectorAll('.dash-nav-item').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
+                $('section-' + section).classList.add('active');
+                $('pageTitle').textContent = btn.querySelector('span').textContent;
             });
         });
-        
-        // Handle nav group trigger clicks (toggle expand/collapse)
-        document.querySelectorAll('.dash-nav-group-trigger').forEach(trigger => {
-            trigger.addEventListener('click', () => {
-                const group = trigger.closest('.dash-nav-group');
-                if (group) {
-                    // Close other groups when opening this one
-                    document.querySelectorAll('.dash-nav-group').forEach(g => {
-                        if (g !== group) g.classList.remove('open');
-                    });
-                    document.querySelectorAll('.dash-nav-group-trigger').forEach(t => {
-                        if (t !== trigger) t.classList.remove('active');
-                    });
-                    group.classList.toggle('open');
-                    trigger.classList.toggle('active', group.classList.contains('open'));
-                }
-            });
-        });
-
-        const logo = $('dashLogo');
-        if (logo) {
-            logo.addEventListener('click', (e) => {
-                e.preventDefault();
-                navigateToSection('overview');
-            });
-        }
-
-        const accountBtn = $('dashAccountBtn');
-        if (accountBtn) {
-            accountBtn.addEventListener('click', () => navigateToSection('profile'));
-        }
     }
 
     // ── Load All Data ─────────────────────
@@ -741,10 +464,10 @@
             // Hero area
             $('dashProfileName').textContent = data.name || state.user.displayName || 'User';
             $('dashProfileEmail').textContent = state.user.email || '';
-            setTopbarAccount(data.name || state.user.displayName || 'User', data.avatarBase64 || state.user.photoURL || localStorage.getItem('ifta_avatar') || null);
+            $('dashUserEmail').textContent = 'Welcome, ' + (data.name || state.user.displayName || 'User') + '!';
 
             // Avatar
-            const photoUrl = data.avatarBase64 || state.user.photoURL || localStorage.getItem('ifta_avatar') || null;
+            const photoUrl = state.user.photoURL || localStorage.getItem('ifta_avatar') || null;
             const photoEl = $('dashProfilePhoto');
             if (photoUrl) {
                 photoEl.innerHTML = '';
@@ -766,30 +489,9 @@
             $('dashDotNumber').value = data.dotNumber || '';
             $('dashMcNumber').value = data.mcNumber || '';
             $('dashEin').value = data.ein || '';
-            const officeAddress = data.officeAddress || data.address || '';
-            const shopAddress = data.shopAddress || '';
-            const legacySameAll = typeof data.sameAddressForFacilities === 'boolean' ? data.sameAddressForFacilities : null;
-            const sameShopAsOffice = typeof data.sameShopAsOffice === 'boolean'
-                ? data.sameShopAsOffice
-                : (legacySameAll !== null ? legacySameAll : (!shopAddress || shopAddress === officeAddress));
-
-            const yardAddress = data.yardAddress || '';
-            const sameYardAsOffice = typeof data.sameYardAsOffice === 'boolean'
-                ? data.sameYardAsOffice
-                : (!yardAddress || yardAddress === officeAddress);
-
-            $('dashAddress').value = officeAddress;
-            $('dashSameShopAddressToggle').checked = !sameShopAsOffice;
-            $('dashShopAddress').value = shopAddress;
-            $('dashSameYardAddressToggle').checked = !sameYardAsOffice;
-            $('dashYardAddress').value = yardAddress;
-            setCompanyAddressMode();
+            $('dashAddress').value = data.address || '';
             $('dashFleetSize').value = data.fleetSize || '';
             $('dashBaseState').value = data.baseState || '';
-
-            state.companyDashboard = normalizeCompanyDashboard(data.companyDashboard);
-            ensureCompanyOwnerMember();
-            renderCompanyDashboard();
         } catch (e) {
             console.error('Error loading profile:', e);
         }
@@ -805,11 +507,6 @@
             sel.appendChild(opt);
         });
 
-        initAddressLookup('dashAddress');
-        initAddressLookup('dashShopAddress');
-        initAddressLookup('dashYardAddress');
-        initCompanyAddressFields();
-
         // Avatar upload
         $('dashAvatarUpload').addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -824,7 +521,6 @@
                 img.alt = 'Profile';
                 photoEl.appendChild(img);
                 localStorage.setItem('ifta_avatar', dataUrl);
-                setTopbarAccount($('dashFullName').value.trim() || state.profile.name || state.user.displayName || 'User', dataUrl);
                 await db.collection('users').doc(uid()).set({ avatarBase64: dataUrl }, { merge: true });
             } catch (err) {
                 console.error('Avatar upload error:', err);
@@ -842,7 +538,7 @@
             try {
                 await db.collection('users').doc(uid()).set(payload, { merge: true });
                 $('dashProfileName').textContent = payload.name || 'User';
-                setTopbarAccount(payload.name || 'User', localStorage.getItem('ifta_avatar') || state.profile.avatarBase64 || state.user.photoURL || null);
+                $('dashUserEmail').textContent = 'Welcome, ' + (payload.name || 'User') + '!';
                 showMsg('Profile saved');
             } catch (err) {
                 console.error('Save profile error:', err);
@@ -853,23 +549,12 @@
         // Save company info
         $('dashCompanyForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const separateShopAddress = !!$('dashSameShopAddressToggle').checked;
-            const separateYardAddress = !!$('dashSameYardAddressToggle').checked;
-            const officeAddress = $('dashAddress').value.trim();
-            const shopAddress = separateShopAddress ? $('dashShopAddress').value.trim() : officeAddress;
-            const yardAddress = separateYardAddress ? $('dashYardAddress').value.trim() : officeAddress;
             const payload = {
                 company: $('dashCompany').value.trim(),
                 dotNumber: $('dashDotNumber').value.trim(),
                 mcNumber: $('dashMcNumber').value.trim(),
                 ein: $('dashEin').value.trim(),
-                address: officeAddress,
-                officeAddress: officeAddress,
-                sameAddressForFacilities: !separateShopAddress,
-                sameShopAsOffice: !separateShopAddress,
-                shopAddress: shopAddress,
-                sameYardAsOffice: !separateYardAddress,
-                yardAddress: yardAddress,
+                address: $('dashAddress').value.trim(),
                 fleetSize: $('dashFleetSize').value,
                 baseState: $('dashBaseState').value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -881,586 +566,6 @@
                 console.error('Save company error:', err);
                 showMsg('Error saving company info', true);
             }
-        });
-    }
-
-    function setCompanyAddressMode() {
-        const separateShopAddress = !!($('dashSameShopAddressToggle') && $('dashSameShopAddressToggle').checked);
-        const shopGroup = $('dashShopAddressGroup');
-        const shopInput = $('dashShopAddress');
-        if (shopGroup && shopInput) {
-            shopGroup.hidden = !separateShopAddress;
-            shopInput.disabled = !separateShopAddress;
-        }
-
-        const separateYardAddress = !!($('dashSameYardAddressToggle') && $('dashSameYardAddressToggle').checked);
-        const yardGroup = $('dashYardAddressGroup');
-        const yardInput = $('dashYardAddress');
-        if (yardGroup && yardInput) {
-            yardGroup.hidden = !separateYardAddress;
-            yardInput.disabled = !separateYardAddress;
-        }
-    }
-
-    function initCompanyAddressFields() {
-        const sameShopToggle = $('dashSameShopAddressToggle');
-        const sameYardToggle = $('dashSameYardAddressToggle');
-
-        setCompanyAddressMode();
-        if (sameShopToggle) sameShopToggle.addEventListener('change', setCompanyAddressMode);
-        if (sameYardToggle) sameYardToggle.addEventListener('change', setCompanyAddressMode);
-    }
-
-    function initAddressLookup(inputId) {
-        const addressInput = $(inputId);
-        if (!addressInput) return;
-
-        let timer = null;
-        let lastQuery = '';
-        let activeController = null;
-        let items = [];
-        let activeIdx = -1;
-        let officeGeoCache = { address: '', point: null };
-
-        const wrap = addressInput.parentElement;
-        if (!wrap) return;
-        const list = document.createElement('ul');
-        list.className = 'autocomplete-list';
-        list.style.cssText = 'display:none;position:fixed;margin:0;right:auto;z-index:9999;';
-        document.body.appendChild(list);
-
-        function positionList() {
-            const rect = addressInput.getBoundingClientRect();
-            list.style.top = (rect.bottom + 2) + 'px';
-            list.style.left = rect.left + 'px';
-            list.style.width = rect.width + 'px';
-        }
-
-        function isGooglePlacesReady() {
-            return !!(
-                window.google
-                && google.maps
-                && google.maps.places
-                && typeof google.maps.places.AutocompleteService === 'function'
-                && typeof google.maps.places.AutocompleteSessionToken === 'function'
-            );
-        }
-
-        function distanceKm(aLat, aLon, bLat, bLon) {
-            const toRad = (deg) => (deg * Math.PI) / 180;
-            const earthKm = 6371;
-            const dLat = toRad(bLat - aLat);
-            const dLon = toRad(bLon - aLon);
-            const lat1 = toRad(aLat);
-            const lat2 = toRad(bLat);
-            const h = Math.sin(dLat / 2) ** 2
-                + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-            return 2 * earthKm * Math.asin(Math.sqrt(h));
-        }
-
-        async function geocodeOfficeWithNominatim(address) {
-            const key = String(address || '').trim();
-            if (!key) return null;
-            if (officeGeoCache.address === key) return officeGeoCache.point;
-
-            try {
-                const endpoint =
-                    'https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=us,ca&limit=1&q='
-                    + encodeURIComponent(key);
-                const response = await fetch(endpoint, {
-                    headers: {
-                        Accept: 'application/json',
-                        'Accept-Language': 'en-US,en;q=0.9'
-                    }
-                });
-                if (!response.ok) return null;
-                const rows = await response.json();
-                if (!Array.isArray(rows) || !rows.length) return null;
-                const lat = Number(rows[0].lat);
-                const lon = Number(rows[0].lon);
-                const point = Number.isFinite(lat) && Number.isFinite(lon)
-                    ? { lat: lat, lon: lon }
-                    : null;
-                officeGeoCache = { address: key, point: point };
-                return point;
-            } catch (_) {
-                return null;
-            }
-        }
-
-        async function fetchNominatimSuggestions(query) {
-            try {
-                if (activeController) activeController.abort();
-                activeController = new AbortController();
-
-                const endpoint =
-                    'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=us,ca&limit=12&q='
-                    + encodeURIComponent(query);
-                const response = await fetch(endpoint, {
-                    signal: activeController.signal,
-                    headers: {
-                        Accept: 'application/json',
-                        'Accept-Language': 'en-US,en;q=0.9'
-                    }
-                });
-                if (!response.ok) return [];
-                const rows = await response.json();
-                if (!Array.isArray(rows)) return [];
-
-                const mapped = rows
-                    .map((r) => {
-                        if (!r || !r.display_name) return null;
-                        const lat = Number(r.lat);
-                        const lon = Number(r.lon);
-                        return {
-                            label: String(r.display_name),
-                            lat: Number.isFinite(lat) ? lat : null,
-                            lon: Number.isFinite(lon) ? lon : null,
-                            source: 'nominatim'
-                        };
-                    })
-                    .filter(Boolean);
-
-                const seen = new Set();
-                const results = mapped.filter((item) => {
-                    const key = item.label.toLowerCase();
-                    if (seen.has(key)) return false;
-                    seen.add(key);
-                    return true;
-                }).slice(0, 8);
-                return results;
-            } catch (err) {
-                if (err && err.name === 'AbortError') throw err;
-                return [];
-            }
-        }
-
-        async function fetchPhotonSuggestions(query) {
-            try {
-                const endpoint = 'https://photon.komoot.io/api/?limit=12&q=' + encodeURIComponent(query);
-                const response = await fetch(endpoint, {
-                    headers: {
-                        Accept: 'application/json',
-                        'Accept-Language': 'en-US,en;q=0.9'
-                    }
-                });
-                if (!response.ok) return [];
-                const body = await response.json();
-                const features = Array.isArray(body && body.features) ? body.features : [];
-                const mapped = features
-                    .map((f) => {
-                        const p = (f && f.properties) ? f.properties : {};
-                        const coords = (f && f.geometry && Array.isArray(f.geometry.coordinates))
-                            ? f.geometry.coordinates
-                            : [];
-                        const lon = Number(coords[0]);
-                        const lat = Number(coords[1]);
-                        const parts = [
-                            p.housenumber,
-                            p.street,
-                            p.city || p.town || p.county,
-                            p.state,
-                            p.postcode,
-                            p.country
-                        ].filter(Boolean);
-                        const label = parts.join(', ') || String(p.name || '').trim();
-                        if (!label) return null;
-                        return {
-                            label: label,
-                            lat: Number.isFinite(lat) ? lat : null,
-                            lon: Number.isFinite(lon) ? lon : null,
-                            source: 'photon'
-                        };
-                    })
-                    .filter(Boolean);
-
-                const seen = new Set();
-                return mapped.filter((item) => {
-                    const key = item.label.toLowerCase();
-                    if (seen.has(key)) return false;
-                    seen.add(key);
-                    return true;
-                }).slice(0, 8);
-            } catch (_) {
-                return [];
-            }
-        }
-
-        async function fetchGoogleSuggestions(query) {
-            if (!isGooglePlacesReady()) return null;
-
-            const autocompleteService = new google.maps.places.AutocompleteService();
-            const sessionToken = new google.maps.places.AutocompleteSessionToken();
-            const geocoder = new google.maps.Geocoder();
-
-            let bounds = null;
-            if (inputId === 'dashShopAddress') {
-                const officeInput = $('dashAddress');
-                if (officeInput && officeInput.value.trim()) {
-                    await new Promise((resolve) => {
-                        geocoder.geocode({ address: officeInput.value.trim() }, (results, status) => {
-                            if (status === google.maps.GeocoderStatus.OK && results && results.length) {
-                                const location = results[0].geometry.location;
-                                const radius = 0.225;
-                                bounds = {
-                                    north: location.lat() + radius,
-                                    south: location.lat() - radius,
-                                    east: location.lng() + radius,
-                                    west: location.lng() - radius
-                                };
-                            }
-                            resolve();
-                        });
-                    });
-                }
-            }
-
-            return new Promise((resolve) => {
-                autocompleteService.getPlacePredictions(
-                    {
-                        input: query,
-                        bounds: bounds,
-                        componentRestrictions: { country: ['us', 'ca'] },
-                        sessionToken: sessionToken,
-                        types: ['address']
-                    },
-                    (predictions, status) => {
-                        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-                            resolve(predictions.map((pred) => ({
-                                label: pred.description,
-                                source: 'google'
-                            })));
-                            return;
-                        }
-                        if (status && status !== google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-                            console.warn('Google Places unavailable, switching to fallback provider:', status);
-                        }
-                        resolve([]);
-                    }
-                );
-            });
-        }
-
-        async function fetchSuggestions(query) {
-            const googleResults = await fetchGoogleSuggestions(query);
-            if (Array.isArray(googleResults) && googleResults.length) {
-                return googleResults.slice(0, 8);
-            }
-
-            const nominatimResults = await fetchNominatimSuggestions(query);
-            const fallbackResults = nominatimResults.length
-                ? nominatimResults
-                : await fetchPhotonSuggestions(query);
-
-            if (inputId === 'dashShopAddress' && fallbackResults.length) {
-                const officeInput = $('dashAddress');
-                const officeAddr = officeInput ? officeInput.value.trim() : '';
-                const officePoint = officeAddr ? await geocodeOfficeWithNominatim(officeAddr) : null;
-                if (officePoint) {
-                    return fallbackResults
-                        .slice()
-                        .sort((a, b) => {
-                            const aHasCoords = Number.isFinite(a.lat) && Number.isFinite(a.lon);
-                            const bHasCoords = Number.isFinite(b.lat) && Number.isFinite(b.lon);
-                            if (!aHasCoords && !bHasCoords) return 0;
-                            if (!aHasCoords) return 1;
-                            if (!bHasCoords) return -1;
-                            const dA = distanceKm(officePoint.lat, officePoint.lon, a.lat, a.lon);
-                            const dB = distanceKm(officePoint.lat, officePoint.lon, b.lat, b.lon);
-                            return dA - dB;
-                        })
-                        .slice(0, 8);
-                }
-            }
-
-            return fallbackResults.slice(0, 8);
-        }
-
-        function renderOptions(suggestions) {
-            items = suggestions || [];
-            activeIdx = -1;
-            list.innerHTML = (suggestions || [])
-                .map((item, i) => '<li class="autocomplete-item" data-idx="' + i + '">' + escapeHtml(item.label) + '</li>')
-                .join('');
-            if (items.length) {
-                positionList();
-                list.style.display = '';
-            } else {
-                list.style.display = 'none';
-            }
-        }
-
-        function highlight(idx) {
-            list.querySelectorAll('.autocomplete-item').forEach((el, i) => {
-                el.classList.toggle('active', i === idx);
-            });
-            activeIdx = idx;
-            const active = list.children[idx];
-            if (active) active.scrollIntoView({ block: 'nearest' });
-        }
-
-        function pick(item) {
-            if (!item || !item.label) return;
-            addressInput.value = item.label;
-            list.style.display = 'none';
-        }
-
-        addressInput.addEventListener('input', () => {
-            const query = addressInput.value.trim();
-            if (timer) clearTimeout(timer);
-
-            if (query.length < 2) {
-                lastQuery = '';
-                renderOptions([]);
-                return;
-            }
-
-            timer = setTimeout(async () => {
-                if (query === lastQuery) return;
-                lastQuery = query;
-                try {
-                    const predictions = await fetchSuggestions(query);
-                    if (addressInput.value.trim() !== query) return;
-                    renderOptions(predictions);
-                } catch (err) {
-                    if (err && err.name === 'AbortError') return;
-                    renderOptions([]);
-                }
-            }, 300);
-        });
-
-        addressInput.addEventListener('keydown', (e) => {
-            if (list.style.display === 'none' || !items.length) return;
-            if (e.key === 'ArrowDown') {
-                e.preventDefault();
-                highlight(activeIdx < items.length - 1 ? activeIdx + 1 : 0);
-            } else if (e.key === 'ArrowUp') {
-                e.preventDefault();
-                highlight(activeIdx > 0 ? activeIdx - 1 : items.length - 1);
-            } else if (e.key === 'Enter' && activeIdx >= 0) {
-                e.preventDefault();
-                pick(items[activeIdx]);
-            } else if (e.key === 'Escape') {
-                list.style.display = 'none';
-            }
-        });
-
-        list.addEventListener('mousedown', (e) => e.preventDefault());
-        list.addEventListener('click', (e) => {
-            const li = e.target.closest('.autocomplete-item');
-            if (!li) return;
-            const idx = Number(li.dataset.idx);
-            if (Number.isNaN(idx) || !items[idx]) return;
-            pick(items[idx]);
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!wrap.contains(e.target) && !list.contains(e.target)) list.style.display = 'none';
-        });
-    }
-
-    function initCompanyDashboard() {
-        const toolsSaveBtn = $('companyToolsSaveBtn');
-        const inviteBtn = $('companyInviteUserBtn');
-        const usersBody = $('companyUsersTableBody');
-        const templateCreateBtn = $('companyTemplateCreateBtn');
-        const templateList = $('companyTemplateList');
-
-        if (!toolsSaveBtn || !inviteBtn || !usersBody || !templateCreateBtn || !templateList) return;
-
-        function ensureState() {
-            if (!state.companyDashboard) state.companyDashboard = getDefaultCompanyDashboard();
-        }
-
-        toolsSaveBtn.addEventListener('click', async () => {
-            ensureState();
-            state.companyDashboard.tools = {
-                ifta: !!($('toolIfta') && $('toolIfta').checked),
-                safety: !!($('toolSafety') && $('toolSafety').checked),
-                driver: !!($('toolDriver') && $('toolDriver').checked),
-                reports: !!($('toolReports') && $('toolReports').checked),
-                billing: !!($('toolBilling') && $('toolBilling').checked),
-                integrations: !!($('toolIntegrations') && $('toolIntegrations').checked)
-            };
-            state.companyDashboard.options = {
-                selfServe: !!($('optionSelfServe') && $('optionSelfServe').checked),
-                roleApproval: !!($('optionRoleApproval') && $('optionRoleApproval').checked),
-                templateEnforce: !!($('optionTemplateEnforce') && $('optionTemplateEnforce').checked)
-            };
-            try {
-                await saveCompanyDashboard('Company dashboard tools saved');
-            } catch (err) {
-                console.error('Error saving company tools:', err);
-                showMsg('Error saving company tools', true);
-            }
-        });
-
-        inviteBtn.addEventListener('click', async () => {
-            ensureState();
-            const name = ($('companyUserName').value || '').trim();
-            const email = ($('companyUserEmail').value || '').trim().toLowerCase();
-            const role = ($('companyUserRole').value || 'Viewer').trim();
-
-            if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
-                showMsg('Enter a valid user email', true);
-                return;
-            }
-
-            const existing = state.companyDashboard.users.find(u => (u.email || '').toLowerCase() === email);
-            if (existing) {
-                existing.name = name || existing.name;
-                existing.role = role;
-                existing.status = existing.status || 'Pending';
-            } else {
-                state.companyDashboard.users.push({
-                    id: makeEntityId('member'),
-                    name: name || email.split('@')[0],
-                    email: email,
-                    role: role,
-                    status: 'Pending',
-                    invitedAt: new Date().toISOString()
-                });
-            }
-
-            try {
-                await saveCompanyDashboard(existing ? 'User access updated' : 'User invitation added');
-                $('companyUserName').value = '';
-                $('companyUserEmail').value = '';
-                $('companyUserRole').value = 'Viewer';
-                renderCompanyDashboard();
-            } catch (err) {
-                console.error('Error inviting user:', err);
-                showMsg('Error saving user invitation', true);
-            }
-        });
-
-        usersBody.addEventListener('change', async (e) => {
-            const select = e.target.closest('.company-user-row-role');
-            if (!select) return;
-            ensureState();
-            const member = state.companyDashboard.users.find(u => (u.id || '') === (select.dataset.id || ''));
-            if (!member) return;
-            member.role = select.value;
-            try {
-                await saveCompanyDashboard('User role updated');
-                renderCompanyDashboard();
-            } catch (err) {
-                console.error('Error updating role:', err);
-                showMsg('Error updating role', true);
-            }
-        });
-
-        usersBody.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.company-user-remove');
-            if (!btn) return;
-            ensureState();
-            const memberId = btn.dataset.id || '';
-            const member = state.companyDashboard.users.find(u => (u.id || '') === memberId);
-            if (!member) return;
-            if (member.id === uid() || member.role === 'Owner') {
-                showMsg('Owner cannot be removed here', true);
-                return;
-            }
-            if (!confirm('Remove this user from company access?')) return;
-            state.companyDashboard.users = state.companyDashboard.users.filter(u => (u.id || '') !== memberId);
-            try {
-                await saveCompanyDashboard('User removed');
-                renderCompanyDashboard();
-            } catch (err) {
-                console.error('Error removing user:', err);
-                showMsg('Error removing user', true);
-            }
-        });
-
-        templateCreateBtn.addEventListener('click', async () => {
-            ensureState();
-            const name = ($('companyTemplateName').value || '').trim();
-            const department = ($('companyTemplateDepartment').value || 'Operations').trim();
-            const checkedTools = Array.from(document.querySelectorAll('.company-template-tool-grid input[type="checkbox"]:checked'))
-                .map(cb => cb.value);
-
-            if (!name) {
-                showMsg('Template name is required', true);
-                return;
-            }
-            if (!checkedTools.length) {
-                showMsg('Select at least one tool for template', true);
-                return;
-            }
-
-            state.companyDashboard.templates.push({
-                id: makeEntityId('template'),
-                name: name,
-                department: department,
-                tools: checkedTools,
-                active: true,
-                createdAt: new Date().toISOString()
-            });
-
-            try {
-                await saveCompanyDashboard('Template created');
-                $('companyTemplateName').value = '';
-                document.querySelectorAll('.company-template-tool-grid input[type="checkbox"]').forEach(cb => {
-                    cb.checked = false;
-                });
-                renderCompanyDashboard();
-            } catch (err) {
-                console.error('Error creating template:', err);
-                showMsg('Error creating template', true);
-            }
-        });
-
-        templateList.addEventListener('change', async (e) => {
-            const toggle = e.target.closest('.company-template-active');
-            if (!toggle) return;
-            ensureState();
-            const template = state.companyDashboard.templates.find(t => (t.id || '') === (toggle.dataset.id || ''));
-            if (!template) return;
-            template.active = !!toggle.checked;
-            try {
-                await saveCompanyDashboard('Template updated');
-                renderCompanyDashboard();
-            } catch (err) {
-                console.error('Error toggling template:', err);
-                showMsg('Error updating template', true);
-            }
-        });
-
-        templateList.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.company-template-delete');
-            if (!btn) return;
-            ensureState();
-            const id = btn.dataset.id || '';
-            if (!confirm('Delete this department template?')) return;
-            state.companyDashboard.templates = state.companyDashboard.templates.filter(t => (t.id || '') !== id);
-            try {
-                await saveCompanyDashboard('Template deleted');
-                renderCompanyDashboard();
-            } catch (err) {
-                console.error('Error deleting template:', err);
-                showMsg('Error deleting template', true);
-            }
-        });
-    }
-
-    function initCompanyTabs() {
-        const tabs = Array.from(document.querySelectorAll('.company-tab'));
-        const panels = Array.from(document.querySelectorAll('.company-tab-panel'));
-        if (!tabs.length || !panels.length) return;
-
-        function activateTab(name) {
-            tabs.forEach(tab => {
-                const active = tab.dataset.companyTab === name;
-                tab.classList.toggle('active', active);
-                tab.setAttribute('aria-selected', active ? 'true' : 'false');
-            });
-            panels.forEach(panel => {
-                panel.classList.toggle('active', panel.dataset.companyPanel === name);
-            });
-        }
-
-        tabs.forEach(tab => {
-            tab.addEventListener('click', () => activateTab(tab.dataset.companyTab));
         });
     }
 
@@ -3034,17 +2139,7 @@
         // Unassigned active drivers
         const unassigned = state.drivers.filter(d => d.status === 'active' && !d.truck);
         if (unassigned.length) {
-            alerts.push({
-                type: 'info',
-                icon: 'user',
-                kind: 'unassigned-drivers',
-                text: unassigned.length + ' active driver' + (unassigned.length > 1 ? 's' : '') + ' unassigned to a truck',
-                drivers: unassigned.map((d) => ({
-                    name: [d.firstName, d.lastName].filter(Boolean).join(' ').trim() || 'Unnamed driver',
-                    phone: (d.phone || '').trim(),
-                    cdl: (d.cdl || '').trim()
-                }))
-            });
+            alerts.push({ type: 'info', icon: 'user', text: unassigned.length + ' active driver' + (unassigned.length > 1 ? 's' : '') + ' unassigned to a truck' });
         }
 
         const container = $('overviewAlerts');
@@ -3062,39 +2157,9 @@
             user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
         };
 
-        container.innerHTML = alerts.map((a, idx) => {
-            if (a.kind === 'unassigned-drivers') {
-                const detailId = `unassigned-driver-alert-${idx}`;
-                const rows = (a.drivers || []).map((driver) => {
-                    const subtitle = [driver.phone, driver.cdl ? ('CDL: ' + driver.cdl) : '']
-                        .filter(Boolean)
-                        .join(' | ');
-                    return `<li class="alert-dropdown-item"><span class="alert-dropdown-name">${escapeHtml(driver.name)}</span>${subtitle ? `<span class="alert-dropdown-meta">${escapeHtml(subtitle)}</span>` : ''}</li>`;
-                }).join('');
-                return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned" data-alert-kind="unassigned-drivers">`
-                    + `<button type="button" class="alert-dropdown-trigger" aria-expanded="false" aria-controls="${detailId}">`
-                    + `${iconMap[a.icon] || ''}`
-                    + `<span>${escapeHtml(a.text)}</span>`
-                    + `<svg class="alert-dropdown-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`
-                    + `</button>`
-                    + `<div class="alert-dropdown-panel" id="${detailId}" hidden><ul class="alert-dropdown-list">${rows}</ul></div>`
-                    + `</div>`;
-            }
-            return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
-        }).join('');
-
-        container.querySelectorAll('.alert-dropdown-trigger').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const alertEl = btn.closest('.alert-unassigned');
-                if (!alertEl) return;
-                const panel = alertEl.querySelector('.alert-dropdown-panel');
-                if (!panel) return;
-                const expanded = btn.getAttribute('aria-expanded') === 'true';
-                btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-                panel.hidden = expanded;
-                alertEl.classList.toggle('expanded', !expanded);
-            });
-        });
+        container.innerHTML = alerts.map(a =>
+            `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`
+        ).join('');
     }
 
     function populateTruckDropdown() {
@@ -3127,6 +2192,7 @@
         $('overviewTrucks').textContent = state.trucks.length;
         $('overviewTrailers').textContent = state.trailers.length;
         $('overviewDrivers').textContent = state.drivers.length;
+        $('overviewActive').textContent = activeTrucks + activeTrailers;
         $('overviewActiveTrucks').textContent = activeTrucks;
         $('overviewActiveTrailers').textContent = activeTrailers;
         $('overviewActiveDrivers').textContent = activeDrivers;
@@ -3221,142 +2287,10 @@
     function initOverviewCards() {
         document.querySelectorAll('.overview-card[data-nav]').forEach(card => {
             card.addEventListener('click', () => {
-                navigateToSection(card.dataset.nav);
+                const target = card.dataset.nav;
+                const btn = document.querySelector('.dash-nav-item[data-section="' + target + '"]');
+                if (btn) btn.click();
             });
-        });
-    }
-
-    function buildOverviewLookupItems() {
-        const truckItems = state.trucks.map(t => ({
-            type: 'Truck',
-            id: t.id,
-            label: t.unit || ('Unit ' + t.id),
-            meta: [t.year, t.make, t.model].filter(Boolean).join(' '),
-            details: [t.vin].filter(Boolean).join(' '),
-            open: () => openTruckProfile(t.id)
-        }));
-
-        const trailerItems = state.trailers.map(t => ({
-            type: 'Trailer',
-            id: t.id,
-            label: t.unit || ('Trailer ' + t.id),
-            meta: [t.year, t.make, trailerTypeLabel(t.type)].filter(Boolean).join(' '),
-            details: [t.vin].filter(Boolean).join(' '),
-            open: () => openTrailerProfile(t.id)
-        }));
-
-        const driverItems = state.drivers.map(d => ({
-            type: 'Driver',
-            id: d.id,
-            label: [d.firstName, d.lastName].filter(Boolean).join(' ') || ('Driver ' + d.id),
-            meta: [d.cdl, d.cdlState].filter(Boolean).join(' '),
-            details: [truckLabel(d.truck)].filter(Boolean).join(' '),
-            open: () => openDriverProfile(d.id)
-        }));
-
-        return [...truckItems, ...trailerItems, ...driverItems];
-    }
-
-    function rankOverviewLookupItem(item, query) {
-        const text = [item.label, item.meta, item.details, item.type].join(' ').toLowerCase();
-        const label = item.label.toLowerCase();
-        if (label === query) return 0;
-        if (label.startsWith(query)) return 1;
-        if (text.startsWith(query)) return 2;
-        if (label.includes(query)) return 3;
-        if (text.includes(query)) return 4;
-        return 99;
-    }
-
-    function renderOverviewLookupResults(matches) {
-        const results = $('overviewLookupResults');
-        if (!results) return;
-        if (!matches.length) {
-            results.innerHTML = '';
-            results.classList.remove('open');
-            return;
-        }
-
-        results.innerHTML = matches.map((item, index) => `
-            <button type="button" class="overview-lookup-result${index === 0 ? ' active' : ''}" data-type="${escapeHtml(item.type)}" data-id="${escapeHtml(item.id)}">
-                <span class="overview-lookup-result-copy">
-                    <span class="overview-lookup-result-top">
-                        <strong>${escapeHtml(item.label)}</strong>
-                        <span class="overview-lookup-result-type ${item.type.toLowerCase()}">${escapeHtml(item.type)}</span>
-                    </span>
-                    ${item.meta ? `<span class="overview-lookup-result-meta">${escapeHtml(item.meta)}</span>` : ''}
-                    ${item.details ? `<span class="overview-lookup-result-detail">${escapeHtml(item.details)}</span>` : ''}
-                </span>
-            </button>
-        `).join('');
-        results.classList.add('open');
-    }
-
-    function openOverviewLookupResult(type, id) {
-        if (type === 'Truck') return openTruckProfile(id);
-        if (type === 'Trailer') return openTrailerProfile(id);
-        if (type === 'Driver') return openDriverProfile(id);
-    }
-
-    function initOverviewLookup() {
-        const input = $('overviewLookup');
-        const results = $('overviewLookupResults');
-        if (!input || !results) return;
-
-        function updateResults() {
-            const query = input.value.trim().toLowerCase();
-            if (!query) {
-                renderOverviewLookupResults([]);
-                return;
-            }
-
-            const matches = buildOverviewLookupItems()
-                .map(item => ({ item, rank: rankOverviewLookupItem(item, query) }))
-                .filter(entry => entry.rank < 99)
-                .sort((a, b) => a.rank - b.rank || a.item.label.localeCompare(b.item.label))
-                .slice(0, 8)
-                .map(entry => entry.item);
-
-            renderOverviewLookupResults(matches);
-        }
-
-        input.addEventListener('input', updateResults);
-        input.addEventListener('focus', updateResults);
-        input.addEventListener('keydown', (e) => {
-            const items = Array.from(results.querySelectorAll('.overview-lookup-result'));
-            if (!items.length) return;
-            const currentIndex = items.findIndex(item => item.classList.contains('active'));
-
-            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                e.preventDefault();
-                const nextIndex = e.key === 'ArrowDown'
-                    ? Math.min(currentIndex + 1, items.length - 1)
-                    : Math.max(currentIndex - 1, 0);
-                items.forEach((item, index) => item.classList.toggle('active', index === nextIndex));
-                items[nextIndex].scrollIntoView({ block: 'nearest' });
-            }
-
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const active = items.find(item => item.classList.contains('active')) || items[0];
-                if (active) openOverviewLookupResult(active.dataset.type, active.dataset.id);
-            }
-
-            if (e.key === 'Escape') {
-                results.classList.remove('open');
-            }
-        });
-
-        results.addEventListener('click', (e) => {
-            const button = e.target.closest('.overview-lookup-result');
-            if (!button) return;
-            openOverviewLookupResult(button.dataset.type, button.dataset.id);
-        });
-
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.overview-lookup')) {
-                results.classList.remove('open');
-            }
         });
     }
 
@@ -3513,11 +2447,8 @@
     function init() {
         initNav();
         initOverviewCards();
-        initOverviewLookup();
         initExpandToggles();
         initProfileForm();
-        initCompanyTabs();
-        initCompanyDashboard();
         initTruckForm();
         initSheetModals();
         initTrailerForm();
@@ -3534,7 +2465,10 @@
         editTruck, editTrailer, editDriver,
         deleteTruck, deleteTrailer, deleteDriver,
         inlineStatus,
-        openTruckProfile, openTrailerProfile, openDriverProfile
+        openTruckProfile, openTrailerProfile, openDriverProfile,
+        addTruck: () => openSheetModal('truck'),
+        addTrailer: () => openSheetModal('trailer'),
+        addDriver: () => openSheetModal('driver')
     };
 
     // Start when DOM is ready
