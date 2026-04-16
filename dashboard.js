@@ -382,9 +382,8 @@
 
         const list = document.createElement('ul');
         list.className = 'autocomplete-list';
-        list.style.display = 'none';
+        list.style.cssText = 'display:none;position:absolute;top:100%;left:0;right:0;';
 
-        // Position relative to the cell / input wrapper
         wrap.style.position = 'relative';
         wrap.appendChild(list);
 
@@ -830,8 +829,15 @@
         if (!wrap) return;
         const list = document.createElement('ul');
         list.className = 'autocomplete-list';
-        list.style.display = 'none';
-        wrap.appendChild(list);
+        list.style.cssText = 'display:none;position:fixed;margin:0;right:auto;z-index:9999;';
+        document.body.appendChild(list);
+
+        function positionList() {
+            const rect = addressInput.getBoundingClientRect();
+            list.style.top = (rect.bottom + 2) + 'px';
+            list.style.left = rect.left + 'px';
+            list.style.width = rect.width + 'px';
+        }
 
         function isGooglePlacesReady() {
             return !!(
@@ -1078,7 +1084,12 @@
             list.innerHTML = (suggestions || [])
                 .map((item, i) => '<li class="autocomplete-item" data-idx="' + i + '">' + escapeHtml(item.label) + '</li>')
                 .join('');
-            list.style.display = items.length ? '' : 'none';
+            if (items.length) {
+                positionList();
+                list.style.display = '';
+            } else {
+                list.style.display = 'none';
+            }
         }
 
         function highlight(idx) {
@@ -1146,7 +1157,7 @@
         });
 
         document.addEventListener('click', (e) => {
-            if (!wrap.contains(e.target)) list.style.display = 'none';
+            if (!wrap.contains(e.target) && !list.contains(e.target)) list.style.display = 'none';
         });
     }
 

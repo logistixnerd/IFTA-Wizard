@@ -3040,14 +3040,11 @@ th.col-validation {
 
 /* ── Autocomplete Dropdown ───────────────── */
 .autocomplete-list {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    z-index: 50;
+    position: fixed;
+    z-index: 9999;
     max-height: 160px;
     overflow-y: auto;
-    margin: 2px 0 0;
+    margin: 0;
     padding: 4px 0;
     background: var(--white);
     border: 1px solid var(--gray-200);
