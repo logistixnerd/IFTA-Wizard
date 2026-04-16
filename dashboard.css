@@ -983,7 +983,14 @@
 }
 
 .dash-nav .overview-lookup-result-copy span {
-    display: none;
+    display: block;
+    font-size: 0.625rem;
+    color: var(--gray-500);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 150px;
 }
 
 .overview-lookup-shell {

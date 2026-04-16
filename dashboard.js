@@ -2334,7 +2334,7 @@
             id: t.id,
             label: t.unit || ('Unit ' + t.id),
             meta: [t.year, t.make, t.model].filter(Boolean).join(' '),
-            details: [t.vin, t.plate, fuelLabel(t.fuel), statusLabel(t.status)].filter(Boolean).join(' '),
+            details: [t.vin].filter(Boolean).join(' '),
             open: () => openTruckProfile(t.id)
         }));
 
@@ -2343,7 +2343,7 @@
             id: t.id,
             label: t.unit || ('Trailer ' + t.id),
             meta: [t.year, t.make, trailerTypeLabel(t.type)].filter(Boolean).join(' '),
-            details: [t.vin, t.plate, statusLabel(t.status)].filter(Boolean).join(' '),
+            details: [t.vin].filter(Boolean).join(' '),
             open: () => openTrailerProfile(t.id)
         }));
 
@@ -2351,8 +2351,8 @@
             type: 'Driver',
             id: d.id,
             label: [d.firstName, d.lastName].filter(Boolean).join(' ') || ('Driver ' + d.id),
-            meta: [d.cdl, d.cdlState, truckLabel(d.truck)].filter(Boolean).join(' '),
-            details: [d.phone, d.email, statusLabel(d.status)].filter(Boolean).join(' '),
+            meta: [d.cdl, d.cdlState].filter(Boolean).join(' '),
+            details: [truckLabel(d.truck)].filter(Boolean).join(' '),
             open: () => openDriverProfile(d.id)
         }));
 
