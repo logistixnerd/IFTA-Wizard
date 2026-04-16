@@ -2280,6 +2280,33 @@
     border-top: 1px solid rgba(0, 0, 0, 0.04);
 }
 
+/* Endorsement checkboxes grid */
+.endorsement-checkboxes {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+}
+
+.endorsement-checkboxes label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    user-select: none;
+}
+
+.endorsement-checkboxes input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    margin: 0;
+}
+
+.endorsement-checkboxes span {
+    line-height: 1.2;
+}
+
 /* ── Sheet-Style Modal (Trucks, Trailers, Drivers) ── */
 .sheet-modal {
     width: 96vw;
@@ -3056,6 +3083,36 @@ th.col-validation {
     font-weight: 600;
     display: block;
     margin-bottom: 2px;
+}
+
+/* Expiry date highlighting */
+.cell-expired {
+    color: #dc3545;
+    font-weight: 600;
+}
+
+.cell-expiring-soon {
+    color: #e6a817;
+    font-weight: 600;
+}
+
+/* Endorsement tags */
+.endorsement-tag {
+    display: inline-block;
+    background: #e7f5ff;
+    color: #0c63e4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 4px;
+    margin-bottom: 2px;
+}
+
+.cell-notes {
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Expandable detail row */

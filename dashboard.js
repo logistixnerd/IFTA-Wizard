@@ -1850,6 +1850,7 @@
                 { key: 'phone', placeholder: '(555) 123-4567', type: 'text' },
                 { key: 'cdl', placeholder: 'CDL number', type: 'text' },
                 { key: 'cdlState', placeholder: 'TX', type: 'text', maxlength: 2, pattern: /^[A-Z]{2}$/, warnMsg: 'Invalid state code' },
+                { key: 'cdlExp', type: 'date' },
                 { key: 'email', placeholder: 'john@example.com', type: 'text' },
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
@@ -1876,6 +1877,7 @@
                 phone: ['phone', 'phonenumber', 'mobile', 'cell', 'telephone'],
                 cdl: ['cdl', 'cdlnumber', 'cdlno', 'licensenumber', 'license', 'dl'],
                 cdlState: ['cdlstate', 'licensestate', 'dlstate', 'state'],
+                cdlExp: ['cdlexp', 'cdlexpiration', 'cdlexpirationdate', 'licenseexp'],
                 email: ['email', 'emailaddress', 'mail'],
                 status: ['status']
             }
@@ -2595,6 +2597,169 @@
         } catch (e) { console.error('Load drivers error:', e); }
     }
 
+    // Helper to format date for display
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        try {
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } catch { return escapeHtml(dateStr); }
+    }
+
+    // Helper to calculate days until expiry
+    function daysUntilExpiry(dateStr) {
+        if (!dateStr) return null;
+        const exp = new Date(dateStr + 'T23:59:59');
+        const now = new Date();
+        return Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+    }
+
+    // Helper to get CSS class for expiry status
+    function expiryClass(dateStr) {
+        const days = daysUntilExpiry(dateStr);
+        if (days === null) return '';
+        if (days < 0) return 'cell-expired';
+        if (days <= 30) return 'cell-expiring-soon';
+        return '';
+    }
+
+    const ALL_DRIVER_COLUMNS = [
+        {
+            key: 'name',
+            label: 'Name',
+            defaultVisible: true,
+            locked: true,
+            render: (d) => `<strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong>` || 'Unnamed'
+        },
+        {
+            key: 'cdl-info',
+            label: 'CDL # / State',
+            defaultVisible: true,
+            locked: false,
+            render: (d) => {
+                const cdl = escapeHtml(d.cdl || '');
+                const state = escapeHtml(d.cdlState || '');
+                return cdl ? `${cdl}${state ? ' (' + state + ')' : ''}` : '–';
+            }
+        },
+        {
+            key: 'cdlExp',
+            label: 'CDL Exp',
+            defaultVisible: true,
+            locked: false,
+            render: (d) => {
+                const cls = expiryClass(d.cdlExp);
+                const text = formatDate(d.cdlExp) || '–';
+                return `<span class="${cls}">${text}</span>`;
+            }
+        },
+        {
+            key: 'medExp',
+            label: 'Med Card Exp',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => {
+                const cls = expiryClass(d.medExp);
+                const text = formatDate(d.medExp) || '–';
+                return `<span class="${cls}">${text}</span>`;
+            }
+        },
+        {
+            key: 'phone',
+            label: 'Phone',
+            defaultVisible: true,
+            locked: false,
+            render: (d) => escapeHtml(d.phone || '–')
+        },
+        {
+            key: 'email',
+            label: 'Email',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => escapeHtml(d.email || '–')
+        },
+        {
+            key: 'truck',
+            label: 'Assigned Truck',
+            defaultVisible: true,
+            locked: false,
+            render: (d) => escapeHtml(truckLabel(d.truck))
+        },
+        {
+            key: 'status',
+            label: 'Status',
+            defaultVisible: true,
+            locked: true,
+            render: (d) => statusSelect(d.status, d.id, 'drivers', 'driver')
+        },
+        {
+            key: 'hireDate',
+            label: 'Date of Hire',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => formatDate(d.hireDate) || '–'
+        },
+        {
+            key: 'dob',
+            label: 'Date of Birth',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => formatDate(d.dob) || '–'
+        },
+        {
+            key: 'address',
+            label: 'Home Address',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => `<span title="${escapeHtml(d.address || '')}">${escapeHtml((d.address || '–').substring(0, 30))}</span>`
+        },
+        {
+            key: 'emergency',
+            label: 'Emergency Contact',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => {
+                const name = d.emergencyName ? escapeHtml(d.emergencyName) : '';
+                const phone = d.emergencyPhone ? escapeHtml(d.emergencyPhone) : '';
+                if (!name && !phone) return '–';
+                return `${name}${name && phone ? '<br>' : ''}${phone}`;
+            }
+        },
+        {
+            key: 'endorsements',
+            label: 'Endorsements',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => {
+                if (!d.endorsements) return '–';
+                const tags = d.endorsements.split(',').map(e => e.trim()).filter(Boolean);
+                if (tags.length === 0) return '–';
+                return tags.map(t => `<span class="endorsement-tag">${escapeHtml(t)}</span>`).join('');
+            }
+        },
+        {
+            key: 'mvrDate',
+            label: 'MVR Review',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => formatDate(d.mvrDate) || '–'
+        },
+        {
+            key: 'bgCheck',
+            label: 'Background Check',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => formatDate(d.bgCheck) || '–'
+        },
+        {
+            key: 'notes',
+            label: 'Notes',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => `<span title="${escapeHtml(d.notes || '')}" class="cell-notes">${escapeHtml((d.notes || '–').substring(0, 25))}</span>`
+        }
+    ];
+
     function renderDrivers() {
         const tbody = $('driversTableBody');
         const table = $('driversTable');
@@ -2639,11 +2804,27 @@
         $('driverMedExp').value = data ? data.medExp || '' : '';
         $('driverPhone').value = data ? data.phone || '' : '';
         $('driverEmail').value = data ? data.email || '' : '';
+        $('driverHireDate').value = data ? data.hireDate || '' : '';
+        $('driverDob').value = data ? data.dob || '' : '';
+        $('driverAddress').value = data ? data.address || '' : '';
+        $('driverEmergencyName').value = data ? data.emergencyName || '' : '';
+        $('driverEmergencyPhone').value = data ? data.emergencyPhone || '' : '';
+        $('driverMvrDate').value = data ? data.mvrDate || '' : '';
+        $('driverBgCheck').value = data ? data.bgCheck || '' : '';
+        $('driverNotes').value = data ? data.notes || '' : '';
         $('driverTruck').value = data ? data.truck || '' : '';
         $('driverStatus').value = data ? data.status || 'active' : 'active';
+        
+        // Set endorsement checkboxes
+        const endorsements = data && data.endorsements ? data.endorsements.split(',').map(e => e.trim()) : [];
+        ['H', 'N', 'T', 'X', 'P', 'S'].forEach(e => {
+            const checkbox = document.querySelector(`#endorsement-${e}`);
+            if (checkbox) checkbox.checked = endorsements.includes(e);
+        });
+        
         populateTruckDropdown();
         const modal = $('driverModal');
-        const shouldExpand = data && hasAdvancedData([data.cdlState, data.cdlExp, data.medExp, data.email, data.truck]);
+        const shouldExpand = data && hasAdvancedData([data.cdlState, data.cdlExp, data.medExp, data.email, data.truck, data.hireDate, data.dob, data.address, data.emergencyName, data.emergencyPhone, data.mvrDate, data.bgCheck, data.notes]);
         setExpandState(modal, shouldExpand);
         modal.classList.remove('hidden');
     }
@@ -2667,6 +2848,9 @@
 
         $('driverForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const endorsements = ['H', 'N', 'T', 'X', 'P', 'S']
+                .filter(e => document.querySelector(`#endorsement-${e}`)?.checked)
+                .join(',');
             const payload = {
                 firstName: $('driverFirstName').value.trim(),
                 lastName: $('driverLastName').value.trim(),
@@ -2674,6 +2858,15 @@
                 cdlState: $('driverCdlState').value.trim().toUpperCase(),
                 cdlExp: $('driverCdlExp').value,
                 medExp: $('driverMedExp').value,
+                hireDate: $('driverHireDate').value,
+                dob: $('driverDob').value,
+                address: $('driverAddress').value.trim(),
+                emergencyName: $('driverEmergencyName').value.trim(),
+                emergencyPhone: $('driverEmergencyPhone').value.trim(),
+                endorsements: endorsements,
+                mvrDate: $('driverMvrDate').value,
+                bgCheck: $('driverBgCheck').value,
+                notes: $('driverNotes').value.trim(),
                 phone: $('driverPhone').value.trim(),
                 email: $('driverEmail').value.trim(),
                 truck: $('driverTruck').value,
