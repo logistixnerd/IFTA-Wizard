@@ -886,44 +886,100 @@
         }
 
         async function fetchNominatimSuggestions(query) {
-            if (activeController) activeController.abort();
-            activeController = new AbortController();
+            try {
+                if (activeController) activeController.abort();
+                activeController = new AbortController();
 
-            const endpoint =
-                'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=us,ca&limit=12&q='
-                + encodeURIComponent(query);
-            const response = await fetch(endpoint, {
-                signal: activeController.signal,
-                headers: {
-                    Accept: 'application/json',
-                    'Accept-Language': 'en-US,en;q=0.9'
-                }
-            });
-            if (!response.ok) return [];
-            const rows = await response.json();
-            if (!Array.isArray(rows)) return [];
+                const endpoint =
+                    'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=us,ca&limit=12&q='
+                    + encodeURIComponent(query);
+                const response = await fetch(endpoint, {
+                    signal: activeController.signal,
+                    headers: {
+                        Accept: 'application/json',
+                        'Accept-Language': 'en-US,en;q=0.9'
+                    }
+                });
+                if (!response.ok) return [];
+                const rows = await response.json();
+                if (!Array.isArray(rows)) return [];
 
-            const mapped = rows
-                .map((r) => {
-                    if (!r || !r.display_name) return null;
-                    const lat = Number(r.lat);
-                    const lon = Number(r.lon);
-                    return {
-                        label: String(r.display_name),
-                        lat: Number.isFinite(lat) ? lat : null,
-                        lon: Number.isFinite(lon) ? lon : null,
-                        source: 'fallback'
-                    };
-                })
-                .filter(Boolean);
+                const mapped = rows
+                    .map((r) => {
+                        if (!r || !r.display_name) return null;
+                        const lat = Number(r.lat);
+                        const lon = Number(r.lon);
+                        return {
+                            label: String(r.display_name),
+                            lat: Number.isFinite(lat) ? lat : null,
+                            lon: Number.isFinite(lon) ? lon : null,
+                            source: 'nominatim'
+                        };
+                    })
+                    .filter(Boolean);
 
-            const seen = new Set();
-            return mapped.filter((item) => {
-                const key = item.label.toLowerCase();
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
-            }).slice(0, 8);
+                const seen = new Set();
+                return mapped.filter((item) => {
+                    const key = item.label.toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                }).slice(0, 8);
+            } catch (err) {
+                if (err && err.name === 'AbortError') throw err;
+                return [];
+            }
+        }
+
+        async function fetchPhotonSuggestions(query) {
+            try {
+                const endpoint = 'https://photon.komoot.io/api/?limit=12&q=' + encodeURIComponent(query);
+                const response = await fetch(endpoint, {
+                    headers: {
+                        Accept: 'application/json',
+                        'Accept-Language': 'en-US,en;q=0.9'
+                    }
+                });
+                if (!response.ok) return [];
+                const body = await response.json();
+                const features = Array.isArray(body && body.features) ? body.features : [];
+                const mapped = features
+                    .map((f) => {
+                        const p = (f && f.properties) ? f.properties : {};
+                        const coords = (f && f.geometry && Array.isArray(f.geometry.coordinates))
+                            ? f.geometry.coordinates
+                            : [];
+                        const lon = Number(coords[0]);
+                        const lat = Number(coords[1]);
+                        const parts = [
+                            p.housenumber,
+                            p.street,
+                            p.city || p.town || p.county,
+                            p.state,
+                            p.postcode,
+                            p.country
+                        ].filter(Boolean);
+                        const label = parts.join(', ') || String(p.name || '').trim();
+                        if (!label) return null;
+                        return {
+                            label: label,
+                            lat: Number.isFinite(lat) ? lat : null,
+                            lon: Number.isFinite(lon) ? lon : null,
+                            source: 'photon'
+                        };
+                    })
+                    .filter(Boolean);
+
+                const seen = new Set();
+                return mapped.filter((item) => {
+                    const key = item.label.toLowerCase();
+                    if (seen.has(key)) return false;
+                    seen.add(key);
+                    return true;
+                }).slice(0, 8);
+            } catch (_) {
+                return [];
+            }
         }
 
         async function fetchGoogleSuggestions(query) {
@@ -987,7 +1043,10 @@
                 return googleResults.slice(0, 8);
             }
 
-            const fallbackResults = await fetchNominatimSuggestions(query);
+            const nominatimResults = await fetchNominatimSuggestions(query);
+            const fallbackResults = nominatimResults.length
+                ? nominatimResults
+                : await fetchPhotonSuggestions(query);
 
             if (inputId === 'dashShopAddress' && fallbackResults.length) {
                 const officeInput = $('dashAddress');
