@@ -126,19 +126,33 @@
 }
 
 /* ── Company Dashboard ─────────────────── */
-.company-section-stack {
+.company-unified-body {
     display: grid;
-    gap: 0.875rem;
+    gap: 1rem;
 }
 
-.company-dashboard-card .dash-card-body {
-    padding-top: 1rem;
+.company-block-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.company-block-head h3 {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: var(--gray-700);
+}
+
+.company-block-divider {
+    height: 1px;
+    background: rgba(0, 0, 0, 0.06);
 }
 
 .company-dashboard-layout {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.875rem;
+    gap: 0.75rem;
 }
 
 .company-dashboard-layout .company-dashboard-panel:first-child {
@@ -146,10 +160,10 @@
 }
 
 .company-dashboard-panel {
-    background: rgba(255, 255, 255, 0.68);
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 12px;
-    padding: 0.875rem;
+    background: rgba(255, 255, 255, 0.52);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 10px;
+    padding: 0.75rem;
 }
 
 .company-dashboard-panel-head {
@@ -157,7 +171,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.625rem;
 }
 
 .company-dashboard-panel-head h3 {
@@ -167,7 +181,7 @@
 }
 
 .company-dashboard-subtitle {
-    margin: 0.75rem 0 0.5rem;
+    margin: 0.625rem 0 0.45rem;
     font-size: 0.6875rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -178,17 +192,17 @@
 .company-dashboard-check-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
+    gap: 0.4rem;
 }
 
 .company-check-item {
     display: flex;
     align-items: flex-start;
     gap: 0.5rem;
-    padding: 0.5rem 0.625rem;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.72);
+    padding: 0.45rem 0.55rem;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.62);
 }
 
 .company-check-item input {
@@ -215,8 +229,8 @@
 .company-user-invite-row {
     display: grid;
     grid-template-columns: 1.1fr 1.2fr 0.9fr auto;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
+    gap: 0.45rem;
+    margin-bottom: 0.625rem;
 }
 
 .company-user-invite-row input,
@@ -275,8 +289,8 @@
 .company-template-form {
     display: grid;
     grid-template-columns: 1.1fr 1fr auto;
-    gap: 0.5rem;
-    margin-bottom: 0.625rem;
+    gap: 0.45rem;
+    margin-bottom: 0.55rem;
 }
 
 .company-template-tool-grid {
