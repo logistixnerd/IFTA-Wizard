@@ -893,6 +893,7 @@
 
         async function fetchNominatimSuggestions(query) {
             try {
+                console.log('[Nominatim] requesting:', query);
                 if (activeController) activeController.abort();
                 activeController = new AbortController();
 
@@ -925,14 +926,17 @@
                     .filter(Boolean);
 
                 const seen = new Set();
-                return mapped.filter((item) => {
+                const results = mapped.filter((item) => {
                     const key = item.label.toLowerCase();
                     if (seen.has(key)) return false;
                     seen.add(key);
                     return true;
                 }).slice(0, 8);
+                console.log('[Nominatim] returned', results.length, 'results');
+                return results;
             } catch (err) {
                 if (err && err.name === 'AbortError') throw err;
+                console.warn('[Nominatim] error:', err);
                 return [];
             }
         }
@@ -1121,10 +1125,13 @@
                 if (query === lastQuery) return;
                 lastQuery = query;
                 try {
+                    console.log('[Autocomplete] fetching for:', query);
                     const predictions = await fetchSuggestions(query);
+                    console.log('[Autocomplete] got', predictions.length, 'results:', predictions);
                     if (addressInput.value.trim() !== query) return;
                     renderOptions(predictions);
                 } catch (err) {
+                    console.error('[Autocomplete] error:', err);
                     if (err && err.name === 'AbortError') return;
                     renderOptions([]);
                 }
