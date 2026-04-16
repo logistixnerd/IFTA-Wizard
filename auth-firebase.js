@@ -472,9 +472,27 @@ const IFTAAuth = {
             const provider = new firebase.auth.GoogleAuthProvider();
             provider.addScope('email');
             provider.addScope('profile');
+            provider.setCustomParameters({ prompt: 'select_account' });
             
             // Use popup for better UX
-            const result = await firebase.auth().signInWithPopup(provider);
+            let result;
+            try {
+                result = await firebase.auth().signInWithPopup(provider);
+            } catch (popupError) {
+                // Fallback to redirect if popup flow is blocked by browser/policy.
+                if (
+                    popupError
+                    && (
+                        popupError.code === 'auth/popup-blocked'
+                        || popupError.code === 'auth/cancelled-popup-request'
+                        || popupError.code === 'auth/web-storage-unsupported'
+                    )
+                ) {
+                    await firebase.auth().signInWithRedirect(provider);
+                    return;
+                }
+                throw popupError;
+            }
             const user = result.user;
             
             // Save login timestamp for 7-day expiry
@@ -507,7 +525,8 @@ const IFTAAuth = {
                 }
             } else if (error.code === 'auth/unauthorized-domain') {
                 if (typeof showToast === 'function') {
-                    showToast('Domain not authorized for sign-in.', 'error');
+                    const host = (window && window.location && window.location.hostname) || 'this domain';
+                    showToast('Domain not authorized for sign-in: ' + host, 'error');
                 }
             } else if (
                 error.code === 'auth/invalid-api-key'
@@ -515,7 +534,7 @@ const IFTAAuth = {
                 || /api key/i.test(String(error.message || ''))
             ) {
                 if (typeof showToast === 'function') {
-                    showToast('Google sign-in config error: API key restrictions are blocking Firebase Auth.', 'error');
+                    showToast('Firebase API key is restricted/misconfigured for Auth (' + (error.code || 'unknown') + ').', 'error');
                 }
                 console.error('Google sign in API key/config error:', error);
             } else if (error.code === 'auth/operation-not-allowed') {
@@ -526,7 +545,7 @@ const IFTAAuth = {
             } else if (error.code) {
                 console.error('Google sign in error:', error);
                 if (typeof showToast === 'function') {
-                    showToast('Sign-in failed. Please try again.', 'error');
+                    showToast('Sign-in failed (' + error.code + ').', 'error');
                 }
             }
         } finally {
