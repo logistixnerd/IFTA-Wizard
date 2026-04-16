@@ -2229,7 +2229,6 @@
         $('overviewTrucks').textContent = state.trucks.length;
         $('overviewTrailers').textContent = state.trailers.length;
         $('overviewDrivers').textContent = state.drivers.length;
-        $('overviewActive').textContent = activeTrucks + activeTrailers;
         $('overviewActiveTrucks').textContent = activeTrucks;
         $('overviewActiveTrailers').textContent = activeTrailers;
         $('overviewActiveDrivers').textContent = activeDrivers;
