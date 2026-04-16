@@ -853,13 +853,18 @@
             return validTypes.includes(lowerType) || !excludePatterns.some(p => lowerType.includes(p));
         }
         
-        async function fetchNominatim(query) {
+        async function fetchNominatim(query, proximityLat, proximityLon) {
             if (activeController) activeController.abort();
             activeController = new AbortController();
 
-            const endpoint =
-                'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=us,ca&limit=12&q=' +
+            let endpoint =
+                'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=us,ca&limit=20&q=' +
                 encodeURIComponent(query);
+            
+            // Add proximity bias if provided
+            if (Number.isFinite(proximityLat) && Number.isFinite(proximityLon)) {
+                endpoint += '&proximity=' + proximityLat + ',' + proximityLon;
+            }
 
             const response = await fetch(endpoint, {
                 signal: activeController.signal,
@@ -895,8 +900,14 @@
                 .slice(0, 6);
         }
 
-        async function fetchPhoton(query) {
-            const endpoint = 'https://photon.komoot.io/api/?limit=12&q=' + encodeURIComponent(query);
+        async function fetchPhoton(query, proximityLat, proximityLon) {
+            let endpoint = 'https://photon.komoot.io/api/?limit=20&q=' + encodeURIComponent(query);
+            
+            // Add proximity bias if provided (Photon uses lon,lat order)
+            if (Number.isFinite(proximityLat) && Number.isFinite(proximityLon)) {
+                endpoint += '&lon=' + proximityLon + '&lat=' + proximityLat;
+            }
+            
             const response = await fetch(endpoint, {
                 headers: {
                     Accept: 'application/json',
@@ -993,8 +1004,28 @@
         }
 
         async function fetchAddressSuggestions(query) {
-            const primary = await fetchNominatim(query);
-            const raw = primary.length ? primary : await fetchPhoton(query);
+            let proximityLat = null;
+            let proximityLon = null;
+            
+            // If searching for shop address, bias results to coordinates near office address
+            if (inputId === 'dashShopAddress') {
+                const officeInput = $('dashAddress');
+                if (officeInput && officeInput.value.trim()) {
+                    // Try to geocode the office address to get proximity
+                    try {
+                        const geocodeResults = await fetchNominatim(officeInput.value, null, null);
+                        if (geocodeResults.length > 0) {
+                            proximityLat = geocodeResults[0].lat;
+                            proximityLon = geocodeResults[0].lon;
+                        }
+                    } catch (err) {
+                        // Silently fail; we'll just search without proximity
+                    }
+                }
+            }
+            
+            const primary = await fetchNominatim(query, proximityLat, proximityLon);
+            const raw = primary.length ? primary : await fetchPhoton(query, proximityLat, proximityLon);
             const seen = new Set();
             const deduped = raw.filter(item => {
                 const key = item.label.toLowerCase();
@@ -1002,6 +1033,10 @@
                 seen.add(key);
                 return true;
             });
+            // Further sort by proximity if we have it
+            if (proximityLat !== null && proximityLon !== null) {
+                return sortByDistance(deduped, { lat: proximityLat, lon: proximityLon }).slice(0, 6);
+            }
             const userLoc = await getUserIpLocation();
             return sortByDistance(deduped, userLoc).slice(0, 6);
         }
