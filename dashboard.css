@@ -1644,7 +1644,7 @@
 .dash-form input,
 .dash-form select {
     border-radius: 8px;
-    border: 1px solid transparent;
+    border: 1px solid rgba(0, 0, 0, 0.1);
     background: transparent;
     padding: 0.4375rem 0.625rem;
     color: var(--gray-800);
@@ -1655,7 +1655,7 @@
 .dash-form input:hover,
 .dash-form select:hover {
     background: rgba(79, 70, 229, 0.03);
-    border-color: rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.18);
 }
 
 .dash-form input:focus,
@@ -1669,7 +1669,7 @@
     opacity: 0.5;
     cursor: not-allowed;
     background: transparent;
-    border-color: transparent;
+    border-color: rgba(0, 0, 0, 0.06);
 }
 
 .dash-form input::placeholder {
@@ -1681,7 +1681,7 @@
 .dash-layout ~ .modal .form-group input,
 .dash-layout ~ .modal .form-group select {
     border-radius: 8px;
-    border: 1px solid transparent;
+    border: 1px solid rgba(0, 0, 0, 0.1);
     background: transparent;
     padding: 0.4375rem 0.625rem;
     color: var(--gray-800);
@@ -1692,7 +1692,7 @@
 .dash-layout ~ .modal .form-group input:hover,
 .dash-layout ~ .modal .form-group select:hover {
     background: rgba(79, 70, 229, 0.03);
-    border-color: rgba(0, 0, 0, 0.08);
+    border-color: rgba(0, 0, 0, 0.18);
 }
 
 .dash-layout ~ .modal .form-group input:focus,
