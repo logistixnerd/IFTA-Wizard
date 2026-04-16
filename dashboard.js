@@ -545,6 +545,8 @@
             sel.appendChild(opt);
         });
 
+        initAddressLookup();
+
         // Avatar upload
         $('dashAvatarUpload').addEventListener('change', async (e) => {
             const file = e.target.files[0];
@@ -605,6 +607,70 @@
                 console.error('Save company error:', err);
                 showMsg('Error saving company info', true);
             }
+        });
+    }
+
+    function initAddressLookup() {
+        const addressInput = $('dashAddress');
+        const addressOptions = $('dashAddressOptions');
+        if (!addressInput || !addressOptions) return;
+
+        let timer = null;
+        let lastQuery = '';
+        let activeController = null;
+
+        async function fetchAddressSuggestions(query) {
+            if (activeController) activeController.abort();
+            activeController = new AbortController();
+
+            const endpoint =
+                'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&q=' +
+                encodeURIComponent(query);
+
+            const response = await fetch(endpoint, {
+                signal: activeController.signal,
+                headers: {
+                    Accept: 'application/json',
+                    'Accept-Language': 'en-US,en;q=0.9'
+                }
+            });
+            if (!response.ok) return [];
+            const rows = await response.json();
+            if (!Array.isArray(rows)) return [];
+            return rows
+                .map(r => (r && r.display_name ? String(r.display_name) : ''))
+                .filter(Boolean)
+                .slice(0, 6);
+        }
+
+        function renderOptions(values) {
+            addressOptions.innerHTML = values
+                .map(v => '<option value="' + escapeHtml(v) + '"></option>')
+                .join('');
+        }
+
+        addressInput.addEventListener('input', () => {
+            const query = addressInput.value.trim();
+            if (timer) clearTimeout(timer);
+
+            if (query.length < 4) {
+                lastQuery = '';
+                renderOptions([]);
+                return;
+            }
+
+            timer = setTimeout(async () => {
+                if (query === lastQuery) return;
+                lastQuery = query;
+                try {
+                    const suggestions = await fetchAddressSuggestions(query);
+                    if (addressInput.value.trim() !== query) return;
+                    renderOptions(suggestions);
+                } catch (err) {
+                    if (err && err.name === 'AbortError') return;
+                    renderOptions([]);
+                }
+            }, 450);
         });
     }
 
