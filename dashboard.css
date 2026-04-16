@@ -298,6 +298,17 @@
     letter-spacing: -0.01em;
 }
 
+.dash-card-header-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--dash-toolbar-gap);
+    margin-left: auto;
+}
+
+.dash-card-header-actions .dash-toolbar-add {
+    margin-left: 0;
+}
+
 .dash-card-body {
     padding: var(--dash-card-body-padding);
 }
@@ -1992,6 +2003,16 @@
 
     .dash-toolbar-add {
         margin-left: 0;
+    }
+
+    .dash-card-header {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .dash-card-header-actions {
+        width: 100%;
+        justify-content: flex-end;
     }
 
     .overview-grid {
