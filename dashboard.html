@@ -1002,10 +1002,14 @@
                                 <tbody id="driversTableBody"></tbody>
                             </table>
                             <!-- Column Picker Panel -->
-                            <div id="driverColPickerPanel" class="col-picker-panel" style="display: none;">
+                            <div id="driverColPickerPanel" class="col-picker-panel">
                                 <div class="col-picker-header-bar">
-                                    <h4>Visible Columns</h4>
-                                    <button id="driverColPickerClose" class="col-picker-close" title="Close">&times;</button>
+                                    <span class="col-picker-title">Manage Columns</span>
+                                    <button id="driverColPickerClose" class="col-picker-close" title="Close">&#10005;</button>
+                                </div>
+                                <div class="col-picker-search">
+                                    <svg class="col-picker-search-icon" width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="#9ca3af" stroke-width="1.5"/><line x1="10.5" y1="10.5" x2="14" y2="14" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                    <input id="driverColPickerSearch" type="text" placeholder="Search columns…" autocomplete="off">
                                 </div>
                                 <div id="driverColPickerList" class="col-picker-list">
                                     <!-- Dynamically populated -->

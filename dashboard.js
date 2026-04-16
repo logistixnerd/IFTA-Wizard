@@ -2844,21 +2844,22 @@
         const thead = $('driversTable')?.querySelector('thead tr');
         if (!thead || !state.driverColumns) return;
         const visibleCols = state.driverColumns.filter(c => c.visible);
+        const colsIconSvg = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="display:inline;vertical-align:-2px"><rect x="1" y="2" width="4" height="12" rx="1" fill="currentColor" opacity=".55"/><rect x="6" y="2" width="4" height="12" rx="1" fill="currentColor" opacity=".75"/><rect x="11" y="2" width="4" height="12" rx="1" fill="currentColor"/></svg>`;
         const headerHtml = `
             <th class="col-validation"></th>
-            ${visibleCols.map((col, idx) => `
-                <th class="col-header ${col.locked ? 'locked' : ''}" data-col-key="${col.key}" style="position: relative;" ${col.locked ? '' : 'draggable="true"'}>
-                    ${col.locked ? '' : '<span class="col-drag-handle">⋮⋮</span>'}
+            ${visibleCols.map((col) => `
+                <th class="col-header ${col.locked ? 'locked' : ''}" data-col-key="${col.key}" data-col-label="${escapeHtml(col.label)}" style="position: relative;">
+                    ${col.locked ? '' : '<span class="col-drag-handle" title="Drag to reorder">⋮⋮</span>'}
                     ${escapeHtml(col.label)}
                 </th>
             `).join('')}
             <th class="col-actions"></th>
-            <th class="col-picker-header"><button id="driverColPickerBtn" class="col-picker-btn" title="Add/customize columns">+</button></th>
+            <th class="col-picker-header"><button id="driverColPickerBtn" class="col-picker-btn" title="Manage columns">${colsIconSvg} Columns</button></th>
         `;
         thead.innerHTML = headerHtml;
         initDriverColDrag();
         const panel = $('driverColPickerPanel');
-        if (panel && panel.style.display === 'block') {
+        if (panel && panel.classList.contains('is-open')) {
             renderDriverColPickerList();
         }
     }
@@ -2882,37 +2883,68 @@
     function initDriverColDrag() {
         const row = $('driversTable')?.querySelector('thead tr');
         if (!row) return;
+
         let dragKey = null;
+        let dragSourceTh = null;
+        let ghost = null;
 
-        row.querySelectorAll('th.col-header[draggable="true"]').forEach((th) => {
-            const key = th.dataset.colKey;
-            th.addEventListener('dragstart', (e) => {
-                dragKey = key;
+        function clearDragState() {
+            if (dragSourceTh) dragSourceTh.classList.remove('is-dragging');
+            row.querySelectorAll('th.col-header').forEach(h => h.classList.remove('drag-over'));
+            if (ghost) { ghost.remove(); ghost = null; }
+            dragKey = null;
+            dragSourceTh = null;
+        }
+
+        function getTargetTh(x, y) {
+            const els = document.elementsFromPoint(x, y);
+            for (const el of els) {
+                const th = el.closest?.('th.col-header');
+                if (th && th !== dragSourceTh) return th;
+            }
+            return null;
+        }
+
+        row.querySelectorAll('th.col-header:not(.locked)').forEach((th) => {
+            const handle = th.querySelector('.col-drag-handle');
+            if (!handle) return;
+
+            handle.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                dragKey = th.dataset.colKey;
+                dragSourceTh = th;
                 th.classList.add('is-dragging');
-                if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-            });
 
-            th.addEventListener('dragover', (e) => {
-                if (!dragKey || dragKey === key) return;
-                e.preventDefault();
-                th.classList.add('drag-over');
-            });
+                ghost = document.createElement('div');
+                ghost.className = 'col-drag-ghost';
+                ghost.textContent = th.dataset.colLabel || th.textContent.replace(/⋮/g, '').trim();
+                ghost.style.left = `${e.clientX}px`;
+                ghost.style.top = `${e.clientY}px`;
+                document.body.appendChild(ghost);
 
-            th.addEventListener('dragleave', () => {
-                th.classList.remove('drag-over');
-            });
+                function onMove(e) {
+                    if (!ghost) return;
+                    ghost.style.left = `${e.clientX}px`;
+                    ghost.style.top = `${e.clientY}px`;
+                    row.querySelectorAll('th.col-header').forEach(h => h.classList.remove('drag-over'));
+                    const target = getTargetTh(e.clientX, e.clientY);
+                    if (target) target.classList.add('drag-over');
+                }
 
-            th.addEventListener('drop', (e) => {
-                e.preventDefault();
-                th.classList.remove('drag-over');
-                reorderDriverColumns(dragKey, key);
-                dragKey = null;
-            });
+                function onUp(e) {
+                    document.removeEventListener('pointermove', onMove);
+                    document.removeEventListener('pointerup', onUp);
+                    const target = getTargetTh(e.clientX, e.clientY);
+                    const targetKey = target?.dataset.colKey || null;
+                    const fromKey = dragKey;
+                    clearDragState();
+                    if (fromKey && targetKey && fromKey !== targetKey) {
+                        reorderDriverColumns(fromKey, targetKey);
+                    }
+                }
 
-            th.addEventListener('dragend', () => {
-                th.classList.remove('is-dragging');
-                row.querySelectorAll('th.col-header').forEach((h) => h.classList.remove('drag-over'));
-                dragKey = null;
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onUp);
             });
         });
     }
@@ -3448,59 +3480,81 @@
             document.body.appendChild(panel);
         }
 
-        function openDriverColPicker(btn) {
-            if (!btn) return;
-            renderDriverColPickerList();
+        function positionPanel(btn) {
+            // Temporarily make visible (not open) so we can measure dimensions.
+            panel.style.visibility = 'hidden';
             panel.style.display = 'block';
+            const panelW = panel.offsetWidth || 278;
+            const panelH = panel.offsetHeight || 340;
+            panel.style.display = '';
+            panel.style.visibility = '';
 
             const rect = btn.getBoundingClientRect();
-            // Reset first so width/height are measurable.
-            panel.style.left = '0px';
-            panel.style.top = '0px';
-
-            const pad = 8;
-            const panelRect = panel.getBoundingClientRect();
-            let left = rect.right - panelRect.width;
-            let top = rect.bottom + 8;
+            const pad = 10;
+            let left = rect.right - panelW;
+            let top = rect.bottom + 6;
 
             if (left < pad) left = pad;
-            if (left + panelRect.width > window.innerWidth - pad) {
-                left = window.innerWidth - panelRect.width - pad;
-            }
-            if (top + panelRect.height > window.innerHeight - pad) {
-                top = rect.top - panelRect.height - 8;
-            }
+            if (left + panelW > window.innerWidth - pad) left = window.innerWidth - panelW - pad;
+            if (top + panelH > window.innerHeight - pad) top = rect.top - panelH - 6;
             if (top < pad) top = pad;
 
             panel.style.left = `${left}px`;
             panel.style.top = `${top}px`;
         }
 
-        close.addEventListener('click', () => {
-            panel.style.display = 'none';
-        });
+        function openPanel(btn) {
+            if (!btn) return;
+            renderDriverColPickerList();
+            positionPanel(btn);
+            panel.classList.add('is-open');
+            const searchEl = $('driverColPickerSearch');
+            if (searchEl) { searchEl.value = ''; filterPickerList(''); searchEl.focus(); }
+        }
+
+        function closePanel() {
+            panel.classList.remove('is-open');
+        }
+
+        close.addEventListener('click', closePanel);
 
         document.addEventListener('click', (e) => {
             const btn = $('driverColPickerBtn');
             if (btn && btn.contains(e.target)) {
                 e.stopPropagation();
-                if (panel.style.display === 'block') {
-                    panel.style.display = 'none';
+                if (panel.classList.contains('is-open')) {
+                    closePanel();
                 } else {
-                    openDriverColPicker(btn);
+                    openPanel(btn);
                 }
                 return;
             }
-            if (panel.style.display === 'block' && !panel.contains(e.target)) {
-                panel.style.display = 'none';
+            if (panel.classList.contains('is-open') && !panel.contains(e.target)) {
+                closePanel();
+            }
+        });
+
+        // Search / filter inside panel
+        document.addEventListener('input', (e) => {
+            if (e.target && e.target.id === 'driverColPickerSearch') {
+                filterPickerList(e.target.value.trim().toLowerCase());
             }
         });
 
         window.addEventListener('resize', () => {
-            if (panel.style.display === 'block') {
+            if (panel.classList.contains('is-open')) {
                 const btn = $('driverColPickerBtn');
-                openDriverColPicker(btn);
+                if (btn) positionPanel(btn);
             }
+        });
+    }
+
+    function filterPickerList(q) {
+        const listEl = $('driverColPickerList');
+        if (!listEl) return;
+        listEl.querySelectorAll('.col-picker-item').forEach((item) => {
+            const label = (item.querySelector('.col-picker-label-text')?.textContent || '').toLowerCase();
+            item.classList.toggle('is-hidden', q !== '' && !label.includes(q));
         });
     }
 
@@ -3509,12 +3563,18 @@
         if (!listEl || !state.driverColumns) return;
         listEl.innerHTML = state.driverColumns.map((col) => `
             <label class="col-picker-item ${col.locked ? 'col-picker-locked' : ''}">
-                <input type="checkbox" ${col.visible ? 'checked' : ''} ${col.locked ? 'disabled' : ''} 
-                    data-col-key="${col.key}" onchange="Dashboard.toggleDriverColumn('${col.key}')">
-                <span>${escapeHtml(col.label)}</span>
-                ${col.locked ? '<span class="col-picker-lock-icon">LOCK</span>' : ''}
+                <span class="col-picker-toggle">
+                    <input type="checkbox" ${col.visible ? 'checked' : ''} ${col.locked ? 'disabled' : ''}
+                        data-col-key="${col.key}" onchange="Dashboard.toggleDriverColumn('${col.key}')">
+                    <span class="col-picker-toggle-slider"></span>
+                </span>
+                <span class="col-picker-label-text">${escapeHtml(col.label)}</span>
+                ${col.locked ? '<svg class="col-picker-lock-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="8" rx="2" fill="currentColor"/><path d="M5 7V5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' : ''}
             </label>
         `).join('');
+        // Re-apply active search filter
+        const searchEl = $('driverColPickerSearch');
+        if (searchEl && searchEl.value.trim()) filterPickerList(searchEl.value.trim().toLowerCase());
     }
 
     function toggleDriverColumn(key) {
