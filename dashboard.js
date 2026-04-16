@@ -612,19 +612,27 @@
 
     function initAddressLookup() {
         const addressInput = $('dashAddress');
-        const addressOptions = $('dashAddressOptions');
-        if (!addressInput || !addressOptions) return;
+        if (!addressInput) return;
 
         let timer = null;
         let lastQuery = '';
         let activeController = null;
+        let items = [];
+        let activeIdx = -1;
 
-        async function fetchAddressSuggestions(query) {
+        const wrap = addressInput.parentElement;
+        if (!wrap) return;
+        const list = document.createElement('ul');
+        list.className = 'autocomplete-list';
+        list.style.display = 'none';
+        wrap.appendChild(list);
+
+        async function fetchNominatim(query) {
             if (activeController) activeController.abort();
             activeController = new AbortController();
 
             const endpoint =
-                'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&q=' +
+                'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=us,ca&limit=6&q=' +
                 encodeURIComponent(query);
 
             const response = await fetch(endpoint, {
@@ -643,10 +651,55 @@
                 .slice(0, 6);
         }
 
+        async function fetchPhoton(query) {
+            const endpoint = 'https://photon.komoot.io/api/?limit=6&q=' + encodeURIComponent(query);
+            const response = await fetch(endpoint, {
+                headers: {
+                    Accept: 'application/json',
+                    'Accept-Language': 'en-US,en;q=0.9'
+                }
+            });
+            if (!response.ok) return [];
+            const body = await response.json();
+            const features = Array.isArray(body && body.features) ? body.features : [];
+            return features
+                .map(f => {
+                    const p = f && f.properties ? f.properties : {};
+                    const parts = [p.name, p.city || p.town || p.county, p.state, p.postcode, p.country]
+                        .filter(Boolean);
+                    return parts.join(', ');
+                })
+                .filter(Boolean)
+                .slice(0, 6);
+        }
+
+        async function fetchAddressSuggestions(query) {
+            const primary = await fetchNominatim(query);
+            if (primary.length) return primary;
+            return fetchPhoton(query);
+        }
+
         function renderOptions(values) {
-            addressOptions.innerHTML = values
-                .map(v => '<option value="' + escapeHtml(v) + '"></option>')
+            items = values;
+            activeIdx = -1;
+            list.innerHTML = values
+                .map((v, i) => '<li class="autocomplete-item" data-idx="' + i + '">' + escapeHtml(v) + '</li>')
                 .join('');
+            list.style.display = values.length ? '' : 'none';
+        }
+
+        function highlight(idx) {
+            list.querySelectorAll('.autocomplete-item').forEach((el, i) => {
+                el.classList.toggle('active', i === idx);
+            });
+            activeIdx = idx;
+            const active = list.children[idx];
+            if (active) active.scrollIntoView({ block: 'nearest' });
+        }
+
+        function pick(value) {
+            addressInput.value = value;
+            list.style.display = 'none';
         }
 
         addressInput.addEventListener('input', () => {
@@ -671,6 +724,35 @@
                     renderOptions([]);
                 }
             }, 450);
+        });
+
+        addressInput.addEventListener('keydown', (e) => {
+            if (list.style.display === 'none' || !items.length) return;
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                highlight(activeIdx < items.length - 1 ? activeIdx + 1 : 0);
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                highlight(activeIdx > 0 ? activeIdx - 1 : items.length - 1);
+            } else if (e.key === 'Enter' && activeIdx >= 0) {
+                e.preventDefault();
+                pick(items[activeIdx]);
+            } else if (e.key === 'Escape') {
+                list.style.display = 'none';
+            }
+        });
+
+        list.addEventListener('mousedown', (e) => e.preventDefault());
+        list.addEventListener('click', (e) => {
+            const li = e.target.closest('.autocomplete-item');
+            if (!li) return;
+            const idx = Number(li.dataset.idx);
+            if (Number.isNaN(idx) || !items[idx]) return;
+            pick(items[idx]);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!wrap.contains(e.target)) list.style.display = 'none';
         });
     }
 
