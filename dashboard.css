@@ -844,10 +844,10 @@
     align-items: center;
     gap: 0.625rem;
     width: 100%;
-    padding: 0.625rem 0.75rem;
-    border: 1px solid rgba(0, 0, 0, 0.06);
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.58);
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
     font-size: 0.75rem;
     color: var(--gray-600);
     cursor: pointer;
@@ -866,8 +866,8 @@
 
 .company-address-toggle-label {
     font-size: 0.75rem;
-    font-weight: 500;
-    color: var(--gray-700);
+    font-weight: 400;
+    color: var(--gray-600);
     line-height: 1.35;
 }
 
