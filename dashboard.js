@@ -692,9 +692,10 @@
             $('dashEin').value = data.ein || '';
             const officeAddress = data.officeAddress || data.address || '';
             const shopAddress = data.shopAddress || '';
+            const legacySameAll = typeof data.sameAddressForFacilities === 'boolean' ? data.sameAddressForFacilities : null;
             const sameShopAsOffice = typeof data.sameShopAsOffice === 'boolean'
                 ? data.sameShopAsOffice
-                : false;
+                : (legacySameAll !== null ? legacySameAll : (!shopAddress || shopAddress === officeAddress));
 
             $('dashAddress').value = officeAddress;
             $('dashSameShopAddressToggle').checked = !sameShopAsOffice;

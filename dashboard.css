@@ -836,13 +836,18 @@
 }
 
 .company-address-toggle-row {
-    margin-top: -0.25rem;
+    margin-top: -0.125rem;
 }
 
 .company-address-toggle {
     display: inline-flex;
     align-items: center;
     gap: 0.625rem;
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.58);
     font-size: 0.75rem;
     color: var(--gray-600);
     cursor: pointer;
@@ -861,7 +866,7 @@
 
 .company-address-toggle-label {
     font-size: 0.75rem;
-    font-weight: 400;
+    font-weight: 500;
     color: var(--gray-700);
     line-height: 1.35;
 }
