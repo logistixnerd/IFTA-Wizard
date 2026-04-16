@@ -819,10 +819,13 @@
         const addressInput = $(inputId);
         if (!addressInput) return;
 
+        // Initialize Google Places Autocomplete Service
+        const autocompleteService = new google.maps.places.AutocompleteService();
+        const placesService = new google.maps.places.PlacesService(document.createElement('div'));
+        const sessionToken = new google.maps.places.AutocompleteSessionToken();
+
         let timer = null;
         let lastQuery = '';
-        let activeController = null;
-        let userLocationPromise = null;
         let items = [];
         let activeIdx = -1;
 
@@ -833,211 +836,66 @@
         list.style.display = 'none';
         wrap.appendChild(list);
 
-        function isValidAddressType(type) {
-            // Accept address types, buildings, and business places
-            const validTypes = [
-                'address', 'house', 'building', 'commercial', 'office',
-                'industrial', 'construction', 'residential', 'apartment',
-                'street', 'place', 'suburb', 'borough', 'municipality',
-                'county', 'administrative'
-            ];
-            // Exclude POIs and non-address types
-            const excludePatterns = [
-                'amenity', 'shop', 'restaurant', 'cafe', 'bar', 'pub',
-                'hotel', 'motel', 'landmark', 'tourism', 'historic',
-                'artwork', 'memorial', 'religious', 'cemetery', 'parking',
-                'fuel', 'fast_food', 'theatre', 'cinema', 'museum',
-                'library', 'school', 'hospital', 'police', 'fire'
-            ];
-            const lowerType = String(type).toLowerCase();
-            return validTypes.includes(lowerType) || !excludePatterns.some(p => lowerType.includes(p));
-        }
-        
-        async function fetchNominatim(query, proximityLat, proximityLon) {
-            if (activeController) activeController.abort();
-            activeController = new AbortController();
+        async function getPlacePredictions(query) {
+            let bounds = null;
+            let componentRestrictions = { country: ['us', 'ca'] };
 
-            let endpoint =
-                'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=us,ca&limit=20&q=' +
-                encodeURIComponent(query);
-            
-            // Add proximity bias if provided
-            if (Number.isFinite(proximityLat) && Number.isFinite(proximityLon)) {
-                endpoint += '&proximity=' + proximityLat + ',' + proximityLon;
-            }
-
-            const response = await fetch(endpoint, {
-                signal: activeController.signal,
-                headers: {
-                    Accept: 'application/json',
-                    'Accept-Language': 'en-US,en;q=0.9'
-                }
-            });
-            if (!response.ok) return [];
-            const rows = await response.json();
-            if (!Array.isArray(rows)) return [];
-            return rows
-                .filter(r => {
-                    if (!r || !r.display_name) return false;
-                    // Filter by address type - exclude obvious POIs
-                    if (!isValidAddressType(r.type)) return false;
-                    // Accept anything that isn't filtered as a POI
-                    return true;
-                })
-                .map(r => {
-                    const lat = Number(r.lat);
-                    const lon = Number(r.lon);
-                    return {
-                        label: String(r.display_name),
-                        lat: Number.isFinite(lat) ? lat : null,
-                        lon: Number.isFinite(lon) ? lon : null
-                    };
-                })
-                .filter(Boolean)
-                .slice(0, 6);
-        }
-
-        async function fetchPhoton(query, proximityLat, proximityLon) {
-            let endpoint = 'https://photon.komoot.io/api/?limit=20&q=' + encodeURIComponent(query);
-            
-            // Add proximity bias if provided (Photon uses lon,lat order)
-            if (Number.isFinite(proximityLat) && Number.isFinite(proximityLon)) {
-                endpoint += '&lon=' + proximityLon + '&lat=' + proximityLat;
-            }
-            
-            const response = await fetch(endpoint, {
-                headers: {
-                    Accept: 'application/json',
-                    'Accept-Language': 'en-US,en;q=0.9'
-                }
-            });
-            if (!response.ok) return [];
-            const body = await response.json();
-            const features = Array.isArray(body && body.features) ? body.features : [];
-            return features
-                .filter(f => {
-                    const p = f && f.properties ? f.properties : {};
-                    const type = String(p.type || '').toLowerCase();
-                    // Exclude obvious POI types
-                    const excludeTypes = ['amenity', 'shop', 'cafe', 'restaurant', 'bar', 'venue', 'tourism', 'landmark', 'leisure', 'food', 'sport', 'service'];
-                    const isExcluded = excludeTypes.some(t => type.includes(t));
-                    return !isExcluded;
-                })
-                .map(f => {
-                    const p = f && f.properties ? f.properties : {};
-                    const coords = f && f.geometry && Array.isArray(f.geometry.coordinates)
-                        ? f.geometry.coordinates
-                        : [];
-                    const lon = Number(coords[0]);
-                    const lat = Number(coords[1]);
-                    // Build address from component data
-                    const parts = [];
-                    if (p.housenumber) parts.push(p.housenumber);
-                    if (p.street) parts.push(p.street);
-                    if (p.postcode) parts.push(p.postcode);
-                    if (p.city || p.town) parts.push(p.city || p.town);
-                    if (p.state) parts.push(p.state);
-                    const label = parts.length ? parts.join(', ') : String(p.name || '');
-                    if (!label) return null;
-                    return {
-                        label: label,
-                        lat: Number.isFinite(lat) ? lat : null,
-                        lon: Number.isFinite(lon) ? lon : null
-                    };
-                })
-                .filter(Boolean)
-                .slice(0, 6);
-        }
-
-        function getUserIpLocation() {
-            if (userLocationPromise) return userLocationPromise;
-            userLocationPromise = fetch('https://ipwho.is/?fields=success,latitude,longitude', {
-                headers: { Accept: 'application/json' }
-            })
-                .then(resp => (resp.ok ? resp.json() : null))
-                .then(data => {
-                    const lat = Number(data && data.latitude);
-                    const lon = Number(data && data.longitude);
-                    if (!data || data.success !== true || !Number.isFinite(lat) || !Number.isFinite(lon)) {
-                        return null;
-                    }
-                    return { lat: lat, lon: lon };
-                })
-                .catch(() => null);
-            return userLocationPromise;
-        }
-
-        function distanceKm(aLat, aLon, bLat, bLon) {
-            const toRad = (deg) => (deg * Math.PI) / 180;
-            const earthKm = 6371;
-            const dLat = toRad(bLat - aLat);
-            const dLon = toRad(bLon - aLon);
-            const lat1 = toRad(aLat);
-            const lat2 = toRad(bLat);
-            const h = Math.sin(dLat / 2) ** 2
-                + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-            return 2 * earthKm * Math.asin(Math.sqrt(h));
-        }
-
-        function sortByDistance(values, userLoc) {
-            if (!userLoc) return values;
-            return values.slice().sort((a, b) => {
-                const aHasCoords = Number.isFinite(a.lat) && Number.isFinite(a.lon);
-                const bHasCoords = Number.isFinite(b.lat) && Number.isFinite(b.lon);
-                if (!aHasCoords && !bHasCoords) return 0;
-                if (!aHasCoords) return 1;
-                if (!bHasCoords) return -1;
-                const dA = distanceKm(userLoc.lat, userLoc.lon, a.lat, a.lon);
-                const dB = distanceKm(userLoc.lat, userLoc.lon, b.lat, b.lon);
-                return dA - dB;
-            });
-        }
-
-        async function fetchAddressSuggestions(query) {
-            let proximityLat = null;
-            let proximityLon = null;
-            
-            // If searching for shop address, bias results to coordinates near office address
+            // If searching for shop address, restrict bounds to area near office
             if (inputId === 'dashShopAddress') {
                 const officeInput = $('dashAddress');
                 if (officeInput && officeInput.value.trim()) {
-                    // Try to geocode the office address to get proximity
                     try {
-                        const geocodeResults = await fetchNominatim(officeInput.value, null, null);
-                        if (geocodeResults.length > 0) {
-                            proximityLat = geocodeResults[0].lat;
-                            proximityLon = geocodeResults[0].lon;
-                        }
+                        // Get coordinates of office address for bias
+                        const geocoder = new google.maps.Geocoder();
+                        await new Promise((resolve) => {
+                            geocoder.geocode({ address: officeInput.value }, (results, status) => {
+                                if (status === google.maps.GeocoderStatus.OK && results.length > 0) {
+                                    const location = results[0].geometry.location;
+                                    // Create bounds around office (approximately 25 miles)
+                                    const radius = 0.225; // degrees, roughly 25 miles
+                                    bounds = {
+                                        north: location.lat() + radius,
+                                        south: location.lat() - radius,
+                                        east: location.lng() + radius,
+                                        west: location.lng() - radius
+                                    };
+                                }
+                                resolve();
+                            });
+                        });
                     } catch (err) {
-                        // Silently fail; we'll just search without proximity
+                        // Silently fail; search without bounds
                     }
                 }
             }
-            
-            const primary = await fetchNominatim(query, proximityLat, proximityLon);
-            const raw = primary.length ? primary : await fetchPhoton(query, proximityLat, proximityLon);
-            const seen = new Set();
-            const deduped = raw.filter(item => {
-                const key = item.label.toLowerCase();
-                if (seen.has(key)) return false;
-                seen.add(key);
-                return true;
+
+            return new Promise((resolve) => {
+                autocompleteService.getPlacePredictions(
+                    {
+                        input: query,
+                        bounds: bounds,
+                        componentRestrictions: componentRestrictions,
+                        sessionToken: sessionToken,
+                        types: ['address']
+                    },
+                    (predictions, status) => {
+                        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+                            resolve(predictions);
+                        } else {
+                            resolve([]);
+                        }
+                    }
+                );
             });
-            // Further sort by proximity if we have it
-            if (proximityLat !== null && proximityLon !== null) {
-                return sortByDistance(deduped, { lat: proximityLat, lon: proximityLon }).slice(0, 6);
-            }
-            const userLoc = await getUserIpLocation();
-            return sortByDistance(deduped, userLoc).slice(0, 6);
         }
 
-        function renderOptions(values) {
-            items = values;
+        function renderOptions(predictions) {
+            items = predictions || [];
             activeIdx = -1;
-            list.innerHTML = values
-                .map((item, i) => '<li class="autocomplete-item" data-idx="' + i + '">' + escapeHtml(item.label) + '</li>')
+            list.innerHTML = (predictions || [])
+                .map((pred, i) => '<li class="autocomplete-item" data-idx="' + i + '">' + escapeHtml(pred.description) + '</li>')
                 .join('');
-            list.style.display = values.length ? '' : 'none';
+            list.style.display = items.length ? '' : 'none';
         }
 
         function highlight(idx) {
@@ -1049,9 +907,9 @@
             if (active) active.scrollIntoView({ block: 'nearest' });
         }
 
-        function pick(item) {
-            if (!item || !item.label) return;
-            addressInput.value = item.label;
+        function pick(prediction) {
+            if (!prediction) return;
+            addressInput.value = prediction.description;
             list.style.display = 'none';
         }
 
@@ -1069,14 +927,13 @@
                 if (query === lastQuery) return;
                 lastQuery = query;
                 try {
-                    const suggestions = await fetchAddressSuggestions(query);
+                    const predictions = await getPlacePredictions(query);
                     if (addressInput.value.trim() !== query) return;
-                    renderOptions(suggestions);
+                    renderOptions(predictions);
                 } catch (err) {
-                    if (err && err.name === 'AbortError') return;
                     renderOptions([]);
                 }
-            }, 450);
+            }, 300);
         });
 
         addressInput.addEventListener('keydown', (e) => {
