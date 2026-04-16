@@ -82,6 +82,13 @@
                     </svg>
                     <span>Company</span>
                 </button>
+                <button class="dash-nav-item dash-nav-item-company-dashboard" data-section="company-dashboard">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                    </svg>
+                    <span>Company Dashboard</span>
+                </button>
                 <button class="dash-nav-item dash-nav-item-settings" data-section="settings">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                         <circle cx="12" cy="12" r="3"/>
@@ -314,6 +321,96 @@
                                 <button type="submit" class="btn btn-primary">Save Company Info</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Company Dashboard Section -->
+            <section class="dash-section" id="section-company-dashboard">
+                <div class="dash-card company-dashboard-card">
+                    <div class="dash-card-header">
+                        <h2>Company Dashboard</h2>
+                    </div>
+                    <div class="dash-card-body company-dashboard-layout">
+                        <div class="company-dashboard-panel">
+                            <div class="company-dashboard-panel-head">
+                                <h3>Tools & Options</h3>
+                                <button type="button" class="btn btn-primary btn-sm" id="companyToolsSaveBtn">Save</button>
+                            </div>
+                            <div class="company-dashboard-check-grid">
+                                <label class="company-check-item"><input type="checkbox" id="toolIfta"><span><strong>IFTA Wizard</strong><small>Fuel tax calculations and quarterly filing workflows.</small></span></label>
+                                <label class="company-check-item"><input type="checkbox" id="toolSafety"><span><strong>Safety Workspace</strong><small>Safety dashboards, alerts, and compliance tracking.</small></span></label>
+                                <label class="company-check-item"><input type="checkbox" id="toolDriver"><span><strong>Driver Management</strong><small>Driver profile maintenance and assignment controls.</small></span></label>
+                                <label class="company-check-item"><input type="checkbox" id="toolReports"><span><strong>Reports</strong><small>Scheduled exports and KPI reports.</small></span></label>
+                                <label class="company-check-item"><input type="checkbox" id="toolBilling"><span><strong>Billing</strong><small>Carrier billing and invoice generation tools.</small></span></label>
+                                <label class="company-check-item"><input type="checkbox" id="toolIntegrations"><span><strong>Integrations</strong><small>Sync with third-party ELD and accounting systems.</small></span></label>
+                            </div>
+                            <div class="company-dashboard-subtitle">Global Options</div>
+                            <div class="company-dashboard-check-grid">
+                                <label class="company-check-item"><input type="checkbox" id="optionSelfServe"><span><strong>Driver self-service access</strong><small>Allow drivers to update profile and compliance docs.</small></span></label>
+                                <label class="company-check-item"><input type="checkbox" id="optionRoleApproval"><span><strong>Role changes require approval</strong><small>Any role promotion must be approved by Owner/Admin.</small></span></label>
+                                <label class="company-check-item"><input type="checkbox" id="optionTemplateEnforce"><span><strong>Auto-apply department templates</strong><small>Assign tools/options automatically from selected template.</small></span></label>
+                            </div>
+                        </div>
+
+                        <div class="company-dashboard-panel">
+                            <div class="company-dashboard-panel-head">
+                                <h3>User Access & Roles</h3>
+                            </div>
+                            <div class="company-user-invite-row">
+                                <input type="text" id="companyUserName" placeholder="Full name">
+                                <input type="email" id="companyUserEmail" placeholder="Email address">
+                                <select id="companyUserRole">
+                                    <option value="Admin">Admin</option>
+                                    <option value="Safety Manager">Safety Manager</option>
+                                    <option value="Dispatcher">Dispatcher</option>
+                                    <option value="Driver">Driver</option>
+                                    <option value="Viewer" selected>Viewer</option>
+                                    <option value="Owner">Owner</option>
+                                </select>
+                                <button type="button" class="btn btn-secondary btn-sm" id="companyInviteUserBtn">Invite / Add</button>
+                            </div>
+                            <div class="company-user-table-wrap">
+                                <table class="dash-table company-user-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Role</th>
+                                            <th>Status</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="companyUsersTableBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div class="company-dashboard-panel">
+                            <div class="company-dashboard-panel-head">
+                                <h3>Department Templates</h3>
+                            </div>
+                            <div class="company-template-form">
+                                <input type="text" id="companyTemplateName" placeholder="Template name (e.g. Safety Ops)">
+                                <select id="companyTemplateDepartment">
+                                    <option value="Operations">Operations</option>
+                                    <option value="Safety">Safety</option>
+                                    <option value="Dispatch">Dispatch</option>
+                                    <option value="Accounting">Accounting</option>
+                                    <option value="Executive">Executive</option>
+                                </select>
+                                <button type="button" class="btn btn-secondary btn-sm" id="companyTemplateCreateBtn">Create Template</button>
+                            </div>
+                            <div class="company-template-tool-grid">
+                                <label><input type="checkbox" value="ifta"> IFTA Wizard</label>
+                                <label><input type="checkbox" value="safety"> Safety Workspace</label>
+                                <label><input type="checkbox" value="driver"> Driver Management</label>
+                                <label><input type="checkbox" value="reports"> Reports</label>
+                                <label><input type="checkbox" value="billing"> Billing</label>
+                                <label><input type="checkbox" value="integrations"> Integrations</label>
+                            </div>
+                            <div class="company-template-list" id="companyTemplateList"></div>
+                        </div>
                     </div>
                 </div>
             </section>
