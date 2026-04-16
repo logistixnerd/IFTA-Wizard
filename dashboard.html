@@ -996,10 +996,21 @@
                                         <th style="width:13%">Truck</th>
                                         <th style="width:10%">Status</th>
                                         <th style="width:10%"></th>
+                                        <th class="col-picker-header"><button id="driverColPickerBtn" class="col-picker-btn" title="Add/customize columns">+</button></th>
                                     </tr>
                                 </thead>
                                 <tbody id="driversTableBody"></tbody>
                             </table>
+                            <!-- Column Picker Panel -->
+                            <div id="driverColPickerPanel" class="col-picker-panel" style="display: none;">
+                                <div class="col-picker-header-bar">
+                                    <h4>Visible Columns</h4>
+                                    <button id="driverColPickerClose" class="col-picker-close" title="Close">&times;</button>
+                                </div>
+                                <div id="driverColPickerList" class="col-picker-list">
+                                    <!-- Dynamically populated -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -11,6 +11,7 @@
         trucks: [],
         trailers: [],
         drivers: [],
+        driverColumns: null,
         profile: {},
         dropdownOptions: {},
         companyDashboard: null
@@ -762,7 +763,7 @@
 
     // ── Load All Data ─────────────────────
     async function loadAll() {
-        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers()]);
+        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers(), loadDriverColumnPrefs()]);
         applyDerivedValidation();
         renderTrucks();
         renderTrailers();
@@ -2771,18 +2772,23 @@
         }
         empty.style.display = 'none';
         table.style.display = '';
+        
+        // Render header with visible columns
+        renderDriversHeader();
+        
         const filtered = state.drivers.filter(d => matchesFilter(d, 'driver'));
-        tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}" class="${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
-            ${validationIndicator(d)}
-            <td><div class="cell cell-primary" title="Open driver profile for ${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></div></td>
-            <td><div class="cell">${escapeHtml(d.cdl)}</div></td>
-            <td><div class="cell">${escapeHtml(d.cdlState)}</div></td>
-            <td><div class="cell">${escapeHtml(d.cdlExp)}</div></td>
-            <td><div class="cell">${escapeHtml(d.phone)}</div></td>
-            <td><div class="cell">${escapeHtml(d.email)}</div></td>
-            <td><div class="cell">${escapeHtml(truckLabel(d.truck))}</div></td>
-            <td><div class="cell">${statusSelect(d.status, d.id, 'drivers', 'driver')}</div></td>
-            <td class="row-actions"><div class="cell">
+        const visibleCols = (state.driverColumns || ALL_DRIVER_COLUMNS.map((col, idx) => ({ ...col, visible: col.defaultVisible, order: idx }))).filter(c => c.visible);
+        
+        tbody.innerHTML = filtered.map(d => {
+            let row = `<tr data-id="${d.id}" class="${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+                ${validationIndicator(d)}`;
+            
+            visibleCols.forEach(col => {
+                const cellContent = col.render(d);
+                row += `<td><div class="cell">${cellContent}</div></td>`;
+            });
+            
+            row += `<td class="row-actions"><div class="cell">
                 <button title="Edit" onclick="Dashboard.editDriver('${d.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
@@ -2790,7 +2796,125 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </div></td>
-        </tr>`).join('');
+            </tr>`;
+            return row;
+        }).join('');
+    }
+
+    async function loadDriverColumnPrefs() {
+        if (!state.user) return;
+        try {
+            const prefDoc = await col('users').doc(state.user.uid).collection('preferences').doc('drivers').get();
+            if (prefDoc.exists) {
+                const savedCols = prefDoc.data().columns || [];
+                state.driverColumns = ALL_DRIVER_COLUMNS.map(col => {
+                    const saved = savedCols.find(s => s.key === col.key);
+                    return {
+                        ...col,
+                        visible: saved !== undefined ? saved.visible : col.defaultVisible,
+                        order: saved !== undefined ? saved.order : ALL_DRIVER_COLUMNS.indexOf(col)
+                    };
+                }).sort((a, b) => a.order - b.order);
+            } else {
+                state.driverColumns = ALL_DRIVER_COLUMNS.map((col, idx) => ({ ...col, visible: col.defaultVisible, order: idx }));
+                await saveDriverColumnPrefs();
+            }
+        } catch (e) {
+            console.error('Load driver column prefs error:', e);
+            state.driverColumns = ALL_DRIVER_COLUMNS.map((col, idx) => ({ ...col, visible: col.defaultVisible, order: idx }));
+        }
+    }
+
+    async function saveDriverColumnPrefs() {
+        if (!state.user || !state.driverColumns) return;
+        try {
+            const columns = state.driverColumns.map((col, idx) => ({
+                key: col.key,
+                label: col.label,
+                visible: col.visible,
+                order: idx
+            }));
+            await col('users').doc(state.user.uid).collection('preferences').doc('drivers').set({ columns });
+        } catch (e) {
+            console.error('Save driver column prefs error:', e);
+        }
+    }
+
+    function renderDriversHeader() {
+        const thead = $('driversTable')?.querySelector('thead tr');
+        if (!thead || !state.driverColumns) return;
+        const visibleCols = state.driverColumns.filter(c => c.visible);
+        const headerHtml = `
+            <th class="col-validation"></th>
+            ${visibleCols.map((col, idx) => `
+                <th class="col-header ${col.locked ? 'locked' : ''}" data-col-key="${col.key}" style="position: relative;" ${col.locked ? '' : 'draggable="true"'}>
+                    ${col.locked ? '' : '<span class="col-drag-handle">⋮⋮</span>'}
+                    ${escapeHtml(col.label)}
+                </th>
+            `).join('')}
+            <th class="col-actions"></th>
+            <th class="col-picker-header"><button id="driverColPickerBtn" class="col-picker-btn" title="Add/customize columns">+</button></th>
+        `;
+        thead.innerHTML = headerHtml;
+        initDriverColDrag();
+        const panel = $('driverColPickerPanel');
+        if (panel && panel.style.display === 'block') {
+            renderDriverColPickerList();
+        }
+    }
+
+    function reorderDriverColumns(dragKey, targetKey) {
+        if (!state.driverColumns || !dragKey || !targetKey || dragKey === targetKey) return;
+        const fromIndex = state.driverColumns.findIndex((c) => c.key === dragKey);
+        const targetIndex = state.driverColumns.findIndex((c) => c.key === targetKey);
+        if (fromIndex < 0 || targetIndex < 0) return;
+        const draggedCol = state.driverColumns[fromIndex];
+        if (draggedCol.locked) return;
+
+        const cols = state.driverColumns.slice();
+        const [moved] = cols.splice(fromIndex, 1);
+        cols.splice(targetIndex, 0, moved);
+        state.driverColumns = cols.map((c, idx) => ({ ...c, order: idx }));
+        saveDriverColumnPrefs();
+        renderDrivers();
+    }
+
+    function initDriverColDrag() {
+        const row = $('driversTable')?.querySelector('thead tr');
+        if (!row) return;
+        let dragKey = null;
+
+        row.querySelectorAll('th.col-header[draggable="true"]').forEach((th) => {
+            const key = th.dataset.colKey;
+            th.addEventListener('dragstart', (e) => {
+                dragKey = key;
+                th.classList.add('is-dragging');
+                if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+            });
+
+            th.addEventListener('dragover', (e) => {
+                if (!dragKey || dragKey === key) return;
+                e.preventDefault();
+                th.classList.add('drag-over');
+            });
+
+            th.addEventListener('dragleave', () => {
+                th.classList.remove('drag-over');
+            });
+
+            th.addEventListener('drop', (e) => {
+                e.preventDefault();
+                th.classList.remove('drag-over');
+                reorderDriverColumns(dragKey, key);
+                dragKey = null;
+            });
+
+            th.addEventListener('dragend', () => {
+                th.classList.remove('is-dragging');
+                row.querySelectorAll('th.col-header').forEach((h) => h.classList.remove('drag-over'));
+                dragKey = null;
+            });
+        });
     }
 
     function openDriverModal(data) {
@@ -2973,6 +3097,12 @@
             if (status === 'active' && !item.truck) {
                 appendUniqueIssue(issues, 'Active driver is not assigned to a truck');
             }
+            const cdlDays = daysUntilExpiry(item.cdlExp);
+            const medDays = daysUntilExpiry(item.medExp);
+            if (cdlDays !== null && cdlDays < 0) appendUniqueIssue(issues, 'CDL is expired');
+            if (cdlDays !== null && cdlDays >= 0 && cdlDays <= 30) appendUniqueIssue(issues, 'CDL expires within 30 days');
+            if (medDays !== null && medDays < 0) appendUniqueIssue(issues, 'Medical card is expired');
+            if (medDays !== null && medDays >= 0 && medDays <= 30) appendUniqueIssue(issues, 'Medical card expires within 30 days');
         }
 
         if (collection === 'trucks') {
@@ -3304,6 +3434,54 @@
             const el = $(id);
             if (el) el.addEventListener('input', renderDrivers);
         });
+
+        initDriverColPicker();
+    }
+
+    function initDriverColPicker() {
+        const panel = $('driverColPickerPanel');
+        const close = $('driverColPickerClose');
+        if (!panel || !close) return;
+
+        close.addEventListener('click', () => {
+            panel.style.display = 'none';
+        });
+
+        document.addEventListener('click', (e) => {
+            const btn = $('driverColPickerBtn');
+            if (btn && btn.contains(e.target)) {
+                e.stopPropagation();
+                panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                if (panel.style.display === 'block') renderDriverColPickerList();
+                return;
+            }
+            if (panel.style.display === 'block' && !panel.contains(e.target)) {
+                panel.style.display = 'none';
+            }
+        });
+    }
+
+    function renderDriverColPickerList() {
+        const listEl = $('driverColPickerList');
+        if (!listEl || !state.driverColumns) return;
+        listEl.innerHTML = state.driverColumns.map((col) => `
+            <label class="col-picker-item ${col.locked ? 'col-picker-locked' : ''}">
+                <input type="checkbox" ${col.visible ? 'checked' : ''} ${col.locked ? 'disabled' : ''} 
+                    data-col-key="${col.key}" onchange="Dashboard.toggleDriverColumn('${col.key}')">
+                <span>${escapeHtml(col.label)}</span>
+                ${col.locked ? '<span class="col-picker-lock-icon">LOCK</span>' : ''}
+            </label>
+        `).join('');
+    }
+
+    function toggleDriverColumn(key) {
+        if (!state.driverColumns) return;
+        const col = state.driverColumns.find(c => c.key === key);
+        if (col && !col.locked) {
+            col.visible = !col.visible;
+            saveDriverColumnPrefs();
+            renderDrivers();
+        }
     }
 
     // ── Operational Alerts ────────────────
@@ -3941,7 +4119,11 @@
         editTruck, editTrailer, editDriver,
         deleteTruck, deleteTrailer, deleteDriver,
         inlineStatus,
-        openTruckProfile, openTrailerProfile, openDriverProfile
+        openTruckProfile, openTrailerProfile, openDriverProfile,
+        toggleDriverColumn,
+        addTruck: () => openSheetModal('truck'),
+        addTrailer: () => openSheetModal('trailer'),
+        addDriver: () => openSheetModal('driver')
     };
 
     // Start when DOM is ready
