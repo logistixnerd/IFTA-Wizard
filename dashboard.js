@@ -590,7 +590,8 @@
     }
 
     function setTopbarAccount(name, photoUrl) {
-        $('dashUserEmail').textContent = 'Welcome, ' + (name || 'User') + '!';
+        const firstName = String(name || 'User').trim().split(/\s+/)[0] || 'User';
+        $('dashUserEmail').textContent = 'Welcome, ' + firstName + '!';
         const avatar = $('dashTopbarAvatar');
         if (!avatar) return;
         if (photoUrl) {
@@ -600,7 +601,7 @@
             img.alt = 'Profile';
             avatar.appendChild(img);
         } else {
-            avatar.textContent = (name || 'U').charAt(0).toUpperCase();
+            avatar.textContent = firstName.charAt(0).toUpperCase();
         }
     }
 
