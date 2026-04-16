@@ -1860,6 +1860,8 @@
 
 /* Overview Alerts */
 .overview-alerts {
+    width: 100%;
+    max-width: 980px;
     margin-bottom: 1.25rem;
 }
 
@@ -1869,9 +1871,9 @@
 }
 
 .alert-item {
-    display: flex;
-    align-items: center;
-    gap: 0.625rem;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
     padding: 0.625rem 0.875rem;
     font-size: 0.8125rem;
     border-radius: 12px;
@@ -1908,14 +1910,13 @@
 }
 
 .alert-unassigned {
-    width: min(1120px, calc(100vw - 2.5rem));
-    margin-left: calc(50% - min(560px, (100vw - 2.5rem) / 2));
+    padding: 0.75rem 0.875rem;
 }
 
 .alert-dropdown-trigger {
     width: 100%;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.625rem;
     border: 0;
     background: transparent;
@@ -1929,10 +1930,12 @@
 .alert-dropdown-trigger span {
     flex: 1;
     min-width: 0;
+    line-height: 1.45;
 }
 
 .alert-dropdown-chevron {
     flex-shrink: 0;
+    margin-top: 0.05rem;
     transition: transform 0.2s ease;
 }
 
@@ -1943,8 +1946,10 @@
 
 .alert-dropdown-panel {
     margin-top: 0.625rem;
-    padding-top: 0.625rem;
-    border-top: 1px solid rgba(37, 99, 235, 0.2);
+    padding: 0.75rem;
+    border-top: 1px solid rgba(37, 99, 235, 0.16);
+    background: rgba(255, 255, 255, 0.36);
+    border-radius: 10px;
 }
 
 .alert-dropdown-list {
@@ -1953,16 +1958,17 @@
     list-style: none;
     display: grid;
     gap: 0.4rem;
+    max-height: 260px;
+    overflow-y: auto;
 }
 
 .alert-dropdown-item {
-    padding: 0.35rem 0.45rem;
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.55);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.5rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(37, 99, 235, 0.08);
+    display: grid;
+    gap: 0.18rem;
 }
 
 .alert-dropdown-name {
@@ -1973,17 +1979,16 @@
 .alert-dropdown-meta {
     font-size: 0.75rem;
     color: var(--gray-600);
+    line-height: 1.35;
 }
 
 @media (max-width: 900px) {
-    .alert-unassigned {
-        width: calc(100vw - 1.5rem);
-        margin-left: calc(50% - ((100vw - 1.5rem) / 2));
+    .overview-alerts {
+        max-width: 100%;
     }
 
     .alert-dropdown-item {
-        flex-direction: column;
-        align-items: flex-start;
+        padding: 0.5rem 0.6rem;
     }
 }
 
@@ -3190,4 +3195,159 @@ th.col-validation {
     left: 0;
     right: 0;
     min-width: 140px;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEPARTMENT SCAFFOLDING STYLES
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Department Header ── */
+.dept-header {
+    margin-bottom: 1.5rem;
+}
+.dept-header h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--gray-900);
+    margin: 0 0 0.25rem 0;
+}
+.dept-subtitle {
+    font-size: 0.875rem;
+    color: var(--gray-500);
+    margin: 0;
+}
+
+/* ── Department Grid Layout ── */
+.dept-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.25rem;
+}
+.dash-card-wide {
+    grid-column: span 2;
+}
+.dash-card-fullheight {
+    min-height: 500px;
+}
+.dash-card-fullheight .dash-card-body {
+    flex: 1;
+    display: flex;
+}
+
+@media (max-width: 768px) {
+    .dept-grid {
+        grid-template-columns: 1fr;
+    }
+    .dash-card-wide {
+        grid-column: span 1;
+    }
+}
+
+/* ── Placeholder Content ── */
+.placeholder-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3rem 2rem;
+    min-height: 200px;
+}
+.placeholder-content svg {
+    color: var(--gray-300);
+    margin-bottom: 1rem;
+}
+.placeholder-content p {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--gray-500);
+    margin: 0 0 0.5rem 0;
+}
+.placeholder-hint {
+    font-size: 0.8125rem;
+    color: var(--gray-400);
+    max-width: 280px;
+    line-height: 1.4;
+}
+
+/* Special map placeholder */
+.placeholder-content-map {
+    min-height: 400px;
+    background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
+    border-radius: 8px;
+    width: 100%;
+}
+.placeholder-content-map svg {
+    color: var(--gray-300);
+}
+
+/* ── Nav Group Colors (department accents) ── */
+.dash-nav-group-trigger[data-section="safety"] svg:first-child { color: #10b981; }
+.dash-nav-group-trigger[data-section="maintenance"] svg:first-child { color: #f59e0b; }
+.dash-nav-group-trigger[data-section="dispatch"] svg:first-child { color: #3b82f6; }
+.dash-nav-group-trigger[data-section="tracking"] svg:first-child { color: #8b5cf6; }
+.dash-nav-group-trigger[data-section="accounting"] svg:first-child { color: #06b6d4; }
+.dash-nav-group-trigger[data-section="hiring"] svg:first-child { color: #ec4899; }
+.dash-nav-group-trigger[data-section="claims"] svg:first-child { color: #ef4444; }
+.dash-nav-group-trigger[data-section="afterhours"] svg:first-child { color: #6366f1; }
+.dash-nav-group-trigger[data-section="operations"] svg:first-child { color: #14b8a6; }
+
+/* Active state for nav groups */
+.dash-nav-group-trigger.active[data-section="safety"],
+.dash-nav-group .dash-nav-item.active[data-section^="safety"],
+.dash-nav-group .dash-nav-item.active[data-section="drivers"],
+.dash-nav-group .dash-nav-item.active[data-section="trucks"],
+.dash-nav-group .dash-nav-item.active[data-section="trailers"],
+.dash-nav-group .dash-nav-item.active[data-section="violations"] {
+    background: rgba(16, 185, 129, 0.1);
+}
+.dash-nav-group-trigger.active[data-section="maintenance"],
+.dash-nav-group .dash-nav-item.active[data-section^="maintenance"],
+.dash-nav-group .dash-nav-item.active[data-section="work-orders"],
+.dash-nav-group .dash-nav-item.active[data-section="pm-schedules"],
+.dash-nav-group .dash-nav-item.active[data-section="parts-inventory"] {
+    background: rgba(245, 158, 11, 0.1);
+}
+.dash-nav-group-trigger.active[data-section="dispatch"],
+.dash-nav-group .dash-nav-item.active[data-section^="dispatch"],
+.dash-nav-group .dash-nav-item.active[data-section="active-loads"],
+.dash-nav-group .dash-nav-item.active[data-section="driver-assignments"] {
+    background: rgba(59, 130, 246, 0.1);
+}
+.dash-nav-group-trigger.active[data-section="tracking"],
+.dash-nav-group .dash-nav-item.active[data-section="live-map"],
+.dash-nav-group .dash-nav-item.active[data-section="load-status"],
+.dash-nav-group .dash-nav-item.active[data-section="eta-tracking"] {
+    background: rgba(139, 92, 246, 0.1);
+}
+.dash-nav-group-trigger.active[data-section="accounting"],
+.dash-nav-group .dash-nav-item.active[data-section="invoices"],
+.dash-nav-group .dash-nav-item.active[data-section="settlements"],
+.dash-nav-group .dash-nav-item.active[data-section="expenses"],
+.dash-nav-group .dash-nav-item.active[data-section="payroll"] {
+    background: rgba(6, 182, 212, 0.1);
+}
+.dash-nav-group-trigger.active[data-section="hiring"],
+.dash-nav-group .dash-nav-item.active[data-section="applications"],
+.dash-nav-group .dash-nav-item.active[data-section="hiring-pipeline"],
+.dash-nav-group .dash-nav-item.active[data-section="onboarding"] {
+    background: rgba(236, 72, 153, 0.1);
+}
+.dash-nav-group-trigger.active[data-section="claims"],
+.dash-nav-group .dash-nav-item.active[data-section="accidents"],
+.dash-nav-group .dash-nav-item.active[data-section="cargo-claims"],
+.dash-nav-group .dash-nav-item.active[data-section="insurance"] {
+    background: rgba(239, 68, 68, 0.1);
+}
+.dash-nav-group-trigger.active[data-section="afterhours"],
+.dash-nav-group .dash-nav-item.active[data-section="on-call"],
+.dash-nav-group .dash-nav-item.active[data-section="emergency-contacts"],
+.dash-nav-group .dash-nav-item.active[data-section="driver-support"] {
+    background: rgba(99, 102, 241, 0.1);
+}
+.dash-nav-group-trigger.active[data-section="operations"],
+.dash-nav-group .dash-nav-item.active[data-section="command-center"],
+.dash-nav-group .dash-nav-item.active[data-section="cross-dept-alerts"],
+.dash-nav-group .dash-nav-item.active[data-section="reports"] {
+    background: rgba(20, 184, 166, 0.1);
 }
