@@ -690,7 +690,12 @@
             $('dashDotNumber').value = data.dotNumber || '';
             $('dashMcNumber').value = data.mcNumber || '';
             $('dashEin').value = data.ein || '';
-            $('dashAddress').value = data.address || '';
+            $('dashAddress').value = data.officeAddress || data.address || '';
+            const sameAddressForFacilities = data.sameAddressForFacilities !== false;
+            $('dashSameAddressToggle').checked = sameAddressForFacilities;
+            $('dashShopAddress').value = data.shopAddress || '';
+            $('dashYardAddress').value = data.yardAddress || '';
+            setCompanyAddressMode(sameAddressForFacilities);
             $('dashFleetSize').value = data.fleetSize || '';
             $('dashBaseState').value = data.baseState || '';
 
@@ -712,7 +717,10 @@
             sel.appendChild(opt);
         });
 
-        initAddressLookup();
+        initAddressLookup('dashAddress');
+        initAddressLookup('dashShopAddress');
+        initAddressLookup('dashYardAddress');
+        initCompanyAddressFields();
 
         // Avatar upload
         $('dashAvatarUpload').addEventListener('change', async (e) => {
@@ -757,12 +765,18 @@
         // Save company info
         $('dashCompanyForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const sameAddressForFacilities = !!$('dashSameAddressToggle').checked;
+            const officeAddress = $('dashAddress').value.trim();
             const payload = {
                 company: $('dashCompany').value.trim(),
                 dotNumber: $('dashDotNumber').value.trim(),
                 mcNumber: $('dashMcNumber').value.trim(),
                 ein: $('dashEin').value.trim(),
-                address: $('dashAddress').value.trim(),
+                address: officeAddress,
+                officeAddress: officeAddress,
+                sameAddressForFacilities: sameAddressForFacilities,
+                shopAddress: sameAddressForFacilities ? officeAddress : $('dashShopAddress').value.trim(),
+                yardAddress: sameAddressForFacilities ? officeAddress : $('dashYardAddress').value.trim(),
                 fleetSize: $('dashFleetSize').value,
                 baseState: $('dashBaseState').value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -777,8 +791,31 @@
         });
     }
 
-    function initAddressLookup() {
-        const addressInput = $('dashAddress');
+    function setCompanyAddressMode(useOfficeAddress) {
+        const shopGroup = $('dashShopAddressGroup');
+        const yardGroup = $('dashYardAddressGroup');
+        const shopInput = $('dashShopAddress');
+        const yardInput = $('dashYardAddress');
+        if (!shopGroup || !yardGroup || !shopInput || !yardInput) return;
+
+        shopGroup.hidden = !!useOfficeAddress;
+        yardGroup.hidden = !!useOfficeAddress;
+        shopInput.disabled = !!useOfficeAddress;
+        yardInput.disabled = !!useOfficeAddress;
+    }
+
+    function initCompanyAddressFields() {
+        const sameAddressToggle = $('dashSameAddressToggle');
+        if (!sameAddressToggle) return;
+
+        setCompanyAddressMode(sameAddressToggle.checked);
+        sameAddressToggle.addEventListener('change', () => {
+            setCompanyAddressMode(sameAddressToggle.checked);
+        });
+    }
+
+    function initAddressLookup(inputId) {
+        const addressInput = $(inputId);
         if (!addressInput) return;
 
         let timer = null;

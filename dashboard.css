@@ -835,6 +835,57 @@
     grid-column: 1 / -1;
 }
 
+.company-address-toggle-row {
+    margin-top: -0.25rem;
+}
+
+.company-address-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.625rem;
+    font-size: 0.75rem;
+    color: var(--gray-600);
+    cursor: pointer;
+}
+
+.company-address-toggle input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.company-address-toggle-box {
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    background: rgba(255, 255, 255, 0.75);
+    position: relative;
+    flex-shrink: 0;
+}
+
+.company-address-toggle-box::after {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 1px;
+    width: 5px;
+    height: 10px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+    opacity: 0;
+}
+
+.company-address-toggle input:checked + .company-address-toggle-box {
+    background: var(--primary);
+    border-color: var(--primary);
+}
+
+.company-address-toggle input:checked + .company-address-toggle-box::after {
+    opacity: 1;
+}
+
 .dash-form-actions {
     margin-top: 1.5rem;
     padding-top: 1.25rem;
