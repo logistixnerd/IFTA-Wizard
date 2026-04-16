@@ -913,7 +913,6 @@
 
         async function fetchNominatimSuggestions(query) {
             try {
-                console.log('[Nominatim] requesting:', query);
                 if (activeController) activeController.abort();
                 activeController = new AbortController();
 
@@ -952,11 +951,9 @@
                     seen.add(key);
                     return true;
                 }).slice(0, 8);
-                console.log('[Nominatim] returned', results.length, 'results');
                 return results;
             } catch (err) {
                 if (err && err.name === 'AbortError') throw err;
-                console.warn('[Nominatim] error:', err);
                 return [];
             }
         }
@@ -1145,13 +1142,10 @@
                 if (query === lastQuery) return;
                 lastQuery = query;
                 try {
-                    console.log('[Autocomplete] fetching for:', query);
                     const predictions = await fetchSuggestions(query);
-                    console.log('[Autocomplete] got', predictions.length, 'results:', predictions);
                     if (addressInput.value.trim() !== query) return;
                     renderOptions(predictions);
                 } catch (err) {
-                    console.error('[Autocomplete] error:', err);
                     if (err && err.name === 'AbortError') return;
                     renderOptions([]);
                 }
@@ -2963,7 +2957,17 @@
         // Unassigned active drivers
         const unassigned = state.drivers.filter(d => d.status === 'active' && !d.truck);
         if (unassigned.length) {
-            alerts.push({ type: 'info', icon: 'user', text: unassigned.length + ' active driver' + (unassigned.length > 1 ? 's' : '') + ' unassigned to a truck' });
+            alerts.push({
+                type: 'info',
+                icon: 'user',
+                kind: 'unassigned-drivers',
+                text: unassigned.length + ' active driver' + (unassigned.length > 1 ? 's' : '') + ' unassigned to a truck',
+                drivers: unassigned.map((d) => ({
+                    name: (d.name || '').trim() || 'Unnamed driver',
+                    phone: (d.phone || '').trim(),
+                    cdl: (d.cdl || '').trim()
+                }))
+            });
         }
 
         const container = $('overviewAlerts');
@@ -2981,9 +2985,39 @@
             user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
         };
 
-        container.innerHTML = alerts.map(a =>
-            `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`
-        ).join('');
+        container.innerHTML = alerts.map((a, idx) => {
+            if (a.kind === 'unassigned-drivers') {
+                const detailId = `unassigned-driver-alert-${idx}`;
+                const rows = (a.drivers || []).map((driver) => {
+                    const subtitle = [driver.phone, driver.cdl ? ('CDL: ' + driver.cdl) : '']
+                        .filter(Boolean)
+                        .join(' | ');
+                    return `<li class="alert-dropdown-item"><span class="alert-dropdown-name">${escapeHtml(driver.name)}</span>${subtitle ? `<span class="alert-dropdown-meta">${escapeHtml(subtitle)}</span>` : ''}</li>`;
+                }).join('');
+                return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned" data-alert-kind="unassigned-drivers">`
+                    + `<button type="button" class="alert-dropdown-trigger" aria-expanded="false" aria-controls="${detailId}">`
+                    + `${iconMap[a.icon] || ''}`
+                    + `<span>${escapeHtml(a.text)}</span>`
+                    + `<svg class="alert-dropdown-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`
+                    + `</button>`
+                    + `<div class="alert-dropdown-panel" id="${detailId}" hidden><ul class="alert-dropdown-list">${rows}</ul></div>`
+                    + `</div>`;
+            }
+            return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
+        }).join('');
+
+        container.querySelectorAll('.alert-dropdown-trigger').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const alertEl = btn.closest('.alert-unassigned');
+                if (!alertEl) return;
+                const panel = alertEl.querySelector('.alert-dropdown-panel');
+                if (!panel) return;
+                const expanded = btn.getAttribute('aria-expanded') === 'true';
+                btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+                panel.hidden = expanded;
+                alertEl.classList.toggle('expanded', !expanded);
+            });
+        });
     }
 
     function populateTruckDropdown() {
