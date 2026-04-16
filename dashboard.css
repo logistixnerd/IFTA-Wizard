@@ -126,6 +126,40 @@
     font-size: 0.78125rem;
 }
 
+.dash-nav-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.dash-nav-group-chevron {
+    margin-left: auto;
+    color: var(--gray-400);
+    flex-shrink: 0;
+    transition: transform 0.2s ease, color 0.18s ease;
+}
+
+.dash-nav-group:hover .dash-nav-group-chevron,
+.dash-nav-group.open .dash-nav-group-chevron {
+    transform: rotate(180deg);
+    color: var(--gray-600);
+}
+
+.dash-nav-group-dropdown {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.22s ease;
+}
+
+.dash-nav-group:hover .dash-nav-group-dropdown,
+.dash-nav-group.open .dash-nav-group-dropdown {
+    max-height: 200px;
+}
+
+.dash-nav-group-dropdown .dash-nav-item {
+    padding-left: 1.375rem;
+    font-size: 0.78125rem;
+}
+
 .dash-nav-count {
     margin-left: auto;
     font-size: 0.6875rem;
@@ -2094,6 +2128,11 @@
     }
 
     .dash-nav-item-nested {
+        padding-left: 0.75rem;
+        font-size: 0.625rem;
+    }
+
+    .dash-nav-group-dropdown .dash-nav-item {
         padding-left: 0.75rem;
         font-size: 0.625rem;
     }

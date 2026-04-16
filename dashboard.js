@@ -450,6 +450,8 @@
         document.querySelectorAll('.dash-section').forEach(s => {
             s.classList.toggle('active', s.id === 'section-' + section);
         });
+        const group = document.querySelector('.dash-nav-group');
+        if (group) group.classList.toggle('open', ['trucks', 'trailers', 'drivers'].includes(section));
         const btn = document.querySelector('.dash-nav-item[data-section="' + section + '"]');
         if (btn) $('pageTitle').textContent = btn.querySelector('span').textContent;
         else if (section === 'profile') $('pageTitle').textContent = 'Account';
