@@ -819,15 +819,12 @@
         const addressInput = $(inputId);
         if (!addressInput) return;
 
-        // Initialize Google Places Autocomplete Service
-        const autocompleteService = new google.maps.places.AutocompleteService();
-        const placesService = new google.maps.places.PlacesService(document.createElement('div'));
-        const sessionToken = new google.maps.places.AutocompleteSessionToken();
-
         let timer = null;
         let lastQuery = '';
+        let activeController = null;
         let items = [];
         let activeIdx = -1;
+        let officeGeoCache = { address: '', point: null };
 
         const wrap = addressInput.parentElement;
         if (!wrap) return;
@@ -836,36 +833,125 @@
         list.style.display = 'none';
         wrap.appendChild(list);
 
-        async function getPlacePredictions(query) {
-            let bounds = null;
-            let componentRestrictions = { country: ['us', 'ca'] };
+        function isGooglePlacesReady() {
+            return !!(
+                window.google
+                && google.maps
+                && google.maps.places
+                && typeof google.maps.places.AutocompleteService === 'function'
+                && typeof google.maps.places.AutocompleteSessionToken === 'function'
+            );
+        }
 
-            // If searching for shop address, restrict bounds to area near office
+        function distanceKm(aLat, aLon, bLat, bLon) {
+            const toRad = (deg) => (deg * Math.PI) / 180;
+            const earthKm = 6371;
+            const dLat = toRad(bLat - aLat);
+            const dLon = toRad(bLon - aLon);
+            const lat1 = toRad(aLat);
+            const lat2 = toRad(bLat);
+            const h = Math.sin(dLat / 2) ** 2
+                + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+            return 2 * earthKm * Math.asin(Math.sqrt(h));
+        }
+
+        async function geocodeOfficeWithNominatim(address) {
+            const key = String(address || '').trim();
+            if (!key) return null;
+            if (officeGeoCache.address === key) return officeGeoCache.point;
+
+            try {
+                const endpoint =
+                    'https://nominatim.openstreetmap.org/search?format=jsonv2&countrycodes=us,ca&limit=1&q='
+                    + encodeURIComponent(key);
+                const response = await fetch(endpoint, {
+                    headers: {
+                        Accept: 'application/json',
+                        'Accept-Language': 'en-US,en;q=0.9'
+                    }
+                });
+                if (!response.ok) return null;
+                const rows = await response.json();
+                if (!Array.isArray(rows) || !rows.length) return null;
+                const lat = Number(rows[0].lat);
+                const lon = Number(rows[0].lon);
+                const point = Number.isFinite(lat) && Number.isFinite(lon)
+                    ? { lat: lat, lon: lon }
+                    : null;
+                officeGeoCache = { address: key, point: point };
+                return point;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        async function fetchNominatimSuggestions(query) {
+            if (activeController) activeController.abort();
+            activeController = new AbortController();
+
+            const endpoint =
+                'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=us,ca&limit=12&q='
+                + encodeURIComponent(query);
+            const response = await fetch(endpoint, {
+                signal: activeController.signal,
+                headers: {
+                    Accept: 'application/json',
+                    'Accept-Language': 'en-US,en;q=0.9'
+                }
+            });
+            if (!response.ok) return [];
+            const rows = await response.json();
+            if (!Array.isArray(rows)) return [];
+
+            const mapped = rows
+                .map((r) => {
+                    if (!r || !r.display_name) return null;
+                    const lat = Number(r.lat);
+                    const lon = Number(r.lon);
+                    return {
+                        label: String(r.display_name),
+                        lat: Number.isFinite(lat) ? lat : null,
+                        lon: Number.isFinite(lon) ? lon : null,
+                        source: 'fallback'
+                    };
+                })
+                .filter(Boolean);
+
+            const seen = new Set();
+            return mapped.filter((item) => {
+                const key = item.label.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            }).slice(0, 8);
+        }
+
+        async function fetchGoogleSuggestions(query) {
+            if (!isGooglePlacesReady()) return null;
+
+            const autocompleteService = new google.maps.places.AutocompleteService();
+            const sessionToken = new google.maps.places.AutocompleteSessionToken();
+            const geocoder = new google.maps.Geocoder();
+
+            let bounds = null;
             if (inputId === 'dashShopAddress') {
                 const officeInput = $('dashAddress');
                 if (officeInput && officeInput.value.trim()) {
-                    try {
-                        // Get coordinates of office address for bias
-                        const geocoder = new google.maps.Geocoder();
-                        await new Promise((resolve) => {
-                            geocoder.geocode({ address: officeInput.value }, (results, status) => {
-                                if (status === google.maps.GeocoderStatus.OK && results.length > 0) {
-                                    const location = results[0].geometry.location;
-                                    // Create bounds around office (approximately 25 miles)
-                                    const radius = 0.225; // degrees, roughly 25 miles
-                                    bounds = {
-                                        north: location.lat() + radius,
-                                        south: location.lat() - radius,
-                                        east: location.lng() + radius,
-                                        west: location.lng() - radius
-                                    };
-                                }
-                                resolve();
-                            });
+                    await new Promise((resolve) => {
+                        geocoder.geocode({ address: officeInput.value.trim() }, (results, status) => {
+                            if (status === google.maps.GeocoderStatus.OK && results && results.length) {
+                                const location = results[0].geometry.location;
+                                const radius = 0.225;
+                                bounds = {
+                                    north: location.lat() + radius,
+                                    south: location.lat() - radius,
+                                    east: location.lng() + radius,
+                                    west: location.lng() - radius
+                                };
+                            }
+                            resolve();
                         });
-                    } catch (err) {
-                        // Silently fail; search without bounds
-                    }
+                    });
                 }
             }
 
@@ -874,26 +960,64 @@
                     {
                         input: query,
                         bounds: bounds,
-                        componentRestrictions: componentRestrictions,
+                        componentRestrictions: { country: ['us', 'ca'] },
                         sessionToken: sessionToken,
                         types: ['address']
                     },
                     (predictions, status) => {
                         if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
-                            resolve(predictions);
-                        } else {
-                            resolve([]);
+                            resolve(predictions.map((pred) => ({
+                                label: pred.description,
+                                source: 'google'
+                            })));
+                            return;
                         }
+                        if (status && status !== google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+                            console.warn('Google Places unavailable, switching to fallback provider:', status);
+                        }
+                        resolve([]);
                     }
                 );
             });
         }
 
-        function renderOptions(predictions) {
-            items = predictions || [];
+        async function fetchSuggestions(query) {
+            const googleResults = await fetchGoogleSuggestions(query);
+            if (Array.isArray(googleResults) && googleResults.length) {
+                return googleResults.slice(0, 8);
+            }
+
+            const fallbackResults = await fetchNominatimSuggestions(query);
+
+            if (inputId === 'dashShopAddress' && fallbackResults.length) {
+                const officeInput = $('dashAddress');
+                const officeAddr = officeInput ? officeInput.value.trim() : '';
+                const officePoint = officeAddr ? await geocodeOfficeWithNominatim(officeAddr) : null;
+                if (officePoint) {
+                    return fallbackResults
+                        .slice()
+                        .sort((a, b) => {
+                            const aHasCoords = Number.isFinite(a.lat) && Number.isFinite(a.lon);
+                            const bHasCoords = Number.isFinite(b.lat) && Number.isFinite(b.lon);
+                            if (!aHasCoords && !bHasCoords) return 0;
+                            if (!aHasCoords) return 1;
+                            if (!bHasCoords) return -1;
+                            const dA = distanceKm(officePoint.lat, officePoint.lon, a.lat, a.lon);
+                            const dB = distanceKm(officePoint.lat, officePoint.lon, b.lat, b.lon);
+                            return dA - dB;
+                        })
+                        .slice(0, 8);
+                }
+            }
+
+            return fallbackResults.slice(0, 8);
+        }
+
+        function renderOptions(suggestions) {
+            items = suggestions || [];
             activeIdx = -1;
-            list.innerHTML = (predictions || [])
-                .map((pred, i) => '<li class="autocomplete-item" data-idx="' + i + '">' + escapeHtml(pred.description) + '</li>')
+            list.innerHTML = (suggestions || [])
+                .map((item, i) => '<li class="autocomplete-item" data-idx="' + i + '">' + escapeHtml(item.label) + '</li>')
                 .join('');
             list.style.display = items.length ? '' : 'none';
         }
@@ -907,9 +1031,9 @@
             if (active) active.scrollIntoView({ block: 'nearest' });
         }
 
-        function pick(prediction) {
-            if (!prediction) return;
-            addressInput.value = prediction.description;
+        function pick(item) {
+            if (!item || !item.label) return;
+            addressInput.value = item.label;
             list.style.display = 'none';
         }
 
@@ -927,10 +1051,11 @@
                 if (query === lastQuery) return;
                 lastQuery = query;
                 try {
-                    const predictions = await getPlacePredictions(query);
+                    const predictions = await fetchSuggestions(query);
                     if (addressInput.value.trim() !== query) return;
                     renderOptions(predictions);
                 } catch (err) {
+                    if (err && err.name === 'AbortError') return;
                     renderOptions([]);
                 }
             }, 300);
