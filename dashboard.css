@@ -3026,14 +3026,15 @@ th.col-validation {
 .vi-error svg {
     stroke: #dc3545;
 }
-/* Custom tooltip on hover */
+/* Hidden source-of-truth for tooltip content (rendered by JS) */
 .vi-tooltip {
+    display: none !important;
+}
+
+/* Fixed-position global tooltip – escapes table overflow containers */
+.vi-global-tip {
     display: none;
-    position: absolute;
-    left: 100%;
-    top: 50%;
-    transform: translateY(-50%);
-    margin-left: 6px;
+    position: fixed;
     background: #1e293b;
     color: #f1f5f9;
     font-size: 0.75rem;
@@ -3041,20 +3042,20 @@ th.col-validation {
     padding: 6px 10px;
     border-radius: 6px;
     white-space: nowrap;
-    z-index: 100;
+    z-index: 99999;
     pointer-events: none;
     box-shadow: 0 4px 12px rgba(0,0,0,0.25);
     text-align: left;
     font-weight: 400;
     min-width: 120px;
 }
-.vi-tooltip strong {
+.vi-global-tip.visible {
+    display: block;
+}
+.vi-global-tip strong {
     font-weight: 600;
     display: block;
     margin-bottom: 2px;
-}
-.validation-indicator:hover .vi-tooltip {
-    display: block;
 }
 
 /* Expandable detail row */

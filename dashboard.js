@@ -3708,7 +3708,39 @@
         initModalBackdrops();
         initSearchFilters();
         initInlineEditing();
+        initValidationTooltip();
         initAuth();
+    }
+
+    function initValidationTooltip() {
+        const tip = document.createElement('div');
+        tip.id = 'vi-global-tip';
+        tip.className = 'vi-global-tip';
+        document.body.appendChild(tip);
+
+        document.addEventListener('mouseenter', function (e) {
+            const indicator = e.target.closest && e.target.closest('.validation-indicator');
+            if (!indicator) return;
+            const inner = indicator.querySelector('.vi-tooltip');
+            if (!inner) return;
+            tip.innerHTML = inner.innerHTML;
+            tip.classList.add('visible');
+            const rect = indicator.getBoundingClientRect();
+            const tipRect = tip.getBoundingClientRect();
+            let left = rect.right + 8;
+            let top = rect.top + rect.height / 2 - tipRect.height / 2;
+            if (left + tipRect.width > window.innerWidth - 8) left = rect.left - tipRect.width - 8;
+            if (top < 8) top = 8;
+            if (top + tipRect.height > window.innerHeight - 8) top = window.innerHeight - tipRect.height - 8;
+            tip.style.left = left + 'px';
+            tip.style.top = top + 'px';
+        }, true);
+
+        document.addEventListener('mouseleave', function (e) {
+            if (e.target.closest && e.target.closest('.validation-indicator')) {
+                tip.classList.remove('visible');
+            }
+        }, true);
     }
 
     // Expose edit/delete/inline methods for inline onclick
