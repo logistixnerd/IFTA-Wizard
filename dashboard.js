@@ -763,6 +763,7 @@
     // ── Load All Data ─────────────────────
     async function loadAll() {
         await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers()]);
+        applyDerivedValidation();
         renderTrucks();
         renderTrailers();
         renderDrivers();
@@ -1535,6 +1536,7 @@
         try {
             const snap = await col('trucks').orderBy('unit').get();
             state.trucks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            applyDerivedValidation();
             renderTrucks();
             updateCount('truckCount', state.trucks.length);
         } catch (e) { console.error('Load trucks error:', e); }
@@ -2472,6 +2474,7 @@
         try {
             const snap = await col('trailers').orderBy('unit').get();
             state.trailers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            applyDerivedValidation();
             renderTrailers();
             updateCount('trailerCount', state.trailers.length);
         } catch (e) { console.error('Load trailers error:', e); }
@@ -2586,6 +2589,7 @@
         try {
             const snap = await col('drivers').orderBy('lastName').get();
             state.drivers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            applyDerivedValidation();
             renderDrivers();
             updateCount('driverCount', state.drivers.length);
         } catch (e) { console.error('Load drivers error:', e); }
@@ -2745,6 +2749,65 @@
         if (!truckId) return '—';
         const t = state.trucks.find(tr => tr.id === truckId);
         return t ? ('Unit ' + t.unit) : '—';
+    }
+
+    function appendUniqueIssue(issues, msg) {
+        if (!msg) return;
+        if (!issues.some((i) => String(i).toLowerCase() === String(msg).toLowerCase())) {
+            issues.push(msg);
+        }
+    }
+
+    function assignedDriverByTruckId(truckId) {
+        if (!truckId) return null;
+        return state.drivers.find((d) => d.truck === truckId && (d.status || 'active') === 'active') || null;
+    }
+
+    function withDerivedValidation(item, collection) {
+        const baseIssues = Array.isArray(item.validationIssues)
+            ? item.validationIssues.filter(Boolean).map((i) => String(i))
+            : [];
+        const issues = baseIssues.slice();
+        const status = String(item.status || '').trim();
+        const statusReason = String(item.statusReason || '').trim();
+
+        if (!status) appendUniqueIssue(issues, 'Status is required');
+        if (status && status !== 'active' && !statusReason) {
+            appendUniqueIssue(issues, 'Provide reason why this is not on the road');
+        }
+
+        if (collection === 'drivers') {
+            if (status === 'active' && !item.truck) {
+                appendUniqueIssue(issues, 'Active driver is not assigned to a truck');
+            }
+        }
+
+        if (collection === 'trucks') {
+            const assignedDriver = assignedDriverByTruckId(item.id);
+            if (status === 'active' && !assignedDriver) {
+                appendUniqueIssue(issues, 'Active truck has no assigned active driver');
+            }
+        }
+
+        if (collection === 'trailers') {
+            const trailerTruckId = String(item.truck || item.assignedTruck || '').trim();
+            if (status === 'active' && !trailerTruckId) {
+                appendUniqueIssue(issues, 'Active trailer has no assigned truck');
+            }
+        }
+
+        const statusFromRecord = item.validationStatus === 'error' ? 'error' : 'warning';
+        return {
+            ...item,
+            validationStatus: issues.length ? statusFromRecord : 'valid',
+            validationIssues: issues
+        };
+    }
+
+    function applyDerivedValidation() {
+        state.drivers = state.drivers.map((d) => withDerivedValidation(d, 'drivers'));
+        state.trucks = state.trucks.map((t) => withDerivedValidation(t, 'trucks'));
+        state.trailers = state.trailers.map((t) => withDerivedValidation(t, 'trailers'));
     }
 
     // ── Validation Indicator Helpers ───────
@@ -2991,6 +3054,7 @@
             const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : state.drivers;
             const item = stateArr.find(x => x.id === id);
             if (item) item.status = newStatus;
+            applyDerivedValidation();
 
             // Re-render
             if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
@@ -3073,18 +3137,47 @@
             alerts.push({ type: 'warning', icon: 'wrench', text: maint.length + ' truck' + (maint.length > 1 ? 's' : '') + ' in maintenance' });
         }
 
+        const truckValidationIssues = state.trucks.filter((t) => Array.isArray(t.validationIssues) && t.validationIssues.length);
+        if (truckValidationIssues.length) {
+            alerts.push({
+                type: 'warning',
+                icon: 'alert',
+                text: truckValidationIssues.length + ' truck' + (truckValidationIssues.length > 1 ? 's' : '') + ' missing required status/assignment details'
+            });
+        }
+
+        const trailerValidationIssues = state.trailers.filter((t) => Array.isArray(t.validationIssues) && t.validationIssues.length);
+        if (trailerValidationIssues.length) {
+            alerts.push({
+                type: 'warning',
+                icon: 'alert',
+                text: trailerValidationIssues.length + ' trailer' + (trailerValidationIssues.length > 1 ? 's' : '') + ' missing required status/assignment details'
+            });
+        }
+
         // Unassigned active drivers
         const unassigned = state.drivers.filter(d => d.status === 'active' && !d.truck);
         if (unassigned.length) {
+            const activeAssignedTruckIds = new Set(
+                state.drivers
+                    .filter((d) => d.truck && (d.status || 'active') === 'active')
+                    .map((d) => d.truck)
+            );
+            const openTrucks = state.trucks.filter((t) => t.status === 'active' && !activeAssignedTruckIds.has(t.id));
             alerts.push({
                 type: 'info',
                 icon: 'user',
                 kind: 'unassigned-drivers',
                 text: unassigned.length + ' active driver' + (unassigned.length > 1 ? 's' : '') + ' unassigned to a truck',
                 drivers: unassigned.map((d) => ({
+                    id: d.id,
                     name: [d.firstName, d.lastName].filter(Boolean).join(' ').trim() || 'Unnamed driver',
                     phone: (d.phone || '').trim(),
-                    cdl: (d.cdl || '').trim()
+                    cdl: (d.cdl || '').trim(),
+                    openTrucks: openTrucks.map((t) => ({
+                        id: t.id,
+                        label: 'Unit ' + (t.unit || t.id)
+                    }))
                 }))
             });
         }
@@ -3111,7 +3204,17 @@
                     const subtitle = [driver.phone, driver.cdl ? ('CDL: ' + driver.cdl) : '']
                         .filter(Boolean)
                         .join(' | ');
-                    return `<li class="alert-dropdown-item"><span class="alert-dropdown-name">${escapeHtml(driver.name)}</span>${subtitle ? `<span class="alert-dropdown-meta">${escapeHtml(subtitle)}</span>` : ''}</li>`;
+                    const truckOptions = (driver.openTrucks || []).length
+                        ? driver.openTrucks.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.label)}</option>`).join('')
+                        : '<option value="">No open trucks</option>';
+                    return `<li class="alert-dropdown-item">`
+                        + `<button type="button" class="alert-driver-link" data-driver-id="${escapeHtml(driver.id)}">${escapeHtml(driver.name)}</button>`
+                        + `${subtitle ? `<span class="alert-dropdown-meta">${escapeHtml(subtitle)}</span>` : ''}`
+                        + `<div class="alert-driver-actions">`
+                        + `<select class="alert-assign-select" data-driver-id="${escapeHtml(driver.id)}" ${(driver.openTrucks || []).length ? '' : 'disabled'}>${truckOptions}</select>`
+                        + `<button type="button" class="btn btn-sm btn-primary alert-assign-btn" data-driver-id="${escapeHtml(driver.id)}" ${(driver.openTrucks || []).length ? '' : 'disabled'}>Assign</button>`
+                        + `</div>`
+                        + `</li>`;
                 }).join('');
                 return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned" data-alert-kind="unassigned-drivers">`
                     + `<button type="button" class="alert-dropdown-trigger" aria-expanded="false" aria-controls="${detailId}">`
@@ -3137,6 +3240,43 @@
                 alertEl.classList.toggle('expanded', !expanded);
             });
         });
+
+        container.querySelectorAll('.alert-driver-link').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const driverId = btn.dataset.driverId;
+                if (driverId) openDriverProfile(driverId);
+            });
+        });
+
+        container.querySelectorAll('.alert-assign-btn').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const driverId = btn.dataset.driverId;
+                const select = container.querySelector('.alert-assign-select[data-driver-id="' + driverId + '"]');
+                if (!driverId || !select || !select.value) return;
+                btn.disabled = true;
+                await assignDriverToTruck(driverId, select.value);
+            });
+        });
+    }
+
+    async function assignDriverToTruck(driverId, truckId) {
+        if (!driverId || !truckId) return;
+        try {
+            await col('drivers').doc(driverId).update({
+                truck: truckId,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            const driver = state.drivers.find((d) => d.id === driverId);
+            if (driver) driver.truck = truckId;
+            applyDerivedValidation();
+            renderDrivers();
+            renderTrucks();
+            updateOverview();
+            showMsg('Driver assigned to truck');
+        } catch (err) {
+            console.error('Driver assignment error:', err);
+            showMsg('Error assigning driver', true);
+        }
     }
 
     function populateTruckDropdown() {
