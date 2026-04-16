@@ -55,16 +55,44 @@
 .dash-logo {
     display: flex;
     align-items: center;
-    gap: 0.625rem;
+    gap: 0.75rem;
     text-decoration: none;
-    color: var(--gray-800);
-    font-weight: 700;
-    font-size: 0.9375rem;
-    letter-spacing: -0.01em;
+    color: #8a8f9d;
+    min-height: 42px;
 }
 
-.dash-logo svg {
-    color: var(--primary);
+.dash-logo-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.96), rgba(236, 240, 251, 0.88));
+    border: 1px solid rgba(255, 255, 255, 0.85);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), inset 0 -2px 4px rgba(123, 135, 174, 0.12), 0 8px 18px rgba(103, 117, 166, 0.12);
+    flex-shrink: 0;
+}
+
+.dash-logo-image {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    opacity: 0.92;
+    filter: grayscale(1) contrast(1.05) brightness(0.82) drop-shadow(0 1px 0 rgba(255, 255, 255, 0.65));
+}
+
+.dash-logo-wordmark {
+    font-size: 0.9rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    color: #8f95a4;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.95), 0 -1px 0 rgba(124, 131, 151, 0.14);
+    background: linear-gradient(180deg, #aeb4c0 0%, #8c92a0 52%, #767d8f 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .dash-nav {
