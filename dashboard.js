@@ -879,13 +879,10 @@
             return rows
                 .filter(r => {
                     if (!r || !r.display_name) return false;
-                    // Filter by address type
+                    // Filter by address type - exclude obvious POIs
                     if (!isValidAddressType(r.type)) return false;
-                    // Require that it has a street address or house number
-                    const displayName = String(r.display_name).toLowerCase();
-                    const hasStreetInfo = r.address && (r.address.house_number || r.address.road || r.address.street);
-                    // Accept if it has street info, or if display name suggests an address
-                    return hasStreetInfo || /\d+/.test(displayName);
+                    // Accept anything that isn't filtered as a POI
+                    return true;
                 })
                 .map(r => {
                     const lat = Number(r.lat);
@@ -921,17 +918,10 @@
                 .filter(f => {
                     const p = f && f.properties ? f.properties : {};
                     const type = String(p.type || '').toLowerCase();
-                    // Filter out POI types, keep only address/building types
-                    const validTypes = ['house', 'building', 'residential', 'commercial', 'industrial', 'office', 'street', 'place', 'administrative'];
-                    const excludeTypes = ['amenity', 'shop', 'cafe', 'restaurant', 'bar', 'venue', 'tourism', 'landmark'];
-                    // Accept if it matches valid types or doesn't match excluded types
-                    const isValid = validTypes.includes(type) || !excludeTypes.some(t => type.includes(t));
-                    if (!isValid) return false;
-                    // Require housenumber for street-level addresses, or multiple address components
-                    const hasHouseNum = !!p.housenumber;
-                    const hasStreet = !!p.street;
-                    const hasCity = !!(p.city || p.town || p.county);
-                    return hasHouseNum || (hasStreet && hasCity);
+                    // Exclude obvious POI types
+                    const excludeTypes = ['amenity', 'shop', 'cafe', 'restaurant', 'bar', 'venue', 'tourism', 'landmark', 'leisure', 'food', 'sport', 'service'];
+                    const isExcluded = excludeTypes.some(t => type.includes(t));
+                    return !isExcluded;
                 })
                 .map(f => {
                     const p = f && f.properties ? f.properties : {};
