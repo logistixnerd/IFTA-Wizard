@@ -125,19 +125,24 @@
     margin-top: 0;
 }
 
-.dash-nav-item-company-dashboard {
-    margin-top: 0;
+/* ── Company Dashboard ─────────────────── */
+.company-section-stack {
+    display: grid;
+    gap: 0.875rem;
 }
 
-/* ── Company Dashboard ─────────────────── */
 .company-dashboard-card .dash-card-body {
     padding-top: 1rem;
 }
 
 .company-dashboard-layout {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.875rem;
+}
+
+.company-dashboard-layout .company-dashboard-panel:first-child {
+    grid-column: 1 / -1;
 }
 
 .company-dashboard-panel {
@@ -1731,6 +1736,10 @@
 @media (max-width: 900px) {
     .overview-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .company-dashboard-layout {
+        grid-template-columns: 1fr;
     }
 
     .company-dashboard-check-grid {
