@@ -606,9 +606,16 @@
 
     function navigateToSection(section) {
         if (!section) return;
+
+        const departmentLandingSections = {
+            safety: 'violations',
+            maintenance: 'work-orders',
+            operations: 'cross-dept-alerts'
+        };
+        const targetSection = departmentLandingSections[section] || section;
         
         // Handle external pages
-        if (section === 'task-manager') {
+        if (targetSection === 'task-manager') {
             window.location.href = 'task-manager.html';
             return;
         }
@@ -637,7 +644,7 @@
             'task-manager': 'reports'
         };
         
-        const activeGroup = sectionGroups[section] || null;
+        const activeGroup = sectionGroups[targetSection] || sectionGroups[section] || null;
         
         // Update nav items active state
         document.querySelectorAll('.dash-nav-item').forEach(b => {
@@ -646,7 +653,7 @@
         
         // Update sections visibility
         document.querySelectorAll('.dash-section').forEach(s => {
-            s.classList.toggle('active', s.id === 'section-' + section);
+            s.classList.toggle('active', s.id === 'section-' + targetSection);
         });
         
         // Update nav groups - open the correct one, close others
