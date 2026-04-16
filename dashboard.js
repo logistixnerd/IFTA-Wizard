@@ -617,6 +617,7 @@
         let timer = null;
         let lastQuery = '';
         let activeController = null;
+        let userLocationPromise = null;
         let items = [];
         let activeIdx = -1;
 
@@ -646,7 +647,16 @@
             const rows = await response.json();
             if (!Array.isArray(rows)) return [];
             return rows
-                .map(r => (r && r.display_name ? String(r.display_name) : ''))
+                .map(r => {
+                    if (!r || !r.display_name) return null;
+                    const lat = Number(r.lat);
+                    const lon = Number(r.lon);
+                    return {
+                        label: String(r.display_name),
+                        lat: Number.isFinite(lat) ? lat : null,
+                        lon: Number.isFinite(lon) ? lon : null
+                    };
+                })
                 .filter(Boolean)
                 .slice(0, 6);
         }
@@ -665,25 +675,88 @@
             return features
                 .map(f => {
                     const p = f && f.properties ? f.properties : {};
+                    const coords = f && f.geometry && Array.isArray(f.geometry.coordinates)
+                        ? f.geometry.coordinates
+                        : [];
+                    const lon = Number(coords[0]);
+                    const lat = Number(coords[1]);
                     const parts = [p.name, p.city || p.town || p.county, p.state, p.postcode, p.country]
                         .filter(Boolean);
-                    return parts.join(', ');
+                    const label = parts.join(', ');
+                    if (!label) return null;
+                    return {
+                        label: label,
+                        lat: Number.isFinite(lat) ? lat : null,
+                        lon: Number.isFinite(lon) ? lon : null
+                    };
                 })
                 .filter(Boolean)
                 .slice(0, 6);
         }
 
+        function getUserIpLocation() {
+            if (userLocationPromise) return userLocationPromise;
+            userLocationPromise = fetch('https://ipwho.is/?fields=success,latitude,longitude', {
+                headers: { Accept: 'application/json' }
+            })
+                .then(resp => (resp.ok ? resp.json() : null))
+                .then(data => {
+                    const lat = Number(data && data.latitude);
+                    const lon = Number(data && data.longitude);
+                    if (!data || data.success !== true || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+                        return null;
+                    }
+                    return { lat: lat, lon: lon };
+                })
+                .catch(() => null);
+            return userLocationPromise;
+        }
+
+        function distanceKm(aLat, aLon, bLat, bLon) {
+            const toRad = (deg) => (deg * Math.PI) / 180;
+            const earthKm = 6371;
+            const dLat = toRad(bLat - aLat);
+            const dLon = toRad(bLon - aLon);
+            const lat1 = toRad(aLat);
+            const lat2 = toRad(bLat);
+            const h = Math.sin(dLat / 2) ** 2
+                + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+            return 2 * earthKm * Math.asin(Math.sqrt(h));
+        }
+
+        function sortByDistance(values, userLoc) {
+            if (!userLoc) return values;
+            return values.slice().sort((a, b) => {
+                const aHasCoords = Number.isFinite(a.lat) && Number.isFinite(a.lon);
+                const bHasCoords = Number.isFinite(b.lat) && Number.isFinite(b.lon);
+                if (!aHasCoords && !bHasCoords) return 0;
+                if (!aHasCoords) return 1;
+                if (!bHasCoords) return -1;
+                const dA = distanceKm(userLoc.lat, userLoc.lon, a.lat, a.lon);
+                const dB = distanceKm(userLoc.lat, userLoc.lon, b.lat, b.lon);
+                return dA - dB;
+            });
+        }
+
         async function fetchAddressSuggestions(query) {
             const primary = await fetchNominatim(query);
-            if (primary.length) return primary;
-            return fetchPhoton(query);
+            const raw = primary.length ? primary : await fetchPhoton(query);
+            const seen = new Set();
+            const deduped = raw.filter(item => {
+                const key = item.label.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
+            const userLoc = await getUserIpLocation();
+            return sortByDistance(deduped, userLoc).slice(0, 6);
         }
 
         function renderOptions(values) {
             items = values;
             activeIdx = -1;
             list.innerHTML = values
-                .map((v, i) => '<li class="autocomplete-item" data-idx="' + i + '">' + escapeHtml(v) + '</li>')
+                .map((item, i) => '<li class="autocomplete-item" data-idx="' + i + '">' + escapeHtml(item.label) + '</li>')
                 .join('');
             list.style.display = values.length ? '' : 'none';
         }
@@ -697,8 +770,9 @@
             if (active) active.scrollIntoView({ block: 'nearest' });
         }
 
-        function pick(value) {
-            addressInput.value = value;
+        function pick(item) {
+            if (!item || !item.label) return;
+            addressInput.value = item.label;
             list.style.display = 'none';
         }
 
@@ -706,7 +780,7 @@
             const query = addressInput.value.trim();
             if (timer) clearTimeout(timer);
 
-            if (query.length < 4) {
+            if (query.length < 2) {
                 lastQuery = '';
                 renderOptions([]);
                 return;
