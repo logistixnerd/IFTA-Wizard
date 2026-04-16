@@ -833,12 +833,32 @@
         list.style.display = 'none';
         wrap.appendChild(list);
 
+        function isValidAddressType(type) {
+            // Accept address types, buildings, and business places
+            const validTypes = [
+                'address', 'house', 'building', 'commercial', 'office',
+                'industrial', 'construction', 'residential', 'apartment',
+                'street', 'place', 'suburb', 'borough', 'municipality',
+                'county', 'administrative'
+            ];
+            // Exclude POIs and non-address types
+            const excludePatterns = [
+                'amenity', 'shop', 'restaurant', 'cafe', 'bar', 'pub',
+                'hotel', 'motel', 'landmark', 'tourism', 'historic',
+                'artwork', 'memorial', 'religious', 'cemetery', 'parking',
+                'fuel', 'fast_food', 'theatre', 'cinema', 'museum',
+                'library', 'school', 'hospital', 'police', 'fire'
+            ];
+            const lowerType = String(type).toLowerCase();
+            return validTypes.includes(lowerType) || !excludePatterns.some(p => lowerType.includes(p));
+        }
+        
         async function fetchNominatim(query) {
             if (activeController) activeController.abort();
             activeController = new AbortController();
 
             const endpoint =
-                'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=us,ca&limit=6&q=' +
+                'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&countrycodes=us,ca&limit=12&q=' +
                 encodeURIComponent(query);
 
             const response = await fetch(endpoint, {
@@ -852,8 +872,17 @@
             const rows = await response.json();
             if (!Array.isArray(rows)) return [];
             return rows
+                .filter(r => {
+                    if (!r || !r.display_name) return false;
+                    // Filter by address type
+                    if (!isValidAddressType(r.type)) return false;
+                    // Require that it has a street address or house number
+                    const displayName = String(r.display_name).toLowerCase();
+                    const hasStreetInfo = r.address && (r.address.house_number || r.address.road || r.address.street);
+                    // Accept if it has street info, or if display name suggests an address
+                    return hasStreetInfo || /\d+/.test(displayName);
+                })
                 .map(r => {
-                    if (!r || !r.display_name) return null;
                     const lat = Number(r.lat);
                     const lon = Number(r.lon);
                     return {
@@ -867,7 +896,7 @@
         }
 
         async function fetchPhoton(query) {
-            const endpoint = 'https://photon.komoot.io/api/?limit=6&q=' + encodeURIComponent(query);
+            const endpoint = 'https://photon.komoot.io/api/?limit=12&q=' + encodeURIComponent(query);
             const response = await fetch(endpoint, {
                 headers: {
                     Accept: 'application/json',
@@ -878,6 +907,21 @@
             const body = await response.json();
             const features = Array.isArray(body && body.features) ? body.features : [];
             return features
+                .filter(f => {
+                    const p = f && f.properties ? f.properties : {};
+                    const type = String(p.type || '').toLowerCase();
+                    // Filter out POI types, keep only address/building types
+                    const validTypes = ['house', 'building', 'residential', 'commercial', 'industrial', 'office', 'street', 'place', 'administrative'];
+                    const excludeTypes = ['amenity', 'shop', 'cafe', 'restaurant', 'bar', 'venue', 'tourism', 'landmark'];
+                    // Accept if it matches valid types or doesn't match excluded types
+                    const isValid = validTypes.includes(type) || !excludeTypes.some(t => type.includes(t));
+                    if (!isValid) return false;
+                    // Require housenumber for street-level addresses, or multiple address components
+                    const hasHouseNum = !!p.housenumber;
+                    const hasStreet = !!p.street;
+                    const hasCity = !!(p.city || p.town || p.county);
+                    return hasHouseNum || (hasStreet && hasCity);
+                })
                 .map(f => {
                     const p = f && f.properties ? f.properties : {};
                     const coords = f && f.geometry && Array.isArray(f.geometry.coordinates)
@@ -885,9 +929,14 @@
                         : [];
                     const lon = Number(coords[0]);
                     const lat = Number(coords[1]);
-                    const parts = [p.name, p.city || p.town || p.county, p.state, p.postcode, p.country]
-                        .filter(Boolean);
-                    const label = parts.join(', ');
+                    // Build address from component data
+                    const parts = [];
+                    if (p.housenumber) parts.push(p.housenumber);
+                    if (p.street) parts.push(p.street);
+                    if (p.postcode) parts.push(p.postcode);
+                    if (p.city || p.town) parts.push(p.city || p.town);
+                    if (p.state) parts.push(p.state);
+                    const label = parts.length ? parts.join(', ') : String(p.name || '');
                     if (!label) return null;
                     return {
                         label: label,
