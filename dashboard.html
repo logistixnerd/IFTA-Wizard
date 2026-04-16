@@ -82,6 +82,13 @@
                     </svg>
                     <span>Company</span>
                 </button>
+                <button class="dash-nav-item dash-nav-item-settings" data-section="settings">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                    </svg>
+                    <span>Settings</span>
+                </button>
             </nav>
             <div class="dash-sidebar-footer">
                 <a href="index.html" class="dash-back-link">
@@ -315,6 +322,71 @@
                                 <button type="submit" class="btn btn-primary">Save Company Info</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Settings Section -->
+            <section class="dash-section" id="section-settings">
+                <div class="dash-card">
+                    <div class="dash-card-header">
+                        <h2>Settings</h2>
+                    </div>
+                    <div class="dash-card-body">
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">Appearance</h3>
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <span class="settings-row-label">Theme</span>
+                                    <span class="settings-row-desc">Choose your preferred color scheme</span>
+                                </div>
+                                <select class="dash-filter" id="settingsTheme">
+                                    <option value="light">Light</option>
+                                    <option value="dark">Dark</option>
+                                    <option value="system">System Default</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">Notifications</h3>
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <span class="settings-row-label">Email Alerts</span>
+                                    <span class="settings-row-desc">Receive email reminders for expiring documents</span>
+                                </div>
+                                <label class="settings-toggle">
+                                    <input type="checkbox" id="settingsEmailAlerts" checked>
+                                    <span class="settings-toggle-track"></span>
+                                </label>
+                            </div>
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <span class="settings-row-label">IFTA Deadline Reminders</span>
+                                    <span class="settings-row-desc">Get notified before quarterly filing deadlines</span>
+                                </div>
+                                <label class="settings-toggle">
+                                    <input type="checkbox" id="settingsIftaReminders" checked>
+                                    <span class="settings-toggle-track"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="settings-group">
+                            <h3 class="settings-group-title">Account</h3>
+                            <div class="settings-row">
+                                <div class="settings-row-info">
+                                    <span class="settings-row-label">Change Password</span>
+                                    <span class="settings-row-desc">Update your account password</span>
+                                </div>
+                                <button class="btn btn-secondary btn-sm" id="settingsChangePasswordBtn">Change</button>
+                            </div>
+                            <div class="settings-row settings-row-danger">
+                                <div class="settings-row-info">
+                                    <span class="settings-row-label">Delete Account</span>
+                                    <span class="settings-row-desc">Permanently remove your account and all data</span>
+                                </div>
+                                <button class="btn btn-danger btn-sm" id="settingsDeleteAccountBtn">Delete</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
