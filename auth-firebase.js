@@ -509,6 +509,20 @@ const IFTAAuth = {
                 if (typeof showToast === 'function') {
                     showToast('Domain not authorized for sign-in.', 'error');
                 }
+            } else if (
+                error.code === 'auth/invalid-api-key'
+                || error.code === 'auth/app-not-authorized'
+                || /api key/i.test(String(error.message || ''))
+            ) {
+                if (typeof showToast === 'function') {
+                    showToast('Google sign-in config error: API key restrictions are blocking Firebase Auth.', 'error');
+                }
+                console.error('Google sign in API key/config error:', error);
+            } else if (error.code === 'auth/operation-not-allowed') {
+                if (typeof showToast === 'function') {
+                    showToast('Google provider is disabled in Firebase Auth. Enable it in Firebase Console.', 'error');
+                }
+                console.error('Google sign in provider disabled:', error);
             } else if (error.code) {
                 console.error('Google sign in error:', error);
                 if (typeof showToast === 'function') {
