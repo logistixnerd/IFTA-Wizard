@@ -422,23 +422,59 @@
                 return;
             }
             state.user = user;
-            $('dashUserEmail').textContent = 'Welcome, ' + (user.displayName || 'User') + '!';
+            setTopbarAccount(user.displayName || 'User', user.photoURL || localStorage.getItem('ifta_avatar') || null);
             await loadAll();
         });
+    }
+
+    function setTopbarAccount(name, photoUrl) {
+        $('dashUserEmail').textContent = 'Welcome, ' + (name || 'User') + '!';
+        const avatar = $('dashTopbarAvatar');
+        if (!avatar) return;
+        if (photoUrl) {
+            avatar.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = photoUrl;
+            img.alt = 'Profile';
+            avatar.appendChild(img);
+        } else {
+            avatar.textContent = (name || 'U').charAt(0).toUpperCase();
+        }
+    }
+
+    function navigateToSection(section) {
+        if (!section) return;
+        document.querySelectorAll('.dash-nav-item').forEach(b => {
+            b.classList.toggle('active', b.dataset.section === section);
+        });
+        document.querySelectorAll('.dash-section').forEach(s => {
+            s.classList.toggle('active', s.id === 'section-' + section);
+        });
+        const btn = document.querySelector('.dash-nav-item[data-section="' + section + '"]');
+        if (btn) $('pageTitle').textContent = btn.querySelector('span').textContent;
+        else if (section === 'profile') $('pageTitle').textContent = 'Account';
     }
 
     // ── Navigation ────────────────────────
     function initNav() {
         document.querySelectorAll('.dash-nav-item').forEach(btn => {
             btn.addEventListener('click', () => {
-                const section = btn.dataset.section;
-                document.querySelectorAll('.dash-nav-item').forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                document.querySelectorAll('.dash-section').forEach(s => s.classList.remove('active'));
-                $('section-' + section).classList.add('active');
-                $('pageTitle').textContent = btn.querySelector('span').textContent;
+                navigateToSection(btn.dataset.section);
             });
         });
+
+        const logo = $('dashLogo');
+        if (logo) {
+            logo.addEventListener('click', (e) => {
+                e.preventDefault();
+                navigateToSection('overview');
+            });
+        }
+
+        const accountBtn = $('dashAccountBtn');
+        if (accountBtn) {
+            accountBtn.addEventListener('click', () => navigateToSection('profile'));
+        }
     }
 
     // ── Load All Data ─────────────────────
@@ -464,10 +500,10 @@
             // Hero area
             $('dashProfileName').textContent = data.name || state.user.displayName || 'User';
             $('dashProfileEmail').textContent = state.user.email || '';
-            $('dashUserEmail').textContent = 'Welcome, ' + (data.name || state.user.displayName || 'User') + '!';
+            setTopbarAccount(data.name || state.user.displayName || 'User', data.avatarBase64 || state.user.photoURL || localStorage.getItem('ifta_avatar') || null);
 
             // Avatar
-            const photoUrl = state.user.photoURL || localStorage.getItem('ifta_avatar') || null;
+            const photoUrl = data.avatarBase64 || state.user.photoURL || localStorage.getItem('ifta_avatar') || null;
             const photoEl = $('dashProfilePhoto');
             if (photoUrl) {
                 photoEl.innerHTML = '';
@@ -521,6 +557,7 @@
                 img.alt = 'Profile';
                 photoEl.appendChild(img);
                 localStorage.setItem('ifta_avatar', dataUrl);
+                setTopbarAccount($('dashFullName').value.trim() || state.profile.name || state.user.displayName || 'User', dataUrl);
                 await db.collection('users').doc(uid()).set({ avatarBase64: dataUrl }, { merge: true });
             } catch (err) {
                 console.error('Avatar upload error:', err);
@@ -538,7 +575,7 @@
             try {
                 await db.collection('users').doc(uid()).set(payload, { merge: true });
                 $('dashProfileName').textContent = payload.name || 'User';
-                $('dashUserEmail').textContent = 'Welcome, ' + (payload.name || 'User') + '!';
+                setTopbarAccount(payload.name || 'User', localStorage.getItem('ifta_avatar') || state.profile.avatarBase64 || state.user.photoURL || null);
                 showMsg('Profile saved');
             } catch (err) {
                 console.error('Save profile error:', err);
@@ -2287,10 +2324,139 @@
     function initOverviewCards() {
         document.querySelectorAll('.overview-card[data-nav]').forEach(card => {
             card.addEventListener('click', () => {
-                const target = card.dataset.nav;
-                const btn = document.querySelector('.dash-nav-item[data-section="' + target + '"]');
-                if (btn) btn.click();
+                navigateToSection(card.dataset.nav);
             });
+        });
+    }
+
+    function buildOverviewLookupItems() {
+        const truckItems = state.trucks.map(t => ({
+            type: 'Truck',
+            id: t.id,
+            label: t.unit || ('Unit ' + t.id),
+            meta: [t.year, t.make, t.model].filter(Boolean).join(' '),
+            details: [t.vin, t.plate, fuelLabel(t.fuel), statusLabel(t.status)].filter(Boolean).join(' '),
+            open: () => openTruckProfile(t.id)
+        }));
+
+        const trailerItems = state.trailers.map(t => ({
+            type: 'Trailer',
+            id: t.id,
+            label: t.unit || ('Trailer ' + t.id),
+            meta: [t.year, t.make, trailerTypeLabel(t.type)].filter(Boolean).join(' '),
+            details: [t.vin, t.plate, statusLabel(t.status)].filter(Boolean).join(' '),
+            open: () => openTrailerProfile(t.id)
+        }));
+
+        const driverItems = state.drivers.map(d => ({
+            type: 'Driver',
+            id: d.id,
+            label: [d.firstName, d.lastName].filter(Boolean).join(' ') || ('Driver ' + d.id),
+            meta: [d.cdl, d.cdlState, truckLabel(d.truck)].filter(Boolean).join(' '),
+            details: [d.phone, d.email, statusLabel(d.status)].filter(Boolean).join(' '),
+            open: () => openDriverProfile(d.id)
+        }));
+
+        return [...truckItems, ...trailerItems, ...driverItems];
+    }
+
+    function rankOverviewLookupItem(item, query) {
+        const text = [item.label, item.meta, item.details, item.type].join(' ').toLowerCase();
+        const label = item.label.toLowerCase();
+        if (label === query) return 0;
+        if (label.startsWith(query)) return 1;
+        if (text.startsWith(query)) return 2;
+        if (label.includes(query)) return 3;
+        if (text.includes(query)) return 4;
+        return 99;
+    }
+
+    function renderOverviewLookupResults(matches) {
+        const results = $('overviewLookupResults');
+        if (!results) return;
+        if (!matches.length) {
+            results.innerHTML = '';
+            results.classList.remove('open');
+            return;
+        }
+
+        results.innerHTML = matches.map((item, index) => `
+            <button type="button" class="overview-lookup-result${index === 0 ? ' active' : ''}" data-type="${escapeHtml(item.type)}" data-id="${escapeHtml(item.id)}">
+                <span class="overview-lookup-result-type ${item.type.toLowerCase()}">${escapeHtml(item.type)}</span>
+                <span class="overview-lookup-result-copy">
+                    <strong>${escapeHtml(item.label)}</strong>
+                    <span>${escapeHtml([item.meta, item.details].filter(Boolean).join(' • '))}</span>
+                </span>
+            </button>
+        `).join('');
+        results.classList.add('open');
+    }
+
+    function openOverviewLookupResult(type, id) {
+        if (type === 'Truck') return openTruckProfile(id);
+        if (type === 'Trailer') return openTrailerProfile(id);
+        if (type === 'Driver') return openDriverProfile(id);
+    }
+
+    function initOverviewLookup() {
+        const input = $('overviewLookup');
+        const results = $('overviewLookupResults');
+        if (!input || !results) return;
+
+        function updateResults() {
+            const query = input.value.trim().toLowerCase();
+            if (!query) {
+                renderOverviewLookupResults([]);
+                return;
+            }
+
+            const matches = buildOverviewLookupItems()
+                .map(item => ({ item, rank: rankOverviewLookupItem(item, query) }))
+                .filter(entry => entry.rank < 99)
+                .sort((a, b) => a.rank - b.rank || a.item.label.localeCompare(b.item.label))
+                .slice(0, 8)
+                .map(entry => entry.item);
+
+            renderOverviewLookupResults(matches);
+        }
+
+        input.addEventListener('input', updateResults);
+        input.addEventListener('focus', updateResults);
+        input.addEventListener('keydown', (e) => {
+            const items = Array.from(results.querySelectorAll('.overview-lookup-result'));
+            if (!items.length) return;
+            const currentIndex = items.findIndex(item => item.classList.contains('active'));
+
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                const nextIndex = e.key === 'ArrowDown'
+                    ? Math.min(currentIndex + 1, items.length - 1)
+                    : Math.max(currentIndex - 1, 0);
+                items.forEach((item, index) => item.classList.toggle('active', index === nextIndex));
+                items[nextIndex].scrollIntoView({ block: 'nearest' });
+            }
+
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const active = items.find(item => item.classList.contains('active')) || items[0];
+                if (active) openOverviewLookupResult(active.dataset.type, active.dataset.id);
+            }
+
+            if (e.key === 'Escape') {
+                results.classList.remove('open');
+            }
+        });
+
+        results.addEventListener('click', (e) => {
+            const button = e.target.closest('.overview-lookup-result');
+            if (!button) return;
+            openOverviewLookupResult(button.dataset.type, button.dataset.id);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.overview-lookup')) {
+                results.classList.remove('open');
+            }
         });
     }
 
@@ -2447,6 +2613,7 @@
     function init() {
         initNav();
         initOverviewCards();
+        initOverviewLookup();
         initExpandToggles();
         initProfileForm();
         initTruckForm();
