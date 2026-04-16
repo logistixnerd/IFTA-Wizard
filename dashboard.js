@@ -2381,10 +2381,13 @@
 
         results.innerHTML = matches.map((item, index) => `
             <button type="button" class="overview-lookup-result${index === 0 ? ' active' : ''}" data-type="${escapeHtml(item.type)}" data-id="${escapeHtml(item.id)}">
-                <span class="overview-lookup-result-type ${item.type.toLowerCase()}">${escapeHtml(item.type)}</span>
                 <span class="overview-lookup-result-copy">
-                    <strong>${escapeHtml(item.label)}</strong>
-                    <span>${escapeHtml([item.meta, item.details].filter(Boolean).join(' • '))}</span>
+                    <span class="overview-lookup-result-top">
+                        <strong>${escapeHtml(item.label)}</strong>
+                        <span class="overview-lookup-result-type ${item.type.toLowerCase()}">${escapeHtml(item.type)}</span>
+                    </span>
+                    ${item.meta ? `<span class="overview-lookup-result-meta">${escapeHtml(item.meta)}</span>` : ''}
+                    ${item.details ? `<span class="overview-lookup-result-detail">${escapeHtml(item.details)}</span>` : ''}
                 </span>
             </button>
         `).join('');
