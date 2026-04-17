@@ -943,11 +943,11 @@
                         <div class="dash-card-header-actions">
                             <button class="btn btn-primary btn-sm dash-toolbar-add" id="addDriverBtn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                Add Driver(s)
+                                Add Driver
                             </button>
                             <button class="btn btn-sm dash-toolbar-secondary" id="importDriversBtn" title="Import drivers from file">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                Import
+                                Bulk Import
                             </button>
                         </div>
                     </div>
@@ -990,7 +990,14 @@
                                     </tr>
                                 </thead>
                                 <tbody id="driversTableBody"></tbody>
+                                <tbody id="driversInlineAdd"></tbody>
                             </table>
+                            <div class="inline-add-trigger" id="driverAddTrigger">
+                                <button class="inline-add-btn" id="driverInlineAddBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                    Add driver
+                                </button>
+                            </div>
                             <!-- Column Picker Panel -->
                             <div id="driverColPickerPanel" class="col-picker-panel">
                                 <div class="col-picker-header-bar">

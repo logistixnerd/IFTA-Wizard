@@ -972,6 +972,118 @@
     color: #4f46e5;
 }
 
+/* ── Inline Add Row (Monday.com style) ────────────────────────── */
+.inline-add-trigger {
+    padding: 0 0 0 0.35rem;
+    border-top: 1.5px solid #e2e6ed;
+}
+.inline-add-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.7rem;
+    font-size: var(--dash-table-font-size);
+    color: #6b7280;
+    background: none;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+}
+.inline-add-btn:hover {
+    color: #4f46e5;
+    background: #f0f0ff;
+}
+.inline-add-btn svg { opacity: 0.65; }
+.inline-add-btn:hover svg { opacity: 1; }
+
+/* Active inline-add row */
+#driversInlineAdd tr {
+    background: #f8faff;
+    border-bottom: 2px solid #4f46e5;
+}
+#driversInlineAdd td {
+    padding: 0 0.25rem;
+    height: var(--dash-row-height);
+    vertical-align: middle;
+}
+#driversInlineAdd .inline-cell {
+    position: relative;
+}
+#driversInlineAdd .inline-cell input,
+#driversInlineAdd .inline-cell select {
+    width: 100%;
+    height: 28px;
+    padding: 0 0.4rem;
+    font-size: var(--dash-table-font-size);
+    font-family: inherit;
+    border: 1.5px solid #e2e6ed;
+    border-radius: 4px;
+    background: #fff;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+}
+#driversInlineAdd .inline-cell input:focus,
+#driversInlineAdd .inline-cell select:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12);
+}
+#driversInlineAdd .inline-cell input::placeholder {
+    color: #c0c5ce;
+    font-size: 0.65rem;
+}
+#driversInlineAdd .inline-cell input[type="date"] {
+    color: #374151;
+}
+#driversInlineAdd .inline-cell input[type="date"]:invalid,
+#driversInlineAdd .inline-cell input[type="date"][value=""] {
+    color: #c0c5ce;
+}
+#driversInlineAdd .inline-cell select {
+    color: #374151;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+    padding-right: 20px;
+}
+#driversInlineAdd .inline-actions {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    justify-content: center;
+}
+#driversInlineAdd .inline-save-btn,
+#driversInlineAdd .inline-cancel-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s;
+}
+#driversInlineAdd .inline-save-btn {
+    background: #00c875;
+    color: #fff;
+}
+#driversInlineAdd .inline-save-btn:hover { background: #00b368; }
+#driversInlineAdd .inline-save-btn:disabled {
+    background: #d1d5db;
+    cursor: not-allowed;
+}
+#driversInlineAdd .inline-cancel-btn {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+#driversInlineAdd .inline-cancel-btn:hover { background: #e5e7eb; }
+
 /* ── Panel container ──────────────────────────────────────────── */
 .col-picker-panel {
     position: fixed;

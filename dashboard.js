@@ -2813,13 +2813,17 @@
         const tbody = $('driversTableBody');
         const table = $('driversTable');
         const empty = $('driversEmpty');
+        const trigger = $('driverAddTrigger');
+        const inlineTbody = $('driversInlineAdd');
         if (state.drivers.length === 0) {
             table.style.display = 'none';
             empty.style.display = '';
+            if (trigger) trigger.style.display = 'none';
             return;
         }
         empty.style.display = 'none';
         table.style.display = '';
+        if (trigger && (!inlineTbody || !inlineTbody.children.length)) trigger.style.display = '';
         
         // Render header with visible columns
         renderDriversHeader();
@@ -2850,6 +2854,145 @@
             </tr>`;
             return row;
         }).join('');
+    }
+
+    // ── Inline Add Row (Monday.com style) ──────────────────
+    const INLINE_COL_MAP = {
+        'name':        { fields: [{key:'firstName',type:'text',placeholder:'First name'},{key:'lastName',type:'text',placeholder:'Last name'}] },
+        'cdl-info':    { fields: [{key:'cdl',type:'text',placeholder:'CDL #'},{key:'cdlState',type:'text',placeholder:'ST',maxlength:2}] },
+        'cdlExp':      { fields: [{key:'cdlExp',type:'date'}] },
+        'medExp':      { fields: [{key:'medExp',type:'date'}] },
+        'phone':       { fields: [{key:'phone',type:'text',placeholder:'(555) 123-4567'}] },
+        'email':       { fields: [{key:'email',type:'text',placeholder:'Email'}] },
+        'truck':       { fields: [{key:'truck',type:'text',placeholder:'Unit #'}] },
+        'status':      { fields: [{key:'status',type:'select',options:'driverStatus'}] },
+        'hireDate':    { fields: [{key:'hireDate',type:'date'}] },
+        'dob':         { fields: [{key:'dob',type:'date'}] },
+        'address':     { fields: [{key:'address',type:'text',placeholder:'Address'}] },
+        'emergency':   { fields: [{key:'emergencyName',type:'text',placeholder:'Name'},{key:'emergencyPhone',type:'text',placeholder:'Phone'}] },
+        'endorsements':{ fields: [{key:'endorsements',type:'text',placeholder:'H,N,T...'}] },
+        'mvrDate':     { fields: [{key:'mvrDate',type:'date'}] },
+        'bgCheck':     { fields: [{key:'bgCheck',type:'date'}] },
+        'notes':       { fields: [{key:'notes',type:'text',placeholder:'Notes'}] }
+    };
+
+    function buildInlineAddRow() {
+        const tbody = $('driversInlineAdd');
+        const trigger = $('driverAddTrigger');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (trigger) trigger.style.display = '';
+
+        const visibleCols = (state.driverColumns || ALL_DRIVER_COLUMNS.map((c, i) => ({ ...c, visible: c.defaultVisible, order: i }))).filter(c => c.visible);
+
+        let html = '<tr class="inline-add-row"><td></td>'; // validation col
+
+        visibleCols.forEach(col => {
+            const mapping = INLINE_COL_MAP[col.key];
+            if (!mapping) { html += '<td></td>'; return; }
+            html += '<td><div class="inline-cell" style="display:flex;gap:3px;">';
+            mapping.fields.forEach(f => {
+                if (f.type === 'select') {
+                    const opts = getDropdownOptions(f.options);
+                    html += `<select data-inline-key="${f.key}">` +
+                        opts.map(o => `<option value="${escapeHtml(o.value)}"${o.value === 'active' ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') +
+                        '</select>';
+                } else {
+                    html += `<input type="${f.type}" data-inline-key="${f.key}"${f.placeholder ? ' placeholder="' + escapeHtml(f.placeholder) + '"' : ''}${f.maxlength ? ' maxlength="' + f.maxlength + '"' : ''}>`;
+                }
+            });
+            html += '</div></td>';
+        });
+
+        html += `<td><div class="inline-actions">
+            <button class="inline-save-btn" id="inlineSaveDriver" title="Save driver" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+            </button>
+            <button class="inline-cancel-btn" id="inlineCancelDriver" title="Cancel">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+            </button>
+        </div></td><td></td></tr>`;
+
+        tbody.innerHTML = html;
+        if (trigger) trigger.style.display = 'none';
+
+        // Focus first input
+        const first = tbody.querySelector('input[type="text"]');
+        if (first) setTimeout(() => first.focus(), 50);
+
+        // Enable save when firstName has a value
+        const fnInput = tbody.querySelector('[data-inline-key="firstName"]');
+        const saveBtn = $('inlineSaveDriver');
+        tbody.addEventListener('input', () => {
+            const fn = tbody.querySelector('[data-inline-key="firstName"]');
+            if (saveBtn && fn) saveBtn.disabled = !fn.value.trim();
+        });
+
+        // Keyboard nav
+        const allInputs = Array.from(tbody.querySelectorAll('input, select'));
+        tbody.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                const idx = allInputs.indexOf(e.target);
+                if (idx === -1) return;
+                if (!e.shiftKey && idx === allInputs.length - 1) {
+                    e.preventDefault();
+                    saveInlineDriver();
+                    return;
+                }
+            }
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (saveBtn && !saveBtn.disabled) saveInlineDriver();
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelInlineAdd();
+            }
+        });
+
+        // Button handlers
+        saveBtn.addEventListener('click', () => saveInlineDriver());
+        $('inlineCancelDriver').addEventListener('click', () => cancelInlineAdd());
+    }
+
+    function cancelInlineAdd() {
+        const tbody = $('driversInlineAdd');
+        const trigger = $('driverAddTrigger');
+        if (tbody) tbody.innerHTML = '';
+        if (trigger) trigger.style.display = '';
+    }
+
+    async function saveInlineDriver() {
+        const tbody = $('driversInlineAdd');
+        if (!tbody) return;
+        const payload = {};
+        tbody.querySelectorAll('[data-inline-key]').forEach(el => {
+            const key = el.dataset.inlineKey;
+            let val = el.value.trim();
+            if (key === 'cdlState') val = val.toUpperCase();
+            payload[key] = val;
+        });
+
+        if (!payload.firstName) {
+            showMsg('First name is required', true);
+            return;
+        }
+
+        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+        payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+        if (!payload.status) payload.status = 'active';
+
+        try {
+            await col('drivers').add(payload);
+            showMsg('Driver added');
+            await loadDrivers();
+            updateOverview();
+            // Reopen inline add for quick successive entry
+            setTimeout(() => buildInlineAddRow(), 100);
+        } catch (err) {
+            console.error('Inline add driver error:', err);
+            showMsg('Error adding driver', true);
+        }
     }
 
     async function loadDriverColumnPrefs() {
@@ -3037,8 +3180,15 @@
     }
 
     function initDriverForm() {
-        $('addDriverBtn').addEventListener('click', () => openSheetModal('driver'));
-        $('addFirstDriver').addEventListener('click', () => openSheetModal('driver'));
+        $('addDriverBtn').addEventListener('click', () => buildInlineAddRow());
+        $('addFirstDriver').addEventListener('click', () => {
+            // Show table even if empty so inline row appears
+            $('driversTable').style.display = '';
+            $('driversEmpty').style.display = 'none';
+            renderDriversHeader();
+            buildInlineAddRow();
+        });
+        $('driverInlineAddBtn').addEventListener('click', () => buildInlineAddRow());
         $('closeDriverModal').addEventListener('click', () => $('driverModal').classList.add('hidden'));
         $('cancelDriver').addEventListener('click', () => $('driverModal').classList.add('hidden'));
 
@@ -4306,7 +4456,7 @@
         toggleDriverColumn,
         addTruck: () => openSheetModal('truck'),
         addTrailer: () => openSheetModal('trailer'),
-        addDriver: () => openSheetModal('driver')
+        addDriver: () => buildInlineAddRow()
     };
 
     // Start when DOM is ready
