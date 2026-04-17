@@ -93,7 +93,7 @@
     function renderTruck() {
         const truck = state.truck;
         if (!truck) return;
-        const unitLabel = truck.unit || ('Unit ' + state.truckId);
+        const unitLabel = truck.unit || state.truckId;
         $('unitTitle').textContent = unitLabel;
         $('unitSubtitle').textContent = [truck.year, truck.make, truck.model].filter(Boolean).join(' ') || 'No make/model details saved yet.';
         $('unitStatusChip').textContent = statusLabel(truck.status);

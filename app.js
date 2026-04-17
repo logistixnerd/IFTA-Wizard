@@ -2006,7 +2006,7 @@ async function loadFleetTrucks() {
             const opt = document.createElement('option');
             opt.value = t.unit || doc.id;
             const label = [t.unit, t.year, t.make, t.model].filter(Boolean).join(' – ');
-            opt.textContent = label || ('Unit ' + doc.id);
+            opt.textContent = label || doc.id;
             if (t.fuel && FUEL_MAP[t.fuel]) {
                 opt.dataset.fuel = FUEL_MAP[t.fuel];
             }

@@ -2153,7 +2153,7 @@
         const filtered = state.trucks.filter(t => matchesFilter(t, 'truck'));
         tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(t)}
-            <td class="col-unit"><div class="cell cell-primary" title="Open unit profile for ${escapeHtml(t.unit || ('Unit ' + t.id))}"><strong>${escapeHtml(t.unit || ('Unit ' + t.id))}</strong></div></td>
+            <td class="col-unit"><div class="cell cell-primary" title="Open unit profile for ${escapeHtml(t.unit || t.id)}"><strong>${escapeHtml(t.unit || t.id)}</strong></div></td>
             <td class="col-year"><div class="cell">${escapeHtml(t.year)}</div></td>
             <td class="col-make"><div class="cell">${escapeHtml(t.make)}</div></td>
             <td class="col-model"><div class="cell">${escapeHtml(t.model)}</div></td>
@@ -5164,7 +5164,7 @@
         const truckItems = state.trucks.map(t => ({
             type: 'Truck',
             id: t.id,
-            label: t.unit || ('Unit ' + t.id),
+            label: t.unit || t.id,
             meta: [t.year, t.make, t.model].filter(Boolean).join(' '),
             details: [t.vin].filter(Boolean).join(' '),
             open: () => openTruckProfile(t.id)
