@@ -2380,7 +2380,11 @@
         } else {
             if (infoSection) infoSection.classList.add('collapsed');
         }
-        if (composeSection) composeSection.classList.add('collapsed');
+        if (isCreate) {
+            if (composeSection) composeSection.classList.add('collapsed');
+        } else {
+            if (composeSection) composeSection.classList.remove('collapsed');
+        }
         if (tasksSection) tasksSection.classList.add('collapsed');
         if (feedSection) feedSection.classList.add('collapsed');
         if (docsSection) docsSection.classList.add('collapsed');
