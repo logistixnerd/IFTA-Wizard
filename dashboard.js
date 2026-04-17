@@ -1541,10 +1541,11 @@
         if (resp.status === 404) throw new Error(`No carrier found for MC number ${mc}`);
         if (!resp.ok) throw new Error('FMCSA API error. Try again later.');
         const body = await resp.json();
-        const c = body?.content?.carrier;
+        const c = body?.content?.[0]?.carrier || body?.content?.carrier;
         if (!c) throw new Error(`No carrier data returned for MC number ${mc}`);
         const address = [c.phyStreet, c.phyCityName, c.phyStateAbbr, c.phyZipcode].filter(Boolean).join(', ');
-        const prefix = c.censusTypeId === 'MX' ? 'MX' : 'MC';
+        const censusType = typeof c.censusTypeId === 'object' ? c.censusTypeId?.censusType : c.censusTypeId;
+        const prefix = censusType === 'MX' ? 'MX' : 'MC';
         return {
             companyName: c.legalName || null,
             dbaName: c.dbaName || null,
@@ -1554,9 +1555,9 @@
             safetyRating: c.safetyRating || null,
             address: address || null,
             phone: c.telephone ? c.telephone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3') : null,
-            operationType: c.carrierOperationDesc || null,
-            entityType: c.entityTypeDesc || null,
-            insuranceOnFile: c.bipdInsuranceOnFile === '1',
+            operationType: c.carrierOperation?.carrierOperationDesc || c.carrierOperationDesc || null,
+            entityType: c.entityTypeDesc || (typeof c.censusTypeId === 'object' ? c.censusTypeId?.censusTypeDesc : null),
+            insuranceOnFile: c.bipdInsuranceOnFile && c.bipdInsuranceOnFile !== '0',
         };
     }
 
