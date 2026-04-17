@@ -4219,6 +4219,43 @@ tr.detail-active {
     white-space: nowrap;
     border: 1px solid transparent;
 }
+
+/* ── Import Dropdown ── */
+.import-dropdown {
+    position: fixed;
+    z-index: 10000;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18);
+    padding: 4px;
+    min-width: 180px;
+    animation: fadeInDropdown .12s ease;
+}
+@keyframes fadeInDropdown {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.import-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    color: var(--text);
+    font-size: .85rem;
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.import-dropdown-item:hover {
+    background: var(--bg);
+}
+.import-dropdown-item svg {
+    flex-shrink: 0;
+}
 .dp-chip--green  { background: rgba(5,150,105,0.08);  color: #059669; border-color: rgba(5,150,105,0.15); }
 .dp-chip--yellow { background: rgba(217,119,6,0.08);  color: #b45309; border-color: rgba(217,119,6,0.15); }
 .dp-chip--red    { background: rgba(220,38,38,0.08);  color: #dc2626; border-color: rgba(220,38,38,0.15); }

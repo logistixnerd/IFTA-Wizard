@@ -4352,6 +4352,187 @@
         if (dndToggle) dndToggle.addEventListener('change', () => toggleTrailerDND());
     }
 
+    // ── Google Drive Import ─────────────────
+    const GDRIVE_CONFIG = {
+        clientId: '1005752295612-5ib4pggv00hgrnoiho50fvguln8a75sn.apps.googleusercontent.com',
+        apiKey: 'AIzaSyAmMfBcWSGN9w3rLC4vRobWqAG6ahyfEQM',
+        scopes: 'https://www.googleapis.com/auth/drive.readonly',
+        pickerMimeTypes: [
+            'application/vnd.google-apps.spreadsheet',
+            'text/csv',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/pdf',
+            'text/plain',
+            'text/tab-separated-values'
+        ]
+    };
+
+    let gdriveTokenClient = null;
+    let gdriveAccessToken = null;
+    let gdriveReady = false;
+    let gdrivePickerCallback = null;
+
+    function initGoogleDriveForImport() {
+        if (typeof gapi === 'undefined' || typeof google === 'undefined') {
+            // Libraries not loaded yet — retry a few times
+            let attempts = 0;
+            const poll = setInterval(() => {
+                attempts++;
+                if (typeof gapi !== 'undefined' && typeof google !== 'undefined' && google.accounts) {
+                    clearInterval(poll);
+                    setupGdriveClient();
+                } else if (attempts > 50) {
+                    clearInterval(poll);
+                    console.warn('Google libraries not available — Drive import disabled');
+                }
+            }, 200);
+        } else {
+            setupGdriveClient();
+        }
+    }
+
+    function setupGdriveClient() {
+        gapi.load('client:picker', async () => {
+            try {
+                await gapi.client.init({ apiKey: GDRIVE_CONFIG.apiKey });
+                gdriveTokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: GDRIVE_CONFIG.clientId,
+                    scope: GDRIVE_CONFIG.scopes,
+                    callback: onGdriveTokenResponse
+                });
+                gdriveReady = true;
+            } catch (err) {
+                console.warn('Google Drive init failed:', err);
+            }
+        });
+    }
+
+    function onGdriveTokenResponse(response) {
+        if (response.error) {
+            showMsg('Google Drive sign-in failed', true);
+            return;
+        }
+        gdriveAccessToken = response.access_token;
+        openGooglePicker();
+    }
+
+    function pickFileFromGoogleDrive(callback) {
+        if (!gdriveReady) {
+            showMsg('Google Drive is loading — try again in a moment', true);
+            return;
+        }
+        gdrivePickerCallback = callback;
+        if (gdriveAccessToken) {
+            openGooglePicker();
+        } else {
+            gdriveTokenClient.requestAccessToken({ prompt: '' });
+        }
+    }
+
+    function openGooglePicker() {
+        const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
+            .setMimeTypes(GDRIVE_CONFIG.pickerMimeTypes.join(','))
+            .setMode(google.picker.DocsViewMode.LIST);
+        const picker = new google.picker.PickerBuilder()
+            .setTitle('Select a file to import')
+            .setOAuthToken(gdriveAccessToken)
+            .setDeveloperKey(GDRIVE_CONFIG.apiKey)
+            .addView(view)
+            .addView(new google.picker.DocsView(google.picker.ViewId.SPREADSHEETS))
+            .setCallback(onPickerAction)
+            .build();
+        picker.setVisible(true);
+    }
+
+    async function onPickerAction(data) {
+        if (data.action !== google.picker.Action.PICKED) return;
+        const doc = data.docs[0];
+        if (!doc) return;
+        const fileId = doc.id;
+        const fileName = doc.name;
+        const mimeType = doc.mimeType;
+
+        showMsg('Downloading from Google Drive\u2026');
+
+        try {
+            let blob;
+            if (mimeType === 'application/vnd.google-apps.spreadsheet') {
+                // Google Sheets — export as xlsx
+                const resp = await fetch(
+                    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export?mimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`,
+                    { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
+                );
+                if (!resp.ok) throw new Error('Export failed: ' + resp.status);
+                blob = await resp.blob();
+                const file = new File([blob], fileName + '.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                if (gdrivePickerCallback) gdrivePickerCallback(file);
+            } else {
+                // Regular file — download directly
+                const resp = await fetch(
+                    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
+                    { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
+                );
+                if (!resp.ok) throw new Error('Download failed: ' + resp.status);
+                blob = await resp.blob();
+                const file = new File([blob], fileName, { type: mimeType || 'application/octet-stream' });
+                if (gdrivePickerCallback) gdrivePickerCallback(file);
+            }
+        } catch (err) {
+            console.error('Google Drive download error:', err);
+            showMsg('Failed to download file from Google Drive', true);
+        }
+    }
+
+    // ── Import Dropdown Helper ──
+    function showImportDropdown(anchorBtn, smartImportFn) {
+        // Close any existing dropdown
+        document.querySelectorAll('.import-dropdown').forEach(d => d.remove());
+
+        const rect = anchorBtn.getBoundingClientRect();
+        const dropdown = document.createElement('div');
+        dropdown.className = 'import-dropdown';
+        dropdown.innerHTML = `
+            <button class="import-dropdown-item" data-source="file">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                From File
+            </button>
+            <button class="import-dropdown-item" data-source="gdrive">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 2L2 19.5h20L12 2z"/><path d="M8 19.5L15.5 7"/><path d="M16 19.5L8.5 7"/></svg>
+                From Google Drive
+            </button>
+        `;
+
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        document.body.appendChild(dropdown);
+
+        // "From File" — trigger local file picker
+        dropdown.querySelector('[data-source="file"]').addEventListener('click', () => {
+            dropdown.remove();
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.csv,.tsv,.txt,.xlsx,.xls,.pdf';
+            input.addEventListener('change', (e) => smartImportFn(e.target.files[0]));
+            input.click();
+        });
+
+        // "From Google Drive" — open picker
+        dropdown.querySelector('[data-source="gdrive"]').addEventListener('click', () => {
+            dropdown.remove();
+            pickFileFromGoogleDrive((file) => smartImportFn(file));
+        });
+
+        // Close on outside click
+        const closeHandler = (e) => {
+            if (!dropdown.contains(e.target) && e.target !== anchorBtn) {
+                dropdown.remove();
+                document.removeEventListener('click', closeHandler, true);
+            }
+        };
+        setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
+    }
+
     // ── Smart Import for Trucks ──
     async function smartImportTrucks(file) {
         if (!file) return;
@@ -4493,15 +4674,12 @@
         $('closeTruckModal').addEventListener('click', () => $('truckModal').classList.add('hidden'));
         $('cancelTruck').addEventListener('click', () => $('truckModal').classList.add('hidden'));
 
-        // Import – trigger smart file picker
+        // Import – show dropdown (File or Google Drive)
         const importBtn = $('importTrucksBtn');
         if (importBtn) {
-            importBtn.addEventListener('click', () => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.csv,.tsv,.txt,.xlsx,.xls,.pdf';
-                input.addEventListener('change', (e) => smartImportTrucks(e.target.files[0]));
-                input.click();
+            importBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showImportDropdown(importBtn, smartImportTrucks);
             });
         }
 
@@ -5746,12 +5924,9 @@
 
         const importTrailerBtn = $('importTrailersBtn');
         if (importTrailerBtn) {
-            importTrailerBtn.addEventListener('click', () => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.csv,.tsv,.txt,.xlsx,.xls,.pdf';
-                input.addEventListener('change', (e) => smartImportTrailers(e.target.files[0]));
-                input.click();
+            importTrailerBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showImportDropdown(importTrailerBtn, smartImportTrailers);
             });
         }
 
@@ -5865,12 +6040,9 @@
 
         const importDriverBtn = $('importDriversBtn');
         if (importDriverBtn) {
-            importDriverBtn.addEventListener('click', () => {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.csv,.tsv,.txt,.xlsx,.xls,.pdf';
-                input.addEventListener('change', (e) => smartImportDrivers(e.target.files[0]));
-                input.click();
+            importDriverBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showImportDropdown(importDriverBtn, smartImportDrivers);
             });
         }
 
@@ -6825,6 +6997,7 @@
         initModalBackdrops();
         initSearchFilters();
         initInlineEditing();
+        initGoogleDriveForImport();
         initAuth();
 
         // Handle URL params to open detail panel (e.g. from Task Manager)
