@@ -4917,12 +4917,25 @@
                 if (nameIdx !== -1) colMap.fullName = nameIdx;
             }
 
-            // Fallback: if lastName found but no firstName/fullName, use the blank column before lastName
-            if (colMap.firstName === undefined && colMap.fullName === undefined && colMap.lastName !== undefined) {
-                const lnIdx = colMap.lastName;
-                if (lnIdx > 0 && !(header[lnIdx - 1] || '').toString().trim()) {
-                    console.log('[Import] Blank header before lastName col — assuming firstName at index', lnIdx - 1);
-                    colMap.firstName = lnIdx - 1;
+            // Fallback: if no name column found, scan unmapped columns for one that contains name-like data
+            if (colMap.firstName === undefined && colMap.fullName === undefined) {
+                const usedCols = new Set(Object.values(colMap));
+                for (let c = 0; c < header.length; c++) {
+                    if (usedCols.has(c)) continue;
+                    // Sample up to 10 data rows in this column
+                    let nameCount = 0, total = 0;
+                    for (let r = 0; r < Math.min(dataRows.length, 10); r++) {
+                        const val = (dataRows[r][c] || '').toString().trim();
+                        if (!val) continue;
+                        total++;
+                        // Name-like: mostly letters/spaces, no long numbers, at least 2 chars
+                        if (/^[A-Za-z\s'.,-]{2,}$/.test(val) && !/\d{3,}/.test(val)) nameCount++;
+                    }
+                    if (total > 0 && nameCount / total >= 0.7) {
+                        console.log('[Import] Column', c, 'contains name-like data (' + nameCount + '/' + total + ') — using as firstName');
+                        colMap.firstName = c;
+                        break;
+                    }
                 }
             }
 
