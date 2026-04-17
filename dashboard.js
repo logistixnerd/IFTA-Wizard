@@ -2299,7 +2299,7 @@
             state.trucks.filter(t => t.status === 'active').forEach(t => {
                 const o = document.createElement('option');
                 o.value = t.id;
-                o.textContent = 'Unit ' + t.unit + (t.make ? ' \u2014 ' + t.make + ' ' + (t.model || '') : '');
+                o.textContent = t.unit + (t.make ? ' \u2014 ' + t.make + ' ' + (t.model || '') : '');
                 trSel.appendChild(o);
             });
             trSel.value = cur;
@@ -3009,7 +3009,7 @@
 
         if (d.truck) {
             const truck = state.trucks.find(t => t.id === d.truck);
-            chips.push({ label: 'Truck', text: truck ? ('Unit ' + truck.unit) : 'Assigned', cls: 'dp-chip--blue' });
+            chips.push({ label: 'Truck', text: truck ? truck.unit : 'Assigned', cls: 'dp-chip--blue' });
         } else {
             chips.push({ label: 'Truck', text: 'None', cls: 'dp-chip--gray' });
         }
@@ -4545,7 +4545,7 @@
     function truckLabel(truckId) {
         if (!truckId) return '—';
         const t = state.trucks.find(tr => tr.id === truckId);
-        return t ? ('Unit ' + t.unit) : '—';
+        return t ? t.unit : '—';
     }
 
     // ── Validation Indicator Helpers ───────
@@ -4983,7 +4983,7 @@
         state.trucks.filter(t => t.status === 'active').forEach(t => {
             const opt = document.createElement('option');
             opt.value = t.id;
-            opt.textContent = 'Unit ' + t.unit + (t.make ? ' – ' + t.make + ' ' + (t.model || '') : '');
+            opt.textContent = t.unit + (t.make ? ' – ' + t.make + ' ' + (t.model || '') : '');
             sel.appendChild(opt);
         });
         sel.value = current;
