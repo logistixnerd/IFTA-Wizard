@@ -316,18 +316,7 @@
                 ? [state.driver.firstName, state.driver.lastName].filter(Boolean).join(' ')
                 : state.driverId;
 
-            // 1. Save to history (note engine feed)
-            await historyRef().add({
-                type,
-                text,
-                priority,
-                assignedTo: assignTo || '',
-                createdBy: state.user.email || state.user.uid,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdAtIso: new Date().toISOString()
-            });
-
-            // 2. Also create a task for trackable items
+            // Write a single document to history (serves as both note + task)
             const taskData = {
                 text,
                 type,
@@ -337,7 +326,8 @@
                 dueDate: null,
                 createdBy: state.user.email || state.user.uid,
                 source: 'driver-profile',
-                driverName: driverName
+                driverName: driverName,
+                createdAtIso: new Date().toISOString()
             };
 
             const result = await FirebaseDB.createTask(
