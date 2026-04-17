@@ -5107,3 +5107,307 @@ tr.row-status-on-leave td:first-child {
 .dash-nav-group .dash-nav-item.active[data-section="reports"] {
     background: rgba(20, 184, 166, 0.1);
 }
+/* ═══════════════════════════════════════════════
+   NOTES / FEED
+   ═══════════════════════════════════════════════ */
+.notes-layout {
+    max-width: 680px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* ── Compose Card ─────────────────────── */
+.note-compose-card {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: var(--dash-card-radius);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+}
+.note-compose-card:focus-within {
+    box-shadow: 0 2px 12px rgba(79, 70, 229, 0.08);
+    border-color: rgba(79, 70, 229, 0.15);
+}
+.note-compose-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.875rem 1rem 0.5rem;
+}
+.note-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary, #4f46e5), #7c3aed);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.note-compose-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    color: var(--gray-700);
+    resize: none;
+    min-height: 28px;
+    max-height: 200px;
+}
+.note-compose-input::placeholder { color: var(--gray-400); }
+
+.note-compose-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.45rem 0.75rem 0.65rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.04);
+}
+.note-compose-options {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.note-field-group {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.note-field-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-400);
+}
+.note-select {
+    font-family: inherit;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: var(--gray-600);
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 6px;
+    padding: 0.2rem 0.35rem;
+    background: rgba(0, 0, 0, 0.02);
+    cursor: pointer;
+    outline: none;
+    max-width: 120px;
+    transition: border-color 0.15s ease;
+}
+.note-select:focus { border-color: var(--primary); }
+.note-task-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    cursor: pointer;
+    user-select: none;
+    padding: 0.2rem 0.4rem;
+    border-radius: 6px;
+    transition: background 0.15s ease;
+}
+.note-task-toggle:hover { background: rgba(79, 70, 229, 0.05); }
+.note-task-toggle input { accent-color: var(--primary); }
+.note-post-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--primary, #4f46e5);
+    border: none;
+    border-radius: 8px;
+    padding: 0.4rem 0.85rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.15s ease, opacity 0.15s ease;
+}
+.note-post-btn:hover:not(:disabled) { background: #4338ca; }
+.note-post-btn:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Filter Chips ─────────────────────── */
+.note-filters {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+.note-filter-chip {
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 999px;
+    padding: 0.22rem 0.65rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.note-filter-chip:hover { background: rgba(79, 70, 229, 0.05); color: var(--gray-700); }
+.note-filter-chip.active {
+    background: var(--primary, #4f46e5);
+    color: #fff;
+    border-color: var(--primary, #4f46e5);
+}
+
+/* ── Feed Items ───────────────────────── */
+.note-feed {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.note-empty {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--gray-400);
+}
+.note-empty svg { margin: 0 auto 0.75rem; opacity: 0.35; }
+.note-empty p { font-size: 0.85rem; font-weight: 600; margin: 0 0 0.25rem; color: var(--gray-500); }
+.note-empty span { font-size: 0.72rem; }
+
+.note-item {
+    display: flex;
+    gap: 0.65rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    position: relative;
+    transition: box-shadow 0.15s ease;
+    animation: noteIn 0.2s ease;
+}
+@keyframes noteIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.note-item:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); }
+.note-item-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1, #a78bfa);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.note-item-body { flex: 1; min-width: 0; }
+.note-item-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.2rem;
+}
+.note-item-author {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--gray-700);
+}
+.note-item-time {
+    font-size: 0.65rem;
+    color: var(--gray-400);
+    margin-left: auto;
+}
+.note-item-text {
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--gray-600);
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Type badges */
+.note-type-badge {
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+}
+.note-type-badge.note-type-note  { background: rgba(99, 102, 241, 0.1); color: #4f46e5; }
+.note-type-badge.note-type-issue { background: rgba(239, 68, 68, 0.1);  color: #dc2626; }
+.note-type-badge.note-type-reminder { background: rgba(245, 158, 11, 0.1); color: #d97706; }
+.note-type-badge.note-type-update  { background: rgba(16, 185, 129, 0.1); color: #059669; }
+
+.note-dept-badge {
+    font-size: 0.58rem;
+    font-weight: 600;
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--gray-500);
+}
+.note-tag-badge {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--primary, #4f46e5);
+}
+.note-task-badge {
+    font-size: 0.55rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.08rem 0.35rem;
+    border-radius: 3px;
+    background: rgba(79, 70, 229, 0.1);
+    color: var(--primary, #4f46e5);
+}
+
+/* Priority accents */
+.note-item.note-priority-high {
+    border-left: 3px solid #f59e0b;
+}
+.note-item.note-priority-urgent {
+    border-left: 3px solid #ef4444;
+    background: rgba(239, 68, 68, 0.02);
+}
+
+/* Delete */
+.note-delete-btn {
+    position: absolute;
+    top: 0.55rem;
+    right: 0.55rem;
+    background: none;
+    border: none;
+    color: var(--gray-300);
+    cursor: pointer;
+    padding: 0.2rem;
+    border-radius: 4px;
+    opacity: 0;
+    transition: all 0.15s ease;
+}
+.note-item:hover .note-delete-btn { opacity: 1; }
+.note-delete-btn:hover { color: #ef4444; background: rgba(239, 68, 68, 0.06); }
+
+/* Notes nav highlight */
+.dash-nav-item.active[data-section="notes"] {
+    background: rgba(99, 102, 241, 0.1);
+}
