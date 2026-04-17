@@ -100,9 +100,14 @@
         $('detailPhone').textContent = d.phone || '-';
         $('detailEmail').textContent = d.email || '-';
         $('detailCdl').textContent = d.cdl || '-';
+        $('detailCdlClass').textContent = d.cdlClass ? ('Class ' + d.cdlClass) : '-';
         $('detailCdlState').textContent = d.cdlState || '-';
         $('detailCdlExp').textContent = formatDateShort(d.cdlExp) || '-';
         $('detailMedExp').textContent = formatDateShort(d.medExp) || '-';
+        $('detailMvrExp').textContent = formatDateShort(d.mvrExp) || '-';
+        $('detailDrugTestDate').textContent = formatDateShort(d.drugTestDate) || '-';
+        $('detailTwicExp').textContent = formatDateShort(d.twicExp) || '-';
+        $('detailRestrictions').textContent = d.restrictions || '-';
         $('detailTruck').textContent = d.truck || '-';
 
         document.title = fullName + ' - Driver Profile - IFTA Wizard';

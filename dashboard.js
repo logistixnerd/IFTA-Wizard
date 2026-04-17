@@ -1514,8 +1514,194 @@
         });
     }
 
-    // ── FMCSA Carrier Snapshot ──────────────────────────
+    // ── FMCSA Company Lookup (MC or DOT) ────────────────
+    const MC_LOOKUP_URL = 'https://us-central1-ifta-wizard-a9061.cloudfunctions.net/mcLookup';
     const CARRIER_LOOKUP_URL = 'https://us-central1-ifta-wizard-a9061.cloudfunctions.net/carrierLookup';
+
+    let pendingFmcsaData = null; // holds full carrier data until user confirms
+
+    function initFmcsaLookup() {
+        const typeSelect = $('fmcsaLookupType');
+        const input = $('fmcsaLookupInput');
+        const lookupBtn = $('fmcsaLookupBtn');
+        const verifyCard = $('fmcsaVerifyCard');
+        const confirmBtn = $('fmcsaVerifyConfirmBtn');
+        const cancelBtn = $('fmcsaVerifyCancelBtn');
+
+        if (!typeSelect || !input || !lookupBtn) return;
+
+        // Toggle placeholder based on type
+        typeSelect.addEventListener('change', () => {
+            input.placeholder = typeSelect.value === 'mc' ? 'Enter MC number' : 'Enter DOT number';
+            input.value = '';
+            verifyCard.classList.add('hidden');
+            pendingFmcsaData = null;
+        });
+
+        // Look Up button
+        lookupBtn.addEventListener('click', () => performFmcsaLookup());
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); performFmcsaLookup(); }
+        });
+
+        // Confirm
+        confirmBtn.addEventListener('click', () => confirmFmcsaLookup());
+
+        // Cancel
+        cancelBtn.addEventListener('click', () => {
+            verifyCard.classList.add('hidden');
+            pendingFmcsaData = null;
+        });
+    }
+
+    async function performFmcsaLookup() {
+        const type = $('fmcsaLookupType').value;
+        const raw = $('fmcsaLookupInput').value.replace(/\D/g, '').trim();
+        if (!raw) { showMsg('Enter a ' + (type === 'mc' ? 'MC' : 'DOT') + ' number', true); return; }
+
+        const btn = $('fmcsaLookupBtn');
+        btn.disabled = true;
+        btn.textContent = 'Searching…';
+
+        try {
+            let url, res, json;
+            if (type === 'mc') {
+                url = `${MC_LOOKUP_URL}?mc=${encodeURIComponent(raw)}`;
+                res = await fetch(url);
+                json = await res.json();
+                if (!json.success) throw new Error(json.error || 'MC lookup failed');
+
+                // MC lookup returns a simpler shape — also fetch full carrier data by DOT if available
+                const mcData = json.data;
+                if (mcData.dotNumber) {
+                    const dotRes = await fetch(`${CARRIER_LOOKUP_URL}?dot=${encodeURIComponent(mcData.dotNumber)}`);
+                    const dotJson = await dotRes.json();
+                    if (dotJson.success) {
+                        pendingFmcsaData = dotJson.data;
+                    } else {
+                        // Fall back to MC data only
+                        pendingFmcsaData = mcData;
+                    }
+                } else {
+                    pendingFmcsaData = mcData;
+                }
+            } else {
+                url = `${CARRIER_LOOKUP_URL}?dot=${encodeURIComponent(raw)}`;
+                res = await fetch(url);
+                json = await res.json();
+                if (!json.success) throw new Error(json.error || 'DOT lookup failed');
+                pendingFmcsaData = json.data;
+            }
+
+            renderVerifyCard(pendingFmcsaData);
+        } catch (err) {
+            console.error('FMCSA lookup error:', err);
+            showMsg(err.message || 'Lookup failed', true);
+            pendingFmcsaData = null;
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Look Up';
+        }
+    }
+
+    function renderVerifyCard(d) {
+        const card = $('fmcsaVerifyCard');
+        const statusEl = $('fmcsaVerifyStatus');
+        const bodyEl = $('fmcsaVerifyBody');
+
+        // Status badge
+        const authorized = d.allowedToOperate === 'Authorized' || d.status === 'Authorized';
+        statusEl.className = 'fmcsa-verify-status ' + (authorized ? 'fmcsa-status-ok' : 'fmcsa-status-bad');
+        statusEl.textContent = authorized ? 'Authorized' : (d.allowedToOperate || d.status || 'Unknown');
+
+        // Build address string
+        const address = d.address || [d.phyStreet, d.phyCity, d.phyState, d.phyZip].filter(Boolean).join(', ') || '—';
+
+        // Build verify body rows
+        const row = (label, val) => `<div class="fmcsa-verify-row"><span class="fmcsa-verify-label">${escapeHtml(label)}</span><span class="fmcsa-verify-value">${escapeHtml(val || '—')}</span></div>`;
+
+        bodyEl.innerHTML =
+            row('Legal Name', d.legalName || d.companyName)
+            + (d.dbaName ? row('DBA', d.dbaName) : '')
+            + row('USDOT', d.dotNumber)
+            + row('MC Number', d.mcNumber)
+            + row('Address', address)
+            + row('Phone', d.telephone || d.phone)
+            + row('Entity Type', d.entityType)
+            + row('Operation', d.operationType)
+            + (d.totalPowerUnits != null ? row('Power Units', String(d.totalPowerUnits)) : '')
+            + (d.totalDrivers != null ? row('Drivers', String(d.totalDrivers)) : '');
+
+        card.classList.remove('hidden');
+    }
+
+    async function confirmFmcsaLookup() {
+        const d = pendingFmcsaData;
+        if (!d) return;
+
+        // Auto-fill company form fields
+        const name = d.legalName || d.companyName || '';
+        $('dashCompany').value = name;
+        $('dashDotNumber').value = d.dotNumber || '';
+        $('dashMcNumber').value = d.mcNumber || '';
+        $('dashEin').value = d.einNumber || '';
+
+        // Address
+        const address = d.address || [d.phyStreet, d.phyCity, d.phyState, d.phyZip].filter(Boolean).join(', ') || '';
+        $('dashAddress').value = address;
+
+        // Base state
+        const baseState = d.phyState || '';
+        if (baseState) $('dashBaseState').value = baseState;
+
+        // Fleet size mapping
+        const units = d.totalPowerUnits;
+        if (units != null) {
+            if (units <= 5) $('dashFleetSize').value = '1-5';
+            else if (units <= 20) $('dashFleetSize').value = '6-20';
+            else if (units <= 50) $('dashFleetSize').value = '21-50';
+            else if (units <= 100) $('dashFleetSize').value = '51-100';
+            else $('dashFleetSize').value = '100+';
+        }
+
+        // Hide verify card and lookup bar
+        $('fmcsaVerifyCard').classList.add('hidden');
+        $('fmcsaLookupBar').classList.add('fmcsa-lookup-done');
+        pendingFmcsaData = null;
+
+        // Build save payload from form
+        const officeAddress = $('dashAddress').value.trim();
+        const payload = {
+            company: $('dashCompany').value.trim(),
+            dotNumber: $('dashDotNumber').value.trim(),
+            mcNumber: $('dashMcNumber').value.trim(),
+            ein: $('dashEin').value.trim(),
+            address: officeAddress,
+            officeAddress: officeAddress,
+            fleetSize: $('dashFleetSize').value,
+            baseState: $('dashBaseState').value,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        // Also store the full FMCSA snapshot
+        if (d.fetchedAt) {
+            state.fmcsaSnapshot = d;
+            payload.fmcsaSnapshot = d;
+        }
+
+        try {
+            await db.collection('users').doc(uid()).set(payload, { merge: true });
+            showMsg('Company profile created from FMCSA');
+            // Re-render FMCSA tab if snapshot was saved
+            if (state.fmcsaSnapshot) {
+                renderFmcsaSnapshot(state.fmcsaSnapshot);
+                renderComplianceReminders(state.fmcsaSnapshot);
+            }
+        } catch (err) {
+            console.error('Save company from FMCSA error:', err);
+            showMsg('Fields auto-filled — click Save to store', false);
+        }
+    }
 
     async function fetchFmcsaSnapshot() {
         const dot = ($('dashDotNumber').value || '').replace(/\D/g, '').trim();
@@ -3989,12 +4175,18 @@
         $('dpPhone').value = d.phone ? formatPhone(d.phone) : '';
         $('dpEmail').value = d.email || '';
         $('dpCdl').value = d.cdl ? d.cdl.toUpperCase() : '';
+        $('dpCdlClass').value = d.cdlClass || '';
         $('dpCdlState').value = d.cdlState || '';
         $('dpCdlExp').value = d.cdlExp || '';
         $('dpMedExp').value = d.medExp || '';
+        $('dpMvrExp').value = d.mvrExp || '';
+        $('dpDrugTestDate').value = d.drugTestDate || '';
+        $('dpTwicExp').value = d.twicExp || '';
+        $('dpRestrictions').value = d.restrictions || '';
         $('dpTruck').value = d.truck || '';
         $('dpStatus').value = d.status || 'active';
         $('dpHireDate').value = d.hireDate || '';
+        $('dpTerminationDate').value = d.terminationDate || '';
         $('dpDob').value = d.dob || '';
         $('dpEmergencyName').value = d.emergencyName || '';
         $('dpEmergencyPhone').value = d.emergencyPhone ? formatPhone(d.emergencyPhone) : '';
@@ -4064,12 +4256,18 @@
             phone: stripPhone($('dpPhone').value),
             email: $('dpEmail').value.trim(),
             cdl: $('dpCdl').value.trim().toUpperCase(),
+            cdlClass: $('dpCdlClass').value,
             cdlState: $('dpCdlState').value,
             cdlExp: $('dpCdlExp').value,
             medExp: $('dpMedExp').value,
+            mvrExp: $('dpMvrExp').value,
+            drugTestDate: $('dpDrugTestDate').value,
+            twicExp: $('dpTwicExp').value,
+            restrictions: $('dpRestrictions').value.trim(),
             truck: $('dpTruck').value,
             status: $('dpStatus').value || 'active',
             hireDate: $('dpHireDate').value,
+            terminationDate: $('dpTerminationDate').value,
             dob: $('dpDob').value,
             endorsements: endorsements.join(','),
             emergencyName: $('dpEmergencyName').value.trim(),
@@ -5575,6 +5773,7 @@
         initProfileForm();
         initCompanyTabs();
         initCompanyDashboard();
+        initFmcsaLookup();
         initFmcsaTab();
         initTruckForm();
         initSheetModals();

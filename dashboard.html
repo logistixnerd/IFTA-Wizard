@@ -598,6 +598,39 @@
                                 <div class="company-block-head">
                                     <h3>Company Information</h3>
                                 </div>
+
+                                <!-- FMCSA Lookup Bar -->
+                                <div class="fmcsa-lookup-bar" id="fmcsaLookupBar">
+                                    <p class="fmcsa-lookup-hint">Look up your company from FMCSA to auto-fill your profile</p>
+                                    <div class="fmcsa-lookup-row">
+                                        <select class="fmcsa-lookup-type" id="fmcsaLookupType">
+                                            <option value="dot">DOT Number</option>
+                                            <option value="mc">MC Number</option>
+                                        </select>
+                                        <input type="text" class="fmcsa-lookup-input" id="fmcsaLookupInput" placeholder="Enter DOT number">
+                                        <button type="button" class="btn btn-primary btn-sm" id="fmcsaLookupBtn">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                            Look Up
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- FMCSA Verify Card (hidden by default) -->
+                                <div class="fmcsa-verify-card hidden" id="fmcsaVerifyCard">
+                                    <div class="fmcsa-verify-header">
+                                        <h4>Is this your company?</h4>
+                                        <span class="fmcsa-verify-status" id="fmcsaVerifyStatus"></span>
+                                    </div>
+                                    <div class="fmcsa-verify-body" id="fmcsaVerifyBody"></div>
+                                    <div class="fmcsa-verify-actions">
+                                        <button type="button" class="btn btn-primary btn-sm" id="fmcsaVerifyConfirmBtn">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+                                            Yes, this is my company
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-sm" id="fmcsaVerifyCancelBtn">Not my company</button>
+                                    </div>
+                                </div>
+
                                 <form id="dashCompanyForm" class="dash-form">
                                     <div class="dash-form-grid">
                                         <div class="form-group form-group-full">
@@ -1975,6 +2008,15 @@
                         <label class="detail-field-label">CDL Number</label>
                         <input type="text" class="detail-field-input" id="dpCdl" placeholder="CDL number">
                     </div>
+                    <div class="detail-field" data-key="cdlClass">
+                        <label class="detail-field-label">CDL Class</label>
+                        <select class="detail-field-input" id="dpCdlClass">
+                            <option value="">Select…</option>
+                            <option value="A">Class A</option>
+                            <option value="B">Class B</option>
+                            <option value="C">Class C</option>
+                        </select>
+                    </div>
                     <div class="detail-field" data-key="cdlState">
                         <label class="detail-field-label">CDL State</label>
                         <select class="detail-field-input" id="dpCdlState">
@@ -1988,6 +2030,22 @@
                     <div class="detail-field" data-key="medExp">
                         <label class="detail-field-label">Medical Card Exp</label>
                         <input type="date" class="detail-field-input" id="dpMedExp">
+                    </div>
+                    <div class="detail-field" data-key="mvrExp">
+                        <label class="detail-field-label">MVR Expiry</label>
+                        <input type="date" class="detail-field-input" id="dpMvrExp">
+                    </div>
+                    <div class="detail-field" data-key="drugTestDate">
+                        <label class="detail-field-label">Last Drug Test</label>
+                        <input type="date" class="detail-field-input" id="dpDrugTestDate">
+                    </div>
+                    <div class="detail-field" data-key="twicExp">
+                        <label class="detail-field-label">TWIC Card Exp</label>
+                        <input type="date" class="detail-field-input" id="dpTwicExp">
+                    </div>
+                    <div class="detail-field" data-key="restrictions">
+                        <label class="detail-field-label">Restrictions</label>
+                        <input type="text" class="detail-field-input" id="dpRestrictions" placeholder="e.g., Corrective lenses">
                     </div>
                     <div class="detail-field" data-key="truck">
                         <label class="detail-field-label">Assigned Truck</label>
@@ -2003,6 +2061,10 @@
                     <div class="detail-field" data-key="hireDate">
                         <label class="detail-field-label">Date of Hire</label>
                         <input type="date" class="detail-field-input" id="dpHireDate">
+                    </div>
+                    <div class="detail-field" data-key="terminationDate">
+                        <label class="detail-field-label">Termination Date</label>
+                        <input type="date" class="detail-field-input" id="dpTerminationDate">
                     </div>
                     <div class="detail-field" data-key="dob">
                         <label class="detail-field-label">Date of Birth</label>
