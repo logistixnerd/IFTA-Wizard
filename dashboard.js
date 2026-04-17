@@ -1959,12 +1959,12 @@
         if (!hint || !snap) return;
 
         if (!d) {
-            hint.style.display = '';
+            hint.style.display = 'flex';
             snap.style.display = 'none';
             return;
         }
         hint.style.display = 'none';
-        snap.style.display = '';
+        snap.style.display = 'flex';
 
         // Status bar
         const authorised = d.allowedToOperate === 'Authorized';
@@ -2431,9 +2431,8 @@
             inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
         });
 
-        const docsSection = $('detailDocsSection');
-        if (docsSection) {
-            docsSection.style.display = '';
+        const docGrid = $('detailDocGrid');
+        if (docGrid) {
             if (!isCreate && id) {
                 renderDetailDocGrid([], id);
                 loadDriverDocs(id).then(docs => renderDetailDocGrid(docs, id));
