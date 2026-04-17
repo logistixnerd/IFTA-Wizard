@@ -3127,6 +3127,299 @@
         }
     }
 
+    // ── SMART MULTI-FORMAT DRIVER IMPORT ──
+    async function smartImportDrivers(file) {
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        showMsg('Reading file…');
+
+        try {
+            let rows;
+            if (ext === 'pdf') {
+                rows = await parsePdfToRows(file);
+            } else if (ext === 'xlsx' || ext === 'xls') {
+                rows = await parseExcelToRows(file);
+            } else {
+                rows = await parseCsvToRows(file);
+            }
+
+            if (!rows || rows.length < 2) {
+                showMsg('No data found in file. Need a header row + data rows.', true);
+                return;
+            }
+
+            const config = SHEET_CONFIGS.driver;
+            const aliases = config.csvAliases || {};
+            const header = rows[0];
+
+            // Build column mapping with fuzzy matching
+            const colMap = buildSmartColumnMap(header, aliases);
+
+            // Check for fullName → split into first/last
+            const hasFullName = colMap.fullName !== undefined;
+            const hasFirstName = colMap.firstName !== undefined;
+
+            if (!hasFirstName && !hasFullName) {
+                // Try harder — look for any column that could be a name
+                const nameIdx = header.findIndex(h => /^(name|driver|employee|person)$/i.test(h.replace(/[^a-z]/gi, '')));
+                if (nameIdx !== -1) colMap.fullName = nameIdx;
+            }
+
+            if (colMap.firstName === undefined && colMap.fullName === undefined) {
+                showMsg('Could not find a name column. Make sure your file has a header with driver names.', true);
+                return;
+            }
+
+            // Parse data rows
+            const parsed = [];
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.every(c => !c || !c.toString().trim())) continue;
+
+                const data = {};
+                let hasValue = false;
+
+                // Map all known fields
+                const allFields = [...config.cols.map(c => c.key), ...(config.extraFields || [])];
+                allFields.forEach(key => {
+                    if (colMap[key] !== undefined) {
+                        let val = (row[colMap[key]] || '').toString().trim();
+                        if (key === 'cdlState') val = val.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+                        if (key === 'cdl') val = val.toUpperCase();
+                        if (key === 'cdlClass') val = val.toUpperCase().replace(/CLASS\s*/i, '').trim().charAt(0) || '';
+                        // Normalize dates
+                        if (['cdlExp', 'medExp', 'mvrExp', 'drugTestDate', 'twicExp', 'hireDate', 'terminationDate', 'dob'].includes(key) && val) {
+                            val = normalizeDate(val);
+                        }
+                        // Normalize status
+                        if (key === 'status' && val) {
+                            const col = config.cols.find(c => c.key === 'status');
+                            if (col && col.options) {
+                                const match = col.options.find(o =>
+                                    o.value.toLowerCase() === val.toLowerCase() ||
+                                    o.label.toLowerCase() === val.toLowerCase()
+                                );
+                                val = match ? match.value : 'active';
+                            }
+                        }
+                        // Normalize phone
+                        if ((key === 'phone' || key === 'emergencyPhone') && val) {
+                            val = val.replace(/[^\d+()-\s]/g, '');
+                        }
+                        if (val) {
+                            data[key] = val;
+                            hasValue = true;
+                        }
+                    }
+                });
+
+                // Handle fullName splitting
+                if (hasFullName && !data.firstName) {
+                    const full = (row[colMap.fullName] || '').toString().trim();
+                    if (full) {
+                        const parts = full.replace(/,\s*/g, ' ').split(/\s+/).filter(Boolean);
+                        if (full.includes(',')) {
+                            // "Last, First" format
+                            data.lastName = parts[0] || '';
+                            data.firstName = parts.slice(1).join(' ') || '';
+                        } else {
+                            data.firstName = parts[0] || '';
+                            data.lastName = parts.slice(1).join(' ') || '';
+                        }
+                        hasValue = true;
+                    }
+                }
+
+                // Try to match truck by unit number
+                if (data.truck && state.trucks.length) {
+                    const truckVal = data.truck.toString().toLowerCase().replace(/^unit\s*/i, '').trim();
+                    const match = state.trucks.find(t => t.unit && t.unit.toLowerCase() === truckVal);
+                    data.truck = match ? match.id : '';
+                }
+
+                if (hasValue && (data.firstName || data.lastName)) {
+                    parsed.push(data);
+                }
+            }
+
+            if (parsed.length === 0) {
+                showMsg('No valid driver rows found in file', true);
+                return;
+            }
+
+            // Load into the sheet modal (shows the 7 visible columns)
+            const tbody = $(config.tbodyId);
+            tbody.innerHTML = '';
+            parsed.forEach((rowData, i) => {
+                const sheetRow = buildSheetRow(i, rowData, config.cols);
+                // Store extra fields as data attributes
+                if (config.extraFields) {
+                    config.extraFields.forEach(key => {
+                        if (rowData[key]) sheetRow.dataset['extra_' + key] = rowData[key];
+                    });
+                }
+                tbody.appendChild(sheetRow);
+            });
+            tbody.appendChild(buildSheetRow(parsed.length, null, config.cols));
+            updateSheetRowCount(config);
+            $(config.modalId).classList.remove('hidden');
+
+            setTimeout(() => {
+                validateAllSheetCells(config);
+                const first = tbody.querySelector('.sheet-cell');
+                if (first) startEditingCell(first);
+            }, 80);
+
+            const extraCount = Object.keys(colMap).filter(k => config.extraFields?.includes(k)).length;
+            let msg = parsed.length + ' driver' + (parsed.length > 1 ? 's' : '') + ' imported for review';
+            if (extraCount > 0) msg += ' (' + extraCount + ' extra field' + (extraCount > 1 ? 's' : '') + ' mapped)';
+            showMsg(msg);
+        } catch (err) {
+            console.error('Smart import error:', err);
+            showMsg('Error reading file: ' + (err.message || ''), true);
+        }
+    }
+
+    function buildSmartColumnMap(headerRow, aliases) {
+        const colMap = {};
+        const cleaned = headerRow.map(h => (h || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+        for (const [field, names] of Object.entries(aliases)) {
+            // Exact match first
+            let idx = cleaned.findIndex(h => names.includes(h));
+            if (idx !== -1) { colMap[field] = idx; continue; }
+
+            // Substring match — header contains alias or alias contains header
+            idx = cleaned.findIndex(h => h && names.some(n => h.includes(n) || n.includes(h)));
+            if (idx !== -1) { colMap[field] = idx; continue; }
+
+            // Partial word match for compound headers
+            idx = cleaned.findIndex(h => {
+                if (!h || h.length < 3) return false;
+                return names.some(n => {
+                    // Check if significant overlap
+                    const shorter = h.length < n.length ? h : n;
+                    const longer = h.length < n.length ? n : h;
+                    return longer.includes(shorter) && shorter.length >= 3;
+                });
+            });
+            if (idx !== -1 && !Object.values(colMap).includes(idx)) {
+                colMap[field] = idx;
+            }
+        }
+
+        return colMap;
+    }
+
+    function normalizeDate(val) {
+        if (!val) return '';
+        // Already YYYY-MM-DD
+        if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+        // Try common formats
+        const d = new Date(val);
+        if (!isNaN(d.getTime()) && d.getFullYear() > 1900 && d.getFullYear() < 2100) {
+            return d.toISOString().slice(0, 10);
+        }
+        // MM/DD/YYYY or DD/MM/YYYY
+        const parts = val.split(/[\/\-\.]/);
+        if (parts.length === 3) {
+            let [a, b, c] = parts.map(p => parseInt(p, 10));
+            if (c > 100) { // MM/DD/YYYY
+                const dt = new Date(c, a - 1, b);
+                if (!isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
+            } else if (a > 100) { // YYYY/MM/DD
+                const dt = new Date(a, b - 1, c);
+                if (!isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
+            }
+        }
+        // Excel serial date number
+        const num = Number(val);
+        if (num > 30000 && num < 100000) {
+            const dt = new Date((num - 25569) * 86400000);
+            if (!isNaN(dt.getTime())) return dt.toISOString().slice(0, 10);
+        }
+        return val;
+    }
+
+    async function parseCsvToRows(file) {
+        const text = await file.text();
+        const sep = text.includes('\t') ? '\t' : ',';
+        return text.trim().split('\n').map(line => {
+            const row = [];
+            let inQuote = false, cell = '';
+            for (let i = 0; i < line.length; i++) {
+                const ch = line[i];
+                if (inQuote) {
+                    if (ch === '"' && line[i + 1] === '"') { cell += '"'; i++; }
+                    else if (ch === '"') inQuote = false;
+                    else cell += ch;
+                } else {
+                    if (ch === '"') inQuote = true;
+                    else if (ch === sep) { row.push(cell.trim()); cell = ''; }
+                    else cell += ch;
+                }
+            }
+            row.push(cell.trim());
+            return row;
+        });
+    }
+
+    async function parseExcelToRows(file) {
+        if (typeof XLSX === 'undefined') { showMsg('Excel library not loaded', true); return null; }
+        const data = await file.arrayBuffer();
+        const wb = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+        // Filter out completely empty rows
+        return json.filter(r => r.some(c => c !== null && c !== undefined && c.toString().trim() !== ''));
+    }
+
+    async function parsePdfToRows(file) {
+        if (typeof pdfjsLib === 'undefined') { showMsg('PDF library not loaded', true); return null; }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        const data = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data }).promise;
+        const allText = [];
+        for (let p = 1; p <= pdf.numPages; p++) {
+            const page = await pdf.getPage(p);
+            const content = await page.getTextContent();
+            const items = content.items.map(i => i.str);
+            allText.push(items.join(' '));
+        }
+        // Try to detect table structure from the text
+        const fullText = allText.join('\n');
+        const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
+
+        // Heuristic: find the line most likely to be a header (has multiple known keywords)
+        const driverKeywords = ['name', 'first', 'last', 'cdl', 'license', 'phone', 'email', 'driver', 'dob', 'hire', 'status'];
+        let headerIdx = -1, bestScore = 0;
+        lines.forEach((line, i) => {
+            const lower = line.toLowerCase();
+            const score = driverKeywords.filter(kw => lower.includes(kw)).length;
+            if (score > bestScore) { bestScore = score; headerIdx = i; }
+        });
+
+        if (headerIdx === -1 || bestScore < 2) {
+            // Fallback: try splitting by consistent whitespace
+            showMsg('Could not detect table structure in PDF. Try Excel or CSV instead.', true);
+            return null;
+        }
+
+        // Split header and data lines by multiple spaces or tabs
+        const splitLine = (line) => line.split(/\s{2,}|\t/).map(c => c.trim()).filter(Boolean);
+        const header = splitLine(lines[headerIdx]);
+        const rows = [header];
+
+        for (let i = headerIdx + 1; i < lines.length; i++) {
+            const cells = splitLine(lines[i]);
+            if (cells.length >= Math.max(2, header.length - 2)) {
+                rows.push(cells);
+            }
+        }
+
+        return rows.length >= 2 ? rows : null;
+    }
+
     // ── SHEET MODAL SYSTEM (Trucks, Trailers, Drivers) ──
     const SHEET_CONFIGS = {
         truck: {
@@ -3247,14 +3540,35 @@
             saveId: 'saveMultiDriver',
             defaults: { status: 'active' },
             afterSave: async () => { await loadDrivers(); },
+            // Extra fields saved but not shown in sheet modal
+            extraFields: ['cdlClass', 'cdlExp', 'medExp', 'mvrExp', 'drugTestDate', 'twicExp',
+                          'hireDate', 'terminationDate', 'dob', 'endorsements', 'restrictions',
+                          'emergencyName', 'emergencyPhone', 'address', 'notes', 'truck'],
             csvAliases: {
-                firstName: ['firstname', 'first', 'fname', 'givenname'],
-                lastName: ['lastname', 'last', 'lname', 'surname', 'familyname'],
-                phone: ['phone', 'phonenumber', 'mobile', 'cell', 'telephone'],
-                cdl: ['cdl', 'cdlnumber', 'cdlno', 'licensenumber', 'license', 'dl'],
-                cdlState: ['cdlstate', 'licensestate', 'dlstate', 'state'],
-                email: ['email', 'emailaddress', 'mail'],
-                status: ['status']
+                firstName: ['firstname', 'first', 'fname', 'givenname', 'driverfirst', 'driverfirstname'],
+                lastName: ['lastname', 'last', 'lname', 'surname', 'familyname', 'driverlast', 'driverlastname'],
+                fullName: ['name', 'fullname', 'drivername', 'driver', 'employeename', 'employee'],
+                phone: ['phone', 'phonenumber', 'mobile', 'cell', 'telephone', 'cellphone', 'mobilenumber', 'contact', 'contactphone', 'driverphone'],
+                cdl: ['cdl', 'cdlnumber', 'cdlno', 'licensenumber', 'license', 'dl', 'dlnumber', 'driverslicense', 'licno', 'licensenum', 'cdlnum', 'driverlicense'],
+                cdlClass: ['cdlclass', 'class', 'licenseclass', 'dlclass', 'licclass'],
+                cdlState: ['cdlstate', 'licensestate', 'dlstate', 'state', 'issuingstate', 'licstate', 'stateofissue'],
+                cdlExp: ['cdlexp', 'cdlexpiration', 'cdlexpirationdate', 'licenseexpiration', 'licenseexp', 'dlexp', 'dlexpiration', 'licexpiry', 'cdlexpirydate', 'cdlexpiry'],
+                medExp: ['medexp', 'medicalexp', 'medicalexpiration', 'medicalcard', 'medcardexp', 'medicalcardexpiration', 'medcardexpiration', 'medicalcardexp', 'physicalexp', 'dotphysical', 'dotphysicalexp', 'medexpiry'],
+                mvrExp: ['mvrexp', 'mvrexpiry', 'mvrexpirationdate', 'mvrdate', 'mvr', 'mvrduedate', 'motorvehiclereport'],
+                drugTestDate: ['drugtest', 'drugtestdate', 'lastdrugtest', 'drugtesting', 'dotdrugtest', 'drugscreendate', 'drugscreen'],
+                twicExp: ['twicexp', 'twic', 'twicexpiration', 'twiccard', 'twicexpiry', 'twiccardexp'],
+                email: ['email', 'emailaddress', 'mail', 'driveremail', 'emailaddr'],
+                status: ['status', 'driverstatus', 'employmentstatus', 'empstatus'],
+                hireDate: ['hiredate', 'datehired', 'dateofhire', 'startdate', 'employmentdate', 'hired', 'start'],
+                terminationDate: ['terminationdate', 'termdate', 'termination', 'separationdate', 'enddate', 'lastday'],
+                dob: ['dob', 'dateofbirth', 'birthdate', 'birthday', 'birth', 'bday'],
+                endorsements: ['endorsements', 'endorsement', 'cdlendorsements', 'endorse'],
+                restrictions: ['restrictions', 'restriction', 'cdlrestrictions', 'restrict'],
+                emergencyName: ['emergencycontact', 'emergencyname', 'emergency', 'econtact', 'emergcontact', 'icename', 'icecontact'],
+                emergencyPhone: ['emergencyphone', 'emergencynumber', 'emergencycontactphone', 'icephone', 'emergphone'],
+                address: ['address', 'homeaddress', 'driveraddress', 'streetaddress', 'street', 'addr'],
+                notes: ['notes', 'note', 'comments', 'comment', 'memo', 'remarks'],
+                truck: ['truck', 'truckno', 'trucknumber', 'assignedtruck', 'unit', 'unitnumber', 'vehicle', 'assignedunit', 'equipment']
             }
         }
     };
@@ -3802,6 +4116,14 @@
                 });
                 if (!data[config.requiredKey]) continue;
 
+                // Merge extra fields from smart import (stored as data-extra_* attributes)
+                if (config.extraFields) {
+                    config.extraFields.forEach(key => {
+                        const val = tr.dataset['extra_' + key];
+                        if (val && !data[key]) data[key] = val;
+                    });
+                }
+
                 // Collect validation issues — store as warnings, never block
                 const issues = [];
                 tr.querySelectorAll('.cell-invalid, .cell-duplicate, .cell-warning').forEach(c => {
@@ -4034,8 +4356,8 @@
             importDriverBtn.addEventListener('click', () => {
                 const input = document.createElement('input');
                 input.type = 'file';
-                input.accept = '.csv,.tsv,.txt';
-                input.addEventListener('change', (e) => importCSVToSheet(e.target.files[0], 'driver'));
+                input.accept = '.csv,.tsv,.txt,.xlsx,.xls,.pdf';
+                input.addEventListener('change', (e) => smartImportDrivers(e.target.files[0]));
                 input.click();
             });
         }
