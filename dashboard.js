@@ -4917,6 +4917,15 @@
                 if (nameIdx !== -1) colMap.fullName = nameIdx;
             }
 
+            // Fallback: if lastName found but no firstName/fullName, use the blank column before lastName
+            if (colMap.firstName === undefined && colMap.fullName === undefined && colMap.lastName !== undefined) {
+                const lnIdx = colMap.lastName;
+                if (lnIdx > 0 && !(header[lnIdx - 1] || '').toString().trim()) {
+                    console.log('[Import] Blank header before lastName col — assuming firstName at index', lnIdx - 1);
+                    colMap.firstName = lnIdx - 1;
+                }
+            }
+
             if (colMap.firstName === undefined && colMap.fullName === undefined) {
                 console.error('[Import] No name column found. Headers:', JSON.stringify(header));
                 showMsg('Could not find a name column. Make sure your file has a header with driver names.', true);
