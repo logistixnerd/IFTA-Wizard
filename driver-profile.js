@@ -231,6 +231,90 @@
         }
     }
 
+    // ── Compose → Task Manager ────────────────
+    function bindCompose() {
+        const textarea = $('dpComposeText');
+        const postBtn = $('dpComposePost');
+        if (!textarea || !postBtn) return;
+
+        // Auto-resize + enable/disable post button
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+            postBtn.disabled = !textarea.value.trim();
+        });
+
+        postBtn.addEventListener('click', postCompose);
+
+        // Set avatar initial
+        const avatar = $('dpComposeAvatar');
+        if (avatar && state.user) {
+            const email = state.user.email || '';
+            avatar.textContent = email.charAt(0).toUpperCase() || 'U';
+        }
+    }
+
+    async function postCompose() {
+        const textarea = $('dpComposeText');
+        const postBtn = $('dpComposePost');
+        const card = textarea.closest('.dp-compose-card');
+        const text = textarea.value.trim();
+        if (!text) return;
+
+        const type = $('dpComposeType').value || 'general';
+        const priority = $('dpComposePriority').value || 'normal';
+        const assignTo = $('dpComposeAssign').value || '';
+
+        postBtn.disabled = true;
+        postBtn.classList.add('posting');
+
+        try {
+            const driverName = state.driver
+                ? [state.driver.firstName, state.driver.lastName].filter(Boolean).join(' ')
+                : state.driverId;
+
+            const taskData = {
+                text,
+                type,
+                status: 'Open',
+                priority,
+                assignedTo: assignTo ? [assignTo] : [],
+                dueDate: null,
+                createdBy: state.user.email || state.user.uid,
+                source: 'driver-profile',
+                driverName: driverName
+            };
+
+            const result = await FirebaseDB.createTask(
+                state.user.uid, 'drivers', state.driverId, taskData
+            );
+            if (!result.success) throw new Error(result.error);
+
+            // Clear form
+            textarea.value = '';
+            textarea.style.height = 'auto';
+            $('dpComposeType').value = 'general';
+            $('dpComposePriority').value = 'normal';
+            $('dpComposeAssign').value = '';
+            postBtn.disabled = true;
+
+            // Success flash
+            if (card) {
+                card.classList.add('posted');
+                setTimeout(() => card.classList.remove('posted'), 600);
+            }
+
+            // Refresh tasks list
+            await loadTasks();
+        } catch (err) {
+            console.error('postCompose error:', err);
+            setAlert('Could not post task. ' + (err.message || ''));
+        } finally {
+            postBtn.classList.remove('posting');
+            postBtn.disabled = !textarea.value.trim();
+        }
+    }
+
     async function loadDriver() {
         const doc = await driverRef().get();
         if (!doc.exists) {
@@ -370,6 +454,7 @@
             }
 
             bindForms();
+            bindCompose();
             await loadPage();
         });
     }

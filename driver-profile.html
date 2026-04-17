@@ -74,6 +74,53 @@
                     </dl>
                 </article>
 
+                <!-- ── Report / Task Composer ── -->
+                <article class="card unit-card unit-card-wide dp-compose-card">
+                    <div class="dp-compose-header">
+                        <div class="dp-compose-avatar" id="dpComposeAvatar">U</div>
+                        <textarea id="dpComposeText" class="dp-compose-input" placeholder="Report an issue, log a note, or create a task for this driver…" rows="1"></textarea>
+                    </div>
+                    <div class="dp-compose-bar">
+                        <div class="dp-compose-fields">
+                            <div class="dp-compose-field">
+                                <label class="dp-compose-label">Type</label>
+                                <select id="dpComposeType" class="dp-compose-select">
+                                    <option value="general">General</option>
+                                    <option value="incident">Incident</option>
+                                    <option value="safety">Safety</option>
+                                    <option value="maintenance">Maintenance</option>
+                                    <option value="training">Training</option>
+                                    <option value="inspection">Inspection</option>
+                                </select>
+                            </div>
+                            <div class="dp-compose-field">
+                                <label class="dp-compose-label">Priority</label>
+                                <select id="dpComposePriority" class="dp-compose-select">
+                                    <option value="normal">Normal</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+                            <div class="dp-compose-field">
+                                <label class="dp-compose-label">Assign to</label>
+                                <select id="dpComposeAssign" class="dp-compose-select dp-compose-select-wide">
+                                    <option value="">Unassigned</option>
+                                    <option value="Safety">Safety dept</option>
+                                    <option value="Dispatch">Dispatch</option>
+                                    <option value="Maintenance">Maintenance</option>
+                                    <option value="Accounting">Accounting</option>
+                                    <option value="Hiring">Hiring / HR</option>
+                                    <option value="Operations">Operations</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button type="button" class="dp-compose-post" id="dpComposePost" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            Post
+                        </button>
+                    </div>
+                </article>
+
                 <article class="card unit-card unit-card-wide">
                     <div class="card-header card-header-stacked">
                         <div>
