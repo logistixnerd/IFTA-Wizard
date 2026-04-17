@@ -617,7 +617,7 @@
         // Map sections to their parent department groups
         const sectionGroups = {
             // Safety
-            'safety': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'violations': 'safety',
+            'safety': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'violations': 'safety', 'compliance': 'safety',
             // Fleet Maintenance
             'maintenance': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
             // Dispatch
@@ -769,6 +769,7 @@
         renderDrivers();
         updateOverview();
         initFmcsaTab();
+        initComplianceSection();
     }
 
     // ── PROFILE ───────────────────────────
@@ -1949,6 +1950,161 @@
         if (d.fetchedAt) {
             $('fmcsaFetchedAt').textContent = 'Last fetched: ' + new Date(d.fetchedAt).toLocaleString();
         }
+    }
+
+    // ── Compliance Section (Safety > Compliance) ──────────
+    function renderComplianceSection(d) {
+        const hint = $('complianceHint');
+        const snap = $('complianceSnapshot');
+        if (!hint || !snap) return;
+
+        if (!d) {
+            hint.style.display = '';
+            snap.style.display = 'none';
+            return;
+        }
+        hint.style.display = 'none';
+        snap.style.display = '';
+
+        // Status bar
+        const authorised = d.allowedToOperate === 'Authorized';
+        const statusBar = $('complianceStatusBar');
+        statusBar.className = 'fmcsa-status-bar ' + (authorised ? 'fmcsa-status-ok' : 'fmcsa-status-bad');
+        statusBar.innerHTML = '<span class="fmcsa-status-dot"></span><strong>'
+            + escapeHtml(d.allowedToOperate || 'Unknown') + '</strong>'
+            + (d.operationType ? ' &mdash; ' + escapeHtml(d.operationType) : '');
+
+        // Summary stat cards
+        const totalInsp = (d.driverInsp || 0) + (d.vehicleInsp || 0) + (d.hazmatInsp || 0);
+        const totalOos = (d.driverOosInsp || 0) + (d.vehicleOosInsp || 0) + (d.hazmatOosInsp || 0);
+        const oosRate = totalInsp > 0 ? ((totalOos / totalInsp) * 100).toFixed(1) : '0.0';
+        const statCard = (label, value, sub) => {
+            let cls = '';
+            return `<div class="compliance-stat-card${cls}"><span class="compliance-stat-value">${escapeHtml(String(value ?? '\u2014'))}</span><span class="compliance-stat-label">${escapeHtml(label)}</span>${sub ? `<span class="compliance-stat-sub">${escapeHtml(sub)}</span>` : ''}</div>`;
+        };
+        $('complianceStats').innerHTML =
+            statCard('Total Inspections', totalInsp)
+            + statCard('Out-of-Service', totalOos, oosRate + '% OOS rate')
+            + statCard('Total Crashes', d.crashTotal ?? '\u2014')
+            + statCard('Safety Rating', d.safetyRating || 'None')
+            + statCard('Power Units', d.totalPowerUnits ?? '\u2014')
+            + statCard('Drivers', d.totalDrivers ?? '\u2014');
+
+        // Inspections breakdown
+        const oosRateWithAvg = (rate, natAvg) => {
+            let s = rate != null ? rate + '%' : '\u2014';
+            if (natAvg) s += ` (Nat. Avg: ${natAvg}%)`;
+            return s;
+        };
+        $('compDriverInsp').innerHTML =
+            fmcsaRow('Inspections', d.driverInsp)
+            + fmcsaRow('Out-of-Service', d.driverOosInsp)
+            + fmcsaRow('OOS Rate', oosRateWithAvg(d.driverOosRate, d.driverOosRateNatAvg));
+
+        $('compVehicleInsp').innerHTML =
+            fmcsaRow('Inspections', d.vehicleInsp)
+            + fmcsaRow('Out-of-Service', d.vehicleOosInsp)
+            + fmcsaRow('OOS Rate', oosRateWithAvg(d.vehicleOosRate, d.vehicleOosRateNatAvg));
+
+        $('compHazmatInsp').innerHTML =
+            fmcsaRow('Inspections', d.hazmatInsp)
+            + fmcsaRow('Out-of-Service', d.hazmatOosInsp)
+            + fmcsaRow('OOS Rate', oosRateWithAvg(d.hazmatOosRate, d.hazmatOosRateNatAvg));
+
+        // Crashes
+        $('compCrashes').innerHTML =
+            fmcsaRow('Total Crashes', d.crashTotal)
+            + fmcsaRow('Fatal', d.fatalCrash)
+            + fmcsaRow('Injury', d.injCrash)
+            + fmcsaRow('Tow-Away', d.towCrash);
+
+        // Safety
+        $('compSafety').innerHTML =
+            fmcsaRow('Safety Rating', d.safetyRating)
+            + fmcsaRow('Rating Date', d.safetyRatingDate)
+            + fmcsaRow('Last Review', d.reviewDate)
+            + fmcsaRow('Review Type', d.reviewType)
+            + (d.oosDate ? fmcsaRow('OOS Date', d.oosDate) : '');
+
+        // Authority
+        const authLabel = (code) => ({ A: 'Active', I: 'Inactive', N: 'None' }[code] || code || '\u2014');
+        let authorityHtml = fmcsaRow('Common (Property)', authLabel(d.commonAuthorityStatus))
+            + fmcsaRow('Contract', authLabel(d.contractAuthorityStatus))
+            + fmcsaRow('Broker', authLabel(d.brokerAuthorityStatus));
+        if (d.docketNumbers && d.docketNumbers.length) {
+            authorityHtml += fmcsaRow('Docket Numbers', d.docketNumbers.map(dn => dn.prefix + '-' + dn.docketNumber).join(', '));
+        }
+        $('compAuthority').innerHTML = authorityHtml;
+
+        // Insurance
+        const ins = (req, onFile) => {
+            if (!req && !onFile) return '\u2014';
+            const r = req && req !== 'u' && req !== '0' ? '$' + Number(req).toLocaleString() : '\u2014';
+            const f = onFile && onFile !== '0' ? '$' + Number(onFile).toLocaleString() : '\u2014';
+            return `Req: ${r} / On file: ${f}`;
+        };
+        $('compInsurance').innerHTML =
+            fmcsaRow('BIPD Liability', ins(d.bipdInsuranceRequired, d.bipdInsuranceOnFile))
+            + (d.bipdRequiredAmount && d.bipdRequiredAmount !== '0' ? fmcsaRow('BIPD Required Amt', '$' + Number(d.bipdRequiredAmount).toLocaleString()) : '')
+            + fmcsaRow('Cargo', ins(d.cargoInsuranceRequired, d.cargoInsuranceOnFile))
+            + fmcsaRow('Bond/Surety', ins(d.bondInsuranceRequired, d.bondInsuranceOnFile))
+            + fmcsaRow('Insurance State', d.oicState);
+
+        // Identity
+        $('compIdentity').innerHTML =
+            fmcsaRow('Legal Name', d.legalName)
+            + fmcsaRow('DBA', d.dbaName)
+            + fmcsaRow('USDOT', d.dotNumber)
+            + fmcsaRow('MC Number', d.mcNumber)
+            + fmcsaRow('EIN', d.einNumber)
+            + fmcsaRow('Entity Type', d.entityType)
+            + fmcsaRow('Phone', d.telephone)
+            + fmcsaRow('Address', [d.phyStreet, d.phyCity, d.phyState, d.phyZip].filter(Boolean).join(', '));
+
+        // Fleet
+        const mileageLabel = d.mcs150MileageYear ? `Miles (${d.mcs150MileageYear})` : 'Miles';
+        $('compFleet').innerHTML =
+            fmcsaRow('Power Units', d.totalPowerUnits)
+            + fmcsaRow('Drivers', d.totalDrivers)
+            + fmcsaRow(mileageLabel, d.mcs150Mileage != null ? Number(d.mcs150Mileage).toLocaleString() : null)
+            + fmcsaRow('MCS-150 Date', d.mcs150FormDate)
+            + fmcsaRow('MCS-150 Outdated', d.mcs150Outdated === 'Y' ? 'Yes' : d.mcs150Outdated === 'N' ? 'No' : d.mcs150Outdated);
+
+        if (d.fetchedAt) {
+            $('complianceFetchedAt').textContent = 'Last fetched: ' + new Date(d.fetchedAt).toLocaleString();
+        }
+    }
+
+    function initComplianceSection() {
+        const btn = $('complianceRefreshBtn');
+        if (btn) {
+            btn.addEventListener('click', async () => {
+                const dot = ($('dashDotNumber')?.value || '').replace(/\D/g, '').trim();
+                if (!dot) { showMsg('Enter a DOT number in Company Settings first', true); return; }
+                btn.disabled = true;
+                btn.textContent = 'Fetching\u2026';
+                try {
+                    const data = await fmcsaFetchDot(dot);
+                    if (!data) throw new Error('Lookup failed');
+                    state.fmcsaSnapshot = data;
+                    await db.collection('users').doc(uid()).set({
+                        fmcsaSnapshot: data,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }, { merge: true });
+                    renderComplianceSection(data);
+                    renderFmcsaSnapshot(data);
+                    renderComplianceReminders(data);
+                    showMsg('FMCSA data refreshed');
+                } catch (err) {
+                    console.error('Compliance refresh error:', err);
+                    showMsg(err.message || 'Failed to fetch FMCSA data', true);
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Refresh from FMCSA';
+                }
+            });
+        }
+        renderComplianceSection(state.fmcsaSnapshot || null);
     }
 
     function renderComplianceReminders(fmcsaData) {

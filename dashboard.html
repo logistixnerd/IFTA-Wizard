@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=3">
+    <link rel="stylesheet" href="dashboard.css?v=4">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -82,6 +82,14 @@
                                 <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                             </svg>
                             <span>Violations</span>
+                        </button>
+                        <button class="dash-nav-item" data-section="compliance">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                                <rect x="9" y="3" width="6" height="4" rx="1"/>
+                                <path d="M9 14l2 2 4-4"/>
+                            </svg>
+                            <span>Compliance</span>
                         </button>
                     </div>
                 </div>
@@ -572,6 +580,16 @@
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
                                 <p>Compliance scoring coming soon</p>
                                 <span class="placeholder-hint">Visual fleet compliance overview</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dash-card dept-nav-card" data-navigate="compliance">
+                        <div class="dash-card-header"><h3>Compliance</h3></div>
+                        <div class="dash-card-body">
+                            <div class="dept-nav-card-body">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 14l2 2 4-4"/></svg>
+                                <span class="dept-nav-card-count">&mdash;</span>
+                                <span class="dept-nav-card-label">FMCSA Inspections &amp; Safety</span>
                             </div>
                         </div>
                     </div>
@@ -1131,6 +1149,76 @@
                             </svg>
                             <p>Violation tracking coming soon</p>
                             <span class="placeholder-hint">Track roadside inspections, CSA violations, and DataQ filings</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Compliance Section (FMCSA Carrier Snapshot) -->
+            <section class="dash-section" id="section-compliance">
+                <div class="dash-card">
+                    <div class="dash-card-header">
+                        <h2>Compliance Overview</h2>
+                        <div class="dash-card-header-actions">
+                            <button class="btn btn-primary btn-sm" id="complianceRefreshBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                                Refresh from FMCSA
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dash-card-body">
+                        <p class="compliance-hint" id="complianceHint">Enter your DOT number in Company Settings, then click <strong>Refresh from FMCSA</strong> to pull your carrier record.</p>
+                        <div class="compliance-snapshot" id="complianceSnapshot" style="display:none">
+                            <div class="fmcsa-status-bar" id="complianceStatusBar"></div>
+
+                            <!-- Summary Stat Cards -->
+                            <div class="compliance-stats" id="complianceStats"></div>
+
+                            <!-- Inspections Breakdown -->
+                            <div class="compliance-block">
+                                <h3>Inspections &amp; Out-of-Service</h3>
+                                <div class="fmcsa-grid">
+                                    <div class="fmcsa-card"><h4>Driver Inspections</h4><div class="fmcsa-rows" id="compDriverInsp"></div></div>
+                                    <div class="fmcsa-card"><h4>Vehicle Inspections</h4><div class="fmcsa-rows" id="compVehicleInsp"></div></div>
+                                    <div class="fmcsa-card"><h4>HazMat Inspections</h4><div class="fmcsa-rows" id="compHazmatInsp"></div></div>
+                                </div>
+                            </div>
+
+                            <!-- Crash History -->
+                            <div class="compliance-block">
+                                <h3>Crash History</h3>
+                                <div class="fmcsa-grid">
+                                    <div class="fmcsa-card"><h4>Crashes</h4><div class="fmcsa-rows" id="compCrashes"></div></div>
+                                </div>
+                            </div>
+
+                            <!-- Safety & Authority -->
+                            <div class="compliance-block">
+                                <h3>Safety &amp; Authority</h3>
+                                <div class="fmcsa-grid">
+                                    <div class="fmcsa-card"><h4>Safety Record</h4><div class="fmcsa-rows" id="compSafety"></div></div>
+                                    <div class="fmcsa-card"><h4>Operating Authority</h4><div class="fmcsa-rows" id="compAuthority"></div></div>
+                                </div>
+                            </div>
+
+                            <!-- Insurance -->
+                            <div class="compliance-block">
+                                <h3>Insurance</h3>
+                                <div class="fmcsa-grid">
+                                    <div class="fmcsa-card"><h4>Insurance Coverage</h4><div class="fmcsa-rows" id="compInsurance"></div></div>
+                                </div>
+                            </div>
+
+                            <!-- Fleet & Identity -->
+                            <div class="compliance-block">
+                                <h3>Carrier Identity &amp; Fleet</h3>
+                                <div class="fmcsa-grid">
+                                    <div class="fmcsa-card"><h4>Carrier Identity</h4><div class="fmcsa-rows" id="compIdentity"></div></div>
+                                    <div class="fmcsa-card"><h4>Fleet Info</h4><div class="fmcsa-rows" id="compFleet"></div></div>
+                                </div>
+                            </div>
+
+                            <p class="fmcsa-fetched-at" id="complianceFetchedAt"></p>
                         </div>
                     </div>
                 </div>
@@ -2488,14 +2576,38 @@
                 </button>
             </div>
         </div>
+
+        <!-- Summary chips -->
+        <div class="dp-summary-bar" id="detailSummaryBar"></div>
+
+        <!-- Quick actions -->
+        <div class="dp-quick-actions" id="detailQuickActions">
+            <button class="dp-qaction" id="dpActionCall" title="Call driver">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                <span>Call</span>
+            </button>
+            <button class="dp-qaction" id="dpActionText" title="Send text">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span>Text</span>
+            </button>
+            <button class="dp-qaction" id="dpActionAssign" title="Assign truck">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                <span>Assign</span>
+            </button>
+            <button class="dp-qaction dp-qaction--warn" id="dpActionUnavail" title="Mark unavailable">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                <span>Unavail</span>
+            </button>
+        </div>
+
         <div class="detail-panel-body">
             <!-- Compose -->
-            <div class="detail-section" id="detailNoteSection">
-                <div class="detail-compose">
-                    <textarea id="detailNoteText" class="detail-compose-input" placeholder="Log a note, report an issue, or create a task…" rows="3"></textarea>
-                    <div class="detail-compose-bar">
-                        <div class="detail-compose-selects">
-                            <select id="detailNoteType" class="detail-compose-select">
+            <div class="detail-section dp-compose-section">
+                <div class="dp-compose">
+                    <textarea id="detailNoteText" class="dp-compose-input" placeholder="Log a note, report an issue, or create a task..." rows="3"></textarea>
+                    <div class="dp-compose-bar">
+                        <div class="dp-compose-selects">
+                            <select id="detailNoteType" class="dp-compose-select">
                                 <option value="note">Note</option>
                                 <option value="incident">Incident</option>
                                 <option value="safety">Safety</option>
@@ -2503,13 +2615,13 @@
                                 <option value="training">Training</option>
                                 <option value="inspection">Inspection</option>
                             </select>
-                            <select id="detailNotePriority" class="detail-compose-select">
+                            <select id="detailNotePriority" class="dp-compose-select">
                                 <option value="normal">Normal</option>
                                 <option value="high">High</option>
                                 <option value="urgent">Urgent</option>
                             </select>
                         </div>
-                        <button type="button" class="detail-compose-post" id="detailNotePost" disabled>
+                        <button type="button" class="dp-compose-post" id="detailNotePost" disabled>
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                             Post
                         </button>
@@ -2518,155 +2630,172 @@
             </div>
 
             <!-- Activity Feed -->
-            <div class="detail-section detail-section-collapsible" id="detailFeedSection">
-                <button class="detail-section-toggle" id="detailFeedToggle" type="button" aria-expanded="true">
-                    <span class="detail-toggle-label">Activity <span class="detail-badge" id="detailNoteCount"></span></span>
-                    <svg class="detail-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+            <div class="detail-section dp-section-collapsible" id="detailFeedSection">
+                <button class="dp-section-toggle" data-target="detailFeedSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Activity <span class="dp-badge" id="detailNoteCount"></span></span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
-                <div class="detail-collapsible-body">
-                    <div class="detail-notes-feed" id="detailNotesFeed"></div>
+                <div class="dp-collapse-body">
+                    <div class="dp-feed" id="detailNotesFeed"></div>
                 </div>
             </div>
 
-            <!-- Tasks -->
-            <div class="detail-section detail-section-collapsible" id="detailTasksSection">
-                <button class="detail-section-toggle" id="detailTasksToggle" type="button" aria-expanded="true">
-                    <span class="detail-toggle-label">Open Tasks <span class="detail-badge" id="detailTaskCount"></span></span>
-                    <svg class="detail-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+            <!-- Open Tasks -->
+            <div class="detail-section dp-section-collapsible" id="detailTasksSection">
+                <button class="dp-section-toggle" data-target="detailTasksSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Open Tasks <span class="dp-badge" id="detailTaskCount"></span></span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
-                <div class="detail-collapsible-body">
-                    <div class="detail-tasks-feed" id="detailTasksFeed"></div>
+                <div class="dp-collapse-body">
+                    <div class="dp-feed" id="detailTasksFeed"></div>
                 </div>
             </div>
 
-            <!-- Driver Information (collapsible, starts collapsed) -->
-            <div class="detail-section detail-section-collapsible collapsed" id="detailInfoSection">
-                <button class="detail-section-toggle" id="detailInfoToggle" type="button" aria-expanded="false">
-                    <span class="detail-toggle-label">Driver Information</span>
-                    <svg class="detail-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+            <!-- Driver Information (collapsed by default) -->
+            <div class="detail-section dp-section-collapsible collapsed" id="detailInfoSection">
+                <button class="dp-section-toggle" data-target="detailInfoSection" type="button" aria-expanded="false">
+                    <span class="dp-toggle-label">Driver Information</span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
-                <div class="detail-collapsible-body">
+                <div class="dp-collapse-body">
                     <div class="detail-info-grid" id="detailDriverInfo">
-                    <div class="detail-field" data-key="firstName">
-                        <label class="detail-field-label">First Name <span class="req">*</span></label>
-                        <input type="text" class="detail-field-input" id="dpFirstName" placeholder="First name">
-                    </div>
-                    <div class="detail-field" data-key="lastName">
-                        <label class="detail-field-label">Last Name</label>
-                        <input type="text" class="detail-field-input" id="dpLastName" placeholder="Last name">
-                    </div>
-                    <div class="detail-field" data-key="phone">
-                        <label class="detail-field-label">Phone</label>
-                        <input type="tel" class="detail-field-input" id="dpPhone" placeholder="(555) 123-4567">
-                    </div>
-                    <div class="detail-field" data-key="email">
-                        <label class="detail-field-label">Email</label>
-                        <input type="email" class="detail-field-input" id="dpEmail" placeholder="email@example.com">
-                    </div>
-                    <div class="detail-field" data-key="cdl">
-                        <label class="detail-field-label">CDL Number</label>
-                        <input type="text" class="detail-field-input" id="dpCdl" placeholder="CDL number">
-                    </div>
-                    <div class="detail-field" data-key="cdlClass">
-                        <label class="detail-field-label">CDL Class</label>
-                        <select class="detail-field-input" id="dpCdlClass">
-                            <option value="">Select…</option>
-                            <option value="A">Class A</option>
-                            <option value="B">Class B</option>
-                            <option value="C">Class C</option>
-                        </select>
-                    </div>
-                    <div class="detail-field" data-key="cdlState">
-                        <label class="detail-field-label">CDL State</label>
-                        <select class="detail-field-input" id="dpCdlState">
-                            <option value="">Select state</option>
-                        </select>
-                    </div>
-                    <div class="detail-field" data-key="cdlExp">
-                        <label class="detail-field-label">CDL Expiration</label>
-                        <input type="date" class="detail-field-input" id="dpCdlExp">
-                    </div>
-                    <div class="detail-field" data-key="medExp">
-                        <label class="detail-field-label">Medical Card Exp</label>
-                        <input type="date" class="detail-field-input" id="dpMedExp">
-                    </div>
-                    <div class="detail-field" data-key="mvrExp">
-                        <label class="detail-field-label">MVR Expiry</label>
-                        <input type="date" class="detail-field-input" id="dpMvrExp">
-                    </div>
-                    <div class="detail-field" data-key="drugTestDate">
-                        <label class="detail-field-label">Last Drug Test</label>
-                        <input type="date" class="detail-field-input" id="dpDrugTestDate">
-                    </div>
-                    <div class="detail-field" data-key="twicExp">
-                        <label class="detail-field-label">TWIC Card Exp</label>
-                        <input type="date" class="detail-field-input" id="dpTwicExp">
-                    </div>
-                    <div class="detail-field" data-key="restrictions">
-                        <label class="detail-field-label">Restrictions</label>
-                        <input type="text" class="detail-field-input" id="dpRestrictions" placeholder="e.g., Corrective lenses">
-                    </div>
-                    <div class="detail-field" data-key="truck">
-                        <label class="detail-field-label">Assigned Truck</label>
-                        <select class="detail-field-input" id="dpTruck">
-                            <option value="">Unassigned</option>
-                        </select>
-                    </div>
-                    <div class="detail-field" data-key="status">
-                        <label class="detail-field-label">Status</label>
-                        <select class="detail-field-input" id="dpStatus">
-                        </select>
-                    </div>
-                    <div class="detail-field" data-key="hireDate">
-                        <label class="detail-field-label">Date of Hire</label>
-                        <input type="date" class="detail-field-input" id="dpHireDate">
-                    </div>
-                    <div class="detail-field" data-key="terminationDate">
-                        <label class="detail-field-label">Termination Date</label>
-                        <input type="date" class="detail-field-input" id="dpTerminationDate">
-                    </div>
-                    <div class="detail-field" data-key="dob">
-                        <label class="detail-field-label">Date of Birth</label>
-                        <input type="date" class="detail-field-input" id="dpDob">
-                    </div>
-                    <div class="detail-field" data-key="endorsements">
-                        <label class="detail-field-label">Endorsements</label>
-                        <div class="detail-endorsement-row">
-                            <label class="dp-endorse-chip"><input type="checkbox" value="H"><span>H</span></label>
-                            <label class="dp-endorse-chip"><input type="checkbox" value="N"><span>N</span></label>
-                            <label class="dp-endorse-chip"><input type="checkbox" value="T"><span>T</span></label>
-                            <label class="dp-endorse-chip"><input type="checkbox" value="X"><span>X</span></label>
-                            <label class="dp-endorse-chip"><input type="checkbox" value="P"><span>P</span></label>
-                            <label class="dp-endorse-chip"><input type="checkbox" value="S"><span>S</span></label>
+                        <div class="detail-field" data-key="firstName">
+                            <label class="detail-field-label">First Name <span class="req">*</span></label>
+                            <input type="text" class="detail-field-input" id="dpFirstName" placeholder="First name">
+                        </div>
+                        <div class="detail-field" data-key="lastName">
+                            <label class="detail-field-label">Last Name</label>
+                            <input type="text" class="detail-field-input" id="dpLastName" placeholder="Last name">
+                        </div>
+                        <div class="detail-field" data-key="phone">
+                            <label class="detail-field-label">Phone</label>
+                            <input type="tel" class="detail-field-input" id="dpPhone" placeholder="(555) 123-4567">
+                        </div>
+                        <div class="detail-field" data-key="email">
+                            <label class="detail-field-label">Email</label>
+                            <input type="email" class="detail-field-input" id="dpEmail" placeholder="email@example.com">
+                        </div>
+                        <div class="detail-field" data-key="cdl">
+                            <label class="detail-field-label">CDL Number</label>
+                            <input type="text" class="detail-field-input" id="dpCdl" placeholder="CDL number">
+                        </div>
+                        <div class="detail-field" data-key="cdlClass">
+                            <label class="detail-field-label">CDL Class</label>
+                            <select class="detail-field-input" id="dpCdlClass">
+                                <option value="">Select...</option>
+                                <option value="A">Class A</option>
+                                <option value="B">Class B</option>
+                                <option value="C">Class C</option>
+                            </select>
+                        </div>
+                        <div class="detail-field" data-key="cdlState">
+                            <label class="detail-field-label">CDL State</label>
+                            <select class="detail-field-input" id="dpCdlState">
+                                <option value="">Select state</option>
+                            </select>
+                        </div>
+                        <div class="detail-field" data-key="cdlExp">
+                            <label class="detail-field-label">CDL Expiration</label>
+                            <input type="date" class="detail-field-input" id="dpCdlExp">
+                        </div>
+                        <div class="detail-field" data-key="medExp">
+                            <label class="detail-field-label">Medical Card Exp</label>
+                            <input type="date" class="detail-field-input" id="dpMedExp">
+                        </div>
+                        <div class="detail-field" data-key="mvrExp">
+                            <label class="detail-field-label">MVR Expiry</label>
+                            <input type="date" class="detail-field-input" id="dpMvrExp">
+                        </div>
+                        <div class="detail-field" data-key="drugTestDate">
+                            <label class="detail-field-label">Last Drug Test</label>
+                            <input type="date" class="detail-field-input" id="dpDrugTestDate">
+                        </div>
+                        <div class="detail-field" data-key="twicExp">
+                            <label class="detail-field-label">TWIC Card Exp</label>
+                            <input type="date" class="detail-field-input" id="dpTwicExp">
+                        </div>
+                        <div class="detail-field" data-key="restrictions">
+                            <label class="detail-field-label">Restrictions</label>
+                            <input type="text" class="detail-field-input" id="dpRestrictions" placeholder="e.g., Corrective lenses">
+                        </div>
+                        <div class="detail-field" data-key="truck">
+                            <label class="detail-field-label">Assigned Truck</label>
+                            <select class="detail-field-input" id="dpTruck">
+                                <option value="">Unassigned</option>
+                            </select>
+                        </div>
+                        <div class="detail-field" data-key="status">
+                            <label class="detail-field-label">Status</label>
+                            <select class="detail-field-input" id="dpStatus"></select>
+                        </div>
+                        <div class="detail-field" data-key="hireDate">
+                            <label class="detail-field-label">Date of Hire</label>
+                            <input type="date" class="detail-field-input" id="dpHireDate">
+                        </div>
+                        <div class="detail-field" data-key="terminationDate">
+                            <label class="detail-field-label">Termination Date</label>
+                            <input type="date" class="detail-field-input" id="dpTerminationDate">
+                        </div>
+                        <div class="detail-field" data-key="dob">
+                            <label class="detail-field-label">Date of Birth</label>
+                            <input type="date" class="detail-field-input" id="dpDob">
+                        </div>
+                        <div class="detail-field" data-key="endorsements">
+                            <label class="detail-field-label">Endorsements</label>
+                            <div class="detail-endorsement-row">
+                                <label class="dp-endorse-chip"><input type="checkbox" value="H"><span>H</span></label>
+                                <label class="dp-endorse-chip"><input type="checkbox" value="N"><span>N</span></label>
+                                <label class="dp-endorse-chip"><input type="checkbox" value="T"><span>T</span></label>
+                                <label class="dp-endorse-chip"><input type="checkbox" value="X"><span>X</span></label>
+                                <label class="dp-endorse-chip"><input type="checkbox" value="P"><span>P</span></label>
+                                <label class="dp-endorse-chip"><input type="checkbox" value="S"><span>S</span></label>
+                            </div>
+                        </div>
+                        <div class="detail-field" data-key="emergencyName">
+                            <label class="detail-field-label">Emergency Contact</label>
+                            <input type="text" class="detail-field-input" id="dpEmergencyName" placeholder="Contact name">
+                        </div>
+                        <div class="detail-field" data-key="emergencyPhone">
+                            <label class="detail-field-label">Emergency Phone</label>
+                            <input type="tel" class="detail-field-input" id="dpEmergencyPhone" placeholder="(555) 123-4567">
+                        </div>
+                        <div class="detail-field full-width" data-key="address">
+                            <label class="detail-field-label">Address</label>
+                            <input type="text" class="detail-field-input" id="dpAddress" placeholder="Home address">
+                        </div>
+                        <div class="detail-field full-width" data-key="notes">
+                            <label class="detail-field-label">Notes</label>
+                            <textarea class="detail-field-input" id="dpNotes" rows="2" placeholder="Notes"></textarea>
                         </div>
                     </div>
-                    <div class="detail-field" data-key="emergencyName">
-                        <label class="detail-field-label">Emergency Contact</label>
-                        <input type="text" class="detail-field-input" id="dpEmergencyName" placeholder="Contact name">
-                    </div>
-                    <div class="detail-field" data-key="emergencyPhone">
-                        <label class="detail-field-label">Emergency Phone</label>
-                        <input type="tel" class="detail-field-input" id="dpEmergencyPhone" placeholder="(555) 123-4567">
-                    </div>
-                    <div class="detail-field full-width" data-key="address">
-                        <label class="detail-field-label">Address</label>
-                        <input type="text" class="detail-field-input" id="dpAddress" placeholder="Home address">
-                    </div>
-                    <div class="detail-field full-width" data-key="notes">
-                        <label class="detail-field-label">Notes</label>
-                        <textarea class="detail-field-input" id="dpNotes" rows="2" placeholder="Notes"></textarea>
-                    </div>
                 </div>
             </div>
-            <!-- Documents Section -->
-            <div class="detail-section" id="detailDocsSection">
-                <h3 class="detail-section-title">Documents</h3>
-                <div class="detail-doc-grid" id="detailDocGrid"></div>
+
+            <!-- Compliance (collapsed by default) -->
+            <div class="detail-section dp-section-collapsible collapsed" id="detailComplianceSection">
+                <button class="dp-section-toggle" data-target="detailComplianceSection" type="button" aria-expanded="false">
+                    <span class="dp-toggle-label">Compliance</span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="dp-compliance-grid" id="detailComplianceGrid"></div>
+                </div>
+            </div>
+
+            <!-- Documents (collapsed by default) -->
+            <div class="detail-section dp-section-collapsible collapsed" id="detailDocsSection">
+                <button class="dp-section-toggle" data-target="detailDocsSection" type="button" aria-expanded="false">
+                    <span class="dp-toggle-label">Documents</span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="detail-doc-grid" id="detailDocGrid"></div>
+                </div>
             </div>
         </div>
     </aside>
 
     <script src="firebase-config.js?v=3"></script>
-    <script src="dashboard.js?v=6"></script>
+    <script src="dashboard.js?v=8"></script>
 </body>
 </html>
