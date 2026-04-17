@@ -1564,25 +1564,29 @@
 
         const btn = $('fmcsaLookupBtn');
         btn.disabled = true;
-        btn.textContent = 'Searching…';
+        btn.classList.add('searching');
 
         try {
             let url, res, json;
             if (type === 'mc') {
                 url = `${MC_LOOKUP_URL}?mc=${encodeURIComponent(raw)}`;
-                res = await fetch(url);
+                res = await fetch(url).catch(() => null);
+                if (!res) throw new Error('Could not reach FMCSA service. Check your connection.');
                 json = await res.json();
                 if (!json.success) throw new Error(json.error || 'MC lookup failed');
 
                 // MC lookup returns a simpler shape — also fetch full carrier data by DOT if available
                 const mcData = json.data;
                 if (mcData.dotNumber) {
-                    const dotRes = await fetch(`${CARRIER_LOOKUP_URL}?dot=${encodeURIComponent(mcData.dotNumber)}`);
-                    const dotJson = await dotRes.json();
-                    if (dotJson.success) {
-                        pendingFmcsaData = dotJson.data;
+                    const dotRes = await fetch(`${CARRIER_LOOKUP_URL}?dot=${encodeURIComponent(mcData.dotNumber)}`).catch(() => null);
+                    if (dotRes) {
+                        const dotJson = await dotRes.json();
+                        if (dotJson.success) {
+                            pendingFmcsaData = dotJson.data;
+                        } else {
+                            pendingFmcsaData = mcData;
+                        }
                     } else {
-                        // Fall back to MC data only
                         pendingFmcsaData = mcData;
                     }
                 } else {
@@ -1590,7 +1594,8 @@
                 }
             } else {
                 url = `${CARRIER_LOOKUP_URL}?dot=${encodeURIComponent(raw)}`;
-                res = await fetch(url);
+                res = await fetch(url).catch(() => null);
+                if (!res) throw new Error('Could not reach FMCSA service. Check your connection.');
                 json = await res.json();
                 if (!json.success) throw new Error(json.error || 'DOT lookup failed');
                 pendingFmcsaData = json.data;
@@ -1603,7 +1608,7 @@
             pendingFmcsaData = null;
         } finally {
             btn.disabled = false;
-            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Look Up';
+            btn.classList.remove('searching');
         }
     }
 

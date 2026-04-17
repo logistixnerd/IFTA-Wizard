@@ -25,6 +25,7 @@ const ALLOWED_ORIGINS = [
   'https://logistixnerd.com',
   'https://ifta-wizard-a9061.web.app',
   'https://ifta-wizard-a9061.firebaseapp.com',
+  'https://logistixnerd.github.io',
 ];
 
 /**
