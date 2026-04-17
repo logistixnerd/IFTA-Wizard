@@ -4663,6 +4663,18 @@
                 if (hasValue && data.unit) parsed.push(data);
             }
             if (parsed.length === 0) { showMsg('No valid truck rows found', true); return; }
+
+            // VIN verification — fill/correct make, model, year from NHTSA
+            const truckVins = parsed.map(d => d.vin).filter(Boolean);
+            if (truckVins.length) {
+                showMsg('Verifying ' + truckVins.length + ' VIN' + (truckVins.length > 1 ? 's' : '') + '…');
+                try {
+                    const vinData = await decodeVINBatch(truckVins);
+                    const fixes = applyVINData(parsed, vinData, 'truck');
+                    if (fixes) console.log('[VIN] Applied ' + fixes + ' corrections to truck data');
+                } catch (e) { console.warn('[VIN] Decode failed, continuing with sheet data:', e); }
+            }
+
             const tbody = $(config.tbodyId);
             tbody.innerHTML = '';
             parsed.forEach((rowData, i) => {
@@ -4756,6 +4768,18 @@
                 if (hasValue && data.unit) parsed.push(data);
             }
             if (parsed.length === 0) { showMsg('No valid trailer rows found', true); return; }
+
+            // VIN verification — fill/correct make, year, type from NHTSA
+            const trailerVins = parsed.map(d => d.vin).filter(Boolean);
+            if (trailerVins.length) {
+                showMsg('Verifying ' + trailerVins.length + ' VIN' + (trailerVins.length > 1 ? 's' : '') + '…');
+                try {
+                    const vinData = await decodeVINBatch(trailerVins);
+                    const fixes = applyVINData(parsed, vinData, 'trailer');
+                    if (fixes) console.log('[VIN] Applied ' + fixes + ' corrections to trailer data');
+                } catch (e) { console.warn('[VIN] Decode failed, continuing with sheet data:', e); }
+            }
+
             const tbody = $(config.tbodyId);
             tbody.innerHTML = '';
             parsed.forEach((rowData, i) => {
@@ -5113,16 +5137,90 @@
         }
     }
 
+    // ── NHTSA VIN Decode (batch, up to 50 at a time) ──
+    async function decodeVINBatch(vins) {
+        const valid = [...new Set(vins.filter(v => v && v.length === 17))];
+        if (!valid.length) return {};
+        const results = {};
+        for (let i = 0; i < valid.length; i += 50) {
+            const batch = valid.slice(i, i + 50);
+            try {
+                const resp = await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVINValuesBatch/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'vins=' + batch.join(';') + '&format=json'
+                });
+                const json = await resp.json();
+                if (json.Results) {
+                    json.Results.forEach(r => {
+                        if (!r.VIN) return;
+                        results[r.VIN.toUpperCase()] = {
+                            make: (r.Make || '').trim(),
+                            model: (r.Model || '').trim(),
+                            year: (r.ModelYear || '').trim(),
+                            bodyClass: (r.BodyClass || '').trim(),
+                            trailerBodyType: (r.TrailerBodyType || '').trim(),
+                            fuelType: (r.FuelTypePrimary || '').trim(),
+                            gvwr: (r.GVWR || '').trim()
+                        };
+                    });
+                }
+            } catch (e) { console.warn('[VIN Decode] Batch failed:', e); }
+        }
+        return results;
+    }
+
+    function applyVINData(parsed, vinData, importType) {
+        let fixes = 0;
+        parsed.forEach(d => {
+            if (!d.vin) return;
+            const info = vinData[d.vin.toUpperCase()];
+            if (!info || (!info.make && !info.year)) return;
+            // Fill blanks and correct mismatches — VIN is the source of truth
+            if (info.year && info.year !== '0') {
+                if (!d.year) { d.year = info.year; fixes++; }
+                else if (d.year !== info.year) { console.warn('[VIN] Year mismatch ' + d.vin + ': sheet=' + d.year + ' VIN=' + info.year); d.year = info.year; fixes++; }
+            }
+            if (info.make) {
+                if (!d.make) { d.make = info.make; fixes++; }
+                else if (d.make.toUpperCase() !== info.make.toUpperCase()) { console.warn('[VIN] Make mismatch ' + d.vin + ': sheet=' + d.make + ' VIN=' + info.make); d.make = info.make; fixes++; }
+            }
+            if (importType === 'truck' && info.model && !d.model) { d.model = info.model; fixes++; }
+            if (importType === 'truck' && info.fuelType) {
+                const ft = info.fuelType.toLowerCase();
+                if (ft.includes('diesel') && d.fuel !== 'diesel') { d.fuel = 'diesel'; fixes++; }
+                else if (ft.includes('gas') && d.fuel !== 'gasoline') { d.fuel = 'gasoline'; fixes++; }
+            }
+            if (importType === 'trailer') {
+                // Use VIN body class for type if not already confidently set
+                const bt = (info.trailerBodyType || info.bodyClass || '').toLowerCase();
+                if (bt) {
+                    let vinType = '';
+                    if (bt.includes('refrigerat') || bt.includes('reefer')) vinType = 'reefer';
+                    else if (bt.includes('flatbed')) vinType = 'flatbed';
+                    else if (bt.includes('tank')) vinType = 'tanker';
+                    else if (bt.includes('lowboy')) vinType = 'lowboy';
+                    else if (bt.includes('step') || bt.includes('deck')) vinType = 'step-deck';
+                    else if (bt.includes('van') || bt.includes('enclosed') || bt.includes('box')) vinType = 'dry-van';
+                    if (vinType && (!d.type || d.type === 'other')) { d.type = vinType; fixes++; }
+                    // VIN says reefer but sheet said dry-van — trust VIN
+                    if (vinType === 'reefer' && d.type === 'dry-van') { d.type = 'reefer'; fixes++; }
+                }
+            }
+        });
+        return fixes;
+    }
+
     function buildSmartColumnMap(headerRow, aliases) {
         const colMap = {};
         const cleaned = headerRow.map(h => (h || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
 
         for (const [field, names] of Object.entries(aliases)) {
-            // Exact match first
-            let idx = cleaned.findIndex(h => names.includes(h));
+            // Exact match first — skip already-claimed columns
+            let idx = cleaned.findIndex((h, i) => !Object.values(colMap).includes(i) && names.includes(h));
             if (idx !== -1) { colMap[field] = idx; continue; }
 
-            // Substring match — but skip indices already claimed
+            // Substring match — skip already-claimed columns
             idx = cleaned.findIndex((h, i) => h && !Object.values(colMap).includes(i) && names.some(n => h.includes(n) || n.includes(h)));
             if (idx !== -1) { colMap[field] = idx; continue; }
 
