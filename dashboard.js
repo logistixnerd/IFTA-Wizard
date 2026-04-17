@@ -2942,7 +2942,13 @@
         // Column picker toggle
         $('usheetColPicker').addEventListener('click', (e) => {
             e.stopPropagation();
-            $('usheetColDropdown').classList.toggle('hidden');
+            const dd = $('usheetColDropdown');
+            dd.classList.toggle('hidden');
+            if (!dd.classList.contains('hidden')) {
+                const rect = e.currentTarget.getBoundingClientRect();
+                dd.style.top = (rect.bottom + 4) + 'px';
+                dd.style.left = Math.max(8, rect.right - dd.offsetWidth) + 'px';
+            }
         });
 
         // Column picker change

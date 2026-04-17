@@ -5347,14 +5347,12 @@ input[type="date"].ss-input {
 
 /* ── Column Picker Dropdown ── */
 .usheet-col-dropdown {
-    position: absolute;
-    top: 100%;
-    right: 1.25rem;
-    z-index: 50;
+    position: fixed;
+    z-index: 10000;
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
     padding: 6px;
     display: flex;
     flex-direction: column;
