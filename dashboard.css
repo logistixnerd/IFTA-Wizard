@@ -4168,41 +4168,139 @@ th.col-validation {
     margin: 0 0 0.75rem;
 }
 
-/* Info grid */
+/* Info grid — editable fields */
 .detail-info-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.1rem 1.5rem;
+    gap: 0.25rem 1rem;
 }
 
-.detail-info-item {
+.detail-field {
     display: flex;
     flex-direction: column;
-    padding: 0.45rem 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    padding: 0.35rem 0;
+}
+.detail-field.full-width {
+    grid-column: 1 / -1;
 }
 
-.detail-info-label {
-    font-size: 0.68rem;
-    font-weight: 600;
+.detail-field-label {
+    font-size: 0.65rem;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--gray-400);
-    margin-bottom: 0.15rem;
+    margin-bottom: 0.2rem;
+}
+.detail-field-label .req {
+    color: #ef4444;
+    font-weight: 700;
 }
 
-.detail-info-value {
-    font-size: 0.85rem;
+.detail-field-input {
+    font-family: inherit;
+    font-size: 0.82rem;
     font-weight: 500;
     color: var(--gray-700);
-    word-break: break-word;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0.3rem 0.45rem;
+    outline: none;
+    transition: all 0.15s ease;
+    width: 100%;
+    box-sizing: border-box;
 }
-.detail-info-value.missing {
+.detail-field-input::placeholder {
     color: var(--gray-300);
+    font-weight: 400;
     font-style: italic;
 }
-.detail-info-item.full-width {
-    grid-column: 1 / -1;
+
+/* Hover-to-edit: show border on hover */
+.detail-field:hover .detail-field-input,
+.detail-field-input:focus {
+    border-color: rgba(0, 0, 0, 0.1);
+    background: rgba(0, 0, 0, 0.015);
+}
+.detail-field-input:focus {
+    border-color: var(--primary);
+    background: rgba(79, 70, 229, 0.03);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.08);
+}
+
+/* Select styling */
+select.detail-field-input {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.4rem center;
+    padding-right: 1.4rem;
+    cursor: pointer;
+}
+
+/* Textarea */
+textarea.detail-field-input {
+    resize: vertical;
+    min-height: 42px;
+}
+
+/* Endorsement chips row */
+.detail-endorsement-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    padding: 0.2rem 0;
+}
+
+.dp-endorse-chip {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+}
+.dp-endorse-chip input { display: none; }
+.dp-endorse-chip span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 26px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    border-radius: 5px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(0, 0, 0, 0.02);
+    color: var(--gray-400);
+    transition: all 0.15s ease;
+    padding: 0 4px;
+}
+.dp-endorse-chip:hover span {
+    border-color: rgba(79, 70, 229, 0.2);
+    background: rgba(79, 70, 229, 0.04);
+}
+.dp-endorse-chip input:checked + span {
+    background: rgba(79, 70, 229, 0.1);
+    border-color: rgba(79, 70, 229, 0.3);
+    color: var(--primary);
+}
+
+/* Save button highlight */
+.detail-save-btn {
+    color: var(--primary) !important;
+}
+.detail-save-btn:hover {
+    background: rgba(79, 70, 229, 0.08) !important;
+    color: var(--primary) !important;
+}
+
+/* Create mode: emphasize empty state */
+.detail-panel.is-create .detail-panel-header {
+    border-bottom-color: rgba(79, 70, 229, 0.12);
+}
+.detail-panel.is-create .detail-panel-title h2 {
+    color: var(--primary);
 }
 
 /* Document slots grid */

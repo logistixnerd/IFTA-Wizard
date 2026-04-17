@@ -3497,9 +3497,9 @@
     }
 
     function initDriverForm() {
-        $('addDriverBtn').addEventListener('click', () => openDriverSheet());
-        $('addFirstDriver').addEventListener('click', () => openDriverSheet());
-        $('driverInlineAddBtn').addEventListener('click', () => openDriverSheet());
+        $('addDriverBtn').addEventListener('click', () => openDriverDetailPanel(null));
+        $('addFirstDriver').addEventListener('click', () => openDriverDetailPanel(null));
+        $('driverInlineAddBtn').addEventListener('click', () => openDriverDetailPanel(null));
         initDriverSheetEvents();
         $('closeDriverModal').addEventListener('click', () => $('driverModal').classList.add('hidden'));
         $('cancelDriver').addEventListener('click', () => $('driverModal').classList.add('hidden'));
@@ -3716,69 +3716,223 @@
 
     // ── Driver Detail Panel (slide-out) ───────────────────────
     const DETAIL_DOC_TYPES = ['cdl', 'medical', 'contract', 'mvr', 'psp', 'photo', 'other'];
-    let detailPanelDriverId = null;
+    let detailPanelDriverId = null;   // null = create mode, string = edit mode
+    let detailPanelOpen = false;
+
+    function populateDetailDropdowns() {
+        // CDL State
+        const stSel = $('dpCdlState');
+        if (stSel && stSel.options.length <= 1) {
+            JURISDICTIONS.forEach(j => {
+                const o = document.createElement('option');
+                o.value = j.code;
+                o.textContent = j.code + ' — ' + j.name;
+                stSel.appendChild(o);
+            });
+        }
+        // Truck
+        const trSel = $('dpTruck');
+        if (trSel) {
+            const cur = trSel.value;
+            trSel.innerHTML = '<option value="">Unassigned</option>';
+            state.trucks.filter(t => t.status === 'active').forEach(t => {
+                const o = document.createElement('option');
+                o.value = t.id;
+                o.textContent = 'Unit ' + t.unit + (t.make ? ' — ' + t.make + ' ' + (t.model || '') : '');
+                trSel.appendChild(o);
+            });
+            trSel.value = cur;
+        }
+        // Status
+        const stsSel = $('dpStatus');
+        if (stsSel && stsSel.options.length === 0) {
+            getDropdownOptions('driverStatus').forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.value;
+                opt.textContent = o.label;
+                stsSel.appendChild(opt);
+            });
+        }
+    }
 
     function openDriverDetailPanel(id) {
-        const d = state.drivers.find(x => x.id === id);
-        if (!d) return;
-        detailPanelDriverId = id;
+        const isCreate = !id;
+        const d = isCreate ? {} : state.drivers.find(x => x.id === id);
+        if (!isCreate && !d) return;
+        detailPanelDriverId = id || null;
+
+        populateDetailDropdowns();
 
         // Header
-        const name = [d.firstName, d.lastName].filter(Boolean).join(' ') || 'Unnamed Driver';
+        const name = isCreate ? 'New Driver' : ([d.firstName, d.lastName].filter(Boolean).join(' ') || 'Unnamed Driver');
         $('detailDriverName').textContent = name;
         const statusEl = $('detailDriverStatus');
-        statusEl.className = 'status-badge ' + (d.status || 'active');
-        statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(d.status || 'active');
+        if (isCreate) {
+            statusEl.style.display = 'none';
+        } else {
+            statusEl.style.display = '';
+            statusEl.className = 'status-badge ' + (d.status || 'active');
+            statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(d.status || 'active');
+        }
 
-        // Info grid
-        const cdlDays = daysUntilExpiry(d.cdlExp);
-        const medDays = daysUntilExpiry(d.medExp);
-        const truckName = truckLabel(d.truck);
+        // Populate fields
+        $('dpFirstName').value = d.firstName || '';
+        $('dpLastName').value = d.lastName || '';
+        $('dpPhone').value = d.phone ? formatPhone(d.phone) : '';
+        $('dpEmail').value = d.email || '';
+        $('dpCdl').value = d.cdl ? d.cdl.toUpperCase() : '';
+        $('dpCdlState').value = d.cdlState || '';
+        $('dpCdlExp').value = d.cdlExp || '';
+        $('dpMedExp').value = d.medExp || '';
+        $('dpTruck').value = d.truck || '';
+        $('dpStatus').value = d.status || 'active';
+        $('dpHireDate').value = d.hireDate || '';
+        $('dpDob').value = d.dob || '';
+        $('dpEmergencyName').value = d.emergencyName || '';
+        $('dpEmergencyPhone').value = d.emergencyPhone ? formatPhone(d.emergencyPhone) : '';
+        $('dpAddress').value = d.address || '';
+        $('dpNotes').value = d.notes || '';
 
-        const infoItems = [
-            { label: 'Phone', value: d.phone ? formatPhone(d.phone) : null },
-            { label: 'Email', value: d.email || null },
-            { label: 'CDL Number', value: d.cdl ? d.cdl.toUpperCase() : null },
-            { label: 'CDL State', value: d.cdlState || null },
-            { label: 'CDL Expiration', value: d.cdlExp ? formatDate(d.cdlExp) : null, tag: cdlDays !== null ? (cdlDays < 0 ? '<span class="cell-exp-tag expired">Expired</span>' : cdlDays <= 60 ? '<span class="cell-exp-tag expiring">' + cdlDays + 'd</span>' : '<span class="cell-exp-tag valid">Valid</span>') : '' },
-            { label: 'Medical Card Exp', value: d.medExp ? formatDate(d.medExp) : null, tag: medDays !== null ? (medDays < 0 ? '<span class="cell-exp-tag expired">Expired</span>' : medDays <= 60 ? '<span class="cell-exp-tag expiring">' + medDays + 'd</span>' : '<span class="cell-exp-tag valid">Valid</span>') : '' },
-            { label: 'Assigned Truck', value: d.truck ? truckName : null },
-            { label: 'Date of Hire', value: d.hireDate ? formatDate(d.hireDate) : null },
-            { label: 'Date of Birth', value: d.dob ? formatDate(d.dob) : null },
-            { label: 'Endorsements', value: d.endorsements || null },
-            { label: 'Emergency Contact', value: [d.emergencyName, d.emergencyPhone ? formatPhone(d.emergencyPhone) : ''].filter(Boolean).join(' — ') || null },
-            { label: 'Address', value: d.address || null, full: true },
-        ];
+        // Endorsement checkboxes
+        const endorsements = d.endorsements ? d.endorsements.split(',').map(e => e.trim()) : [];
+        document.querySelectorAll('#detailDriverInfo .dp-endorse-chip input').forEach(cb => {
+            cb.checked = endorsements.includes(cb.value);
+        });
 
-        $('detailDriverInfo').innerHTML = infoItems.map(item => {
-            const valHtml = item.value
-                ? escapeHtml(item.value) + (item.tag ? ' ' + item.tag : '')
-                : '<span class="missing">—</span>';
-            return `<div class="detail-info-item${item.full ? ' full-width' : ''}">
-                <span class="detail-info-label">${escapeHtml(item.label)}</span>
-                <span class="detail-info-value${item.value ? '' : ' missing'}">${valHtml}</span>
-            </div>`;
-        }).join('');
+        // Mark fields with values as "has-value" for styling
+        document.querySelectorAll('#detailDriverInfo .detail-field-input').forEach(inp => {
+            inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
+        });
 
-        // Doc grid — render skeleton, then load
-        renderDetailDocGrid([], id);
-        loadDriverDocs(id).then(docs => renderDetailDocGrid(docs, id));
+        // Documents section — only for existing drivers
+        const docsSection = $('detailDocsSection');
+        if (docsSection) {
+            if (!isCreate && id) {
+                docsSection.style.display = '';
+                renderDetailDocGrid([], id);
+                loadDriverDocs(id).then(docs => renderDetailDocGrid(docs, id));
+            } else {
+                docsSection.style.display = 'none';
+            }
+        }
+
+        // Panel mode class
+        const panel = $('driverDetailPanel');
+        panel.classList.toggle('is-create', isCreate);
 
         // Show panel
         $('driverDetailBackdrop').classList.remove('hidden');
-        $('driverDetailPanel').classList.remove('hidden');
+        panel.classList.remove('hidden');
+        detailPanelOpen = true;
 
         // Highlight active row
         document.querySelectorAll('#driversTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
-        const activeRow = document.querySelector(`#driversTableBody tr[data-id="${id}"]`);
-        if (activeRow) activeRow.classList.add('detail-active');
+        if (id) {
+            const activeRow = document.querySelector(`#driversTableBody tr[data-id="${id}"]`);
+            if (activeRow) activeRow.classList.add('detail-active');
+        }
+
+        // Focus first field in create mode
+        if (isCreate) setTimeout(() => $('dpFirstName').focus(), 100);
     }
 
     function closeDriverDetailPanel() {
         $('driverDetailBackdrop').classList.add('hidden');
         $('driverDetailPanel').classList.add('hidden');
         detailPanelDriverId = null;
+        detailPanelOpen = false;
         document.querySelectorAll('#driversTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
+    }
+
+    function getDetailPanelPayload() {
+        const endorsements = [];
+        document.querySelectorAll('#detailDriverInfo .dp-endorse-chip input:checked').forEach(cb => {
+            endorsements.push(cb.value);
+        });
+        return {
+            firstName: $('dpFirstName').value.trim(),
+            lastName: $('dpLastName').value.trim(),
+            phone: stripPhone($('dpPhone').value),
+            email: $('dpEmail').value.trim(),
+            cdl: $('dpCdl').value.trim().toUpperCase(),
+            cdlState: $('dpCdlState').value,
+            cdlExp: $('dpCdlExp').value,
+            medExp: $('dpMedExp').value,
+            truck: $('dpTruck').value,
+            status: $('dpStatus').value || 'active',
+            hireDate: $('dpHireDate').value,
+            dob: $('dpDob').value,
+            endorsements: endorsements.join(','),
+            emergencyName: $('dpEmergencyName').value.trim(),
+            emergencyPhone: stripPhone($('dpEmergencyPhone').value),
+            address: $('dpAddress').value.trim(),
+            notes: $('dpNotes').value.trim(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+    }
+
+    async function saveDriverFromPanel() {
+        const payload = getDetailPanelPayload();
+        if (!payload.firstName) {
+            showMsg('First name is required', true);
+            $('dpFirstName').focus();
+            return;
+        }
+        try {
+            if (detailPanelDriverId) {
+                // Update existing
+                await col('drivers').doc(detailPanelDriverId).update(payload);
+                showMsg('Driver updated');
+            } else {
+                // Create new
+                payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                const ref = await col('drivers').add(payload);
+                detailPanelDriverId = ref.id;
+                showMsg('Driver added');
+                // Switch to edit mode — show docs section, update header
+                $('detailDriverName').textContent = [payload.firstName, payload.lastName].filter(Boolean).join(' ');
+                $('driverDetailPanel').classList.remove('is-create');
+                const statusEl = $('detailDriverStatus');
+                statusEl.style.display = '';
+                statusEl.className = 'status-badge ' + payload.status;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
+                const docsSection = $('detailDocsSection');
+                if (docsSection) {
+                    docsSection.style.display = '';
+                    renderDetailDocGrid([], detailPanelDriverId);
+                }
+            }
+            await loadDrivers();
+            updateOverview();
+            renderDrivers();
+        } catch (err) {
+            console.error('Save driver panel error:', err);
+            showMsg('Error saving driver', true);
+        }
+    }
+
+    async function autoSaveDetailField(key) {
+        if (!detailPanelDriverId) return; // Don't auto-save in create mode
+        const payload = getDetailPanelPayload();
+        try {
+            await col('drivers').doc(detailPanelDriverId).update(payload);
+            // Update local state
+            const d = state.drivers.find(x => x.id === detailPanelDriverId);
+            if (d) Object.assign(d, payload, { id: detailPanelDriverId });
+            // Update header name if name fields changed
+            if (key === 'firstName' || key === 'lastName') {
+                const name = [payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Unnamed Driver';
+                $('detailDriverName').textContent = name;
+            }
+            if (key === 'status') {
+                const statusEl = $('detailDriverStatus');
+                statusEl.className = 'status-badge ' + payload.status;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
+            }
+            renderDrivers();
+        } catch (err) {
+            console.error('Auto-save field error:', err);
+        }
     }
 
     function renderDetailDocGrid(docs, driverId) {
@@ -3845,16 +3999,35 @@
     function initDriverDetailPanel() {
         $('detailCloseBtn').addEventListener('click', closeDriverDetailPanel);
         $('driverDetailBackdrop').addEventListener('click', closeDriverDetailPanel);
-        $('detailEditBtn').addEventListener('click', () => {
-            if (detailPanelDriverId) {
-                closeDriverDetailPanel();
-                editDriver(detailPanelDriverId);
-            }
-        });
+        $('detailSaveBtn').addEventListener('click', saveDriverFromPanel);
 
         // Escape key
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && detailPanelDriverId) closeDriverDetailPanel();
+            if (e.key === 'Escape' && detailPanelOpen) closeDriverDetailPanel();
+        });
+
+        // Auto-save on blur for existing drivers
+        document.querySelectorAll('#detailDriverInfo .detail-field-input').forEach(inp => {
+            let timer;
+            inp.addEventListener('blur', () => {
+                const key = inp.closest('.detail-field')?.dataset.key;
+                if (key) {
+                    inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
+                    autoSaveDetailField(key);
+                }
+            });
+            // Live formatting
+            if (inp.id === 'dpPhone' || inp.id === 'dpEmergencyPhone') {
+                inp.addEventListener('input', () => formatPhoneLive(inp));
+            }
+            if (inp.id === 'dpCdl') {
+                inp.addEventListener('input', () => { inp.value = inp.value.toUpperCase(); });
+            }
+        });
+
+        // Endorsement checkbox auto-save
+        document.querySelectorAll('#detailDriverInfo .dp-endorse-chip input').forEach(cb => {
+            cb.addEventListener('change', () => autoSaveDetailField('endorsements'));
         });
 
         // Delegated upload + replace + delete on doc grid
@@ -3867,7 +4040,6 @@
                 const docType = input.dataset.type;
                 const file = input.files[0];
 
-                // If replacing, delete old first
                 const replaceDocId = input.dataset.replaceDoc;
                 const replacePath = input.dataset.replacePath;
                 if (replaceDocId && replacePath) {
@@ -4816,8 +4988,7 @@
         if (t) openTrailerModal(t);
     }
     function editDriver(id) {
-        const d = state.drivers.find(x => x.id === id);
-        if (d) openDriverModal(d);
+        if (id) openDriverDetailPanel(id);
     }
 
     // ── Close modals on backdrop click ────
@@ -5183,7 +5354,7 @@
         toggleDriverColumn,
         addTruck: () => openSheetModal('truck'),
         addTrailer: () => openSheetModal('trailer'),
-        addDriver: () => openDriverSheet()
+        addDriver: () => openDriverDetailPanel(null)
     };
 
     // Start when DOM is ready
