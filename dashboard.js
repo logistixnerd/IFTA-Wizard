@@ -850,6 +850,7 @@
         const notice = $('companyLockedNotice');
         const lookupBar = $('fmcsaLookupBar');
         const verifyCard = $('fmcsaVerifyCard');
+        const changeBtn = $('companyChangeBtn');
 
         if (isSet) {
             if (notice) notice.classList.remove('hidden');
@@ -860,25 +861,22 @@
                 const el = $(id);
                 if (el) { el.readOnly = true; el.classList.add('field-locked'); }
             });
+
+            if (changeBtn) changeBtn.onclick = unlockCompany;
         } else {
             if (notice) notice.classList.add('hidden');
             if (lookupBar) lookupBar.style.display = '';
-
             ['dashCompany', 'dashDotNumber', 'dashMcNumber', 'dashEin'].forEach(id => {
                 const el = $(id);
                 if (el) { el.readOnly = false; el.classList.remove('field-locked'); }
             });
         }
-
-        const removeBtn = $('removeCompanyBtn');
-        if (removeBtn && !removeBtn._bound) {
-            removeBtn._bound = true;
-            removeBtn.addEventListener('click', removeCompany);
-        }
     }
 
-    async function removeCompany() {
-        if (!confirm('Are you sure you want to remove this company? All company identity fields will be cleared. Your trucks, trailers, and drivers will remain.')) return;
+    async function unlockCompany() {
+        const ok = confirm('Are you sure you want to remove this company? This will clear your company name, DOT, MC, and EIN. Your trucks, trailers, and drivers will remain but may need to be re-associated.');
+        if (!ok) return;
+
         try {
             await db.collection('users').doc(uid()).set({
                 company: firebase.firestore.FieldValue.delete(),
@@ -889,17 +887,17 @@
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
 
-            ['dashCompany', 'dashDotNumber', 'dashMcNumber', 'dashEin'].forEach(id => {
-                const el = $(id);
-                if (el) { el.value = ''; el.readOnly = false; el.classList.remove('field-locked'); }
-            });
+            $('dashCompany').value = '';
+            $('dashDotNumber').value = '';
+            $('dashMcNumber').value = '';
+            $('dashEin').value = '';
             state.fmcsaSnapshot = null;
-            lockCompanyIfSet();
             renderComplianceSection(null);
             renderComplianceReminders(null);
+            lockCompanyIfSet();
             showMsg('Company removed. You can now set up a new company.');
         } catch (err) {
-            console.error('Remove company error:', err);
+            console.error('Unlock company error:', err);
             showMsg('Failed to remove company', true);
         }
     }
@@ -2369,26 +2367,6 @@
         const panel = $('driverDetailPanel');
         panel.classList.toggle('is-create', isCreate);
 
-        // Toggle section visibility — same layout for new & existing
-        const infoSection = $('detailInfoSection');
-        const composeSection = $('detailComposeSection');
-        const tasksSection = $('detailTasksSection');
-        const feedSection = $('detailFeedSection');
-        const docsSection = $('detailDocsSection');
-        if (isCreate) {
-            if (infoSection) infoSection.classList.remove('collapsed');
-        } else {
-            if (infoSection) infoSection.classList.add('collapsed');
-        }
-        if (isCreate) {
-            if (composeSection) composeSection.classList.add('collapsed');
-        } else {
-            if (composeSection) composeSection.classList.remove('collapsed');
-        }
-        if (tasksSection) tasksSection.classList.add('collapsed');
-        if (feedSection) feedSection.classList.add('collapsed');
-        if (docsSection) docsSection.classList.add('collapsed');
-
         $('driverDetailBackdrop').classList.remove('hidden');
         panel.classList.remove('hidden');
         detailPanelOpen = true;
@@ -2591,8 +2569,6 @@
         $('detailCloseBtn').addEventListener('click', closeDriverDetailPanel);
         $('driverDetailBackdrop').addEventListener('click', closeDriverDetailPanel);
         $('detailSaveBtn').addEventListener('click', saveDriverFromPanel);
-        const infoSaveBtn = $('detailInfoSaveBtn');
-        if (infoSaveBtn) infoSaveBtn.addEventListener('click', saveDriverFromPanel);
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && detailPanelOpen) closeDriverDetailPanel();
@@ -4147,7 +4123,7 @@
     function truckLabel(truckId) {
         if (!truckId) return '—';
         const t = state.trucks.find(tr => tr.id === truckId);
-        return t ? t.unit : '—';
+        return t ? ('Unit ' + t.unit) : '—';
     }
 
     // ── Validation Indicator Helpers ───────

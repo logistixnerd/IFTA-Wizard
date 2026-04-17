@@ -215,6 +215,10 @@
     color: var(--primary);
     opacity: 0.6;
 }
+.company-locked-notice .company-change-btn {
+    margin-left: auto;
+    flex-shrink: 0;
+}
 .company-locked-notice.hidden { display: none; }
 .field-locked {
     background: rgba(0, 0, 0, 0.02) !important;
