@@ -665,7 +665,8 @@
                                 <!-- Company Locked Notice (shown after initial setup) -->
                                 <div class="company-locked-notice hidden" id="companyLockedNotice">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-                                    <span>Company profile is locked. To operate under a different company, create a new account.</span>
+                                    <span>Company profile is locked.</span>
+                                    <button type="button" class="btn btn-danger btn-xs" id="removeCompanyBtn">Remove Company</button>
                                 </div>
 
                                 <!-- FMCSA Lookup Bar -->
@@ -2585,7 +2586,12 @@
 
         <div class="detail-panel-body">
             <!-- Compose -->
-            <div class="detail-section dp-compose-section">
+            <div class="detail-section dp-section-collapsible" id="detailComposeSection">
+                <button class="dp-section-toggle" data-target="detailComposeSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Compose</span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
                 <div class="dp-compose">
                     <textarea id="detailNoteText" class="dp-compose-input" placeholder="Log a note, report an issue, or create a task..." rows="3"></textarea>
                     <div class="dp-compose-bar">
@@ -2609,6 +2615,7 @@
                             Post
                         </button>
                     </div>
+                </div>
                 </div>
             </div>
 
