@@ -2592,10 +2592,9 @@
         const cols = UNIFIED_COLS[type];
         const vis = uSheetState.visibleCols[type];
         dropdown.innerHTML = cols.map(c => {
-            const checked = vis.has(c.key) ? 'checked' : '';
-            const disabled = c.required ? 'disabled' : '';
-            const lockedClass = c.required ? ' usheet-toggle-locked' : '';
-            return `<label class="usheet-col-opt${lockedClass}"><input type="checkbox" value="${c.key}" ${checked} ${disabled}><span class="usheet-toggle"></span><span class="usheet-col-label">${escapeHtml(c.label)}</span></label>`;
+            const active = vis.has(c.key);
+            const locked = c.required;
+            return `<button type="button" class="usheet-card${active ? ' active' : ''}${locked ? ' locked' : ''}" data-col="${c.key}"${locked ? ' disabled' : ''}>${escapeHtml(c.label)}</button>`;
         }).join('');
     }
 
@@ -2971,11 +2970,21 @@
             }
         });
 
-        // Column picker change
-        colDropdown.addEventListener('change', (e) => {
-            if (e.target.type === 'checkbox') {
-                uToggleCol(uSheetState.type, e.target.value, e.target.checked);
-            }
+        // Column picker change — card click
+        colDropdown.addEventListener('click', (e) => {
+            const card = e.target.closest('.usheet-card');
+            if (!card || card.disabled) return;
+            const key = card.dataset.col;
+            const isActive = card.classList.contains('active');
+
+            // Vanish animation
+            card.classList.add('usheet-card-vanish');
+            card.addEventListener('animationend', function handler() {
+                card.removeEventListener('animationend', handler);
+                card.classList.remove('usheet-card-vanish');
+                card.classList.toggle('active');
+                uToggleCol(uSheetState.type, key, !isActive);
+            }, { once: true });
         });
 
         // Close column picker on outside click

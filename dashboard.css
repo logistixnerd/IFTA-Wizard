@@ -5351,14 +5351,14 @@ input[type="date"].ss-input {
     z-index: 10000;
     background: #fff;
     border: 1px solid #e5e7eb;
-    border-radius: 8px;
+    border-radius: 10px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    padding: 6px;
+    padding: 8px;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    max-width: 360px;
-    min-width: 180px;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 380px;
+    min-width: 200px;
     max-height: 320px;
     overflow-y: auto;
     scrollbar-width: thin;
@@ -5374,86 +5374,63 @@ input[type="date"].ss-input {
     border-radius: 3px;
 }
 
-.usheet-col-opt {
-    display: flex;
+/* Mini card */
+.usheet-card {
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 10px;
-    border-radius: 5px;
-    cursor: pointer;
+    padding: 5px 12px;
+    border-radius: 20px;
     font-size: 0.6875rem;
-    font-weight: 500;
-    color: #374151;
-    transition: background 0.1s;
-    white-space: nowrap;
-    width: 100%;
-}
-
-.usheet-col-opt:hover {
-    background: #f3f4f6;
-}
-
-.usheet-col-opt.usheet-toggle-locked {
-    opacity: 0.55;
-    cursor: default;
-}
-
-/* Hide the real checkbox */
-.usheet-col-opt input[type="checkbox"] {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
-}
-
-/* Toggle track */
-.usheet-toggle {
-    position: relative;
-    display: inline-block;
-    width: 28px;
-    height: 16px;
-    background: #d1d5db;
-    border-radius: 8px;
-    flex-shrink: 0;
-    transition: background 0.2s;
-}
-
-/* Toggle knob */
-.usheet-toggle::after {
-    content: '';
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 12px;
-    height: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    border: 1.5px solid #e5e7eb;
     background: #fff;
-    border-radius: 50%;
-    transition: transform 0.2s;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+    color: #6b7280;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+    user-select: none;
+    line-height: 1.2;
 }
 
-/* Checked state */
-.usheet-col-opt input:checked + .usheet-toggle {
+.usheet-card:hover {
+    border-color: #c7d2fe;
+    color: #4f46e5;
+    background: #f5f3ff;
+}
+
+/* Active card — filled pill */
+.usheet-card.active {
     background: #6366f1;
+    color: #fff;
+    border-color: #6366f1;
+    box-shadow: 0 1px 4px rgba(99,102,241,0.25);
 }
 
-.usheet-col-opt input:checked + .usheet-toggle::after {
-    transform: translateX(12px);
+.usheet-card.active:hover {
+    background: #4f46e5;
+    border-color: #4f46e5;
 }
 
-/* Disabled locked toggle */
-.usheet-col-opt input:disabled + .usheet-toggle {
-    background: #a5b4fc;
+/* Locked card — always active, can't toggle */
+.usheet-card.locked {
+    background: #eef2ff;
+    color: #818cf8;
+    border-color: #c7d2fe;
     cursor: default;
+    opacity: 0.7;
 }
 
-.usheet-col-opt input:disabled + .usheet-toggle::after {
-    transform: translateX(12px);
+/* Vanish animation */
+@keyframes usheet-vanish {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(0.6); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
 }
 
-.usheet-col-label {
-    line-height: 1;
+.usheet-card-vanish {
+    animation: usheet-vanish 0.3s ease;
+    pointer-events: none;
 }
 
 /* ── Body / Table ── */
