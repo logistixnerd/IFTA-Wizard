@@ -3456,6 +3456,21 @@
         const modal = $('driverModal');
         const shouldExpand = data && hasAdvancedData([data.cdlState, data.cdlExp, data.medExp, data.email, data.truck, data.hireDate, data.dob, data.address, data.emergencyName, data.emergencyPhone, data.mvrDate, data.bgCheck, data.notes]);
         setExpandState(modal, shouldExpand);
+
+        // Documents section — only show when editing an existing driver
+        const docsSection = $('driverDocsSection');
+        const docsList = $('driverDocsList');
+        if (docsSection) {
+            if (data && data.id) {
+                docsSection.style.display = '';
+                if (docsList) docsList.innerHTML = '<p class="doc-empty">Loading…</p>';
+                loadDriverDocs(data.id).then(docs => renderDriverDocs(docs, data.id));
+            } else {
+                docsSection.style.display = 'none';
+                if (docsList) docsList.innerHTML = '';
+            }
+        }
+
         modal.classList.remove('hidden');
     }
 
@@ -3475,6 +3490,8 @@
         // Uppercase CDL in edit modal
         const cdlEl = $('driverCdl');
         if (cdlEl) cdlEl.addEventListener('input', () => { cdlEl.value = cdlEl.value.toUpperCase(); });
+
+        initDriverDocEvents();
 
         const importDriverBtn = $('importDriversBtn');
         if (importDriverBtn) {
@@ -3531,6 +3548,136 @@
                 showMsg('Error saving driver', true);
             }
         });
+    }
+
+    // ── Driver Document Upload (Firebase Storage) ─────────────
+    const DOC_TYPE_LABELS = {
+        cdl: 'CDL', medical: 'Medical Card', contract: 'Contract',
+        mvr: 'MVR Report', psp: 'PSP Report', photo: 'Photo', other: 'Other'
+    };
+    const MAX_DOC_SIZE = 10 * 1024 * 1024; // 10 MB
+
+    function driverStoragePath(driverId, fileName) {
+        return `users/${uid()}/drivers/${driverId}/docs/${Date.now()}_${fileName}`;
+    }
+
+    async function uploadDriverDoc(driverId, file, docType) {
+        if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return null; }
+        const path = driverStoragePath(driverId, file.name);
+        const ref = storage.ref(path);
+        const uploading = $('driverDocsUploading');
+        const bar = uploading ? uploading.querySelector('.doc-upload-progress > span') : null;
+        if (uploading) uploading.classList.remove('hidden');
+        const task = ref.put(file);
+        task.on('state_changed', (snap) => {
+            const pct = (snap.bytesTransferred / snap.totalBytes) * 100;
+            if (bar) bar.style.width = pct + '%';
+        });
+        try {
+            await task;
+            const url = await ref.getDownloadURL();
+            const docEntry = {
+                name: file.name,
+                type: docType,
+                storagePath: path,
+                url: url,
+                size: file.size,
+                contentType: file.type,
+                uploadedAt: new Date().toISOString()
+            };
+            // Save to Firestore driver subcollection
+            await col('drivers').doc(driverId).collection('documents').add(docEntry);
+            // Update docs array on driver record for quick access
+            await col('drivers').doc(driverId).update({
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            if (uploading) uploading.classList.add('hidden');
+            if (bar) bar.style.width = '0%';
+            showMsg('Document uploaded');
+            return docEntry;
+        } catch (err) {
+            console.error('Upload error:', err);
+            if (uploading) uploading.classList.add('hidden');
+            if (bar) bar.style.width = '0%';
+            showMsg('Upload failed: ' + (err.message || err), true);
+            return null;
+        }
+    }
+
+    async function deleteDriverDoc(driverId, docId, storagePath) {
+        try {
+            await storage.ref(storagePath).delete();
+        } catch (err) {
+            if (err.code !== 'storage/object-not-found') console.warn('Storage delete warning:', err);
+        }
+        await col('drivers').doc(driverId).collection('documents').doc(docId).delete();
+        await col('drivers').doc(driverId).update({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        showMsg('Document removed');
+    }
+
+    async function loadDriverDocs(driverId) {
+        const snap = await col('drivers').doc(driverId).collection('documents').orderBy('uploadedAt', 'desc').get();
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    function renderDriverDocs(docs, driverId) {
+        const list = $('driverDocsList');
+        if (!list) return;
+        if (!docs.length) { list.innerHTML = '<p class="doc-empty">No documents uploaded</p>'; return; }
+        list.innerHTML = docs.map(doc => {
+            const icon = doc.contentType && doc.contentType.startsWith('image/') ? '🖼️' : '📄';
+            const size = doc.size ? (doc.size < 1024 ? doc.size + ' B' : (doc.size / 1024).toFixed(0) + ' KB') : '';
+            const label = DOC_TYPE_LABELS[doc.type] || doc.type || 'Other';
+            return `<div class="driver-doc-item" data-doc-id="${doc.id}">
+                <span class="doc-icon">${icon}</span>
+                <div class="doc-info">
+                    <span class="doc-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</span>
+                    <span class="doc-meta">${escapeHtml(label)}${size ? ' · ' + size : ''}</span>
+                </div>
+                <a href="${escapeHtml(doc.url)}" target="_blank" rel="noopener" class="doc-action" title="Download">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </a>
+                <button type="button" class="doc-action doc-delete" title="Delete" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}" data-driver="${driverId}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </div>`;
+        }).join('');
+    }
+
+    function initDriverDocEvents() {
+        // Upload trigger
+        const fileInput = $('driverDocFile');
+        if (fileInput) {
+            fileInput.addEventListener('change', async () => {
+                const file = fileInput.files[0];
+                if (!file) return;
+                const driverId = $('driverEditId').value;
+                if (!driverId) { showMsg('Save driver first before uploading documents', true); fileInput.value = ''; return; }
+                const docType = $('driverDocType').value;
+                const result = await uploadDriverDoc(driverId, file, docType);
+                fileInput.value = '';
+                if (result) {
+                    const docs = await loadDriverDocs(driverId);
+                    renderDriverDocs(docs, driverId);
+                }
+            });
+        }
+
+        // Delete via delegation
+        const list = $('driverDocsList');
+        if (list) {
+            list.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.doc-delete');
+                if (!btn) return;
+                const docId = btn.dataset.docId;
+                const path = btn.dataset.path;
+                const driverId = btn.dataset.driver;
+                if (!confirm('Delete this document?')) return;
+                await deleteDriverDoc(driverId, docId, path);
+                const docs = await loadDriverDocs(driverId);
+                renderDriverDocs(docs, driverId);
+            });
+        }
     }
 
     // ── Shared Helpers ────────────────────

@@ -12,6 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 </head>
 <body>
     <div class="dash-layout">
@@ -2023,6 +2024,31 @@
                             <select id="driverTruck">
                                 <option value="">Unassigned</option>
                             </select>
+                        </div>
+                        <!-- Driver Documents -->
+                        <div class="driver-docs-section" id="driverDocsSection" style="display:none">
+                            <label>Documents</label>
+                            <div class="driver-docs-upload">
+                                <select id="driverDocType">
+                                    <option value="cdl">CDL</option>
+                                    <option value="medical">Medical Card</option>
+                                    <option value="contract">Contract</option>
+                                    <option value="mvr">MVR Report</option>
+                                    <option value="psp">PSP Report</option>
+                                    <option value="photo">Photo</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                <label class="driver-doc-upload-btn" tabindex="0">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    Upload
+                                    <input type="file" id="driverDocFile" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" hidden>
+                                </label>
+                            </div>
+                            <div class="driver-docs-list" id="driverDocsList"></div>
+                            <div class="driver-docs-uploading hidden" id="driverDocsUploading">
+                                <div class="doc-upload-progress"><span></span></div>
+                                <span>Uploading…</span>
+                            </div>
                         </div>
                     </div>
                     <div class="form-actions">
