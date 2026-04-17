@@ -289,7 +289,7 @@
                 <tr class="task-row${rowClass}" data-task-id="${escapeHtml(task.id)}" data-entity-type="${escapeHtml(task.entityType)}" data-entity-id="${escapeHtml(task.entityId)}">
                     <td class="td-due-date">${task.dueDate ? escapeHtml(formatDate(task.dueDate)) : '—'}</td>
                     <td class="td-task">
-                        <strong>${escapeHtml(task.text.substring(0, 60))}</strong>
+                        <strong>${escapeHtml(task.text)}</strong>
                     </td>
                     <td class="td-entity">${escapeHtml(task.entityName)}</td>
                     <td class="td-type">${task.type ? `<span class="task-type-badge task-type-${escapeHtml(task.type)}">${escapeHtml(task.type)}</span>` : '—'}</td>

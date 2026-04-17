@@ -2768,6 +2768,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     max-width: 300px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .td-assigned {
