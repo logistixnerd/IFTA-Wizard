@@ -2151,9 +2151,9 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.trucks.filter(t => matchesFilter(t, 'truck'));
-        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.doNotDispatch ? 'row-dnd' : ''} ${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(t)}
-            <td class="col-unit"><div class="cell cell-primary" title="Open unit profile for ${escapeHtml(t.unit || t.id)}"><strong>${escapeHtml(t.unit || t.id)}</strong></div></td>
+            <td class="col-unit"><div class="cell cell-primary" title="Open truck profile for ${escapeHtml(t.unit || t.id)}"><strong>${escapeHtml(t.unit || t.id)}</strong>${t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : ''}</div></td>
             <td class="col-year"><div class="cell">${escapeHtml(t.year)}</div></td>
             <td class="col-make"><div class="cell">${escapeHtml(t.make)}</div></td>
             <td class="col-model"><div class="cell">${escapeHtml(t.model)}</div></td>
@@ -2174,12 +2174,12 @@
 
     function openTruckProfile(id) {
         if (!id) return;
-        window.location.href = 'unit-profile.html?truck=' + encodeURIComponent(id);
+        openTruckDetailPanel(id);
     }
 
     function openTrailerProfile(id) {
         if (!id) return;
-        window.location.href = 'trailer-profile.html?trailer=' + encodeURIComponent(id);
+        openTrailerDetailPanel(id);
     }
 
     function openDriverProfile(id) {
@@ -3116,6 +3116,1185 @@
         ].join('');
     }
 
+    // ── Truck Detail Panel (slide-out) ────────
+    let truckPanelId = null;
+    let truckPanelOpen = false;
+
+    const TRUCK_DOC_TYPES = ['registration', 'insurance', 'inspection', 'title', 'lease', 'photo', 'other'];
+    const TRUCK_DOC_LABELS = {
+        registration: 'Registration', insurance: 'Insurance', inspection: 'Inspection',
+        title: 'Title', lease: 'Lease', photo: 'Photo', other: 'Other'
+    };
+
+    function truckStoragePath(truckId, fileName) {
+        return `users/${uid()}/trucks/${truckId}/docs/${Date.now()}_${fileName}`;
+    }
+
+    async function uploadTruckDoc(truckId, file, docType) {
+        if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return null; }
+        const path = truckStoragePath(truckId, file.name);
+        const ref = storage.ref(path);
+        try {
+            await ref.put(file);
+            const url = await ref.getDownloadURL();
+            const docEntry = { name: file.name, type: docType, storagePath: path, url, size: file.size, contentType: file.type, uploadedAt: new Date().toISOString() };
+            await col('trucks').doc(truckId).collection('documents').add(docEntry);
+            showMsg('Document uploaded');
+            return docEntry;
+        } catch (err) { console.error('Upload error:', err); showMsg('Upload failed', true); return null; }
+    }
+
+    async function deleteTruckDoc(truckId, docId, storagePath) {
+        try { await storage.ref(storagePath).delete(); } catch (err) { if (err.code !== 'storage/object-not-found') console.warn(err); }
+        await col('trucks').doc(truckId).collection('documents').doc(docId).delete();
+        showMsg('Document removed');
+    }
+
+    async function loadTruckDocs(truckId) {
+        const snap = await col('trucks').doc(truckId).collection('documents').orderBy('uploadedAt', 'desc').get();
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    function renderTruckDocGrid(docs, truckId) {
+        const grid = $('truckDocGrid');
+        if (!grid) return;
+        const docMap = {};
+        docs.forEach(d => { if (!docMap[d.type]) docMap[d.type] = d; });
+        grid.innerHTML = TRUCK_DOC_TYPES.map(type => {
+            const doc = docMap[type];
+            const label = TRUCK_DOC_LABELS[type] || type;
+            if (doc) {
+                return `<div class="doc-slot doc-slot--filled">
+                    <div class="doc-slot-label">${escapeHtml(label)}</div>
+                    <a href="${escapeHtml(doc.url)}" target="_blank" class="doc-slot-file">${escapeHtml(doc.name)}</a>
+                    <button class="doc-slot-delete" data-truck="${truckId}" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}" title="Remove">&times;</button>
+                    <label class="doc-slot-replace">Replace<input type="file" data-truck="${truckId}" data-type="${type}" data-replace-doc="${doc.id}" data-replace-path="${escapeHtml(doc.storagePath)}" hidden></label>
+                </div>`;
+            }
+            return `<div class="doc-slot"><div class="doc-slot-label">${escapeHtml(label)}</div><label class="doc-slot-upload">Upload<input type="file" data-truck="${truckId}" data-type="${type}" hidden></label></div>`;
+        }).join('');
+    }
+
+    function openTruckDetailPanel(id) {
+        const isCreate = !id;
+        const t = isCreate ? {} : state.trucks.find(x => x.id === id);
+        if (!isCreate && !t) return;
+        truckPanelId = id || null;
+
+        const name = isCreate ? 'New Truck' : (t.unit || 'Unnamed Truck');
+        $('detailTruckName').textContent = name;
+        const statusEl = $('detailTruckStatus');
+        if (isCreate) { statusEl.style.display = 'none'; }
+        else {
+            statusEl.style.display = '';
+            statusEl.className = 'status-badge ' + (t.status || 'active');
+            statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(t.status || 'active');
+        }
+
+        // DND badge + button
+        const dndBadge = $('detailTruckDNDBadge');
+        if (dndBadge) dndBadge.classList.toggle('hidden', isCreate || !t.doNotDispatch);
+        const dndBtn = $('tpActionDND');
+        if (dndBtn) {
+            dndBtn.classList.toggle('hidden', isCreate || !t.doNotDispatch || !canToggleDND());
+            if (!isCreate) updateTruckDNDVisuals(t);
+        }
+        const dndField = $('tpDNDField');
+        const dndToggle = $('tpDNDToggle');
+        if (dndField && dndToggle) {
+            dndField.classList.toggle('hidden', isCreate || !t.doNotDispatch || !canToggleDND());
+            dndToggle.checked = !!t.doNotDispatch;
+            $('tpDNDLabel').textContent = t.doNotDispatch ? 'Active' : 'Off';
+        }
+
+        $('tpUnit').value = t.unit || '';
+        $('tpStatus').value = t.status || 'active';
+        $('tpYear').value = t.year || '';
+        $('tpMake').value = t.make || '';
+        $('tpModel').value = t.model || '';
+        $('tpVin').value = t.vin || '';
+        $('tpPlate').value = t.plate || '';
+        $('tpPlateState').value = t.plateState || '';
+        $('tpFuel').value = t.fuel || 'diesel';
+        $('tpAnnualInspDate').value = t.annualInspDate || '';
+        $('tpRegistrationExp').value = t.registrationExp || '';
+        $('tpInsuranceExp').value = t.insuranceExp || '';
+        $('tpNotes').value = t.notes || '';
+
+        document.querySelectorAll('#detailTruckInfo .detail-field-input').forEach(inp => {
+            inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
+        });
+
+        // Docs
+        const docGrid = $('truckDocGrid');
+        if (docGrid) {
+            if (!isCreate && id) {
+                renderTruckDocGrid([], id);
+                loadTruckDocs(id).then(docs => renderTruckDocGrid(docs, id));
+            } else { renderTruckDocGrid([], '__new__'); }
+        }
+
+        const panel = $('truckDetailPanel');
+        panel.classList.toggle('is-create', isCreate);
+
+        // Section collapse states
+        const infoSec = $('truckInfoSection');
+        const composeSec = $('truckComposeSection');
+        const tasksSec = $('truckTasksSection');
+        const feedSec = $('truckFeedSection');
+        const docsSec = $('truckDocsSection');
+        if (isCreate) {
+            infoSec?.classList.remove('collapsed');
+            composeSec?.classList.add('collapsed');
+            tasksSec?.classList.add('collapsed');
+            feedSec?.classList.add('collapsed');
+            docsSec?.classList.add('collapsed');
+        } else {
+            infoSec?.classList.add('collapsed');
+            composeSec?.classList.remove('collapsed');
+            tasksSec?.classList.remove('collapsed');
+            feedSec?.classList.remove('collapsed');
+            docsSec?.classList.add('collapsed');
+        }
+
+        $('truckDetailBackdrop').classList.remove('hidden');
+        panel.classList.remove('hidden');
+        truckPanelOpen = true;
+
+        document.querySelectorAll('#trucksTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
+        if (id) {
+            const activeRow = document.querySelector(`#trucksTableBody tr[data-id="${id}"]`);
+            if (activeRow) activeRow.classList.add('detail-active');
+        }
+
+        if (isCreate) setTimeout(() => $('tpUnit').focus(), 100);
+
+        renderTruckPanelSummary();
+
+        // Load feeds
+        const notesFeed = $('truckNotesFeed');
+        const tasksFeed = $('truckTasksFeed');
+        if (notesFeed) notesFeed.innerHTML = '<p class="dp-empty">Loading\u2026</p>';
+        if (tasksFeed) tasksFeed.innerHTML = '<p class="dp-empty">Loading\u2026</p>';
+        $('truckNoteCount').textContent = '';
+        $('truckTaskCount').textContent = '';
+        const noteText = $('truckNoteText');
+        if (noteText) { noteText.value = ''; noteText.style.height = 'auto'; }
+        const notePost = $('truckNotePost');
+        if (notePost) notePost.disabled = true;
+        $('truckNoteType').value = 'note';
+        $('truckNotePriority').value = 'normal';
+
+        if (!isCreate && id) { loadTruckPanelHistory(); loadTruckPanelTasks(); }
+    }
+
+    function closeTruckDetailPanel() {
+        $('truckDetailBackdrop').classList.add('hidden');
+        $('truckDetailPanel').classList.add('hidden');
+        truckPanelId = null;
+        truckPanelOpen = false;
+        document.querySelectorAll('#trucksTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
+    }
+
+    function getTruckPanelPayload() {
+        return {
+            unit: $('tpUnit').value.trim(),
+            year: $('tpYear').value.trim(),
+            make: $('tpMake').value.trim(),
+            model: $('tpModel').value.trim(),
+            vin: $('tpVin').value.trim(),
+            plate: $('tpPlate').value.trim(),
+            plateState: $('tpPlateState').value.trim().toUpperCase(),
+            fuel: $('tpFuel').value,
+            status: $('tpStatus').value || 'active',
+            annualInspDate: $('tpAnnualInspDate').value,
+            registrationExp: $('tpRegistrationExp').value,
+            insuranceExp: $('tpInsuranceExp').value,
+            notes: $('tpNotes').value.trim(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+    }
+
+    async function saveTruckFromPanel() {
+        const payload = getTruckPanelPayload();
+        if (!payload.unit) { showMsg('Unit # is required', true); $('tpUnit').focus(); return; }
+        try {
+            if (truckPanelId) {
+                await col('trucks').doc(truckPanelId).update(payload);
+                showMsg('Truck updated');
+            } else {
+                payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                const ref = await col('trucks').add(payload);
+                truckPanelId = ref.id;
+                showMsg('Truck added');
+                $('detailTruckName').textContent = payload.unit;
+                $('truckDetailPanel').classList.remove('is-create');
+                const statusEl = $('detailTruckStatus');
+                statusEl.style.display = '';
+                statusEl.className = 'status-badge ' + payload.status;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
+                renderTruckDocGrid([], truckPanelId);
+            }
+            await loadTrucks();
+            populateTruckDropdown();
+            updateOverview();
+            renderTrucks();
+        } catch (err) { console.error('Save truck panel error:', err); showMsg('Error saving truck', true); }
+    }
+
+    async function autoSaveTruckField() {
+        if (!truckPanelId) return;
+        try { await col('trucks').doc(truckPanelId).update(getTruckPanelPayload()); } catch (e) { console.error(e); }
+    }
+
+    async function toggleTruckDND() {
+        if (!truckPanelId || !canToggleDND()) return;
+        const t = state.trucks.find(x => x.id === truckPanelId);
+        if (!t) return;
+        const newDnd = !t.doNotDispatch;
+        const action = newDnd ? 'place on' : 'remove from';
+        if (!confirm(`Are you sure you want to ${action} Do Not Dispatch for truck ${t.unit}?`)) {
+            const toggle = $('tpDNDToggle');
+            if (toggle) toggle.checked = !!t.doNotDispatch;
+            return;
+        }
+        try {
+            await col('trucks').doc(truckPanelId).update({
+                doNotDispatch: newDnd, dndSetBy: state.user.email || '', dndSetAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            t.doNotDispatch = newDnd;
+            updateTruckDNDVisuals(t);
+            const toggle = $('tpDNDToggle');
+            if (toggle) toggle.checked = newDnd;
+            const dndField = $('tpDNDField');
+            if (dndField) dndField.classList.toggle('hidden', !newDnd);
+            $('tpDNDLabel').textContent = newDnd ? 'Active' : 'Off';
+            renderTrucks();
+            renderTruckPanelSummary();
+            showMsg(newDnd ? 'Truck placed on Do Not Dispatch' : 'Do Not Dispatch removed');
+            try {
+                await col('trucks').doc(truckPanelId).collection('history').add({
+                    type: 'system', text: newDnd ? 'Placed on Do Not Dispatch' : 'Removed from Do Not Dispatch',
+                    by: state.user.email || 'Unknown', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                loadTruckPanelHistory();
+            } catch (e) { console.error(e); }
+        } catch (err) {
+            console.error(err);
+            const toggle = $('tpDNDToggle');
+            if (toggle) toggle.checked = !!t.doNotDispatch;
+            showMsg('Error updating Do Not Dispatch', true);
+        }
+    }
+
+    function updateTruckDNDVisuals(t) {
+        const dndBtn = $('tpActionDND');
+        if (dndBtn) {
+            if (t.doNotDispatch) { dndBtn.classList.add('dp-qaction--active'); dndBtn.querySelector('span:last-child').textContent = 'Remove DND'; dndBtn.title = 'Remove Do Not Dispatch'; }
+            else { dndBtn.classList.remove('dp-qaction--active'); dndBtn.querySelector('span:last-child').textContent = 'DND'; dndBtn.title = 'Do Not Dispatch'; }
+        }
+        const badge = $('detailTruckDNDBadge');
+        if (badge) badge.classList.toggle('hidden', !t.doNotDispatch);
+    }
+
+    function renderTruckPanelSummary() {
+        const bar = $('truckSummaryBar');
+        if (!bar || !truckPanelId) { if (bar) bar.innerHTML = ''; return; }
+        const t = state.trucks.find(x => x.id === truckPanelId);
+        if (!t) { bar.innerHTML = ''; return; }
+        const chips = [];
+        const now = new Date();
+        const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        function dateChip(label, dateStr) {
+            if (!dateStr) return { label, text: 'N/A', cls: 'dp-chip--gray' };
+            const dt = new Date(dateStr);
+            if (dt < now) return { label, text: 'Expired', cls: 'dp-chip--red' };
+            if (dt < soon) return { label, text: 'Due soon', cls: 'dp-chip--yellow' };
+            return { label, text: 'Current', cls: 'dp-chip--green' };
+        }
+
+        chips.push(dateChip('Inspection', t.annualInspDate));
+        chips.push(dateChip('Registration', t.registrationExp));
+        chips.push(dateChip('Insurance', t.insuranceExp));
+
+        const statusCls = t.status === 'active' ? 'dp-chip--green' : t.status === 'maintenance' ? 'dp-chip--yellow' : 'dp-chip--red';
+        chips.push({ label: 'Status', text: statusLabel(t.status || 'active'), cls: statusCls });
+
+        if (t.doNotDispatch) chips.unshift({ label: 'DND', text: 'Do Not Dispatch', cls: 'dp-chip--red' });
+
+        bar.innerHTML = chips.map(c =>
+            `<span class="${c.cls} dp-chip"><span class="dp-chip-dot"></span>${escapeHtml(c.label)}: ${escapeHtml(c.text)}</span>`
+        ).join('');
+    }
+
+    async function loadTruckPanelHistory() {
+        if (!truckPanelId) return;
+        try {
+            const snap = await db.collection('users').doc(state.user.uid)
+                .collection('trucks').doc(truckPanelId)
+                .collection('history').orderBy('createdAt', 'desc').limit(50).get();
+            const items = [];
+            snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+            renderTruckPanelNotes(items);
+        } catch (err) { console.error('loadTruckPanelHistory error:', err); }
+    }
+
+    function renderTruckPanelNotes(items) {
+        const container = $('truckNotesFeed');
+        const badge = $('truckNoteCount');
+        if (!container) return;
+        if (badge) badge.textContent = items.length || '';
+        if (!items.length) { container.innerHTML = '<p class="dp-empty">No activity yet. Post a note above.</p>'; return; }
+        container.innerHTML = items.map(n => {
+            const ts = n.createdAt?.toDate?.() || (n.createdAtIso ? new Date(n.createdAtIso) : null);
+            const timeStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+            const author = n.createdBy || n.by || '';
+            const initial = author.charAt(0).toUpperCase() || 'U';
+            const priHtml = (n.priority && n.priority !== 'normal') ? `<span class="dp-note-pri" data-pri="${escapeHtml(n.priority)}">${escapeHtml(n.priority)}</span>` : '';
+            return `<div class="dp-note" data-id="${n.id}">
+                <div class="dp-note-avi">${initial}</div>
+                <div class="dp-note-body">
+                    <div class="dp-note-meta"><span class="dp-note-tag" data-type="${escapeHtml(n.type || 'note')}">${escapeHtml(n.type || 'note')}</span>${priHtml}<span class="dp-note-time">${timeStr}</span></div>
+                    <div class="dp-note-text">${escapeHtml(n.text || '')}</div>
+                    <div class="dp-note-author">${escapeHtml(author)}</div>
+                </div>
+                <button class="dp-note-del" data-id="${n.id}" title="Delete">\u2715</button>
+            </div>`;
+        }).join('');
+        container.querySelectorAll('.dp-note-del').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Delete this note?')) return;
+                try {
+                    await db.collection('users').doc(state.user.uid).collection('trucks').doc(truckPanelId).collection('history').doc(btn.dataset.id).delete();
+                    await loadTruckPanelHistory();
+                } catch (err) { console.error(err); showMsg('Error deleting note', true); }
+            });
+        });
+    }
+
+    async function loadTruckPanelTasks() {
+        if (!truckPanelId) return;
+        try {
+            const result = await FirebaseDB.getTasks(state.user.uid, 'trucks', truckPanelId, { limit: 20 });
+            if (result.success) renderTruckPanelTasks(result.data);
+        } catch (err) { console.error('loadTruckPanelTasks error:', err); }
+    }
+
+    function renderTruckPanelTasks(tasks) {
+        const container = $('truckTasksFeed');
+        const badge = $('truckTaskCount');
+        if (!container) return;
+        const open = tasks.filter(t => t.status && t.status !== 'Resolved');
+        if (badge) badge.textContent = open.length || '';
+        if (!open.length) { container.innerHTML = '<p class="dp-empty">No open tasks.</p>'; return; }
+        const now = new Date();
+        container.innerHTML = open.slice(0, 8).map(t => {
+            const ts = t.createdAt?.toDate?.() || (t.createdAtIso ? new Date(t.createdAtIso) : null);
+            const dateStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            const priHtml = (t.priority && t.priority !== 'normal') ? `<span class="dp-task-pri" data-pri="${escapeHtml(t.priority)}">${escapeHtml(t.priority)}</span>` : '';
+            const dueDate = t.dueDate ? new Date(t.dueDate) : null;
+            const overdue = dueDate && dueDate < now && t.status !== 'Resolved';
+            return `<div class="dp-task" data-id="${t.id}">
+                <div class="dp-task-top"><span class="dp-task-type">${escapeHtml(t.type || 'note')}</span>${priHtml}${overdue ? '<span class="dp-task-overdue">OVERDUE</span>' : ''}</div>
+                <div class="dp-task-text">${escapeHtml(t.text || '')}</div>
+                <div class="dp-task-bot"><span class="dp-task-date">${dateStr}</span><span class="dp-task-status" data-status="${escapeHtml(t.status || 'Open')}">${escapeHtml(t.status || 'Open')}</span></div>
+            </div>`;
+        }).join('');
+    }
+
+    async function truckPanelPostCompose() {
+        const textarea = $('truckNoteText');
+        const postBtn = $('truckNotePost');
+        const compose = textarea?.closest('.dp-compose');
+        const text = textarea?.value?.trim();
+        if (!text || !truckPanelId) return;
+        const type = $('truckNoteType')?.value || 'note';
+        const priority = $('truckNotePriority')?.value || 'normal';
+        postBtn.disabled = true;
+        postBtn.classList.add('posting');
+        try {
+            const t = state.trucks.find(x => x.id === truckPanelId);
+            const taskData = {
+                text, type, status: 'Open', priority, assignedTo: [], dueDate: null,
+                createdBy: state.user.email || state.user.uid, source: 'truck-panel',
+                truckName: t ? t.unit : truckPanelId, createdAtIso: new Date().toISOString()
+            };
+            const result = await FirebaseDB.createTask(state.user.uid, 'trucks', truckPanelId, taskData);
+            if (!result.success) throw new Error(result.error);
+            textarea.value = ''; textarea.style.height = 'auto';
+            $('truckNoteType').value = 'note'; $('truckNotePriority').value = 'normal';
+            postBtn.disabled = true;
+            if (compose) { compose.classList.add('posted'); setTimeout(() => compose.classList.remove('posted'), 600); }
+            await Promise.all([loadTruckPanelHistory(), loadTruckPanelTasks()]);
+        } catch (err) { console.error(err); showMsg('Could not post. ' + (err.message || ''), true); }
+        finally { postBtn.classList.remove('posting'); postBtn.disabled = !textarea.value.trim(); }
+    }
+
+    function initTruckDetailPanel() {
+        $('truckDetailCloseBtn').addEventListener('click', closeTruckDetailPanel);
+        $('truckDetailBackdrop').addEventListener('click', closeTruckDetailPanel);
+        $('truckDetailSaveBtn').addEventListener('click', saveTruckFromPanel);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && truckPanelOpen) closeTruckDetailPanel();
+        });
+
+        document.querySelectorAll('#detailTruckInfo .detail-field-input').forEach(inp => {
+            inp.addEventListener('blur', () => {
+                inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
+                autoSaveTruckField();
+            });
+        });
+
+        // Doc grid events
+        const grid = $('truckDocGrid');
+        if (grid) {
+            grid.addEventListener('change', async (e) => {
+                const input = e.target.closest('input[type="file"]');
+                if (!input || !input.files[0]) return;
+                let entityId = input.dataset.truck;
+                const docType = input.dataset.type;
+                const file = input.files[0];
+                if (!truckPanelId || entityId === '__new__') {
+                    const payload = getTruckPanelPayload();
+                    if (!payload.unit) { showMsg('Enter at least a unit # before uploading', true); $('tpUnit').focus(); input.value = ''; return; }
+                    try {
+                        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                        const ref = await col('trucks').add(payload);
+                        truckPanelId = ref.id; entityId = ref.id;
+                        $('detailTruckName').textContent = payload.unit;
+                        $('truckDetailPanel').classList.remove('is-create');
+                        await loadTrucks(); populateTruckDropdown(); updateOverview(); renderTrucks();
+                    } catch (err) { console.error(err); showMsg('Error saving truck', true); input.value = ''; return; }
+                }
+                const replaceDocId = input.dataset.replaceDoc;
+                const replacePath = input.dataset.replacePath;
+                if (replaceDocId && replacePath) await deleteTruckDoc(entityId, replaceDocId, replacePath);
+                await uploadTruckDoc(entityId, file, docType);
+                input.value = '';
+                const docs = await loadTruckDocs(entityId);
+                renderTruckDocGrid(docs, entityId);
+            });
+            grid.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.doc-slot-delete');
+                if (!btn) return;
+                if (!confirm('Delete this document?')) return;
+                await deleteTruckDoc(btn.dataset.truck, btn.dataset.docId, btn.dataset.path);
+                const docs = await loadTruckDocs(btn.dataset.truck);
+                renderTruckDocGrid(docs, btn.dataset.truck);
+            });
+        }
+
+        // Compose
+        const noteText = $('truckNoteText');
+        const notePost = $('truckNotePost');
+        if (noteText && notePost) {
+            noteText.addEventListener('input', () => {
+                noteText.style.height = 'auto'; noteText.style.height = noteText.scrollHeight + 'px';
+                notePost.disabled = !noteText.value.trim();
+            });
+            notePost.addEventListener('click', truckPanelPostCompose);
+        }
+
+        // Collapsible toggles
+        document.querySelectorAll('#truckDetailPanel .dp-section-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const section = document.getElementById(btn.dataset.target);
+                if (!section) return;
+                const collapsed = section.classList.toggle('collapsed');
+                btn.setAttribute('aria-expanded', String(!collapsed));
+            });
+        });
+
+        // Quick actions
+        const oosBtn = $('tpActionOOS');
+        if (oosBtn) oosBtn.addEventListener('click', async () => {
+            if (!truckPanelId) return;
+            const t = state.trucks.find(x => x.id === truckPanelId);
+            const newStatus = t?.status === 'inactive' ? 'active' : 'inactive';
+            try {
+                await col('trucks').doc(truckPanelId).update({ status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                if (t) t.status = newStatus;
+                $('tpStatus').value = newStatus;
+                const statusEl = $('detailTruckStatus');
+                statusEl.className = 'status-badge ' + newStatus;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(newStatus);
+                renderTruckPanelSummary(); renderTrucks(); updateOverview();
+                showMsg('Truck marked ' + statusLabel(newStatus));
+            } catch (err) { console.error(err); showMsg('Error updating status', true); }
+        });
+
+        const maintBtn = $('tpActionMaint');
+        if (maintBtn) maintBtn.addEventListener('click', async () => {
+            if (!truckPanelId) return;
+            const t = state.trucks.find(x => x.id === truckPanelId);
+            const newStatus = t?.status === 'maintenance' ? 'active' : 'maintenance';
+            try {
+                await col('trucks').doc(truckPanelId).update({ status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                if (t) t.status = newStatus;
+                $('tpStatus').value = newStatus;
+                const statusEl = $('detailTruckStatus');
+                statusEl.className = 'status-badge ' + newStatus;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(newStatus);
+                renderTruckPanelSummary(); renderTrucks(); updateOverview();
+                showMsg('Truck marked ' + statusLabel(newStatus));
+            } catch (err) { console.error(err); showMsg('Error updating status', true); }
+        });
+
+        const dndBtn = $('tpActionDND');
+        if (dndBtn) dndBtn.addEventListener('click', () => toggleTruckDND());
+        const dndToggle = $('tpDNDToggle');
+        if (dndToggle) dndToggle.addEventListener('change', () => toggleTruckDND());
+    }
+
+    // ── Trailer Detail Panel (slide-out) ────────
+    let trailerPanelId = null;
+    let trailerPanelOpen = false;
+
+    const TRAILER_DOC_TYPES = ['registration', 'insurance', 'inspection', 'title', 'lease', 'photo', 'other'];
+    const TRAILER_DOC_LABELS = {
+        registration: 'Registration', insurance: 'Insurance', inspection: 'Inspection',
+        title: 'Title', lease: 'Lease', photo: 'Photo', other: 'Other'
+    };
+
+    function trailerStoragePath(trailerId, fileName) {
+        return `users/${uid()}/trailers/${trailerId}/docs/${Date.now()}_${fileName}`;
+    }
+
+    async function uploadTrailerDoc(trailerId, file, docType) {
+        if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return null; }
+        const path = trailerStoragePath(trailerId, file.name);
+        const ref = storage.ref(path);
+        try {
+            await ref.put(file);
+            const url = await ref.getDownloadURL();
+            const docEntry = { name: file.name, type: docType, storagePath: path, url, size: file.size, contentType: file.type, uploadedAt: new Date().toISOString() };
+            await col('trailers').doc(trailerId).collection('documents').add(docEntry);
+            showMsg('Document uploaded');
+            return docEntry;
+        } catch (err) { console.error('Upload error:', err); showMsg('Upload failed', true); return null; }
+    }
+
+    async function deleteTrailerDoc(trailerId, docId, storagePath) {
+        try { await storage.ref(storagePath).delete(); } catch (err) { if (err.code !== 'storage/object-not-found') console.warn(err); }
+        await col('trailers').doc(trailerId).collection('documents').doc(docId).delete();
+        showMsg('Document removed');
+    }
+
+    async function loadTrailerDocs(trailerId) {
+        const snap = await col('trailers').doc(trailerId).collection('documents').orderBy('uploadedAt', 'desc').get();
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    function renderTrailerDocGrid(docs, trailerId) {
+        const grid = $('trailerDocGrid');
+        if (!grid) return;
+        const docMap = {};
+        docs.forEach(d => { if (!docMap[d.type]) docMap[d.type] = d; });
+        grid.innerHTML = TRAILER_DOC_TYPES.map(type => {
+            const doc = docMap[type];
+            const label = TRAILER_DOC_LABELS[type] || type;
+            if (doc) {
+                return `<div class="doc-slot doc-slot--filled">
+                    <div class="doc-slot-label">${escapeHtml(label)}</div>
+                    <a href="${escapeHtml(doc.url)}" target="_blank" class="doc-slot-file">${escapeHtml(doc.name)}</a>
+                    <button class="doc-slot-delete" data-trailer="${trailerId}" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}" title="Remove">&times;</button>
+                    <label class="doc-slot-replace">Replace<input type="file" data-trailer="${trailerId}" data-type="${type}" data-replace-doc="${doc.id}" data-replace-path="${escapeHtml(doc.storagePath)}" hidden></label>
+                </div>`;
+            }
+            return `<div class="doc-slot"><div class="doc-slot-label">${escapeHtml(label)}</div><label class="doc-slot-upload">Upload<input type="file" data-trailer="${trailerId}" data-type="${type}" hidden></label></div>`;
+        }).join('');
+    }
+
+    function openTrailerDetailPanel(id) {
+        const isCreate = !id;
+        const t = isCreate ? {} : state.trailers.find(x => x.id === id);
+        if (!isCreate && !t) return;
+        trailerPanelId = id || null;
+
+        const name = isCreate ? 'New Trailer' : (t.unit || 'Unnamed Trailer');
+        $('detailTrailerName').textContent = name;
+        const statusEl = $('detailTrailerStatus');
+        if (isCreate) { statusEl.style.display = 'none'; }
+        else {
+            statusEl.style.display = '';
+            statusEl.className = 'status-badge ' + (t.status || 'active');
+            statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(t.status || 'active');
+        }
+
+        // DND badge + button
+        const dndBadge = $('detailTrailerDNDBadge');
+        if (dndBadge) dndBadge.classList.toggle('hidden', isCreate || !t.doNotDispatch);
+        const dndBtn = $('ttpActionDND');
+        if (dndBtn) {
+            dndBtn.classList.toggle('hidden', isCreate || !t.doNotDispatch || !canToggleDND());
+            if (!isCreate) updateTrailerDNDVisuals(t);
+        }
+        const dndField = $('ttpDNDField');
+        const dndToggle = $('ttpDNDToggle');
+        if (dndField && dndToggle) {
+            dndField.classList.toggle('hidden', isCreate || !t.doNotDispatch || !canToggleDND());
+            dndToggle.checked = !!t.doNotDispatch;
+            $('ttpDNDLabel').textContent = t.doNotDispatch ? 'Active' : 'Off';
+        }
+
+        $('ttpUnit').value = t.unit || '';
+        $('ttpStatus').value = t.status || 'active';
+        $('ttpYear').value = t.year || '';
+        $('ttpMake').value = t.make || '';
+        $('ttpType').value = t.type || 'dry-van';
+        $('ttpVin').value = t.vin || '';
+        $('ttpPlate').value = t.plate || '';
+        $('ttpPlateState').value = t.plateState || '';
+        $('ttpAnnualInspDate').value = t.annualInspDate || '';
+        $('ttpRegistrationExp').value = t.registrationExp || '';
+        $('ttpInsuranceExp').value = t.insuranceExp || '';
+        $('ttpNotes').value = t.notes || '';
+
+        document.querySelectorAll('#detailTrailerInfo .detail-field-input').forEach(inp => {
+            inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
+        });
+
+        // Docs
+        const docGrid = $('trailerDocGrid');
+        if (docGrid) {
+            if (!isCreate && id) {
+                renderTrailerDocGrid([], id);
+                loadTrailerDocs(id).then(docs => renderTrailerDocGrid(docs, id));
+            } else { renderTrailerDocGrid([], '__new__'); }
+        }
+
+        const panel = $('trailerDetailPanel');
+        panel.classList.toggle('is-create', isCreate);
+
+        // Section collapse states
+        const infoSec = $('trailerInfoSection');
+        const composeSec = $('trailerComposeSection');
+        const tasksSec = $('trailerTasksSection');
+        const feedSec = $('trailerFeedSection');
+        const docsSec = $('trailerDocsSection');
+        if (isCreate) {
+            infoSec?.classList.remove('collapsed');
+            composeSec?.classList.add('collapsed');
+            tasksSec?.classList.add('collapsed');
+            feedSec?.classList.add('collapsed');
+            docsSec?.classList.add('collapsed');
+        } else {
+            infoSec?.classList.add('collapsed');
+            composeSec?.classList.remove('collapsed');
+            tasksSec?.classList.remove('collapsed');
+            feedSec?.classList.remove('collapsed');
+            docsSec?.classList.add('collapsed');
+        }
+
+        $('trailerDetailBackdrop').classList.remove('hidden');
+        panel.classList.remove('hidden');
+        trailerPanelOpen = true;
+
+        document.querySelectorAll('#trailersTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
+        if (id) {
+            const activeRow = document.querySelector(`#trailersTableBody tr[data-id="${id}"]`);
+            if (activeRow) activeRow.classList.add('detail-active');
+        }
+
+        if (isCreate) setTimeout(() => $('ttpUnit').focus(), 100);
+
+        renderTrailerPanelSummary();
+
+        // Load feeds
+        const notesFeed = $('trailerNotesFeed');
+        const tasksFeed = $('trailerTasksFeed');
+        if (notesFeed) notesFeed.innerHTML = '<p class="dp-empty">Loading\u2026</p>';
+        if (tasksFeed) tasksFeed.innerHTML = '<p class="dp-empty">Loading\u2026</p>';
+        $('trailerNoteCount').textContent = '';
+        $('trailerTaskCount').textContent = '';
+        const noteText = $('trailerNoteText');
+        if (noteText) { noteText.value = ''; noteText.style.height = 'auto'; }
+        const notePost = $('trailerNotePost');
+        if (notePost) notePost.disabled = true;
+        $('trailerNoteType').value = 'note';
+        $('trailerNotePriority').value = 'normal';
+
+        if (!isCreate && id) { loadTrailerPanelHistory(); loadTrailerPanelTasks(); }
+    }
+
+    function closeTrailerDetailPanel() {
+        $('trailerDetailBackdrop').classList.add('hidden');
+        $('trailerDetailPanel').classList.add('hidden');
+        trailerPanelId = null;
+        trailerPanelOpen = false;
+        document.querySelectorAll('#trailersTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
+    }
+
+    function getTrailerPanelPayload() {
+        return {
+            unit: $('ttpUnit').value.trim(),
+            year: $('ttpYear').value.trim(),
+            make: $('ttpMake').value.trim(),
+            type: $('ttpType').value,
+            vin: $('ttpVin').value.trim(),
+            plate: $('ttpPlate').value.trim(),
+            plateState: $('ttpPlateState').value.trim().toUpperCase(),
+            status: $('ttpStatus').value || 'active',
+            annualInspDate: $('ttpAnnualInspDate').value,
+            registrationExp: $('ttpRegistrationExp').value,
+            insuranceExp: $('ttpInsuranceExp').value,
+            notes: $('ttpNotes').value.trim(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+    }
+
+    async function saveTrailerFromPanel() {
+        const payload = getTrailerPanelPayload();
+        if (!payload.unit) { showMsg('Unit # is required', true); $('ttpUnit').focus(); return; }
+        try {
+            if (trailerPanelId) {
+                await col('trailers').doc(trailerPanelId).update(payload);
+                showMsg('Trailer updated');
+            } else {
+                payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                const ref = await col('trailers').add(payload);
+                trailerPanelId = ref.id;
+                showMsg('Trailer added');
+                $('detailTrailerName').textContent = payload.unit;
+                $('trailerDetailPanel').classList.remove('is-create');
+                const statusEl = $('detailTrailerStatus');
+                statusEl.style.display = '';
+                statusEl.className = 'status-badge ' + payload.status;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
+                renderTrailerDocGrid([], trailerPanelId);
+            }
+            await loadTrailers();
+            updateOverview();
+            renderTrailers();
+        } catch (err) { console.error('Save trailer panel error:', err); showMsg('Error saving trailer', true); }
+    }
+
+    async function autoSaveTrailerField() {
+        if (!trailerPanelId) return;
+        try { await col('trailers').doc(trailerPanelId).update(getTrailerPanelPayload()); } catch (e) { console.error(e); }
+    }
+
+    async function toggleTrailerDND() {
+        if (!trailerPanelId || !canToggleDND()) return;
+        const t = state.trailers.find(x => x.id === trailerPanelId);
+        if (!t) return;
+        const newDnd = !t.doNotDispatch;
+        const action = newDnd ? 'place on' : 'remove from';
+        if (!confirm(`Are you sure you want to ${action} Do Not Dispatch for trailer ${t.unit}?`)) {
+            const toggle = $('ttpDNDToggle');
+            if (toggle) toggle.checked = !!t.doNotDispatch;
+            return;
+        }
+        try {
+            await col('trailers').doc(trailerPanelId).update({
+                doNotDispatch: newDnd, dndSetBy: state.user.email || '', dndSetAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            t.doNotDispatch = newDnd;
+            updateTrailerDNDVisuals(t);
+            const toggle = $('ttpDNDToggle');
+            if (toggle) toggle.checked = newDnd;
+            const dndField = $('ttpDNDField');
+            if (dndField) dndField.classList.toggle('hidden', !newDnd);
+            $('ttpDNDLabel').textContent = newDnd ? 'Active' : 'Off';
+            renderTrailers();
+            renderTrailerPanelSummary();
+            showMsg(newDnd ? 'Trailer placed on Do Not Dispatch' : 'Do Not Dispatch removed');
+            try {
+                await col('trailers').doc(trailerPanelId).collection('history').add({
+                    type: 'system', text: newDnd ? 'Placed on Do Not Dispatch' : 'Removed from Do Not Dispatch',
+                    by: state.user.email || 'Unknown', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                loadTrailerPanelHistory();
+            } catch (e) { console.error(e); }
+        } catch (err) {
+            console.error(err);
+            const toggle = $('ttpDNDToggle');
+            if (toggle) toggle.checked = !!t.doNotDispatch;
+            showMsg('Error updating Do Not Dispatch', true);
+        }
+    }
+
+    function updateTrailerDNDVisuals(t) {
+        const dndBtn = $('ttpActionDND');
+        if (dndBtn) {
+            if (t.doNotDispatch) { dndBtn.classList.add('dp-qaction--active'); dndBtn.querySelector('span:last-child').textContent = 'Remove DND'; dndBtn.title = 'Remove Do Not Dispatch'; }
+            else { dndBtn.classList.remove('dp-qaction--active'); dndBtn.querySelector('span:last-child').textContent = 'DND'; dndBtn.title = 'Do Not Dispatch'; }
+        }
+        const badge = $('detailTrailerDNDBadge');
+        if (badge) badge.classList.toggle('hidden', !t.doNotDispatch);
+    }
+
+    function renderTrailerPanelSummary() {
+        const bar = $('trailerSummaryBar');
+        if (!bar || !trailerPanelId) { if (bar) bar.innerHTML = ''; return; }
+        const t = state.trailers.find(x => x.id === trailerPanelId);
+        if (!t) { bar.innerHTML = ''; return; }
+        const chips = [];
+        const now = new Date();
+        const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        function dateChip(label, dateStr) {
+            if (!dateStr) return { label, text: 'N/A', cls: 'dp-chip--gray' };
+            const dt = new Date(dateStr);
+            if (dt < now) return { label, text: 'Expired', cls: 'dp-chip--red' };
+            if (dt < soon) return { label, text: 'Due soon', cls: 'dp-chip--yellow' };
+            return { label, text: 'Current', cls: 'dp-chip--green' };
+        }
+
+        chips.push(dateChip('Inspection', t.annualInspDate));
+        chips.push(dateChip('Registration', t.registrationExp));
+        chips.push(dateChip('Insurance', t.insuranceExp));
+
+        const statusCls = t.status === 'active' ? 'dp-chip--green' : t.status === 'maintenance' ? 'dp-chip--yellow' : 'dp-chip--red';
+        chips.push({ label: 'Status', text: statusLabel(t.status || 'active'), cls: statusCls });
+
+        if (t.doNotDispatch) chips.unshift({ label: 'DND', text: 'Do Not Dispatch', cls: 'dp-chip--red' });
+
+        bar.innerHTML = chips.map(c =>
+            `<span class="${c.cls} dp-chip"><span class="dp-chip-dot"></span>${escapeHtml(c.label)}: ${escapeHtml(c.text)}</span>`
+        ).join('');
+    }
+
+    async function loadTrailerPanelHistory() {
+        if (!trailerPanelId) return;
+        try {
+            const snap = await db.collection('users').doc(state.user.uid)
+                .collection('trailers').doc(trailerPanelId)
+                .collection('history').orderBy('createdAt', 'desc').limit(50).get();
+            const items = [];
+            snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+            renderTrailerPanelNotes(items);
+        } catch (err) { console.error('loadTrailerPanelHistory error:', err); }
+    }
+
+    function renderTrailerPanelNotes(items) {
+        const container = $('trailerNotesFeed');
+        const badge = $('trailerNoteCount');
+        if (!container) return;
+        if (badge) badge.textContent = items.length || '';
+        if (!items.length) { container.innerHTML = '<p class="dp-empty">No activity yet. Post a note above.</p>'; return; }
+        container.innerHTML = items.map(n => {
+            const ts = n.createdAt?.toDate?.() || (n.createdAtIso ? new Date(n.createdAtIso) : null);
+            const timeStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+            const author = n.createdBy || n.by || '';
+            const initial = author.charAt(0).toUpperCase() || 'U';
+            const priHtml = (n.priority && n.priority !== 'normal') ? `<span class="dp-note-pri" data-pri="${escapeHtml(n.priority)}">${escapeHtml(n.priority)}</span>` : '';
+            return `<div class="dp-note" data-id="${n.id}">
+                <div class="dp-note-avi">${initial}</div>
+                <div class="dp-note-body">
+                    <div class="dp-note-meta"><span class="dp-note-tag" data-type="${escapeHtml(n.type || 'note')}">${escapeHtml(n.type || 'note')}</span>${priHtml}<span class="dp-note-time">${timeStr}</span></div>
+                    <div class="dp-note-text">${escapeHtml(n.text || '')}</div>
+                    <div class="dp-note-author">${escapeHtml(author)}</div>
+                </div>
+                <button class="dp-note-del" data-id="${n.id}" title="Delete">\u2715</button>
+            </div>`;
+        }).join('');
+        container.querySelectorAll('.dp-note-del').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Delete this note?')) return;
+                try {
+                    await db.collection('users').doc(state.user.uid).collection('trailers').doc(trailerPanelId).collection('history').doc(btn.dataset.id).delete();
+                    await loadTrailerPanelHistory();
+                } catch (err) { console.error(err); showMsg('Error deleting note', true); }
+            });
+        });
+    }
+
+    async function loadTrailerPanelTasks() {
+        if (!trailerPanelId) return;
+        try {
+            const result = await FirebaseDB.getTasks(state.user.uid, 'trailers', trailerPanelId, { limit: 20 });
+            if (result.success) renderTrailerPanelTasks(result.data);
+        } catch (err) { console.error('loadTrailerPanelTasks error:', err); }
+    }
+
+    function renderTrailerPanelTasks(tasks) {
+        const container = $('trailerTasksFeed');
+        const badge = $('trailerTaskCount');
+        if (!container) return;
+        const open = tasks.filter(t => t.status && t.status !== 'Resolved');
+        if (badge) badge.textContent = open.length || '';
+        if (!open.length) { container.innerHTML = '<p class="dp-empty">No open tasks.</p>'; return; }
+        const now = new Date();
+        container.innerHTML = open.slice(0, 8).map(t => {
+            const ts = t.createdAt?.toDate?.() || (t.createdAtIso ? new Date(t.createdAtIso) : null);
+            const dateStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            const priHtml = (t.priority && t.priority !== 'normal') ? `<span class="dp-task-pri" data-pri="${escapeHtml(t.priority)}">${escapeHtml(t.priority)}</span>` : '';
+            const dueDate = t.dueDate ? new Date(t.dueDate) : null;
+            const overdue = dueDate && dueDate < now && t.status !== 'Resolved';
+            return `<div class="dp-task" data-id="${t.id}">
+                <div class="dp-task-top"><span class="dp-task-type">${escapeHtml(t.type || 'note')}</span>${priHtml}${overdue ? '<span class="dp-task-overdue">OVERDUE</span>' : ''}</div>
+                <div class="dp-task-text">${escapeHtml(t.text || '')}</div>
+                <div class="dp-task-bot"><span class="dp-task-date">${dateStr}</span><span class="dp-task-status" data-status="${escapeHtml(t.status || 'Open')}">${escapeHtml(t.status || 'Open')}</span></div>
+            </div>`;
+        }).join('');
+    }
+
+    async function trailerPanelPostCompose() {
+        const textarea = $('trailerNoteText');
+        const postBtn = $('trailerNotePost');
+        const compose = textarea?.closest('.dp-compose');
+        const text = textarea?.value?.trim();
+        if (!text || !trailerPanelId) return;
+        const type = $('trailerNoteType')?.value || 'note';
+        const priority = $('trailerNotePriority')?.value || 'normal';
+        postBtn.disabled = true;
+        postBtn.classList.add('posting');
+        try {
+            const t = state.trailers.find(x => x.id === trailerPanelId);
+            const taskData = {
+                text, type, status: 'Open', priority, assignedTo: [], dueDate: null,
+                createdBy: state.user.email || state.user.uid, source: 'trailer-panel',
+                trailerName: t ? t.unit : trailerPanelId, createdAtIso: new Date().toISOString()
+            };
+            const result = await FirebaseDB.createTask(state.user.uid, 'trailers', trailerPanelId, taskData);
+            if (!result.success) throw new Error(result.error);
+            textarea.value = ''; textarea.style.height = 'auto';
+            $('trailerNoteType').value = 'note'; $('trailerNotePriority').value = 'normal';
+            postBtn.disabled = true;
+            if (compose) { compose.classList.add('posted'); setTimeout(() => compose.classList.remove('posted'), 600); }
+            await Promise.all([loadTrailerPanelHistory(), loadTrailerPanelTasks()]);
+        } catch (err) { console.error(err); showMsg('Could not post. ' + (err.message || ''), true); }
+        finally { postBtn.classList.remove('posting'); postBtn.disabled = !textarea.value.trim(); }
+    }
+
+    function initTrailerDetailPanel() {
+        $('trailerDetailCloseBtn').addEventListener('click', closeTrailerDetailPanel);
+        $('trailerDetailBackdrop').addEventListener('click', closeTrailerDetailPanel);
+        $('trailerDetailSaveBtn').addEventListener('click', saveTrailerFromPanel);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && trailerPanelOpen) closeTrailerDetailPanel();
+        });
+
+        document.querySelectorAll('#detailTrailerInfo .detail-field-input').forEach(inp => {
+            inp.addEventListener('blur', () => {
+                inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
+                autoSaveTrailerField();
+            });
+        });
+
+        // Doc grid events
+        const grid = $('trailerDocGrid');
+        if (grid) {
+            grid.addEventListener('change', async (e) => {
+                const input = e.target.closest('input[type="file"]');
+                if (!input || !input.files[0]) return;
+                let entityId = input.dataset.trailer;
+                const docType = input.dataset.type;
+                const file = input.files[0];
+                if (!trailerPanelId || entityId === '__new__') {
+                    const payload = getTrailerPanelPayload();
+                    if (!payload.unit) { showMsg('Enter at least a unit # before uploading', true); $('ttpUnit').focus(); input.value = ''; return; }
+                    try {
+                        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                        const ref = await col('trailers').add(payload);
+                        trailerPanelId = ref.id; entityId = ref.id;
+                        $('detailTrailerName').textContent = payload.unit;
+                        $('trailerDetailPanel').classList.remove('is-create');
+                        await loadTrailers(); updateOverview(); renderTrailers();
+                    } catch (err) { console.error(err); showMsg('Error saving trailer', true); input.value = ''; return; }
+                }
+                const replaceDocId = input.dataset.replaceDoc;
+                const replacePath = input.dataset.replacePath;
+                if (replaceDocId && replacePath) await deleteTrailerDoc(entityId, replaceDocId, replacePath);
+                await uploadTrailerDoc(entityId, file, docType);
+                input.value = '';
+                const docs = await loadTrailerDocs(entityId);
+                renderTrailerDocGrid(docs, entityId);
+            });
+            grid.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.doc-slot-delete');
+                if (!btn) return;
+                if (!confirm('Delete this document?')) return;
+                await deleteTrailerDoc(btn.dataset.trailer, btn.dataset.docId, btn.dataset.path);
+                const docs = await loadTrailerDocs(btn.dataset.trailer);
+                renderTrailerDocGrid(docs, btn.dataset.trailer);
+            });
+        }
+
+        // Compose
+        const noteText = $('trailerNoteText');
+        const notePost = $('trailerNotePost');
+        if (noteText && notePost) {
+            noteText.addEventListener('input', () => {
+                noteText.style.height = 'auto'; noteText.style.height = noteText.scrollHeight + 'px';
+                notePost.disabled = !noteText.value.trim();
+            });
+            notePost.addEventListener('click', trailerPanelPostCompose);
+        }
+
+        // Collapsible toggles
+        document.querySelectorAll('#trailerDetailPanel .dp-section-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const section = document.getElementById(btn.dataset.target);
+                if (!section) return;
+                const collapsed = section.classList.toggle('collapsed');
+                btn.setAttribute('aria-expanded', String(!collapsed));
+            });
+        });
+
+        // Quick actions
+        const oosBtn = $('ttpActionOOS');
+        if (oosBtn) oosBtn.addEventListener('click', async () => {
+            if (!trailerPanelId) return;
+            const t = state.trailers.find(x => x.id === trailerPanelId);
+            const newStatus = t?.status === 'inactive' ? 'active' : 'inactive';
+            try {
+                await col('trailers').doc(trailerPanelId).update({ status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                if (t) t.status = newStatus;
+                $('ttpStatus').value = newStatus;
+                const statusEl = $('detailTrailerStatus');
+                statusEl.className = 'status-badge ' + newStatus;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(newStatus);
+                renderTrailerPanelSummary(); renderTrailers(); updateOverview();
+                showMsg('Trailer marked ' + statusLabel(newStatus));
+            } catch (err) { console.error(err); showMsg('Error updating status', true); }
+        });
+
+        const maintBtn = $('ttpActionMaint');
+        if (maintBtn) maintBtn.addEventListener('click', async () => {
+            if (!trailerPanelId) return;
+            const t = state.trailers.find(x => x.id === trailerPanelId);
+            const newStatus = t?.status === 'maintenance' ? 'active' : 'maintenance';
+            try {
+                await col('trailers').doc(trailerPanelId).update({ status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                if (t) t.status = newStatus;
+                $('ttpStatus').value = newStatus;
+                const statusEl = $('detailTrailerStatus');
+                statusEl.className = 'status-badge ' + newStatus;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(newStatus);
+                renderTrailerPanelSummary(); renderTrailers(); updateOverview();
+                showMsg('Trailer marked ' + statusLabel(newStatus));
+            } catch (err) { console.error(err); showMsg('Error updating status', true); }
+        });
+
+        const dndBtn = $('ttpActionDND');
+        if (dndBtn) dndBtn.addEventListener('click', () => toggleTrailerDND());
+        const dndToggle = $('ttpDNDToggle');
+        if (dndToggle) dndToggle.addEventListener('change', () => toggleTrailerDND());
+    }
+
+    // ── Smart Import for Trucks ──
+    async function smartImportTrucks(file) {
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        showMsg('Reading file\u2026');
+        try {
+            let rows;
+            if (ext === 'pdf') rows = await parsePdfToRows(file);
+            else if (ext === 'xlsx' || ext === 'xls') rows = await parseExcelToRows(file);
+            else rows = await parseCsvToRows(file);
+            if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
+            const config = SHEET_CONFIGS.truck;
+            const colMap = buildSmartColumnMap(rows[0], config.csvAliases);
+            if (colMap.unit === undefined) { showMsg('Could not find a Unit # column.', true); return; }
+            const parsed = [];
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.every(c => !c || !c.toString().trim())) continue;
+                const data = {};
+                let hasValue = false;
+                const allFields = [...config.cols.map(c => c.key), ...(config.extraFields || [])];
+                allFields.forEach(key => {
+                    if (colMap[key] !== undefined) {
+                        let val = (row[colMap[key]] || '').toString().trim();
+                        if (key === 'plateState') val = val.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+                        if (['annualInspDate', 'registrationExp', 'insuranceExp'].includes(key) && val) val = normalizeDate(val);
+                        if (key === 'status' && val) {
+                            const col = config.cols.find(c => c.key === 'status');
+                            if (col?.options) { const m = col.options.find(o => o.value.toLowerCase() === val.toLowerCase() || o.label.toLowerCase() === val.toLowerCase()); val = m ? m.value : 'active'; }
+                        }
+                        if (key === 'fuel' && val) {
+                            const col = config.cols.find(c => c.key === 'fuel');
+                            if (col?.options) { const m = col.options.find(o => o.value.toLowerCase() === val.toLowerCase() || o.label.toLowerCase() === val.toLowerCase()); val = m ? m.value : val; }
+                        }
+                        if (val) { data[key] = val; hasValue = true; }
+                    }
+                });
+                if (hasValue && data.unit) parsed.push(data);
+            }
+            if (parsed.length === 0) { showMsg('No valid truck rows found', true); return; }
+            const tbody = $(config.tbodyId);
+            tbody.innerHTML = '';
+            parsed.forEach((rowData, i) => {
+                const sheetRow = buildSheetRow(i, rowData, config.cols);
+                if (config.extraFields) config.extraFields.forEach(key => { if (rowData[key]) sheetRow.dataset['extra_' + key] = rowData[key]; });
+                tbody.appendChild(sheetRow);
+            });
+            tbody.appendChild(buildSheetRow(parsed.length, null, config.cols));
+            updateSheetRowCount(config);
+            $(config.modalId).classList.remove('hidden');
+            setTimeout(() => { validateAllSheetCells(config); const first = tbody.querySelector('.sheet-cell'); if (first) startEditingCell(first); }, 80);
+            const extraCount = Object.keys(colMap).filter(k => config.extraFields?.includes(k)).length;
+            let msg = parsed.length + ' truck' + (parsed.length > 1 ? 's' : '') + ' imported for review';
+            if (extraCount > 0) msg += ' (' + extraCount + ' extra field' + (extraCount > 1 ? 's' : '') + ' mapped)';
+            showMsg(msg);
+        } catch (err) { console.error('Smart truck import error:', err); showMsg('Error reading file: ' + (err.message || ''), true); }
+    }
+
+    // ── Smart Import for Trailers ──
+    async function smartImportTrailers(file) {
+        if (!file) return;
+        const ext = file.name.split('.').pop().toLowerCase();
+        showMsg('Reading file\u2026');
+        try {
+            let rows;
+            if (ext === 'pdf') rows = await parsePdfToRows(file);
+            else if (ext === 'xlsx' || ext === 'xls') rows = await parseExcelToRows(file);
+            else rows = await parseCsvToRows(file);
+            if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
+            const config = SHEET_CONFIGS.trailer;
+            const colMap = buildSmartColumnMap(rows[0], config.csvAliases);
+            if (colMap.unit === undefined) { showMsg('Could not find a Unit # column.', true); return; }
+            const parsed = [];
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.every(c => !c || !c.toString().trim())) continue;
+                const data = {};
+                let hasValue = false;
+                const allFields = [...config.cols.map(c => c.key), ...(config.extraFields || [])];
+                allFields.forEach(key => {
+                    if (colMap[key] !== undefined) {
+                        let val = (row[colMap[key]] || '').toString().trim();
+                        if (key === 'plateState') val = val.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+                        if (['annualInspDate', 'registrationExp', 'insuranceExp'].includes(key) && val) val = normalizeDate(val);
+                        if (key === 'status' && val) {
+                            const col = config.cols.find(c => c.key === 'status');
+                            if (col?.options) { const m = col.options.find(o => o.value.toLowerCase() === val.toLowerCase() || o.label.toLowerCase() === val.toLowerCase()); val = m ? m.value : 'active'; }
+                        }
+                        if (key === 'type' && val) {
+                            const col = config.cols.find(c => c.key === 'type');
+                            if (col?.options) { const m = col.options.find(o => o.value.toLowerCase() === val.toLowerCase() || o.label.toLowerCase() === val.toLowerCase()); val = m ? m.value : val; }
+                        }
+                        if (val) { data[key] = val; hasValue = true; }
+                    }
+                });
+                if (hasValue && data.unit) parsed.push(data);
+            }
+            if (parsed.length === 0) { showMsg('No valid trailer rows found', true); return; }
+            const tbody = $(config.tbodyId);
+            tbody.innerHTML = '';
+            parsed.forEach((rowData, i) => {
+                const sheetRow = buildSheetRow(i, rowData, config.cols);
+                if (config.extraFields) config.extraFields.forEach(key => { if (rowData[key]) sheetRow.dataset['extra_' + key] = rowData[key]; });
+                tbody.appendChild(sheetRow);
+            });
+            tbody.appendChild(buildSheetRow(parsed.length, null, config.cols));
+            updateSheetRowCount(config);
+            $(config.modalId).classList.remove('hidden');
+            setTimeout(() => { validateAllSheetCells(config); const first = tbody.querySelector('.sheet-cell'); if (first) startEditingCell(first); }, 80);
+            const extraCount = Object.keys(colMap).filter(k => config.extraFields?.includes(k)).length;
+            let msg = parsed.length + ' trailer' + (parsed.length > 1 ? 's' : '') + ' imported for review';
+            if (extraCount > 0) msg += ' (' + extraCount + ' extra field' + (extraCount > 1 ? 's' : '') + ' mapped)';
+            showMsg(msg);
+        } catch (err) { console.error('Smart trailer import error:', err); showMsg('Error reading file: ' + (err.message || ''), true); }
+    }
+
     function openTruckModal(data) {
         $('truckModalTitle').textContent = data ? 'Edit Truck' : 'Add Truck';
         $('truckEditId').value = data ? data.id : '';
@@ -3136,19 +4315,19 @@
     }
 
     function initTruckForm() {
-        $('addTruckBtn').addEventListener('click', () => openSheetModal('truck'));
-        $('addFirstTruck').addEventListener('click', () => openSheetModal('truck'));
+        $('addTruckBtn').addEventListener('click', () => openTruckDetailPanel(null));
+        $('addFirstTruck').addEventListener('click', () => openTruckDetailPanel(null));
         $('closeTruckModal').addEventListener('click', () => $('truckModal').classList.add('hidden'));
         $('cancelTruck').addEventListener('click', () => $('truckModal').classList.add('hidden'));
 
-        // Import – trigger CSV file picker
+        // Import – trigger smart file picker
         const importBtn = $('importTrucksBtn');
         if (importBtn) {
             importBtn.addEventListener('click', () => {
                 const input = document.createElement('input');
                 input.type = 'file';
-                input.accept = '.csv,.tsv,.txt';
-                input.addEventListener('change', (e) => importCSVToSheet(e.target.files[0], 'truck'));
+                input.accept = '.csv,.tsv,.txt,.xlsx,.xls,.pdf';
+                input.addEventListener('change', (e) => smartImportTrucks(e.target.files[0]));
                 input.click();
             });
         }
@@ -3605,16 +4784,21 @@
             saveId: 'saveMultiTruck',
             defaults: { fuel: 'diesel', status: 'active' },
             afterSave: async () => { await loadTrucks(); populateTruckDropdown(); },
+            extraFields: ['annualInspDate', 'registrationExp', 'insuranceExp', 'notes'],
             csvAliases: {
-                unit: ['unit', 'unitnumber', 'unitno', 'truckno', 'trucknumber'],
+                unit: ['unit', 'unitnumber', 'unitno', 'truckno', 'trucknumber', 'equipmentno', 'equipmentnumber'],
                 year: ['year', 'yr', 'modelyear'],
                 make: ['make', 'manufacturer', 'brand'],
                 model: ['model'],
-                vin: ['vin', 'vehicleid'],
-                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag'],
-                plateState: ['platestate', 'state', 'tagstate'],
+                vin: ['vin', 'vehicleid', 'vehicleidentification'],
+                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag', 'platenumber'],
+                plateState: ['platestate', 'state', 'tagstate', 'registrationstate'],
                 fuel: ['fuel', 'fueltype'],
-                status: ['status']
+                status: ['status'],
+                annualInspDate: ['annualinspection', 'inspection', 'inspectiondate', 'annualinsp', 'inspdate', 'inspexp', 'annualinspdate'],
+                registrationExp: ['registration', 'registrationexp', 'registrationexpiration', 'regexp', 'regexpiration'],
+                insuranceExp: ['insurance', 'insuranceexp', 'insuranceexpiration', 'insexp', 'insexpiration'],
+                notes: ['notes', 'note', 'comments', 'comment', 'remarks']
             }
         },
         trailer: {
@@ -3652,14 +4836,20 @@
             saveId: 'saveMultiTrailer',
             defaults: { type: 'dry-van', status: 'active' },
             afterSave: async () => { await loadTrailers(); },
+            extraFields: ['plateState', 'annualInspDate', 'registrationExp', 'insuranceExp', 'notes'],
             csvAliases: {
-                unit: ['unit', 'unitnumber', 'unitno', 'trailerno', 'trailernumber'],
+                unit: ['unit', 'unitnumber', 'unitno', 'trailerno', 'trailernumber', 'equipmentno', 'equipmentnumber'],
                 year: ['year', 'yr', 'modelyear'],
                 make: ['make', 'manufacturer', 'brand'],
                 type: ['type', 'trailertype', 'equipmenttype'],
-                vin: ['vin', 'vehicleid'],
-                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag'],
-                status: ['status']
+                vin: ['vin', 'vehicleid', 'vehicleidentification'],
+                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag', 'platenumber'],
+                plateState: ['platestate', 'state', 'tagstate', 'registrationstate'],
+                status: ['status'],
+                annualInspDate: ['annualinspection', 'inspection', 'inspectiondate', 'annualinsp', 'inspdate', 'inspexp', 'annualinspdate'],
+                registrationExp: ['registration', 'registrationexp', 'registrationexpiration', 'regexp', 'regexpiration'],
+                insuranceExp: ['insurance', 'insuranceexp', 'insuranceexpiration', 'insexp', 'insexpiration'],
+                notes: ['notes', 'note', 'comments', 'comment', 'remarks']
             }
         },
         driver: {
@@ -4339,9 +5529,9 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.trailers.filter(t => matchesFilter(t, 'trailer'));
-        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.doNotDispatch ? 'row-dnd' : ''} ${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(t)}
-            <td><div class="cell cell-primary" title="Open trailer profile for ${escapeHtml(t.unit || ('Trailer ' + t.id))}"><strong>${escapeHtml(t.unit || ('Trailer ' + t.id))}</strong></div></td>
+            <td><div class="cell cell-primary" title="Open trailer profile for ${escapeHtml(t.unit || t.id)}"><strong>${escapeHtml(t.unit || t.id)}</strong>${t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : ''}</div></td>
             <td><div class="cell">${escapeHtml(t.year)}</div></td>
             <td><div class="cell">${escapeHtml(t.make)}</div></td>
             <td><div class="cell">${trailerTypeLabel(t.type)}</div></td>
@@ -4376,8 +5566,8 @@
     }
 
     function initTrailerForm() {
-        $('addTrailerBtn').addEventListener('click', () => openSheetModal('trailer'));
-        $('addFirstTrailer').addEventListener('click', () => openSheetModal('trailer'));
+        $('addTrailerBtn').addEventListener('click', () => openTrailerDetailPanel(null));
+        $('addFirstTrailer').addEventListener('click', () => openTrailerDetailPanel(null));
         $('closeTrailerModal').addEventListener('click', () => $('trailerModal').classList.add('hidden'));
         $('cancelTrailer').addEventListener('click', () => $('trailerModal').classList.add('hidden'));
 
@@ -4386,8 +5576,8 @@
             importTrailerBtn.addEventListener('click', () => {
                 const input = document.createElement('input');
                 input.type = 'file';
-                input.accept = '.csv,.tsv,.txt';
-                input.addEventListener('change', (e) => importCSVToSheet(e.target.files[0], 'trailer'));
+                input.accept = '.csv,.tsv,.txt,.xlsx,.xls,.pdf';
+                input.addEventListener('change', (e) => smartImportTrailers(e.target.files[0]));
                 input.click();
             });
         }
@@ -5124,12 +6314,10 @@
 
     // ── Edit helpers (called from inline onclick) ──
     function editTruck(id) {
-        const t = state.trucks.find(x => x.id === id);
-        if (t) openTruckModal(t);
+        openTruckDetailPanel(id);
     }
     function editTrailer(id) {
-        const t = state.trailers.find(x => x.id === id);
-        if (t) openTrailerModal(t);
+        openTrailerDetailPanel(id);
     }
     function editDriver(id) {
         const d = state.drivers.find(x => x.id === id);
@@ -5457,6 +6645,8 @@
         initSheetModals();
         initTrailerForm();
         initDriverForm();
+        initTruckDetailPanel();
+        initTrailerDetailPanel();
         initDriverDetailPanel();
         initDropdownEditors();
         initModalBackdrops();

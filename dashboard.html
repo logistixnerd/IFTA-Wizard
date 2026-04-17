@@ -2547,6 +2547,381 @@
         </div>
     </div>
 
+    <!-- Truck Detail Panel (slide-out) -->
+    <div id="truckDetailBackdrop" class="detail-backdrop hidden"></div>
+    <aside id="truckDetailPanel" class="detail-panel hidden">
+        <div class="detail-panel-header">
+            <div class="detail-panel-title">
+                <h2 id="detailTruckName">New Truck</h2>
+                <span id="detailTruckStatus" class="status-badge active"></span>
+                <span id="detailTruckDNDBadge" class="dnd-badge hidden">OUT OF SERVICE</span>
+            </div>
+            <div class="detail-panel-actions">
+                <button class="detail-action-btn detail-save-btn" id="truckDetailSaveBtn" title="Save">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="detail-action-btn" id="truckDetailCloseBtn" title="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Summary chips -->
+        <div class="dp-summary-bar" id="truckSummaryBar"></div>
+
+        <!-- Quick actions -->
+        <div class="dp-quick-actions" id="truckQuickActions">
+            <button class="dp-qaction dp-qaction--warn" id="tpActionOOS" title="Out of Service">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                <span>OOS</span>
+            </button>
+            <button class="dp-qaction" id="tpActionMaint" title="In Maintenance">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                <span>Maint</span>
+            </button>
+            <button class="dp-qaction dp-qaction--danger hidden" id="tpActionDND" title="Do Not Dispatch">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                <span>DND</span>
+            </button>
+        </div>
+
+        <div class="detail-panel-body">
+            <!-- Truck Information -->
+            <div class="detail-section dp-section-collapsible collapsed" id="truckInfoSection">
+                <button class="dp-section-toggle" data-target="truckInfoSection" type="button" aria-expanded="false">
+                    <span class="dp-toggle-label">Truck Information</span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="detail-info-grid" id="detailTruckInfo">
+                        <div class="detail-field" data-key="unit">
+                            <label class="detail-field-label">Unit # <span class="req">*</span></label>
+                            <input type="text" class="detail-field-input" id="tpUnit" placeholder="e.g., 101">
+                        </div>
+                        <div class="detail-field" data-key="status">
+                            <label class="detail-field-label">Status</label>
+                            <select class="detail-field-input" id="tpStatus">
+                                <option value="active">Active</option>
+                                <option value="inactive">Out of Service</option>
+                                <option value="maintenance">In Maintenance</option>
+                            </select>
+                        </div>
+                        <div class="detail-field" data-key="year">
+                            <label class="detail-field-label">Year</label>
+                            <input type="number" class="detail-field-input" id="tpYear" min="1990" max="2030" placeholder="e.g., 2022">
+                        </div>
+                        <div class="detail-field" data-key="make">
+                            <label class="detail-field-label">Make</label>
+                            <input type="text" class="detail-field-input" id="tpMake" placeholder="e.g., Freightliner">
+                        </div>
+                        <div class="detail-field" data-key="model">
+                            <label class="detail-field-label">Model</label>
+                            <input type="text" class="detail-field-input" id="tpModel" placeholder="e.g., Cascadia">
+                        </div>
+                        <div class="detail-field" data-key="vin">
+                            <label class="detail-field-label">VIN</label>
+                            <input type="text" class="detail-field-input" id="tpVin" maxlength="17" placeholder="17-character VIN">
+                        </div>
+                        <div class="detail-field" data-key="plate">
+                            <label class="detail-field-label">License Plate</label>
+                            <input type="text" class="detail-field-input" id="tpPlate" placeholder="e.g., ABC 1234">
+                        </div>
+                        <div class="detail-field" data-key="plateState">
+                            <label class="detail-field-label">Plate State</label>
+                            <input type="text" class="detail-field-input" id="tpPlateState" maxlength="2" placeholder="e.g., TX">
+                        </div>
+                        <div class="detail-field" data-key="fuel">
+                            <label class="detail-field-label">Fuel Type</label>
+                            <select class="detail-field-input" id="tpFuel">
+                                <option value="diesel">Diesel</option>
+                                <option value="gasoline">Gasoline</option>
+                                <option value="cng">CNG</option>
+                                <option value="lng">LNG</option>
+                            </select>
+                        </div>
+                        <div class="detail-field" data-key="annualInspDate">
+                            <label class="detail-field-label">Annual Inspection</label>
+                            <input type="date" class="detail-field-input" id="tpAnnualInspDate">
+                        </div>
+                        <div class="detail-field" data-key="registrationExp">
+                            <label class="detail-field-label">Registration Exp</label>
+                            <input type="date" class="detail-field-input" id="tpRegistrationExp">
+                        </div>
+                        <div class="detail-field" data-key="insuranceExp">
+                            <label class="detail-field-label">Insurance Exp</label>
+                            <input type="date" class="detail-field-input" id="tpInsuranceExp">
+                        </div>
+                        <div class="detail-field full-width hidden" id="tpDNDField" data-key="doNotDispatch">
+                            <label class="detail-field-label">Do Not Dispatch</label>
+                            <label class="dnd-toggle">
+                                <input type="checkbox" id="tpDNDToggle">
+                                <span class="dnd-toggle-slider"></span>
+                                <span class="dnd-toggle-label" id="tpDNDLabel">Off</span>
+                            </label>
+                        </div>
+                        <div class="detail-field full-width" data-key="notes">
+                            <label class="detail-field-label">Notes</label>
+                            <textarea class="detail-field-input" id="tpNotes" rows="2" placeholder="Notes"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compose -->
+            <div class="detail-section dp-section-collapsible" id="truckComposeSection">
+                <button class="dp-section-toggle" data-target="truckComposeSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Compose</span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="dp-compose">
+                        <textarea id="truckNoteText" class="dp-compose-input" placeholder="Log a note, report an issue, or create a task..." rows="3"></textarea>
+                        <div class="dp-compose-bar">
+                            <div class="dp-compose-selects">
+                                <select id="truckNoteType" class="dp-compose-select">
+                                    <option value="note">Note</option>
+                                    <option value="incident">Incident</option>
+                                    <option value="safety">Safety</option>
+                                    <option value="maintenance">Maintenance</option>
+                                    <option value="inspection">Inspection</option>
+                                </select>
+                                <select id="truckNotePriority" class="dp-compose-select">
+                                    <option value="normal">Normal</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+                            <button type="button" class="dp-compose-post" id="truckNotePost" disabled>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                Post
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Open Tasks -->
+            <div class="detail-section dp-section-collapsible" id="truckTasksSection">
+                <button class="dp-section-toggle" data-target="truckTasksSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Open Tasks <span class="dp-badge" id="truckTaskCount"></span></span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="dp-feed" id="truckTasksFeed"></div>
+                </div>
+            </div>
+
+            <!-- Activity Feed -->
+            <div class="detail-section dp-section-collapsible" id="truckFeedSection">
+                <button class="dp-section-toggle" data-target="truckFeedSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Activity <span class="dp-badge" id="truckNoteCount"></span></span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="dp-feed" id="truckNotesFeed"></div>
+                </div>
+            </div>
+
+            <!-- Documents -->
+            <div class="detail-section dp-section-collapsible collapsed" id="truckDocsSection">
+                <button class="dp-section-toggle" data-target="truckDocsSection" type="button" aria-expanded="false">
+                    <span class="dp-toggle-label">Documents</span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="detail-doc-grid" id="truckDocGrid"></div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Trailer Detail Panel (slide-out) -->
+    <div id="trailerDetailBackdrop" class="detail-backdrop hidden"></div>
+    <aside id="trailerDetailPanel" class="detail-panel hidden">
+        <div class="detail-panel-header">
+            <div class="detail-panel-title">
+                <h2 id="detailTrailerName">New Trailer</h2>
+                <span id="detailTrailerStatus" class="status-badge active"></span>
+                <span id="detailTrailerDNDBadge" class="dnd-badge hidden">OUT OF SERVICE</span>
+            </div>
+            <div class="detail-panel-actions">
+                <button class="detail-action-btn detail-save-btn" id="trailerDetailSaveBtn" title="Save">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="detail-action-btn" id="trailerDetailCloseBtn" title="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Summary chips -->
+        <div class="dp-summary-bar" id="trailerSummaryBar"></div>
+
+        <!-- Quick actions -->
+        <div class="dp-quick-actions" id="trailerQuickActions">
+            <button class="dp-qaction dp-qaction--warn" id="ttpActionOOS" title="Out of Service">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                <span>OOS</span>
+            </button>
+            <button class="dp-qaction" id="ttpActionMaint" title="In Maintenance">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                <span>Maint</span>
+            </button>
+            <button class="dp-qaction dp-qaction--danger hidden" id="ttpActionDND" title="Do Not Dispatch">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
+                <span>DND</span>
+            </button>
+        </div>
+
+        <div class="detail-panel-body">
+            <!-- Trailer Information -->
+            <div class="detail-section dp-section-collapsible collapsed" id="trailerInfoSection">
+                <button class="dp-section-toggle" data-target="trailerInfoSection" type="button" aria-expanded="false">
+                    <span class="dp-toggle-label">Trailer Information</span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="detail-info-grid" id="detailTrailerInfo">
+                        <div class="detail-field" data-key="unit">
+                            <label class="detail-field-label">Unit # <span class="req">*</span></label>
+                            <input type="text" class="detail-field-input" id="ttpUnit" placeholder="e.g., T-201">
+                        </div>
+                        <div class="detail-field" data-key="status">
+                            <label class="detail-field-label">Status</label>
+                            <select class="detail-field-input" id="ttpStatus">
+                                <option value="active">Active</option>
+                                <option value="inactive">Out of Service</option>
+                                <option value="maintenance">In Maintenance</option>
+                            </select>
+                        </div>
+                        <div class="detail-field" data-key="year">
+                            <label class="detail-field-label">Year</label>
+                            <input type="number" class="detail-field-input" id="ttpYear" min="1990" max="2030" placeholder="e.g., 2020">
+                        </div>
+                        <div class="detail-field" data-key="make">
+                            <label class="detail-field-label">Make</label>
+                            <input type="text" class="detail-field-input" id="ttpMake" placeholder="e.g., Great Dane">
+                        </div>
+                        <div class="detail-field" data-key="type">
+                            <label class="detail-field-label">Type</label>
+                            <select class="detail-field-input" id="ttpType">
+                                <option value="dry-van">Dry Van</option>
+                                <option value="reefer">Reefer</option>
+                                <option value="flatbed">Flatbed</option>
+                                <option value="step-deck">Step Deck</option>
+                                <option value="tanker">Tanker</option>
+                                <option value="lowboy">Lowboy</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div class="detail-field" data-key="vin">
+                            <label class="detail-field-label">VIN</label>
+                            <input type="text" class="detail-field-input" id="ttpVin" maxlength="17" placeholder="17-character VIN">
+                        </div>
+                        <div class="detail-field" data-key="plate">
+                            <label class="detail-field-label">License Plate</label>
+                            <input type="text" class="detail-field-input" id="ttpPlate" placeholder="e.g., TRL 5678">
+                        </div>
+                        <div class="detail-field" data-key="plateState">
+                            <label class="detail-field-label">Plate State</label>
+                            <input type="text" class="detail-field-input" id="ttpPlateState" maxlength="2" placeholder="e.g., TX">
+                        </div>
+                        <div class="detail-field" data-key="annualInspDate">
+                            <label class="detail-field-label">Annual Inspection</label>
+                            <input type="date" class="detail-field-input" id="ttpAnnualInspDate">
+                        </div>
+                        <div class="detail-field" data-key="registrationExp">
+                            <label class="detail-field-label">Registration Exp</label>
+                            <input type="date" class="detail-field-input" id="ttpRegistrationExp">
+                        </div>
+                        <div class="detail-field" data-key="insuranceExp">
+                            <label class="detail-field-label">Insurance Exp</label>
+                            <input type="date" class="detail-field-input" id="ttpInsuranceExp">
+                        </div>
+                        <div class="detail-field full-width hidden" id="ttpDNDField" data-key="doNotDispatch">
+                            <label class="detail-field-label">Do Not Dispatch</label>
+                            <label class="dnd-toggle">
+                                <input type="checkbox" id="ttpDNDToggle">
+                                <span class="dnd-toggle-slider"></span>
+                                <span class="dnd-toggle-label" id="ttpDNDLabel">Off</span>
+                            </label>
+                        </div>
+                        <div class="detail-field full-width" data-key="notes">
+                            <label class="detail-field-label">Notes</label>
+                            <textarea class="detail-field-input" id="ttpNotes" rows="2" placeholder="Notes"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compose -->
+            <div class="detail-section dp-section-collapsible" id="trailerComposeSection">
+                <button class="dp-section-toggle" data-target="trailerComposeSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Compose</span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="dp-compose">
+                        <textarea id="trailerNoteText" class="dp-compose-input" placeholder="Log a note, report an issue, or create a task..." rows="3"></textarea>
+                        <div class="dp-compose-bar">
+                            <div class="dp-compose-selects">
+                                <select id="trailerNoteType" class="dp-compose-select">
+                                    <option value="note">Note</option>
+                                    <option value="incident">Incident</option>
+                                    <option value="safety">Safety</option>
+                                    <option value="maintenance">Maintenance</option>
+                                    <option value="inspection">Inspection</option>
+                                </select>
+                                <select id="trailerNotePriority" class="dp-compose-select">
+                                    <option value="normal">Normal</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+                            <button type="button" class="dp-compose-post" id="trailerNotePost" disabled>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                Post
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Open Tasks -->
+            <div class="detail-section dp-section-collapsible" id="trailerTasksSection">
+                <button class="dp-section-toggle" data-target="trailerTasksSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Open Tasks <span class="dp-badge" id="trailerTaskCount"></span></span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="dp-feed" id="trailerTasksFeed"></div>
+                </div>
+            </div>
+
+            <!-- Activity Feed -->
+            <div class="detail-section dp-section-collapsible" id="trailerFeedSection">
+                <button class="dp-section-toggle" data-target="trailerFeedSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Activity <span class="dp-badge" id="trailerNoteCount"></span></span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="dp-feed" id="trailerNotesFeed"></div>
+                </div>
+            </div>
+
+            <!-- Documents -->
+            <div class="detail-section dp-section-collapsible collapsed" id="trailerDocsSection">
+                <button class="dp-section-toggle" data-target="trailerDocsSection" type="button" aria-expanded="false">
+                    <span class="dp-toggle-label">Documents</span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="detail-doc-grid" id="trailerDocGrid"></div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
     <!-- Driver Detail Panel (slide-out) -->
     <div id="driverDetailBackdrop" class="detail-backdrop hidden"></div>
     <aside id="driverDetailPanel" class="detail-panel hidden">
