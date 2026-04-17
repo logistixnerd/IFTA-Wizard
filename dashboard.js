@@ -809,7 +809,7 @@
             // Company fields
             $('dashCompany').value = data.company || '';
             $('dashDotNumber').value = data.dotNumber || '';
-            $('dashMcNumber').value = data.mcNumber || '';
+            $('dashMcNumber').value = (data.mcNumber || '').replace(/\D/g, '');
             $('dashEin').value = data.ein || '';
             const officeAddress = data.officeAddress || data.address || '';
             const shopAddress = data.shopAddress || '';
@@ -1678,6 +1678,11 @@
             input.value = input.value.replace(/\D/g, '');
         });
 
+        const mcField = $('dashMcNumber');
+        if (mcField) mcField.addEventListener('input', () => {
+            mcField.value = mcField.value.replace(/\D/g, '');
+        });
+
         typeSelect.addEventListener('change', () => {
             input.placeholder = typeSelect.value === 'mc' ? 'e.g. 123456' : 'e.g. 1234567';
             input.value = '';
@@ -1772,7 +1777,7 @@
 
         $('dashCompany').value = d.legalName || d.companyName || '';
         $('dashDotNumber').value = d.dotNumber || '';
-        $('dashMcNumber').value = d.mcNumber || '';
+        $('dashMcNumber').value = (d.mcNumber || '').replace(/\D/g, '');
         $('dashEin').value = d.einNumber || '';
 
         const address = d.address || [d.phyStreet, d.phyCity, d.phyState, d.phyZip].filter(Boolean).join(', ') || '';
