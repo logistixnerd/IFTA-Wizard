@@ -1592,7 +1592,7 @@
 
     function openDriverProfile(id) {
         if (!id) return;
-        window.location.href = 'driver-profile.html?driver=' + encodeURIComponent(id);
+        openDriverDetailPanel(id);
     }
 
     function openTruckModal(data) {
@@ -3514,6 +3514,7 @@
         if (cdlEl) cdlEl.addEventListener('input', () => { cdlEl.value = cdlEl.value.toUpperCase(); });
 
         initDriverDocEvents();
+        initDriverDetailPanel();
 
         const importDriverBtn = $('importDriversBtn');
         if (importDriverBtn) {
@@ -3709,6 +3710,188 @@
                 await deleteDriverDoc(driverId, docId, path);
                 const docs = await loadDriverDocs(driverId);
                 renderDriverDocs(docs, driverId);
+            });
+        }
+    }
+
+    // ── Driver Detail Panel (slide-out) ───────────────────────
+    const DETAIL_DOC_TYPES = ['cdl', 'medical', 'contract', 'mvr', 'psp', 'photo', 'other'];
+    let detailPanelDriverId = null;
+
+    function openDriverDetailPanel(id) {
+        const d = state.drivers.find(x => x.id === id);
+        if (!d) return;
+        detailPanelDriverId = id;
+
+        // Header
+        const name = [d.firstName, d.lastName].filter(Boolean).join(' ') || 'Unnamed Driver';
+        $('detailDriverName').textContent = name;
+        const statusEl = $('detailDriverStatus');
+        statusEl.className = 'status-badge ' + (d.status || 'active');
+        statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(d.status || 'active');
+
+        // Info grid
+        const cdlDays = daysUntilExpiry(d.cdlExp);
+        const medDays = daysUntilExpiry(d.medExp);
+        const truckName = truckLabel(d.truck);
+
+        const infoItems = [
+            { label: 'Phone', value: d.phone ? formatPhone(d.phone) : null },
+            { label: 'Email', value: d.email || null },
+            { label: 'CDL Number', value: d.cdl ? d.cdl.toUpperCase() : null },
+            { label: 'CDL State', value: d.cdlState || null },
+            { label: 'CDL Expiration', value: d.cdlExp ? formatDate(d.cdlExp) : null, tag: cdlDays !== null ? (cdlDays < 0 ? '<span class="cell-exp-tag expired">Expired</span>' : cdlDays <= 60 ? '<span class="cell-exp-tag expiring">' + cdlDays + 'd</span>' : '<span class="cell-exp-tag valid">Valid</span>') : '' },
+            { label: 'Medical Card Exp', value: d.medExp ? formatDate(d.medExp) : null, tag: medDays !== null ? (medDays < 0 ? '<span class="cell-exp-tag expired">Expired</span>' : medDays <= 60 ? '<span class="cell-exp-tag expiring">' + medDays + 'd</span>' : '<span class="cell-exp-tag valid">Valid</span>') : '' },
+            { label: 'Assigned Truck', value: d.truck ? truckName : null },
+            { label: 'Date of Hire', value: d.hireDate ? formatDate(d.hireDate) : null },
+            { label: 'Date of Birth', value: d.dob ? formatDate(d.dob) : null },
+            { label: 'Endorsements', value: d.endorsements || null },
+            { label: 'Emergency Contact', value: [d.emergencyName, d.emergencyPhone ? formatPhone(d.emergencyPhone) : ''].filter(Boolean).join(' — ') || null },
+            { label: 'Address', value: d.address || null, full: true },
+        ];
+
+        $('detailDriverInfo').innerHTML = infoItems.map(item => {
+            const valHtml = item.value
+                ? escapeHtml(item.value) + (item.tag ? ' ' + item.tag : '')
+                : '<span class="missing">—</span>';
+            return `<div class="detail-info-item${item.full ? ' full-width' : ''}">
+                <span class="detail-info-label">${escapeHtml(item.label)}</span>
+                <span class="detail-info-value${item.value ? '' : ' missing'}">${valHtml}</span>
+            </div>`;
+        }).join('');
+
+        // Doc grid — render skeleton, then load
+        renderDetailDocGrid([], id);
+        loadDriverDocs(id).then(docs => renderDetailDocGrid(docs, id));
+
+        // Show panel
+        $('driverDetailBackdrop').classList.remove('hidden');
+        $('driverDetailPanel').classList.remove('hidden');
+
+        // Highlight active row
+        document.querySelectorAll('#driversTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
+        const activeRow = document.querySelector(`#driversTableBody tr[data-id="${id}"]`);
+        if (activeRow) activeRow.classList.add('detail-active');
+    }
+
+    function closeDriverDetailPanel() {
+        $('driverDetailBackdrop').classList.add('hidden');
+        $('driverDetailPanel').classList.add('hidden');
+        detailPanelDriverId = null;
+        document.querySelectorAll('#driversTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
+    }
+
+    function renderDetailDocGrid(docs, driverId) {
+        const grid = $('detailDocGrid');
+        if (!grid) return;
+        const docsByType = {};
+        docs.forEach(doc => {
+            if (!docsByType[doc.type]) docsByType[doc.type] = [];
+            docsByType[doc.type].push(doc);
+        });
+
+        grid.innerHTML = DETAIL_DOC_TYPES.map(type => {
+            const label = DOC_TYPE_LABELS[type] || type;
+            const typeDocs = docsByType[type] || [];
+            const hasDoc = typeDocs.length > 0;
+            const statusBadgeHtml = hasDoc
+                ? '<span class="detail-doc-slot-status uploaded">Uploaded</span>'
+                : '<span class="detail-doc-slot-status missing">Missing</span>';
+
+            let bodyHtml;
+            if (hasDoc) {
+                bodyHtml = typeDocs.map(doc => {
+                    const isImage = doc.contentType && doc.contentType.startsWith('image/');
+                    const sizeStr = doc.size ? (doc.size < 1024 ? doc.size + ' B' : (doc.size / 1024).toFixed(0) + ' KB') : '';
+                    const thumb = isImage ? `<img src="${escapeHtml(doc.url)}" alt="" class="detail-doc-thumb" loading="lazy">` : '';
+                    return `<div class="detail-doc-file">
+                        ${thumb}
+                        <div class="detail-doc-file-info">
+                            <span class="detail-doc-file-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</span>
+                            <span class="detail-doc-file-meta">${sizeStr}</span>
+                        </div>
+                        <div class="detail-doc-file-actions">
+                            <a href="${escapeHtml(doc.url)}" target="_blank" rel="noopener" title="View / Download">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </a>
+                            <label class="doc-slot-replace" title="Replace" tabindex="0">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-driver="${driverId}" data-type="${type}" data-replace-doc="${doc.id}" data-replace-path="${escapeHtml(doc.storagePath)}" hidden>
+                            </label>
+                            <button type="button" class="doc-slot-delete" title="Delete" data-driver="${driverId}" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } else {
+                bodyHtml = `<label class="detail-doc-upload-prompt" tabindex="0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Upload ${escapeHtml(label)}
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-driver="${driverId}" data-type="${type}" hidden>
+                </label>`;
+            }
+
+            return `<div class="detail-doc-slot" data-doc-type="${type}">
+                <div class="detail-doc-slot-header">
+                    <span class="detail-doc-slot-label">${escapeHtml(label)}</span>
+                    ${statusBadgeHtml}
+                </div>
+                <div class="detail-doc-slot-body">${bodyHtml}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function initDriverDetailPanel() {
+        $('detailCloseBtn').addEventListener('click', closeDriverDetailPanel);
+        $('driverDetailBackdrop').addEventListener('click', closeDriverDetailPanel);
+        $('detailEditBtn').addEventListener('click', () => {
+            if (detailPanelDriverId) {
+                closeDriverDetailPanel();
+                editDriver(detailPanelDriverId);
+            }
+        });
+
+        // Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && detailPanelDriverId) closeDriverDetailPanel();
+        });
+
+        // Delegated upload + replace + delete on doc grid
+        const grid = $('detailDocGrid');
+        if (grid) {
+            grid.addEventListener('change', async (e) => {
+                const input = e.target.closest('input[type="file"]');
+                if (!input || !input.files[0]) return;
+                const driverId = input.dataset.driver;
+                const docType = input.dataset.type;
+                const file = input.files[0];
+
+                // If replacing, delete old first
+                const replaceDocId = input.dataset.replaceDoc;
+                const replacePath = input.dataset.replacePath;
+                if (replaceDocId && replacePath) {
+                    await deleteDriverDoc(driverId, replaceDocId, replacePath);
+                }
+
+                await uploadDriverDoc(driverId, file, docType);
+                input.value = '';
+                const docs = await loadDriverDocs(driverId);
+                renderDetailDocGrid(docs, driverId);
+                renderDrivers();
+            });
+
+            grid.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.doc-slot-delete');
+                if (!btn) return;
+                if (!confirm('Delete this document?')) return;
+                const driverId = btn.dataset.driver;
+                const docId = btn.dataset.docId;
+                const path = btn.dataset.path;
+                await deleteDriverDoc(driverId, docId, path);
+                const docs = await loadDriverDocs(driverId);
+                renderDetailDocGrid(docs, driverId);
+                renderDrivers();
             });
         }
     }
@@ -4996,6 +5179,7 @@
         deleteTruck, deleteTrailer, deleteDriver,
         inlineStatus,
         openTruckProfile, openTrailerProfile, openDriverProfile,
+        openDriverDetailPanel, closeDriverDetailPanel,
         toggleDriverColumn,
         addTruck: () => openSheetModal('truck'),
         addTrailer: () => openSheetModal('trailer'),
