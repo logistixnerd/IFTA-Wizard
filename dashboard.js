@@ -5119,7 +5119,7 @@
         const data = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data }).promise;
 
-        // Extract text items with position info across all pages
+        // Extract text items with position + width info across all pages
         const allItems = [];
         for (let p = 1; p <= pdf.numPages; p++) {
             const page = await pdf.getPage(p);
@@ -5127,10 +5127,10 @@
             const vp = page.getViewport({ scale: 1 });
             content.items.forEach(item => {
                 if (!item.str || !item.str.trim()) return;
-                // Convert PDF coords (bottom-left origin) to top-left origin
                 const y = vp.height - item.transform[5];
                 const x = item.transform[4];
-                allItems.push({ text: item.str.trim(), x, y, page: p });
+                const w = item.width || (item.str.length * Math.abs(item.transform[0]) * 0.6);
+                allItems.push({ text: item.str.trim(), x, y, w, page: p });
             });
         }
 
@@ -5141,7 +5141,7 @@
 
         // Group items into rows by Y-coordinate (within tolerance)
         allItems.sort((a, b) => a.page - b.page || a.y - b.y || a.x - b.x);
-        const yTolerance = 5;
+        const yTolerance = 4;
         const rowGroups = [];
         let currentGroup = [allItems[0]];
 
@@ -5157,43 +5157,66 @@
         }
         rowGroups.push(currentGroup);
 
-        // Convert each row group into an array of cell strings (sorted by X)
+        // Collect all X-start positions across all rows to detect column boundaries
+        const allXPositions = [];
+        rowGroups.forEach(group => {
+            group.sort((a, b) => a.x - b.x);
+            group.forEach(item => allXPositions.push(item.x));
+        });
+        allXPositions.sort((a, b) => a - b);
+
+        // Cluster X positions into column boundaries (positions within 8px are same column)
+        const colBoundaries = [];
+        const clusterTolerance = 8;
+        allXPositions.forEach(x => {
+            const existing = colBoundaries.find(b => Math.abs(b - x) <= clusterTolerance);
+            if (!existing) colBoundaries.push(x);
+        });
+        colBoundaries.sort((a, b) => a - b);
+
+        console.log('[PDF] Found', colBoundaries.length, 'column boundaries:', colBoundaries.map(b => Math.round(b)));
+
+        // Assign each item to the nearest column boundary
+        function getColIndex(x) {
+            let bestIdx = 0, bestDist = Infinity;
+            colBoundaries.forEach((b, idx) => {
+                const dist = Math.abs(x - b);
+                if (dist < bestDist) { bestDist = dist; bestIdx = idx; }
+            });
+            return bestIdx;
+        }
+
+        // Convert each row group into cells aligned to column boundaries
         const lines = rowGroups.map(group => {
             group.sort((a, b) => a.x - b.x);
-            // Detect column gaps: if X gap > 15px, treat as separate cell
-            const cells = [];
-            let cell = group[0].text;
-            for (let i = 1; i < group.length; i++) {
-                const gap = group[i].x - (group[i - 1].x + group[i - 1].text.length * 4);
-                if (gap > 15) {
-                    cells.push(cell.trim());
-                    cell = group[i].text;
-                } else {
-                    cell += ' ' + group[i].text;
-                }
-            }
-            cells.push(cell.trim());
-            return cells.filter(Boolean);
-        }).filter(row => row.length > 0);
+            const cells = new Array(colBoundaries.length).fill('');
+            group.forEach(item => {
+                const colIdx = getColIndex(item.x);
+                cells[colIdx] = cells[colIdx] ? cells[colIdx] + ' ' + item.text : item.text;
+            });
+            return cells;
+        });
 
-        console.log('[PDF] Extracted', lines.length, 'lines. First 3:', JSON.stringify(lines.slice(0, 3)));
+        // Filter empty rows
+        const nonEmptyLines = lines.filter(row => row.some(c => c.trim()));
 
-        if (lines.length < 2) return null;
+        console.log('[PDF] Extracted', nonEmptyLines.length, 'lines. First 3:', JSON.stringify(nonEmptyLines.slice(0, 3)));
+
+        if (nonEmptyLines.length < 2) return null;
 
         // Find header row
-        const tableKeywords = ['name', 'first', 'last', 'cdl', 'license', 'phone', 'email', 'driver', 'dob', 'hire', 'status', 'unit', 'vin', 'plate', 'make', 'model', 'year', 'type', 'fuel', 'trailer', 'truck', 'vehicle', 'number', 'registration', 'insurance', 'inspection', 'expiration', 'date'];
+        const tableKeywords = ['name', 'first', 'last', 'cdl', 'license', 'phone', 'email', 'driver', 'dob', 'hire', 'status', 'unit', 'vin', 'plate', 'make', 'model', 'year', 'type', 'fuel', 'trailer', 'truck', 'vehicle', 'number', 'registration', 'insurance', 'inspection', 'expiration', 'date', 'termination'];
         let headerIdx = -1, bestScore = 0;
-        lines.forEach((cells, i) => {
+        nonEmptyLines.forEach((cells, i) => {
             const joined = cells.join(' ').toLowerCase();
             const score = tableKeywords.filter(kw => joined.includes(kw)).length;
             if (score > bestScore) { bestScore = score; headerIdx = i; }
         });
 
-        console.log('[PDF] Best header at line', headerIdx, 'score', bestScore, headerIdx >= 0 ? JSON.stringify(lines[headerIdx]) : '');
+        console.log('[PDF] Best header at line', headerIdx, 'score', bestScore, headerIdx >= 0 ? JSON.stringify(nonEmptyLines[headerIdx]) : '');
 
         if (headerIdx === -1 || bestScore < 2) {
-            // Fallback: assume first row with 2+ cells is header
-            headerIdx = lines.findIndex(cells => cells.length >= 2);
+            headerIdx = nonEmptyLines.findIndex(cells => cells.filter(c => c.trim()).length >= 2);
             if (headerIdx === -1) {
                 showMsg('Could not detect table structure in PDF. Try Excel or CSV instead.', true);
                 return null;
@@ -5201,19 +5224,24 @@
             console.log('[PDF] Using fallback header at line', headerIdx);
         }
 
-        const header = lines[headerIdx];
-        const headerLen = header.length;
-        const rows = [header];
-
-        for (let i = headerIdx + 1; i < lines.length; i++) {
-            // Accept rows with reasonable column count (within +/- 2 of header)
-            if (lines[i].length >= Math.max(2, headerLen - 2) && lines[i].length <= headerLen + 2) {
-                rows.push(lines[i]);
+        // Clean: remove empty columns (where header is empty and all data is empty)
+        const header = nonEmptyLines[headerIdx];
+        const dataLines = nonEmptyLines.slice(headerIdx + 1);
+        const usedCols = [];
+        for (let c = 0; c < header.length; c++) {
+            if (header[c].trim() || dataLines.some(row => row[c] && row[c].trim())) {
+                usedCols.push(c);
             }
         }
 
-        console.log('[PDF] Final result:', rows.length, 'rows (incl header)');
-        return rows.length >= 2 ? rows : null;
+        const cleanRows = [usedCols.map(c => header[c].trim())];
+        for (const row of dataLines) {
+            const cleaned = usedCols.map(c => (row[c] || '').trim());
+            if (cleaned.some(c => c)) cleanRows.push(cleaned);
+        }
+
+        console.log('[PDF] Final result:', cleanRows.length, 'rows (incl header). Header:', JSON.stringify(cleanRows[0]));
+        return cleanRows.length >= 2 ? cleanRows : null;
     }
 
     // ── SHEET MODAL SYSTEM (Trucks, Trailers, Drivers) ──
