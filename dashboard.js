@@ -4735,8 +4735,20 @@
                             if (col?.options) { const m = col.options.find(o => o.value.toLowerCase() === val.toLowerCase() || o.label.toLowerCase() === val.toLowerCase()); val = m ? m.value : 'active'; }
                         }
                         if (key === 'type' && val) {
-                            const col = config.cols.find(c => c.key === 'type');
-                            if (col?.options) { const m = col.options.find(o => o.value.toLowerCase() === val.toLowerCase() || o.label.toLowerCase() === val.toLowerCase()); val = m ? m.value : val; }
+                            // Extract length from combined model/type field (e.g., "53ft Dry Van")
+                            const lenMatch = val.match(/(\d+)\s*(?:ft|foot|feet|')/i);
+                            if (lenMatch && !data.length) data.length = lenMatch[1] + 'ft';
+                            const lv = val.toLowerCase();
+                            if (lv.includes('reefer') || lv.includes('refrigerat')) val = 'reefer';
+                            else if (lv.includes('dry') && lv.includes('van') || lv.includes('dryvan')) val = 'dry-van';
+                            else if (lv.includes('flatbed')) val = 'flatbed';
+                            else if (lv.includes('step') && lv.includes('deck')) val = 'step-deck';
+                            else if (lv.includes('tanker')) val = 'tanker';
+                            else if (lv.includes('lowboy')) val = 'lowboy';
+                            else {
+                                const col = config.cols.find(c => c.key === 'type');
+                                if (col?.options) { const m = col.options.find(o => o.value.toLowerCase() === lv || o.label.toLowerCase() === lv); val = m ? m.value : 'other'; }
+                            }
                         }
                         if (val) { data[key] = val; hasValue = true; }
                     }
@@ -5617,7 +5629,8 @@
             saveId: 'saveMultiTruck',
             defaults: { fuel: 'diesel', status: 'active' },
             afterSave: async () => { await loadTrucks(); populateTruckDropdown(); },
-            extraFields: ['annualInspDate', 'registrationExp', 'insuranceExp', 'notes'],
+            extraFields: ['annualInspDate', 'registrationExp', 'insuranceExp',
+                          'mileage', 'grossWeight', 'dotInspDate', 'tireSize', 'pdInsurance', 'notes'],
             csvAliases: {
                 unit: ['unit', 'unitnumber', 'unitno', 'truckno', 'trucknumber', 'equipmentno', 'equipmentnumber', 'no', 'number', 'truck', 'vehicleno', 'vehiclenumber', 'fleetno', 'fleetnumber', 'id', 'truckid', 'assetno', 'assetnumber', 'asset'],
                 year: ['year', 'yr', 'modelyear', 'vehicleyear'],
@@ -5628,9 +5641,14 @@
                 plateState: ['platestate', 'state', 'tagstate', 'registrationstate', 'regstate'],
                 fuel: ['fuel', 'fueltype', 'gas', 'diesel'],
                 status: ['status', 'active', 'condition'],
-                annualInspDate: ['annualinspection', 'inspection', 'inspectiondate', 'annualinsp', 'inspdate', 'inspexp', 'annualinspdate'],
-                registrationExp: ['registration', 'registrationexp', 'registrationexpiration', 'regexp', 'regexpiration'],
+                annualInspDate: ['annualinspection', 'inspection', 'inspectiondate', 'annualinsp', 'inspdate', 'inspexp', 'annualinspdate', 'inspectionexp'],
+                registrationExp: ['registration', 'registrationexp', 'registrationexpiration', 'regexp', 'regexpiration', 'regexp'],
                 insuranceExp: ['insurance', 'insuranceexp', 'insuranceexpiration', 'insexp', 'insexpiration'],
+                mileage: ['mileage', 'odometer', 'miles', 'km', 'odo', 'currentmileage'],
+                grossWeight: ['grossweight', 'gvw', 'weight', 'gvwr', 'maxweight'],
+                dotInspDate: ['dotinspection', 'dotinsp', 'dotinspdate'],
+                tireSize: ['tiresize', 'tire', 'tires', 'wheelsize'],
+                pdInsurance: ['pdinsurance', 'physicaldamage', 'pd', 'physicalinsurance', 'pdvalue', 'insurancevalue'],
                 notes: ['notes', 'note', 'comments', 'comment', 'remarks']
             }
         },
@@ -5669,19 +5687,30 @@
             saveId: 'saveMultiTrailer',
             defaults: { type: 'dry-van', status: 'active' },
             afterSave: async () => { await loadTrailers(); },
-            extraFields: ['plateState', 'annualInspDate', 'registrationExp', 'insuranceExp', 'notes'],
+            extraFields: ['plateState', 'annualInspDate', 'registrationExp', 'insuranceExp',
+                          'reeferModel', 'tireSize', 'length', 'spareTires', 'etracks',
+                          'chuteType', 'airRide', 'ventedVan', 'tireRack', 'pdInsurance', 'notes'],
             csvAliases: {
                 unit: ['unit', 'unitnumber', 'unitno', 'trailerno', 'trailernumber', 'equipmentno', 'equipmentnumber', 'no', 'number', 'trailer', 'vehicleno', 'vehiclenumber', 'fleetno', 'fleetnumber', 'id', 'trailerid', 'assetno', 'assetnumber', 'asset'],
                 year: ['year', 'yr', 'modelyear', 'vehicleyear'],
                 make: ['make', 'manufacturer', 'brand', 'oem'],
-                type: ['type', 'trailertype', 'equipmenttype', 'bodytype', 'body'],
+                type: ['type', 'trailertype', 'equipmenttype', 'bodytype', 'body', 'model'],
                 vin: ['vin', 'vehicleid', 'vehicleidentification', 'vinno', 'vinnumber', 'serialnumber', 'serial'],
                 plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag', 'platenumber', 'plateno', 'tagno', 'tagnumber', 'registration'],
                 plateState: ['platestate', 'state', 'tagstate', 'registrationstate', 'regstate'],
                 status: ['status', 'active', 'condition'],
-                annualInspDate: ['annualinspection', 'inspection', 'inspectiondate', 'annualinsp', 'inspdate', 'inspexp', 'annualinspdate'],
-                registrationExp: ['registration', 'registrationexp', 'registrationexpiration', 'regexp', 'regexpiration'],
+                annualInspDate: ['annualinspection', 'inspection', 'inspectiondate', 'annualinsp', 'inspdate', 'inspexp', 'annualinspdate', 'inspectionexp'],
+                registrationExp: ['registration', 'registrationexp', 'registrationexpiration', 'regexp', 'regexpiration', 'regexp'],
                 insuranceExp: ['insurance', 'insuranceexp', 'insuranceexpiration', 'insexp', 'insexpiration'],
+                reeferModel: ['reefermodel', 'reefer', 'reefermake', 'reeferunit', 'reeferbrand', 'tempcontrol'],
+                tireSize: ['tiresize', 'tire', 'tires', 'wheelsize'],
+                spareTires: ['sparetires', 'spare', 'sparetire', 'spares'],
+                etracks: ['etracks', 'etrack', 'tracks'],
+                chuteType: ['chute', 'chutetype', 'centerorsidechute', 'centerchute', 'sidechute'],
+                airRide: ['airride', 'air', 'suspension'],
+                ventedVan: ['ventedvan', 'vented', 'vent'],
+                tireRack: ['tirerack', 'rack'],
+                pdInsurance: ['pdinsurance', 'physicaldamage', 'pd', 'physicalinsurance', 'pdvalue', 'insurancevalue'],
                 notes: ['notes', 'note', 'comments', 'comment', 'remarks']
             }
         },
