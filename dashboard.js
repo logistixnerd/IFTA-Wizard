@@ -5157,24 +5157,42 @@
         }
         rowGroups.push(currentGroup);
 
-        // Collect all X-start positions across all rows to detect column boundaries
+        // Collect all X-start positions and find column boundaries using gap analysis
         const allXPositions = [];
         rowGroups.forEach(group => {
-            group.sort((a, b) => a.x - b.x);
             group.forEach(item => allXPositions.push(item.x));
         });
         allXPositions.sort((a, b) => a - b);
 
-        // Cluster X positions into column boundaries (positions within 8px are same column)
-        const colBoundaries = [];
-        const clusterTolerance = 8;
-        allXPositions.forEach(x => {
-            const existing = colBoundaries.find(b => Math.abs(b - x) <= clusterTolerance);
-            if (!existing) colBoundaries.push(x);
-        });
-        colBoundaries.sort((a, b) => a - b);
+        // Remove near-duplicates first (within 3px)
+        const uniqueX = [allXPositions[0]];
+        for (let i = 1; i < allXPositions.length; i++) {
+            if (allXPositions[i] - uniqueX[uniqueX.length - 1] > 3) {
+                uniqueX.push(allXPositions[i]);
+            }
+        }
 
-        console.log('[PDF] Found', colBoundaries.length, 'column boundaries:', colBoundaries.map(b => Math.round(b)));
+        // Find gaps between consecutive X positions and use gap analysis to determine column breaks
+        const gaps = [];
+        for (let i = 1; i < uniqueX.length; i++) {
+            gaps.push({ gap: uniqueX[i] - uniqueX[i - 1], idx: i });
+        }
+        gaps.sort((a, b) => b.gap - a.gap);
+
+        // Determine how many columns by finding the biggest drop in gap sizes
+        // Take gaps that are significantly larger than the median gap
+        const sortedGapValues = gaps.map(g => g.gap).sort((a, b) => b - a);
+        const medianGap = sortedGapValues[Math.floor(sortedGapValues.length / 2)] || 10;
+        const breakThreshold = Math.max(medianGap * 2, 30);
+
+        const breakIndices = new Set();
+        breakIndices.add(0); // first position is always a column start
+        gaps.forEach(g => {
+            if (g.gap >= breakThreshold) breakIndices.add(g.idx);
+        });
+
+        const colBoundaries = Array.from(breakIndices).sort((a, b) => a - b).map(i => uniqueX[i]);
+        console.log('[PDF] Column boundaries (' + colBoundaries.length + '):', colBoundaries.map(b => Math.round(b)), 'threshold:', Math.round(breakThreshold));
 
         // Assign each item to the nearest column boundary
         function getColIndex(x) {
