@@ -3452,49 +3452,50 @@
             ? item.validationIssues.filter(Boolean).map((i) => String(i))
             : [];
         const issues = baseIssues.slice();
+        let hasError = item.validationStatus === 'error';
         const status = String(item.status || '').trim();
         const statusReason = String(item.statusReason || '').trim();
 
-        if (!status) appendUniqueIssue(issues, 'Status is required');
+        function addWarning(msg) { appendUniqueIssue(issues, msg); }
+        function addError(msg) { appendUniqueIssue(issues, msg); hasError = true; }
+
+        if (!status) addError('Status is required');
         if (status && status !== 'active' && !statusReason) {
-            appendUniqueIssue(issues, 'Provide reason why this is not on the road');
+            addWarning('Provide reason why this is not on the road');
         }
 
         if (collection === 'drivers') {
-            if (status === 'active' && !item.truck) {
-                appendUniqueIssue(issues, 'Active driver is not assigned to a truck');
-            }
-            if (!item.cdl) appendUniqueIssue(issues, 'CDL number is missing');
-            if (!item.cdlExp) appendUniqueIssue(issues, 'CDL expiration date is missing');
-            if (!item.medExp) appendUniqueIssue(issues, 'Medical card expiration is missing');
-            if (!item.phone) appendUniqueIssue(issues, 'Phone number is missing');
-            if (!item.emergencyName && !item.emergencyPhone) appendUniqueIssue(issues, 'Emergency contact is missing');
+            if (!item.cdl) addError('CDL number is missing');
+            if (!item.cdlExp) addError('CDL expiration date is missing');
+            if (!item.medExp) addWarning('Medical card expiration is missing');
+            if (!item.phone) addWarning('Phone number is missing');
+            if (!item.emergencyName && !item.emergencyPhone) addWarning('Emergency contact is missing');
+            if (status === 'active' && !item.truck) addWarning('Active driver is not assigned to a truck');
             const cdlDays = daysUntilExpiry(item.cdlExp);
             const medDays = daysUntilExpiry(item.medExp);
-            if (cdlDays !== null && cdlDays < 0) appendUniqueIssue(issues, 'CDL is expired');
-            if (cdlDays !== null && cdlDays >= 0 && cdlDays <= 30) appendUniqueIssue(issues, 'CDL expires within 30 days');
-            if (medDays !== null && medDays < 0) appendUniqueIssue(issues, 'Medical card is expired');
-            if (medDays !== null && medDays >= 0 && medDays <= 30) appendUniqueIssue(issues, 'Medical card expires within 30 days');
+            if (cdlDays !== null && cdlDays < 0) addError('CDL is expired');
+            else if (cdlDays !== null && cdlDays <= 60) addWarning('CDL expires within ' + cdlDays + ' days');
+            if (medDays !== null && medDays < 0) addError('Medical card is expired');
+            else if (medDays !== null && medDays <= 60) addWarning('Medical card expires within ' + medDays + ' days');
         }
 
         if (collection === 'trucks') {
             const assignedDriver = assignedDriverByTruckId(item.id);
             if (status === 'active' && !assignedDriver) {
-                appendUniqueIssue(issues, 'Active truck has no assigned active driver');
+                addWarning('Active truck has no assigned active driver');
             }
         }
 
         if (collection === 'trailers') {
             const trailerTruckId = String(item.truck || item.assignedTruck || '').trim();
             if (status === 'active' && !trailerTruckId) {
-                appendUniqueIssue(issues, 'Active trailer has no assigned truck');
+                addWarning('Active trailer has no assigned truck');
             }
         }
 
-        const statusFromRecord = item.validationStatus === 'error' ? 'error' : 'warning';
         return {
             ...item,
-            validationStatus: issues.length ? statusFromRecord : 'valid',
+            validationStatus: issues.length ? (hasError ? 'error' : 'warning') : 'valid',
             validationIssues: issues
         };
     }
@@ -3507,18 +3508,27 @@
 
     // ── Validation Indicator Helpers ───────
     function validationIndicator(item) {
-        if (!item.validationStatus || item.validationStatus === 'valid') return '<td class="col-validation"></td>';
-        const isError = item.validationStatus === 'error';
+        const st = item.validationStatus || 'valid';
         const issues = item.validationIssues || [];
+        if (st === 'valid') {
+            return `<td class="col-validation">
+                <span class="validation-indicator vi-valid" aria-label="Healthy" role="img">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="vi-tooltip"><strong>Healthy</strong><br>No issues found</span>
+                </span>
+            </td>`;
+        }
+        const isError = st === 'error';
         const cls = isError ? 'error' : 'warning';
-        const label = isError ? 'Error' : 'Warning';
+        const label = isError ? 'Needs Attention' : 'Warning';
+        const count = issues.length;
         return `<td class="col-validation">
             <span class="validation-indicator vi-${cls}" aria-label="${label}" role="img">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
-                <span class="vi-tooltip"><strong>${label}</strong>${issues.map(i => '<br>• ' + escapeHtml(i)).join('')}</span>
+                <span class="vi-tooltip"><strong>${label}</strong> (${count} issue${count !== 1 ? 's' : ''})${issues.map(i => '<br>• ' + escapeHtml(i)).join('')}</span>
             </span>
         </td>`;
     }

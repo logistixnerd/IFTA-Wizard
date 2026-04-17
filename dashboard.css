@@ -3682,6 +3682,16 @@ th.col-validation {
 .vi-error svg {
     stroke: #dc3545;
 }
+.vi-valid svg {
+    stroke: #059669;
+}
+.vi-valid {
+    opacity: 0.55;
+    transition: opacity 0.15s;
+}
+.vi-valid:hover {
+    opacity: 1;
+}
 /* Hidden source-of-truth for tooltip content (rendered by JS) */
 .vi-tooltip {
     display: none !important;
