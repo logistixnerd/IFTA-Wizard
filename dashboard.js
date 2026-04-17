@@ -2579,6 +2579,7 @@
         if (importBtn) importBtn.style.display = mode === 'add' ? '' : 'none';
 
         $('unifiedSheetModal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
         // Focus first input after render
         setTimeout(() => {
             const first = $('usheetTbody').querySelector('input, select');
@@ -2905,6 +2906,7 @@
         }
         modal.classList.add('hidden');
         $('usheetColDropdown').classList.add('hidden');
+        document.body.style.overflow = '';
         uSheetState.open = false;
         uSheetState.dirty.clear();
     }
