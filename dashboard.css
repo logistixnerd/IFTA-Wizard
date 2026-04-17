@@ -5634,9 +5634,27 @@ input[type="date"].ss-input {
     background-position: right 6px center;
 }
 
-/* Date input - consistent height */
+/* Date input - match text input appearance */
 .usheet-cell input[type="date"] {
     padding-right: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #111827;
+    letter-spacing: 0;
+}
+
+.usheet-cell input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0;
+    width: 14px;
+    cursor: pointer;
+}
+
+.usheet-cell:hover input[type="date"]::-webkit-calendar-picker-indicator {
+    opacity: 0.5;
+}
+
+.usheet-cell input[type="date"]:focus::-webkit-calendar-picker-indicator {
+    opacity: 0.7;
 }
 
 /* ── Row Actions ── */

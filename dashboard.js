@@ -2490,9 +2490,9 @@
                 { value: 'reserved', label: 'Reserved' }, { value: 'sold', label: 'Sold' }
             ]},
             { key: 'color', label: 'Color', type: 'text', width: '72px', placeholder: 'White', default: false },
-            { key: 'annualInspDate', label: 'Insp Exp', type: 'date', width: '124px', expiry: true, default: false },
-            { key: 'registrationExp', label: 'Reg Exp', type: 'date', width: '124px', expiry: true, default: false },
-            { key: 'insuranceExp', label: 'Ins Exp', type: 'date', width: '124px', expiry: true, default: false }
+            { key: 'annualInspDate', label: 'Insp Exp', type: 'date', width: '100px', expiry: true, default: false },
+            { key: 'registrationExp', label: 'Reg Exp', type: 'date', width: '100px', expiry: true, default: false },
+            { key: 'insuranceExp', label: 'Ins Exp', type: 'date', width: '100px', expiry: true, default: false }
         ],
         trailer: [
             { key: 'unit', label: 'Unit #', type: 'text', width: '80px', placeholder: 'T-201', required: true, default: true },
@@ -2512,9 +2512,9 @@
                 { value: 'reserved', label: 'Reserved' }, { value: 'sold', label: 'Sold' }
             ]},
             { key: 'model', label: 'Model', type: 'text', width: '90px', placeholder: 'Model', default: false },
-            { key: 'annualInspDate', label: 'Insp Exp', type: 'date', width: '124px', expiry: true, default: false },
-            { key: 'registrationExp', label: 'Reg Exp', type: 'date', width: '124px', expiry: true, default: false },
-            { key: 'insuranceExp', label: 'Ins Exp', type: 'date', width: '124px', expiry: true, default: false }
+            { key: 'annualInspDate', label: 'Insp Exp', type: 'date', width: '100px', expiry: true, default: false },
+            { key: 'registrationExp', label: 'Reg Exp', type: 'date', width: '100px', expiry: true, default: false },
+            { key: 'insuranceExp', label: 'Ins Exp', type: 'date', width: '100px', expiry: true, default: false }
         ],
         driver: [
             { key: 'name', label: 'Name', type: 'text', width: '150px', placeholder: 'John Smith', required: true, default: true },
@@ -2528,11 +2528,11 @@
                 { value: 'pending', label: 'Pending' }, { value: 'suspended', label: 'Suspended' },
                 { value: 'terminated', label: 'Terminated' }
             ]},
-            { key: 'dob', label: 'DOB', type: 'date', width: '120px', default: false },
-            { key: 'cdlExp', label: 'CDL Exp', type: 'date', width: '120px', expiry: true, default: false },
-            { key: 'medExp', label: 'Med Exp', type: 'date', width: '120px', expiry: true, default: false },
-            { key: 'mvrExp', label: 'MVR Exp', type: 'date', width: '120px', expiry: true, default: false },
-            { key: 'hireDate', label: 'Hire Date', type: 'date', width: '120px', default: false },
+            { key: 'dob', label: 'DOB', type: 'date', width: '100px', default: false },
+            { key: 'cdlExp', label: 'CDL Exp', type: 'date', width: '100px', expiry: true, default: false },
+            { key: 'medExp', label: 'Med Exp', type: 'date', width: '100px', expiry: true, default: false },
+            { key: 'mvrExp', label: 'MVR Exp', type: 'date', width: '100px', expiry: true, default: false },
+            { key: 'hireDate', label: 'Hire Date', type: 'date', width: '100px', default: false },
             { key: 'truck', label: 'Truck', type: 'truck-select', width: '90px', default: false }
         ]
     };
