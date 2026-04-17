@@ -269,10 +269,12 @@
         // ── Collapsible driver details ──
         const detailsCard = document.getElementById('driverDetailsCard');
         const detailsToggle = document.getElementById('driverDetailsToggle');
+        const collapseHint = document.getElementById('collapseHint');
         if (detailsToggle && detailsCard) {
             detailsToggle.addEventListener('click', () => {
                 const collapsed = detailsCard.classList.toggle('collapsed');
                 detailsToggle.setAttribute('aria-expanded', String(!collapsed));
+                if (collapseHint) collapseHint.textContent = collapsed ? 'Show' : 'Hide';
             });
         }
 

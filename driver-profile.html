@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="unit-profile.css?v=6">
+    <link rel="stylesheet" href="unit-profile.css?v=7">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -119,27 +119,32 @@
                 <!-- Driver Details (collapsible) -->
                 <div class="up-card up-card--wide up-section-collapse collapsed" id="driverDetailsCard">
                     <button class="up-collapse-head" id="driverDetailsToggle" type="button" aria-expanded="false">
-                        <div>
-                            <span class="up-label">Driver details</span>
-                            <h2 class="up-card-title">Personal summary</h2>
+                        <div class="up-collapse-lead">
+                            <svg class="up-collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                            <span class="up-collapse-label">Driver Information</span>
                         </div>
-                        <svg class="up-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="6 9 12 15 18 9"/></svg>
+                        <div class="up-collapse-trail">
+                            <span class="up-collapse-hint" id="collapseHint">Show</span>
+                            <svg class="up-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
                     </button>
-                    <dl class="up-detail-grid up-collapse-body" id="driverDetailsBody">
-                        <div class="up-detail-cell"><dt>Full name</dt><dd id="detailName">-</dd></div>
-                        <div class="up-detail-cell"><dt>Phone</dt><dd id="detailPhone">-</dd></div>
-                        <div class="up-detail-cell"><dt>Email</dt><dd id="detailEmail">-</dd></div>
-                        <div class="up-detail-cell"><dt>CDL number</dt><dd id="detailCdl">-</dd></div>
-                        <div class="up-detail-cell"><dt>CDL class</dt><dd id="detailCdlClass">-</dd></div>
-                        <div class="up-detail-cell"><dt>CDL state</dt><dd id="detailCdlState">-</dd></div>
-                        <div class="up-detail-cell"><dt>CDL expiration</dt><dd id="detailCdlExp">-</dd></div>
-                        <div class="up-detail-cell"><dt>Medical card exp.</dt><dd id="detailMedExp">-</dd></div>
-                        <div class="up-detail-cell"><dt>MVR expiry</dt><dd id="detailMvrExp">-</dd></div>
-                        <div class="up-detail-cell"><dt>Last drug test</dt><dd id="detailDrugTestDate">-</dd></div>
-                        <div class="up-detail-cell"><dt>TWIC card exp.</dt><dd id="detailTwicExp">-</dd></div>
-                        <div class="up-detail-cell"><dt>Restrictions</dt><dd id="detailRestrictions">-</dd></div>
-                        <div class="up-detail-cell"><dt>Assigned truck</dt><dd id="detailTruck">-</dd></div>
-                    </dl>
+                    <div class="up-collapse-body" id="driverDetailsBody">
+                        <dl class="up-detail-grid">
+                            <div class="up-detail-cell"><dt>Full name</dt><dd id="detailName">-</dd></div>
+                            <div class="up-detail-cell"><dt>Phone</dt><dd id="detailPhone">-</dd></div>
+                            <div class="up-detail-cell"><dt>Email</dt><dd id="detailEmail">-</dd></div>
+                            <div class="up-detail-cell"><dt>CDL number</dt><dd id="detailCdl">-</dd></div>
+                            <div class="up-detail-cell"><dt>CDL class</dt><dd id="detailCdlClass">-</dd></div>
+                            <div class="up-detail-cell"><dt>CDL state</dt><dd id="detailCdlState">-</dd></div>
+                            <div class="up-detail-cell"><dt>CDL expiration</dt><dd id="detailCdlExp">-</dd></div>
+                            <div class="up-detail-cell"><dt>Medical card exp.</dt><dd id="detailMedExp">-</dd></div>
+                            <div class="up-detail-cell"><dt>MVR expiry</dt><dd id="detailMvrExp">-</dd></div>
+                            <div class="up-detail-cell"><dt>Last drug test</dt><dd id="detailDrugTestDate">-</dd></div>
+                            <div class="up-detail-cell"><dt>TWIC card exp.</dt><dd id="detailTwicExp">-</dd></div>
+                            <div class="up-detail-cell"><dt>Restrictions</dt><dd id="detailRestrictions">-</dd></div>
+                            <div class="up-detail-cell"><dt>Assigned truck</dt><dd id="detailTruck">-</dd></div>
+                        </dl>
+                    </div>
                 </div>
 
                 <!-- Documents -->
@@ -168,6 +173,6 @@
     </div>
 
     <script src="firebase-config.js"></script>
-    <script src="driver-profile.js?v=6"></script>
+    <script src="driver-profile.js?v=7"></script>
 </body>
 </html>
