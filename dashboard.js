@@ -11,6 +11,7 @@
         trucks: [],
         trailers: [],
         drivers: [],
+        loads: [],
         profile: {},
         fmcsaSnapshot: null,
         dropdownOptions: {},
@@ -274,6 +275,23 @@
             formIds: ['dashFleetSize'],
             filterIds: [],
             sheetPath: null
+        },
+        loadStatus: {
+            label: 'Load Status',
+            defaults: [
+                { value: 'booked', label: 'Booked' },
+                { value: 'dispatched', label: 'Dispatched' },
+                { value: 'loaded', label: 'Loaded' },
+                { value: 'in-transit', label: 'In Transit' },
+                { value: 'delivered', label: 'Delivered' },
+                { value: 'invoiced', label: 'Invoiced' },
+                { value: 'paid', label: 'Paid' },
+                { value: 'canceled', label: 'Canceled' },
+                { value: 'issue', label: 'Issue' }
+            ],
+            formIds: ['loadStatus'],
+            filterIds: ['loadStatusFilter'],
+            sheetPath: { type: 'load', colKey: 'status' }
         }
     };
 
@@ -785,10 +803,11 @@
 
     // ── Load All Data ─────────────────────
     async function loadAll() {
-        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers()]);
+        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers(), loadLoads()]);
         renderTrucks();
         renderTrailers();
         renderDrivers();
+        renderLoads();
         updateOverview();
         renderComplianceReminders(state.fmcsaSnapshot);
         initComplianceSection();
@@ -2234,7 +2253,7 @@
     }
 
     // ── Data Normalization (consistent format across all save paths) ──
-    const DATE_FIELDS = ['cdlExp', 'medExp', 'mvrExp', 'drugTestDate', 'twicExp', 'hireDate', 'terminationDate', 'dob', 'annualInspDate', 'registrationExp', 'insuranceExp', 'dotInspDate'];
+    const DATE_FIELDS = ['cdlExp', 'medExp', 'mvrExp', 'drugTestDate', 'twicExp', 'hireDate', 'terminationDate', 'dob', 'annualInspDate', 'registrationExp', 'insuranceExp', 'dotInspDate', 'loadDate', 'deliveryDate'];
     function normalizePayload(data, type) {
         if (data.vin) data.vin = data.vin.toUpperCase().replace(/[^A-Z0-9]/g, '');
         if (data.cdl) data.cdl = data.cdl.toUpperCase().replace(/[^A-Z0-9\-]/g, '');
@@ -2258,7 +2277,7 @@
     }
 
     // ── Bulk Selection State ──
-    const bulkSelection = { trucks: new Set(), trailers: new Set(), drivers: new Set() };
+    const bulkSelection = { trucks: new Set(), trailers: new Set(), drivers: new Set(), loads: new Set() };
 
     function toggleBulkSelect(collection, id, checkbox) {
         if (checkbox.checked) bulkSelection[collection].add(id);
@@ -2298,7 +2317,7 @@
     async function bulkDelete(collection) {
         const ids = [...bulkSelection[collection]];
         if (!ids.length) return;
-        const label = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : 'driver';
+        const label = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : collection === 'loads' ? 'load' : 'driver';
         if (!confirm('Delete ' + ids.length + ' ' + label + (ids.length > 1 ? 's' : '') + '? This cannot be undone.')) return;
         try {
             const batch = firebase.firestore().batch();
@@ -2307,6 +2326,7 @@
             bulkSelection[collection].clear();
             if (collection === 'trucks') { await loadTrucks(); populateTruckDropdown(); }
             else if (collection === 'trailers') await loadTrailers();
+            else if (collection === 'loads') await loadLoads();
             else await loadDrivers();
             updateOverview();
             showMsg(ids.length + ' ' + label + (ids.length > 1 ? 's' : '') + ' deleted');
@@ -2316,7 +2336,7 @@
     async function bulkChangeStatus(collection) {
         const ids = [...bulkSelection[collection]];
         if (!ids.length) return;
-        const key = collection === 'trucks' ? 'truckStatus' : collection === 'trailers' ? 'trailerStatus' : 'driverStatus';
+        const key = collection === 'trucks' ? 'truckStatus' : collection === 'trailers' ? 'trailerStatus' : collection === 'loads' ? 'loadStatus' : 'driverStatus';
         const options = getDropdownOptions(key);
         const statusStr = options.map((o, i) => (i + 1) + '. ' + o.label).join('\n');
         const choice = prompt('Choose new status:\n' + statusStr + '\n\nEnter number:');
@@ -2328,11 +2348,12 @@
             const batch = firebase.firestore().batch();
             ids.forEach(id => batch.update(col(collection).doc(id), { status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }));
             await batch.commit();
-            const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : state.drivers;
+            const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : collection === 'loads' ? state.loads : state.drivers;
             ids.forEach(id => { const item = stateArr.find(x => x.id === id); if (item) item.status = newStatus; });
             bulkSelection[collection].clear();
             if (collection === 'trucks') renderTrucks();
             else if (collection === 'trailers') renderTrailers();
+            else if (collection === 'loads') renderLoads();
             else renderDrivers();
             updateOverview();
             showMsg(ids.length + ' status' + (ids.length > 1 ? 'es' : '') + ' updated to ' + options[idx].label);
@@ -2342,7 +2363,7 @@
     function bulkExport(collection) {
         const ids = [...bulkSelection[collection]];
         if (!ids.length) return;
-        const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : state.drivers;
+        const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : collection === 'loads' ? state.loads : state.drivers;
         const selected = stateArr.filter(x => ids.includes(x.id));
         if (!selected.length) return;
         const exclude = ['id', 'createdAt', 'updatedAt', 'validationStatus', 'validationIssues'];
@@ -2366,7 +2387,7 @@
     }
 
     // ── Sort State ──
-    const sortState = { trucks: 'unit-az', trailers: 'unit-az', drivers: 'name-az' };
+    const sortState = { trucks: 'unit-az', trailers: 'unit-az', drivers: 'name-az', loads: 'date-desc' };
 
     function sortItems(arr, sortKey, type) {
         const cmp = (a, b, field, dir) => {
@@ -2407,6 +2428,16 @@
             case 'truck-assigned': sorted.sort((a, b) => (a.truck ? 0 : 1) - (b.truck ? 0 : 1)); break;
             case 'unassigned': sorted.sort((a, b) => (b.truck ? 0 : 1) - (a.truck ? 0 : 1)); break;
             case 'dob-oldest': sorted.sort((a, b) => dateCmp(a, b, 'dob', true)); break;
+            // Loads
+            case 'date-desc': sorted.sort((a, b) => dateCmp(a, b, 'loadDate', false)); break;
+            case 'date-asc': sorted.sort((a, b) => dateCmp(a, b, 'loadDate', true)); break;
+            case 'load-az': sorted.sort((a, b) => cmp(a, b, 'loadNumber', 'asc')); break;
+            case 'load-za': sorted.sort((a, b) => cmp(a, b, 'loadNumber', 'desc')); break;
+            case 'rate-high': sorted.sort((a, b) => (parseFloat(b.rate) || 0) - (parseFloat(a.rate) || 0)); break;
+            case 'rate-low': sorted.sort((a, b) => (parseFloat(a.rate) || 0) - (parseFloat(b.rate) || 0)); break;
+            case 'rpm-high': sorted.sort((a, b) => { const ra = (parseFloat(a.rate)||0)/(parseFloat(a.mileage)||1); const rb = (parseFloat(b.rate)||0)/(parseFloat(b.mileage)||1); return rb - ra; }); break;
+            case 'broker-az': sorted.sort((a, b) => cmp(a, b, 'broker', 'asc')); break;
+            case 'del-date': sorted.sort((a, b) => dateCmp(a, b, 'deliveryDate', true)); break;
         }
         return sorted;
     }
@@ -2437,8 +2468,8 @@
     }
 
     // ── Spreadsheet Edit Mode ──────────────────────
-    const spreadsheetMode = { trucks: false, trailers: false, drivers: false };
-    const spreadsheetDirty = { trucks: new Map(), trailers: new Map(), drivers: new Map() };
+    const spreadsheetMode = { trucks: false, trailers: false, drivers: false, loads: false };
+    const spreadsheetDirty = { trucks: new Map(), trailers: new Map(), drivers: new Map(), loads: new Map() };
 
     const SPREADSHEET_COLS = {
         trucks: [
@@ -2483,6 +2514,22 @@
             { key: 'hireDate', label: 'Hire Date', type: 'date', width: '120px' },
             { key: 'truck', label: 'Truck', type: 'truck-select', width: '90px' },
             { key: 'status', label: 'Status', type: 'select', optionsKey: 'driverStatus', width: '100px' }
+        ],
+        loads: [
+            { key: 'loadDate', label: 'Date', type: 'date', width: '110px' },
+            { key: 'loadNumber', label: 'Load #', type: 'text', width: '100px' },
+            { key: 'unit', label: 'Unit', type: 'truck-select', width: '90px' },
+            { key: 'origin', label: 'Origin', type: 'text', width: '150px' },
+            { key: 'destination', label: 'Destination', type: 'text', width: '150px' },
+            { key: 'broker', label: 'Broker', type: 'text', width: '130px' },
+            { key: 'rate', label: 'Rate', type: 'number', width: '90px' },
+            { key: 'mileage', label: 'Miles', type: 'number', width: '80px' },
+            { key: 'detention', label: 'Det/Bonus', type: 'number', width: '90px' },
+            { key: 'status', label: 'Status', type: 'select', optionsKey: 'loadStatus', width: '110px' },
+            { key: 'deliveryDate', label: 'Del Date', type: 'date', width: '110px' },
+            { key: 'driver', label: 'Driver', type: 'text', width: '120px' },
+            { key: 'dispatcher', label: 'Dispatcher', type: 'text', width: '110px' },
+            { key: 'comments', label: 'Comments', type: 'text', width: '160px' }
         ]
     };
 
@@ -2557,7 +2604,7 @@
         if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
         try {
             const batch = db.batch();
-            const type = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : 'driver';
+            const type = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : collection === 'loads' ? 'load' : 'driver';
             for (const [id, changes] of dirty) {
                 const payload = normalizePayload({ ...changes, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, type);
                 batch.update(col(collection).doc(id), payload);
@@ -2572,6 +2619,7 @@
             showMsg(savedCount + ' item' + (savedCount === 1 ? '' : 's') + ' saved');
             if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
             else if (collection === 'trailers') renderTrailers();
+            else if (collection === 'loads') renderLoads();
             else renderDrivers();
             updateOverview();
         } catch (err) {
@@ -2588,6 +2636,7 @@
         if (saveBar) saveBar.style.display = 'none';
         if (collection === 'trucks') renderTrucks();
         else if (collection === 'trailers') renderTrailers();
+        else if (collection === 'loads') renderLoads();
         else renderDrivers();
     }
 
@@ -7422,13 +7471,14 @@
                 status: newStatus,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : state.drivers;
+            const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : collection === 'loads' ? state.loads : state.drivers;
             const item = stateArr.find(x => x.id === id);
             if (item) item.status = newStatus;
 
             // Re-render
             if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
             else if (collection === 'trailers') renderTrailers();
+            else if (collection === 'loads') renderLoads();
             else renderDrivers();
             updateOverview();
             showMsg('Status updated');
@@ -7465,6 +7515,9 @@
         if (type === 'driver') {
             return [item.firstName, item.lastName, item.cdl, item.cdlState, item.phone, item.email].some(v => v && String(v).toLowerCase().includes(q));
         }
+        if (type === 'load') {
+            return [item.loadNumber, item.unit, item.origin, item.destination, item.broker, item.driver, item.dispatcher, item.comments].some(v => v && String(v).toLowerCase().includes(q));
+        }
         return true;
     }
 
@@ -7481,6 +7534,10 @@
             const el = $(id);
             if (el) el.addEventListener('input', renderDrivers);
         });
+        ['loadSearch', 'loadStatusFilter'].forEach(id => {
+            const el = $(id);
+            if (el) el.addEventListener('input', renderLoads);
+        });
         // Sort dropdowns
         const truckSort = $('truckSort');
         if (truckSort) truckSort.addEventListener('change', () => { sortState.trucks = truckSort.value; renderTrucks(); });
@@ -7488,6 +7545,8 @@
         if (trailerSort) trailerSort.addEventListener('change', () => { sortState.trailers = trailerSort.value; renderTrailers(); });
         const driverSort = $('driverSort');
         if (driverSort) driverSort.addEventListener('change', () => { sortState.drivers = driverSort.value; renderDrivers(); });
+        const loadSort = $('loadSort');
+        if (loadSort) loadSort.addEventListener('change', () => { sortState.loads = loadSort.value; renderLoads(); });
         // Select-all checkboxes
         const truckSelAll = $('truckSelectAll');
         if (truckSelAll) truckSelAll.addEventListener('change', () => toggleSelectAll('trucks', truckSelAll));
@@ -7495,6 +7554,221 @@
         if (trailerSelAll) trailerSelAll.addEventListener('change', () => toggleSelectAll('trailers', trailerSelAll));
         const driverSelAll = $('driverSelectAll');
         if (driverSelAll) driverSelAll.addEventListener('change', () => toggleSelectAll('drivers', driverSelAll));
+        const loadSelAll = $('loadSelectAll');
+        if (loadSelAll) loadSelAll.addEventListener('change', () => toggleSelectAll('loads', loadSelAll));
+    }
+
+    // ── LOADS ─────────────────────────────
+    async function loadLoads() {
+        try {
+            const snap = await col('loads').orderBy('loadDate', 'desc').get();
+            state.loads = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            renderLoads();
+            updateCount('loadCount', state.loads.length);
+        } catch (e) { console.error('Load loads error:', e); }
+    }
+
+    function formatCurrency(val) {
+        const n = parseFloat(val);
+        if (isNaN(n)) return '';
+        return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function calcRPM(rate, mileage) {
+        const r = parseFloat(rate);
+        const m = parseFloat(mileage);
+        if (!r || !m) return '';
+        return '$' + (r / m).toFixed(2);
+    }
+
+    function calcTotal(rate, detention) {
+        const r = parseFloat(rate) || 0;
+        const d = parseFloat(detention) || 0;
+        return r + d;
+    }
+
+    function loadStatusBadge(status) {
+        const map = {
+            booked: 'load-badge-booked',
+            dispatched: 'load-badge-dispatched',
+            loaded: 'load-badge-loaded',
+            'in-transit': 'load-badge-transit',
+            delivered: 'load-badge-delivered',
+            invoiced: 'load-badge-invoiced',
+            paid: 'load-badge-paid',
+            canceled: 'load-badge-canceled',
+            issue: 'load-badge-issue'
+        };
+        const cls = map[status] || '';
+        const label = (DROPDOWN_DEFS.loadStatus.defaults.find(o => o.value === status) || {}).label || status || '';
+        return `<span class="load-badge ${cls}">${escapeHtml(label)}</span>`;
+    }
+
+    function renderLoads() {
+        const tbody = $('loadsTableBody');
+        const table = $('loadsTable');
+        const empty = $('loadsEmpty');
+        const thead = table?.querySelector('thead tr');
+        if (!tbody) return;
+        if (state.loads.length === 0) {
+            if (table) table.style.display = 'none';
+            if (empty) empty.style.display = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        if (table) table.style.display = '';
+        const filtered = state.loads.filter(l => matchesFilter(l, 'load'));
+        const sorted = sortItems(filtered, sortState.loads, 'load');
+        bulkSelection.loads = new Set([...bulkSelection.loads].filter(id => sorted.some(l => l.id === id)));
+        updateBulkBar('loads');
+        if (spreadsheetMode.loads) {
+            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.loads.map(c => `<th class="ss-th" style="width:${c.width}">${c.label}</th>`).join('') + '<th class="ss-th" style="width:80px">RPM</th><th class="ss-th" style="width:90px">Total</th>';
+            tbody.innerHTML = sorted.map((l, i) => {
+                const rpm = calcRPM(l.rate, l.mileage);
+                const total = calcTotal(l.rate, l.detention);
+                return `<tr data-id="${l.id}" class="ss-row">${'<td class="ss-num">' + (i+1) + '</td>'}${SPREADSHEET_COLS.loads.map(c => '<td class="ss-cell">' + ssInput(c, l, 'loads') + '</td>').join('')}<td class="ss-cell ss-readonly">${escapeHtml(rpm)}</td><td class="ss-cell ss-readonly">${total ? formatCurrency(total) : ''}</td></tr>`;
+            }).join('');
+            return;
+        }
+        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="loadSelectAll" title="Select all"></th><th style="width:7%">Date</th><th style="width:6%">Load #</th><th style="width:5%">Unit</th><th style="width:11%">Origin</th><th style="width:11%">Destination</th><th style="width:8%">Broker</th><th style="width:6%">Rate</th><th style="width:5%">Miles</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bon</th><th style="width:8%">Status</th><th style="width:7%">Del Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:5%"></th>`;
+        const selAll = thead?.querySelector('#loadSelectAll');
+        if (selAll) selAll.onchange = () => toggleSelectAll('loads', selAll);
+        tbody.innerHTML = sorted.map(l => {
+            const rpm = calcRPM(l.rate, l.mileage);
+            const total = calcTotal(l.rate, l.detention);
+            return `<tr data-id="${l.id}" class="${bulkSelection.loads.has(l.id) ? 'row-selected' : ''}">
+            <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${l.id}" ${bulkSelection.loads.has(l.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('loads','${l.id}',this)"></td>
+            <td><div class="cell">${escapeHtml(l.loadDate || '')}</div></td>
+            <td><div class="cell cell-primary"><strong>${escapeHtml(l.loadNumber || '')}</strong></div></td>
+            <td><div class="cell">${escapeHtml(l.unit || '')}</div></td>
+            <td><div class="cell">${escapeHtml(l.origin || '')}</div></td>
+            <td><div class="cell">${escapeHtml(l.destination || '')}</div></td>
+            <td><div class="cell">${escapeHtml(l.broker || '')}</div></td>
+            <td><div class="cell">${l.rate ? formatCurrency(l.rate) : ''}</div></td>
+            <td><div class="cell">${escapeHtml(l.mileage ? String(l.mileage) : '')}</div></td>
+            <td><div class="cell load-rpm">${escapeHtml(rpm)}</div></td>
+            <td><div class="cell">${l.detention ? formatCurrency(l.detention) : ''}</div></td>
+            <td><div class="cell">${loadStatusBadge(l.status)}</div></td>
+            <td><div class="cell">${escapeHtml(l.deliveryDate || '')}</div></td>
+            <td><div class="cell"><strong>${total ? formatCurrency(total) : ''}</strong></div></td>
+            <td><div class="cell">${escapeHtml(l.driver || '')}</div></td>
+            <td class="row-actions"><div class="cell">
+                <button title="Edit" onclick="Dashboard.editLoad('${l.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteLoad('${l.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </div></td>
+        </tr>`;
+        }).join('');
+    }
+
+    function openLoadModal(data) {
+        $('loadModalTitle').textContent = data ? 'Edit Load' : 'New Load';
+        $('loadEditId').value = data ? data.id : '';
+        $('loadDate').value = data ? data.loadDate || '' : new Date().toISOString().split('T')[0];
+        $('loadNumber').value = data ? data.loadNumber || '' : '';
+        $('loadUnit').value = data ? data.unit || '' : '';
+        $('loadOrigin').value = data ? data.origin || '' : '';
+        $('loadDestination').value = data ? data.destination || '' : '';
+        $('loadBroker').value = data ? data.broker || '' : '';
+        $('loadRate').value = data ? data.rate || '' : '';
+        $('loadMileage').value = data ? data.mileage || '' : '';
+        $('loadDetention').value = data ? data.detention || '' : '';
+        $('loadStatus').value = data ? data.status || 'booked' : 'booked';
+        $('loadDeliveryDate').value = data ? data.deliveryDate || '' : '';
+        $('loadDriver').value = data ? data.driver || '' : '';
+        $('loadDispatcher').value = data ? data.dispatcher || '' : '';
+        $('loadComments').value = data ? data.comments || '' : '';
+        // Populate unit dropdown with active trucks
+        const unitSel = $('loadUnit');
+        if (unitSel) {
+            const current = unitSel.value;
+            const opts = '<option value="">—</option>' + state.trucks.map(t => `<option value="${escapeHtml(t.unit)}" ${t.unit === current ? 'selected' : ''}>${escapeHtml(t.unit)}</option>`).join('');
+            unitSel.innerHTML = opts;
+            if (current) unitSel.value = current;
+        }
+        // Populate driver dropdown with active drivers
+        const driverSel = $('loadDriver');
+        if (driverSel && driverSel.tagName === 'SELECT') {
+            const current = driverSel.value;
+            const opts = '<option value="">—</option>' + state.drivers.filter(d => !d.doNotDispatch).map(d => {
+                const name = (d.firstName || '') + ' ' + (d.lastName || '');
+                return `<option value="${escapeHtml(name.trim())}" ${name.trim() === current ? 'selected' : ''}>${escapeHtml(name.trim())}</option>`;
+            }).join('');
+            driverSel.innerHTML = opts;
+            if (current) driverSel.value = current;
+        }
+        $('loadModal').classList.remove('hidden');
+    }
+
+    function initLoadForm() {
+        const addBtn = $('addLoadBtn');
+        if (addBtn) addBtn.addEventListener('click', () => openLoadModal(null));
+        const addFirst = $('addFirstLoad');
+        if (addFirst) addFirst.addEventListener('click', () => openLoadModal(null));
+        const closeBtn = $('closeLoadModal');
+        if (closeBtn) closeBtn.addEventListener('click', () => $('loadModal').classList.add('hidden'));
+        const cancelBtn = $('cancelLoad');
+        if (cancelBtn) cancelBtn.addEventListener('click', () => $('loadModal').classList.add('hidden'));
+
+        const form = $('loadForm');
+        if (form) form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                loadDate: $('loadDate').value.trim(),
+                loadNumber: $('loadNumber').value.trim(),
+                unit: $('loadUnit').value,
+                origin: $('loadOrigin').value.trim(),
+                destination: $('loadDestination').value.trim(),
+                broker: $('loadBroker').value.trim(),
+                rate: $('loadRate').value.trim(),
+                mileage: $('loadMileage').value.trim(),
+                detention: $('loadDetention').value.trim(),
+                status: $('loadStatus').value,
+                deliveryDate: $('loadDeliveryDate').value.trim(),
+                driver: $('loadDriver').value,
+                dispatcher: $('loadDispatcher').value.trim(),
+                comments: $('loadComments').value.trim(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            if (!payload.loadNumber) { showMsg('Load # is required', true); return; }
+            try {
+                const editId = $('loadEditId').value;
+                if (editId) {
+                    await col('loads').doc(editId).update(payload);
+                } else {
+                    payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await col('loads').add(payload);
+                }
+                $('loadModal').classList.add('hidden');
+                await loadLoads();
+                updateOverview();
+                showMsg(editId ? 'Load updated' : 'Load added');
+            } catch (err) {
+                console.error('Save load error:', err);
+                showMsg('Error saving load', true);
+            }
+        });
+    }
+
+    function editLoad(id) {
+        const load = state.loads.find(l => l.id === id);
+        if (load) openLoadModal(load);
+    }
+
+    async function deleteLoad(id) {
+        if (!confirm('Delete this load?')) return;
+        try {
+            await col('loads').doc(id).delete();
+            await loadLoads();
+            updateOverview();
+            showMsg('Load deleted');
+        } catch (err) {
+            console.error('Delete load error:', err);
+            showMsg('Error deleting load', true);
+        }
     }
 
     // ── Operational Alerts ────────────────
@@ -7649,6 +7923,7 @@
             + state.trailers.filter(t => t.status === 'maintenance').length;
         const oos = state.trucks.filter(t => t.status === 'inactive').length
             + state.trailers.filter(t => t.status === 'inactive').length;
+        const activeLoads = state.loads.filter(l => ['booked','dispatched','loaded','in-transit'].includes(l.status)).length;
 
         $('overviewTrucks').textContent = state.trucks.length;
         $('overviewTrailers').textContent = state.trailers.length;
@@ -7658,6 +7933,8 @@
         $('overviewActiveDrivers').textContent = activeDrivers;
         $('overviewMaintenance').textContent = maintenance;
         $('overviewOutOfService').textContent = oos;
+        const loadsEl = $('overviewActiveLoads');
+        if (loadsEl) loadsEl.textContent = activeLoads;
         updateAlerts();
     }
 
@@ -8053,6 +8330,7 @@
         initSheetModals();
         initTrailerForm();
         initDriverForm();
+        initLoadForm();
         initTruckDetailPanel();
         initTrailerDetailPanel();
         initDriverDetailPanel();
@@ -8093,8 +8371,8 @@
 
     // Expose edit/delete/inline methods for inline onclick
     window.Dashboard = {
-        editTruck, editTrailer, editDriver,
-        deleteTruck, deleteTrailer, deleteDriver,
+        editTruck, editTrailer, editDriver, editLoad,
+        deleteTruck, deleteTrailer, deleteDriver, deleteLoad,
         inlineStatus, inlineTruckAssign,
         toggleBulkSelect, bulkDelete, bulkChangeStatus, bulkExport,
         openTruckProfile, openTrailerProfile, openDriverProfile,

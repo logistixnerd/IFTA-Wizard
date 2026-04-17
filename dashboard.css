@@ -5193,3 +5193,56 @@ input[type="date"].ss-input {
     background: #cbd5e1;
     color: #334155;
 }
+
+/* ── Load Status Badges ── */
+.load-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.675rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    line-height: 1.4;
+}
+.load-badge-booked {
+    background: #dbeafe; color: #1e40af;
+}
+.load-badge-dispatched {
+    background: #e0e7ff; color: #3730a3;
+}
+.load-badge-loaded {
+    background: #fef3c7; color: #92400e;
+}
+.load-badge-transit {
+    background: #cffafe; color: #155e75;
+}
+.load-badge-delivered {
+    background: #d1fae5; color: #065f46;
+}
+.load-badge-invoiced {
+    background: #ede9fe; color: #5b21b6;
+}
+.load-badge-paid {
+    background: #a7f3d0; color: #064e3b;
+}
+.load-badge-canceled {
+    background: #fee2e2; color: #991b1b;
+}
+.load-badge-issue {
+    background: #fef3c7; color: #b45309;
+}
+.load-rpm {
+    font-weight: 600;
+    color: #059669;
+}
+/* Load modal wider */
+.modal-lg {
+    max-width: 720px;
+}
+/* Readonly spreadsheet cells */
+.ss-readonly {
+    background: #f1f5f9 !important;
+    color: #64748b;
+    font-style: italic;
+}
