@@ -3158,20 +3158,58 @@
     function renderTruckDocGrid(docs, truckId) {
         const grid = $('truckDocGrid');
         if (!grid) return;
-        const docMap = {};
-        docs.forEach(d => { if (!docMap[d.type]) docMap[d.type] = d; });
+        const docsByType = {};
+        docs.forEach(d => {
+            if (!docsByType[d.type]) docsByType[d.type] = [];
+            docsByType[d.type].push(d);
+        });
         grid.innerHTML = TRUCK_DOC_TYPES.map(type => {
-            const doc = docMap[type];
             const label = TRUCK_DOC_LABELS[type] || type;
-            if (doc) {
-                return `<div class="doc-slot doc-slot--filled">
-                    <div class="doc-slot-label">${escapeHtml(label)}</div>
-                    <a href="${escapeHtml(doc.url)}" target="_blank" class="doc-slot-file">${escapeHtml(doc.name)}</a>
-                    <button class="doc-slot-delete" data-truck="${truckId}" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}" title="Remove">&times;</button>
-                    <label class="doc-slot-replace">Replace<input type="file" data-truck="${truckId}" data-type="${type}" data-replace-doc="${doc.id}" data-replace-path="${escapeHtml(doc.storagePath)}" hidden></label>
-                </div>`;
+            const typeDocs = docsByType[type] || [];
+            const hasDoc = typeDocs.length > 0;
+            const statusBadgeHtml = hasDoc
+                ? '<span class="detail-doc-slot-status uploaded">Uploaded</span>'
+                : '<span class="detail-doc-slot-status missing">Missing</span>';
+            let bodyHtml;
+            if (hasDoc) {
+                bodyHtml = typeDocs.map(doc => {
+                    const isImage = doc.contentType && doc.contentType.startsWith('image/');
+                    const sizeStr = doc.size ? (doc.size < 1024 ? doc.size + ' B' : (doc.size / 1024).toFixed(0) + ' KB') : '';
+                    const thumb = isImage ? `<img src="${escapeHtml(doc.url)}" alt="" class="detail-doc-thumb" loading="lazy">` : '';
+                    return `<div class="detail-doc-file">
+                        ${thumb}
+                        <div class="detail-doc-file-info">
+                            <span class="detail-doc-file-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</span>
+                            <span class="detail-doc-file-meta">${sizeStr}</span>
+                        </div>
+                        <div class="detail-doc-file-actions">
+                            <a href="${escapeHtml(doc.url)}" target="_blank" rel="noopener" title="View / Download">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </a>
+                            <label class="doc-slot-replace" title="Replace" tabindex="0">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-truck="${truckId}" data-type="${type}" data-replace-doc="${doc.id}" data-replace-path="${escapeHtml(doc.storagePath)}" hidden>
+                            </label>
+                            <button type="button" class="doc-slot-delete" title="Delete" data-truck="${truckId}" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } else {
+                bodyHtml = `<label class="detail-doc-upload-prompt" tabindex="0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Upload ${escapeHtml(label)}
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-truck="${truckId}" data-type="${type}" hidden>
+                </label>`;
             }
-            return `<div class="doc-slot"><div class="doc-slot-label">${escapeHtml(label)}</div><label class="doc-slot-upload">Upload<input type="file" data-truck="${truckId}" data-type="${type}" hidden></label></div>`;
+            return `<div class="detail-doc-slot" data-doc-type="${type}">
+                <div class="detail-doc-slot-header">
+                    <span class="detail-doc-slot-label">${escapeHtml(label)}</span>
+                    ${statusBadgeHtml}
+                </div>
+                <div class="detail-doc-slot-body">${bodyHtml}</div>
+            </div>`;
         }).join('');
     }
 
@@ -3691,20 +3729,58 @@
     function renderTrailerDocGrid(docs, trailerId) {
         const grid = $('trailerDocGrid');
         if (!grid) return;
-        const docMap = {};
-        docs.forEach(d => { if (!docMap[d.type]) docMap[d.type] = d; });
+        const docsByType = {};
+        docs.forEach(d => {
+            if (!docsByType[d.type]) docsByType[d.type] = [];
+            docsByType[d.type].push(d);
+        });
         grid.innerHTML = TRAILER_DOC_TYPES.map(type => {
-            const doc = docMap[type];
             const label = TRAILER_DOC_LABELS[type] || type;
-            if (doc) {
-                return `<div class="doc-slot doc-slot--filled">
-                    <div class="doc-slot-label">${escapeHtml(label)}</div>
-                    <a href="${escapeHtml(doc.url)}" target="_blank" class="doc-slot-file">${escapeHtml(doc.name)}</a>
-                    <button class="doc-slot-delete" data-trailer="${trailerId}" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}" title="Remove">&times;</button>
-                    <label class="doc-slot-replace">Replace<input type="file" data-trailer="${trailerId}" data-type="${type}" data-replace-doc="${doc.id}" data-replace-path="${escapeHtml(doc.storagePath)}" hidden></label>
-                </div>`;
+            const typeDocs = docsByType[type] || [];
+            const hasDoc = typeDocs.length > 0;
+            const statusBadgeHtml = hasDoc
+                ? '<span class="detail-doc-slot-status uploaded">Uploaded</span>'
+                : '<span class="detail-doc-slot-status missing">Missing</span>';
+            let bodyHtml;
+            if (hasDoc) {
+                bodyHtml = typeDocs.map(doc => {
+                    const isImage = doc.contentType && doc.contentType.startsWith('image/');
+                    const sizeStr = doc.size ? (doc.size < 1024 ? doc.size + ' B' : (doc.size / 1024).toFixed(0) + ' KB') : '';
+                    const thumb = isImage ? `<img src="${escapeHtml(doc.url)}" alt="" class="detail-doc-thumb" loading="lazy">` : '';
+                    return `<div class="detail-doc-file">
+                        ${thumb}
+                        <div class="detail-doc-file-info">
+                            <span class="detail-doc-file-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</span>
+                            <span class="detail-doc-file-meta">${sizeStr}</span>
+                        </div>
+                        <div class="detail-doc-file-actions">
+                            <a href="${escapeHtml(doc.url)}" target="_blank" rel="noopener" title="View / Download">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </a>
+                            <label class="doc-slot-replace" title="Replace" tabindex="0">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-trailer="${trailerId}" data-type="${type}" data-replace-doc="${doc.id}" data-replace-path="${escapeHtml(doc.storagePath)}" hidden>
+                            </label>
+                            <button type="button" class="doc-slot-delete" title="Delete" data-trailer="${trailerId}" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } else {
+                bodyHtml = `<label class="detail-doc-upload-prompt" tabindex="0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Upload ${escapeHtml(label)}
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-trailer="${trailerId}" data-type="${type}" hidden>
+                </label>`;
             }
-            return `<div class="doc-slot"><div class="doc-slot-label">${escapeHtml(label)}</div><label class="doc-slot-upload">Upload<input type="file" data-trailer="${trailerId}" data-type="${type}" hidden></label></div>`;
+            return `<div class="detail-doc-slot" data-doc-type="${type}">
+                <div class="detail-doc-slot-header">
+                    <span class="detail-doc-slot-label">${escapeHtml(label)}</span>
+                    ${statusBadgeHtml}
+                </div>
+                <div class="detail-doc-slot-body">${bodyHtml}</div>
+            </div>`;
         }).join('');
     }
 
