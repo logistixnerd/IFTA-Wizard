@@ -2369,18 +2369,26 @@
         const panel = $('driverDetailPanel');
         panel.classList.toggle('is-create', isCreate);
 
-        // Toggle section visibility: new driver = info first, existing = feed first
+        // Toggle section visibility
         const feedSection = $('detailFeedSection');
         const tasksSection = $('detailTasksSection');
         const infoSection = $('detailInfoSection');
+        const composeSection = $('detailComposeSection');
+        const docsSection = $('detailDocsSection');
         if (isCreate) {
-            if (feedSection) feedSection.classList.add('collapsed');
-            if (tasksSection) tasksSection.classList.add('collapsed');
+            // New driver: only info open
             if (infoSection) infoSection.classList.remove('collapsed');
+            if (composeSection) composeSection.classList.add('collapsed');
+            if (tasksSection) tasksSection.classList.add('collapsed');
+            if (feedSection) feedSection.classList.add('collapsed');
+            if (docsSection) docsSection.classList.add('collapsed');
         } else {
-            if (feedSection) feedSection.classList.remove('collapsed');
-            if (tasksSection) tasksSection.classList.remove('collapsed');
+            // Existing driver: compose open, everything else collapsed
             if (infoSection) infoSection.classList.add('collapsed');
+            if (composeSection) composeSection.classList.remove('collapsed');
+            if (tasksSection) tasksSection.classList.add('collapsed');
+            if (feedSection) feedSection.classList.add('collapsed');
+            if (docsSection) docsSection.classList.add('collapsed');
         }
 
         $('driverDetailBackdrop').classList.remove('hidden');
@@ -2585,6 +2593,8 @@
         $('detailCloseBtn').addEventListener('click', closeDriverDetailPanel);
         $('driverDetailBackdrop').addEventListener('click', closeDriverDetailPanel);
         $('detailSaveBtn').addEventListener('click', saveDriverFromPanel);
+        const infoSaveBtn = $('detailInfoSaveBtn');
+        if (infoSaveBtn) infoSaveBtn.addEventListener('click', saveDriverFromPanel);
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && detailPanelOpen) closeDriverDetailPanel();
