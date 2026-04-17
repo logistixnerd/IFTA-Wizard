@@ -4888,10 +4888,24 @@
 
             const config = SHEET_CONFIGS.driver;
             const aliases = config.csvAliases || {};
-            const header = rows[0];
+
+            // Find the actual header row (may not be row 0 — some sheets have title rows)
+            let headerIdx = 0;
+            const namePatterns = /^(firstname|first|fname|lastname|last|lname|name|fullname|drivername|driver|employee)$/i;
+            for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                const cleaned = rows[i].map(c => (c || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
+                if (cleaned.some(h => namePatterns.test(h))) {
+                    headerIdx = i;
+                    break;
+                }
+            }
+            const header = rows[headerIdx];
+            const dataRows = rows.slice(headerIdx + 1);
+            console.log('[Import] Header row index:', headerIdx, 'Headers:', JSON.stringify(header));
 
             // Build column mapping with fuzzy matching
             const colMap = buildSmartColumnMap(header, aliases);
+            console.log('[Import] Column map:', JSON.stringify(colMap));
 
             // Resolve name columns: merge firstName+lastName into name, or use fullName
             const hasFullName = colMap.fullName !== undefined;
@@ -4899,19 +4913,20 @@
             const hasLastName = colMap.lastName !== undefined;
 
             if (!hasFirstName && !hasFullName) {
-                const nameIdx = header.findIndex(h => /^(name|driver|employee|person)$/i.test(h.replace(/[^a-z]/gi, '')));
+                const nameIdx = header.findIndex(h => /^(name|driver|employee|person)$/i.test((h || '').toString().replace(/[^a-z]/gi, '')));
                 if (nameIdx !== -1) colMap.fullName = nameIdx;
             }
 
             if (colMap.firstName === undefined && colMap.fullName === undefined) {
+                console.error('[Import] No name column found. Headers:', JSON.stringify(header));
                 showMsg('Could not find a name column. Make sure your file has a header with driver names.', true);
                 return;
             }
 
             // Parse data rows
             const parsed = [];
-            for (let i = 1; i < rows.length; i++) {
-                const row = rows[i];
+            for (let i = 0; i < dataRows.length; i++) {
+                const row = dataRows[i];
                 if (!row || row.every(c => !c || !c.toString().trim())) continue;
 
                 const data = {};
