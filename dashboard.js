@@ -4534,15 +4534,32 @@
     }
 
     // ── Smart Import for Trucks ──
+    function detectFileType(file) {
+        const ext = file.name.split('.').pop().toLowerCase();
+        const mime = (file.type || '').toLowerCase();
+        if (ext === 'pdf' || mime === 'application/pdf') return 'pdf';
+        if (['xlsx', 'xls'].includes(ext) || mime.includes('spreadsheetml') || mime.includes('ms-excel')) return 'excel';
+        if (['csv', 'tsv', 'txt'].includes(ext) || mime.includes('text/') || mime.includes('csv')) return 'csv';
+        // Fallback: try to guess from content
+        if (mime.includes('octet-stream')) {
+            if (['xlsx', 'xls'].includes(ext)) return 'excel';
+            if (ext === 'pdf') return 'pdf';
+        }
+        return ext === 'xlsx' || ext === 'xls' ? 'excel' : 'csv';
+    }
+
+    async function parseFileToRows(file) {
+        const type = detectFileType(file);
+        if (type === 'pdf') return await parsePdfToRows(file);
+        if (type === 'excel') return await parseExcelToRows(file);
+        return await parseCsvToRows(file);
+    }
+
     async function smartImportTrucks(file) {
         if (!file) return;
-        const ext = file.name.split('.').pop().toLowerCase();
         showMsg('Reading file\u2026');
         try {
-            let rows;
-            if (ext === 'pdf') rows = await parsePdfToRows(file);
-            else if (ext === 'xlsx' || ext === 'xls') rows = await parseExcelToRows(file);
-            else rows = await parseCsvToRows(file);
+            let rows = await parseFileToRows(file);
             if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
             const config = SHEET_CONFIGS.truck;
             const colMap = buildSmartColumnMap(rows[0], config.csvAliases);
@@ -4594,13 +4611,9 @@
     // ── Smart Import for Trailers ──
     async function smartImportTrailers(file) {
         if (!file) return;
-        const ext = file.name.split('.').pop().toLowerCase();
         showMsg('Reading file\u2026');
         try {
-            let rows;
-            if (ext === 'pdf') rows = await parsePdfToRows(file);
-            else if (ext === 'xlsx' || ext === 'xls') rows = await parseExcelToRows(file);
-            else rows = await parseCsvToRows(file);
+            let rows = await parseFileToRows(file);
             if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
             const config = SHEET_CONFIGS.trailer;
             const colMap = buildSmartColumnMap(rows[0], config.csvAliases);
@@ -5070,11 +5083,11 @@
         const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
 
         // Heuristic: find the line most likely to be a header (has multiple known keywords)
-        const driverKeywords = ['name', 'first', 'last', 'cdl', 'license', 'phone', 'email', 'driver', 'dob', 'hire', 'status'];
+        const tableKeywords = ['name', 'first', 'last', 'cdl', 'license', 'phone', 'email', 'driver', 'dob', 'hire', 'status', 'unit', 'vin', 'plate', 'make', 'model', 'year', 'type', 'fuel', 'trailer', 'truck', 'vehicle', 'number', 'registration', 'insurance', 'inspection', 'expiration', 'date'];
         let headerIdx = -1, bestScore = 0;
         lines.forEach((line, i) => {
             const lower = line.toLowerCase();
-            const score = driverKeywords.filter(kw => lower.includes(kw)).length;
+            const score = tableKeywords.filter(kw => lower.includes(kw)).length;
             if (score > bestScore) { bestScore = score; headerIdx = i; }
         });
 
