@@ -4612,7 +4612,7 @@
 
             // Find actual header row (may not be row 0)
             let headerIdx = 0;
-            const truckHeaderPat = /^(unit|unitnumber|vin|make|model|year|plate|truck|vehicle|equipment|fuel|status)$/i;
+            const truckHeaderPat = /^(unit|unitnumber|vin|make|model|year|plate|truck|truckno|trucknumber|vehicle|equipment|fuel|status|no|number|fleet|asset|id)$/i;
             for (let i = 0; i < Math.min(rows.length, 10); i++) {
                 const cleaned = rows[i].map(c => (c || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
                 if (cleaned.filter(h => truckHeaderPat.test(h)).length >= 2) { headerIdx = i; break; }
@@ -4629,7 +4629,11 @@
             detectColumnsByContent(dataRows, header, colMap, truckFields);
             console.log('[Import] Truck final map:', JSON.stringify(colMap));
 
-            if (colMap.unit === undefined) { showMsg('Could not find a Unit # column.', true); return; }
+            if (colMap.unit === undefined) {
+                console.error('[Import] No unit column found. Headers:', JSON.stringify(header));
+                showMsg('Could not find a Unit # column. Make sure your file has a column with truck/unit numbers.', true);
+                return;
+            }
 
             const parsed = [];
             for (let i = 0; i < dataRows.length; i++) {
@@ -4689,7 +4693,7 @@
 
             // Find actual header row
             let headerIdx = 0;
-            const trailerHeaderPat = /^(unit|unitnumber|vin|make|model|year|plate|trailer|type|vehicle|equipment|status)$/i;
+            const trailerHeaderPat = /^(unit|unitnumber|vin|make|model|year|plate|trailer|trailerno|trailernumber|type|vehicle|equipment|status|no|number|fleet|asset|id)$/i;
             for (let i = 0; i < Math.min(rows.length, 10); i++) {
                 const cleaned = rows[i].map(c => (c || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
                 if (cleaned.filter(h => trailerHeaderPat.test(h)).length >= 2) { headerIdx = i; break; }
@@ -4706,7 +4710,11 @@
             detectColumnsByContent(dataRows, header, colMap, trailerFields);
             console.log('[Import] Trailer final map:', JSON.stringify(colMap));
 
-            if (colMap.unit === undefined) { showMsg('Could not find a Unit # column.', true); return; }
+            if (colMap.unit === undefined) {
+                console.error('[Import] No unit column found. Headers:', JSON.stringify(header));
+                showMsg('Could not find a Unit # column. Make sure your file has a column with trailer/unit numbers.', true);
+                return;
+            }
 
             const parsed = [];
             for (let i = 0; i < dataRows.length; i++) {
@@ -5611,15 +5619,15 @@
             afterSave: async () => { await loadTrucks(); populateTruckDropdown(); },
             extraFields: ['annualInspDate', 'registrationExp', 'insuranceExp', 'notes'],
             csvAliases: {
-                unit: ['unit', 'unitnumber', 'unitno', 'truckno', 'trucknumber', 'equipmentno', 'equipmentnumber'],
-                year: ['year', 'yr', 'modelyear'],
-                make: ['make', 'manufacturer', 'brand'],
-                model: ['model'],
-                vin: ['vin', 'vehicleid', 'vehicleidentification'],
-                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag', 'platenumber'],
-                plateState: ['platestate', 'state', 'tagstate', 'registrationstate'],
-                fuel: ['fuel', 'fueltype'],
-                status: ['status'],
+                unit: ['unit', 'unitnumber', 'unitno', 'truckno', 'trucknumber', 'equipmentno', 'equipmentnumber', 'no', 'number', 'truck', 'vehicleno', 'vehiclenumber', 'fleetno', 'fleetnumber', 'id', 'truckid', 'assetno', 'assetnumber', 'asset'],
+                year: ['year', 'yr', 'modelyear', 'vehicleyear'],
+                make: ['make', 'manufacturer', 'brand', 'oem'],
+                model: ['model', 'truckmodel', 'vehiclemodel'],
+                vin: ['vin', 'vehicleid', 'vehicleidentification', 'vinno', 'vinnumber', 'serialnumber', 'serial'],
+                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag', 'platenumber', 'plateno', 'tagno', 'tagnumber', 'registration'],
+                plateState: ['platestate', 'state', 'tagstate', 'registrationstate', 'regstate'],
+                fuel: ['fuel', 'fueltype', 'gas', 'diesel'],
+                status: ['status', 'active', 'condition'],
                 annualInspDate: ['annualinspection', 'inspection', 'inspectiondate', 'annualinsp', 'inspdate', 'inspexp', 'annualinspdate'],
                 registrationExp: ['registration', 'registrationexp', 'registrationexpiration', 'regexp', 'regexpiration'],
                 insuranceExp: ['insurance', 'insuranceexp', 'insuranceexpiration', 'insexp', 'insexpiration'],
@@ -5663,14 +5671,14 @@
             afterSave: async () => { await loadTrailers(); },
             extraFields: ['plateState', 'annualInspDate', 'registrationExp', 'insuranceExp', 'notes'],
             csvAliases: {
-                unit: ['unit', 'unitnumber', 'unitno', 'trailerno', 'trailernumber', 'equipmentno', 'equipmentnumber'],
-                year: ['year', 'yr', 'modelyear'],
-                make: ['make', 'manufacturer', 'brand'],
-                type: ['type', 'trailertype', 'equipmenttype'],
-                vin: ['vin', 'vehicleid', 'vehicleidentification'],
-                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag', 'platenumber'],
-                plateState: ['platestate', 'state', 'tagstate', 'registrationstate'],
-                status: ['status'],
+                unit: ['unit', 'unitnumber', 'unitno', 'trailerno', 'trailernumber', 'equipmentno', 'equipmentnumber', 'no', 'number', 'trailer', 'vehicleno', 'vehiclenumber', 'fleetno', 'fleetnumber', 'id', 'trailerid', 'assetno', 'assetnumber', 'asset'],
+                year: ['year', 'yr', 'modelyear', 'vehicleyear'],
+                make: ['make', 'manufacturer', 'brand', 'oem'],
+                type: ['type', 'trailertype', 'equipmenttype', 'bodytype', 'body'],
+                vin: ['vin', 'vehicleid', 'vehicleidentification', 'vinno', 'vinnumber', 'serialnumber', 'serial'],
+                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag', 'platenumber', 'plateno', 'tagno', 'tagnumber', 'registration'],
+                plateState: ['platestate', 'state', 'tagstate', 'registrationstate', 'regstate'],
+                status: ['status', 'active', 'condition'],
                 annualInspDate: ['annualinspection', 'inspection', 'inspectiondate', 'annualinsp', 'inspdate', 'inspexp', 'annualinspdate'],
                 registrationExp: ['registration', 'registrationexp', 'registrationexpiration', 'regexp', 'regexpiration'],
                 insuranceExp: ['insurance', 'insuranceexp', 'insuranceexpiration', 'insexp', 'insexpiration'],
