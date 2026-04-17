@@ -1674,6 +1674,10 @@
 
         if (!typeSelect || !input || !lookupBtn) return;
 
+        input.addEventListener('input', () => {
+            input.value = input.value.replace(/\D/g, '');
+        });
+
         typeSelect.addEventListener('change', () => {
             input.placeholder = typeSelect.value === 'mc' ? 'e.g. 123456' : 'e.g. 1234567';
             input.value = '';
