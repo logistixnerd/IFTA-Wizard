@@ -235,7 +235,7 @@
             defaults: [
                 { value: 'active', label: 'Active' },
                 { value: 'inactive', label: 'Inactive' },
-                { value: 'on-leave', label: 'On Leave' },
+                { value: 'on-leave', label: 'Home Time' },
                 { value: 'suspended', label: 'Suspended' },
                 { value: 'terminated', label: 'Terminated' },
                 { value: 'pending', label: 'Pending' },
@@ -2071,7 +2071,7 @@
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Inactive' },
-                    { value: 'on-leave', label: 'On Leave' },
+                    { value: 'on-leave', label: 'Home Time' },
                     { value: 'suspended', label: 'Suspended' },
                     { value: 'terminated', label: 'Terminated' },
                     { value: 'pending', label: 'Pending' },

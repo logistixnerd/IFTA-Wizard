@@ -40,7 +40,7 @@
         switch ((value || '').toLowerCase()) {
         case 'active': return 'Active';
         case 'inactive': return 'Inactive';
-        case 'on leave': return 'On Leave';
+        case 'on leave': return 'Home Time';
         default: return value || 'Unknown';
         }
     }
