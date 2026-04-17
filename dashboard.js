@@ -2628,6 +2628,14 @@
         return '';
     }
 
+    function formatPhone(raw) {
+        if (!raw) return '';
+        const digits = raw.replace(/\D/g, '');
+        if (digits.length === 10) return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6);
+        if (digits.length === 11 && digits[0] === '1') return '+1 (' + digits.slice(1, 4) + ') ' + digits.slice(4, 7) + '-' + digits.slice(7);
+        return raw;
+    }
+
     const ALL_DRIVER_COLUMNS = [
         {
             key: 'name',
@@ -2688,7 +2696,7 @@
             label: 'Phone',
             defaultVisible: true,
             locked: false,
-            render: (d) => d.phone ? escapeHtml(d.phone) : '<span class="cell-missing" title="Phone number is missing">Missing</span>'
+            render: (d) => d.phone ? escapeHtml(formatPhone(d.phone)) : '<span class="cell-missing" title="Phone number is missing">Missing</span>'
         },
         {
             key: 'email',
@@ -3129,7 +3137,7 @@
     function truckLabel(truckId) {
         if (!truckId) return '—';
         const t = state.trucks.find(tr => tr.id === truckId);
-        return t ? ('Unit ' + t.unit) : '—';
+        return t ? t.unit : '—';
     }
 
     function appendUniqueIssue(issues, msg) {
