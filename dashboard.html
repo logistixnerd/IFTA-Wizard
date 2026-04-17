@@ -12,6 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 </head>
 <body>
     <div class="dash-layout">
@@ -2467,6 +2468,147 @@
             </div>
         </div>
     </div>
+
+    <!-- Driver Detail Panel (slide-out) -->
+    <div id="driverDetailBackdrop" class="detail-backdrop hidden"></div>
+    <aside id="driverDetailPanel" class="detail-panel hidden">
+        <div class="detail-panel-header">
+            <div class="detail-panel-title">
+                <h2 id="detailDriverName">New Driver</h2>
+                <span id="detailDriverStatus" class="status-badge active"></span>
+            </div>
+            <div class="detail-panel-actions">
+                <button class="detail-action-btn detail-save-btn" id="detailSaveBtn" title="Save">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="detail-action-btn" id="detailCloseBtn" title="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="detail-panel-body">
+            <!-- Editable Info Section -->
+            <div class="detail-section">
+                <h3 class="detail-section-title">Driver Information</h3>
+                <div class="detail-info-grid" id="detailDriverInfo">
+                    <div class="detail-field" data-key="firstName">
+                        <label class="detail-field-label">First Name <span class="req">*</span></label>
+                        <input type="text" class="detail-field-input" id="dpFirstName" placeholder="First name">
+                    </div>
+                    <div class="detail-field" data-key="lastName">
+                        <label class="detail-field-label">Last Name</label>
+                        <input type="text" class="detail-field-input" id="dpLastName" placeholder="Last name">
+                    </div>
+                    <div class="detail-field" data-key="phone">
+                        <label class="detail-field-label">Phone</label>
+                        <input type="tel" class="detail-field-input" id="dpPhone" placeholder="(555) 123-4567">
+                    </div>
+                    <div class="detail-field" data-key="email">
+                        <label class="detail-field-label">Email</label>
+                        <input type="email" class="detail-field-input" id="dpEmail" placeholder="email@example.com">
+                    </div>
+                    <div class="detail-field" data-key="cdl">
+                        <label class="detail-field-label">CDL Number</label>
+                        <input type="text" class="detail-field-input" id="dpCdl" placeholder="CDL number">
+                    </div>
+                    <div class="detail-field" data-key="cdlClass">
+                        <label class="detail-field-label">CDL Class</label>
+                        <select class="detail-field-input" id="dpCdlClass">
+                            <option value="">Select…</option>
+                            <option value="A">Class A</option>
+                            <option value="B">Class B</option>
+                            <option value="C">Class C</option>
+                        </select>
+                    </div>
+                    <div class="detail-field" data-key="cdlState">
+                        <label class="detail-field-label">CDL State</label>
+                        <select class="detail-field-input" id="dpCdlState">
+                            <option value="">Select state</option>
+                        </select>
+                    </div>
+                    <div class="detail-field" data-key="cdlExp">
+                        <label class="detail-field-label">CDL Expiration</label>
+                        <input type="date" class="detail-field-input" id="dpCdlExp">
+                    </div>
+                    <div class="detail-field" data-key="medExp">
+                        <label class="detail-field-label">Medical Card Exp</label>
+                        <input type="date" class="detail-field-input" id="dpMedExp">
+                    </div>
+                    <div class="detail-field" data-key="mvrExp">
+                        <label class="detail-field-label">MVR Expiry</label>
+                        <input type="date" class="detail-field-input" id="dpMvrExp">
+                    </div>
+                    <div class="detail-field" data-key="drugTestDate">
+                        <label class="detail-field-label">Last Drug Test</label>
+                        <input type="date" class="detail-field-input" id="dpDrugTestDate">
+                    </div>
+                    <div class="detail-field" data-key="twicExp">
+                        <label class="detail-field-label">TWIC Card Exp</label>
+                        <input type="date" class="detail-field-input" id="dpTwicExp">
+                    </div>
+                    <div class="detail-field" data-key="restrictions">
+                        <label class="detail-field-label">Restrictions</label>
+                        <input type="text" class="detail-field-input" id="dpRestrictions" placeholder="e.g., Corrective lenses">
+                    </div>
+                    <div class="detail-field" data-key="truck">
+                        <label class="detail-field-label">Assigned Truck</label>
+                        <select class="detail-field-input" id="dpTruck">
+                            <option value="">Unassigned</option>
+                        </select>
+                    </div>
+                    <div class="detail-field" data-key="status">
+                        <label class="detail-field-label">Status</label>
+                        <select class="detail-field-input" id="dpStatus">
+                        </select>
+                    </div>
+                    <div class="detail-field" data-key="hireDate">
+                        <label class="detail-field-label">Date of Hire</label>
+                        <input type="date" class="detail-field-input" id="dpHireDate">
+                    </div>
+                    <div class="detail-field" data-key="terminationDate">
+                        <label class="detail-field-label">Termination Date</label>
+                        <input type="date" class="detail-field-input" id="dpTerminationDate">
+                    </div>
+                    <div class="detail-field" data-key="dob">
+                        <label class="detail-field-label">Date of Birth</label>
+                        <input type="date" class="detail-field-input" id="dpDob">
+                    </div>
+                    <div class="detail-field" data-key="endorsements">
+                        <label class="detail-field-label">Endorsements</label>
+                        <div class="detail-endorsement-row">
+                            <label class="dp-endorse-chip"><input type="checkbox" value="H"><span>H</span></label>
+                            <label class="dp-endorse-chip"><input type="checkbox" value="N"><span>N</span></label>
+                            <label class="dp-endorse-chip"><input type="checkbox" value="T"><span>T</span></label>
+                            <label class="dp-endorse-chip"><input type="checkbox" value="X"><span>X</span></label>
+                            <label class="dp-endorse-chip"><input type="checkbox" value="P"><span>P</span></label>
+                            <label class="dp-endorse-chip"><input type="checkbox" value="S"><span>S</span></label>
+                        </div>
+                    </div>
+                    <div class="detail-field" data-key="emergencyName">
+                        <label class="detail-field-label">Emergency Contact</label>
+                        <input type="text" class="detail-field-input" id="dpEmergencyName" placeholder="Contact name">
+                    </div>
+                    <div class="detail-field" data-key="emergencyPhone">
+                        <label class="detail-field-label">Emergency Phone</label>
+                        <input type="tel" class="detail-field-input" id="dpEmergencyPhone" placeholder="(555) 123-4567">
+                    </div>
+                    <div class="detail-field full-width" data-key="address">
+                        <label class="detail-field-label">Address</label>
+                        <input type="text" class="detail-field-input" id="dpAddress" placeholder="Home address">
+                    </div>
+                    <div class="detail-field full-width" data-key="notes">
+                        <label class="detail-field-label">Notes</label>
+                        <textarea class="detail-field-input" id="dpNotes" rows="2" placeholder="Notes"></textarea>
+                    </div>
+                </div>
+            </div>
+            <!-- Documents Section -->
+            <div class="detail-section" id="detailDocsSection">
+                <h3 class="detail-section-title">Documents</h3>
+                <div class="detail-doc-grid" id="detailDocGrid"></div>
+            </div>
+        </div>
+    </aside>
 
     <script src="firebase-config.js"></script>
     <script src="dashboard.js"></script>

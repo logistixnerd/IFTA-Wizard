@@ -1534,8 +1534,8 @@
     }
 
     // ── FMCSA Company Lookup (MC or DOT) ──────────────────
-    const MC_LOOKUP_URL = 'https://mclookup-4mcawot2kq-uc.a.run.app';
-    const CARRIER_LOOKUP_URL = 'https://carrierlookup-4mcawot2kq-uc.a.run.app';
+    const MC_LOOKUP_URL = '/api/mclookup';
+    const CARRIER_LOOKUP_URL = '/api/carrierlookup';
 
     let pendingFmcsaData = null;
 
@@ -1953,7 +1953,467 @@
 
     function openDriverProfile(id) {
         if (!id) return;
-        window.location.href = 'driver-profile.html?driver=' + encodeURIComponent(id);
+        openDriverDetailPanel(id);
+    }
+
+    // ── Phone formatting helpers ──────────────
+    function formatPhone(raw) {
+        if (!raw) return '';
+        const digits = raw.replace(/\D/g, '');
+        if (digits.length === 10) return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6);
+        if (digits.length === 11 && digits[0] === '1') return '+1 (' + digits.slice(1, 4) + ') ' + digits.slice(4, 7) + '-' + digits.slice(7);
+        return raw;
+    }
+
+    function formatPhoneLive(input) {
+        const raw = input.value.replace(/\D/g, '');
+        let formatted = '';
+        if (raw.length === 0) { formatted = ''; }
+        else if (raw.length <= 3) { formatted = '(' + raw; }
+        else if (raw.length <= 6) { formatted = '(' + raw.slice(0, 3) + ') ' + raw.slice(3); }
+        else { formatted = '(' + raw.slice(0, 3) + ') ' + raw.slice(3, 6) + '-' + raw.slice(6, 10); }
+        input.value = formatted;
+    }
+
+    function stripPhone(val) {
+        return val.replace(/\D/g, '');
+    }
+
+    // ── Driver Documents ──────────────────────
+    const DOC_TYPE_LABELS = {
+        cdl: 'CDL', medical: 'Medical Card', contract: 'Contract',
+        mvr: 'MVR Report', psp: 'PSP Report', photo: 'Photo', other: 'Other'
+    };
+    const DETAIL_DOC_TYPES = ['cdl', 'medical', 'contract', 'mvr', 'psp', 'photo', 'other'];
+    const MAX_DOC_SIZE = 10 * 1024 * 1024;
+
+    function driverStoragePath(driverId, fileName) {
+        return `users/${uid()}/drivers/${driverId}/docs/${Date.now()}_${fileName}`;
+    }
+
+    async function uploadDriverDoc(driverId, file, docType) {
+        if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return null; }
+        const path = driverStoragePath(driverId, file.name);
+        const ref = storage.ref(path);
+        const task = ref.put(file);
+        try {
+            await task;
+            const url = await ref.getDownloadURL();
+            const docEntry = {
+                name: file.name,
+                type: docType,
+                storagePath: path,
+                url: url,
+                size: file.size,
+                contentType: file.type,
+                uploadedAt: new Date().toISOString()
+            };
+            await col('drivers').doc(driverId).collection('documents').add(docEntry);
+            await syncDriverDocSummary(driverId);
+            showMsg('Document uploaded');
+            return docEntry;
+        } catch (err) {
+            console.error('Upload error:', err);
+            showMsg('Upload failed: ' + (err.message || err), true);
+            return null;
+        }
+    }
+
+    async function deleteDriverDoc(driverId, docId, storagePath) {
+        try {
+            await storage.ref(storagePath).delete();
+        } catch (err) {
+            if (err.code !== 'storage/object-not-found') console.warn('Storage delete warning:', err);
+        }
+        await col('drivers').doc(driverId).collection('documents').doc(docId).delete();
+        await syncDriverDocSummary(driverId);
+        showMsg('Document removed');
+    }
+
+    async function syncDriverDocSummary(driverId) {
+        const docs = await loadDriverDocs(driverId);
+        const types = [...new Set(docs.map(d => d.type).filter(Boolean))];
+        await col('drivers').doc(driverId).update({
+            docTypes: types,
+            docCount: docs.length,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        const driver = state.drivers.find(d => d.id === driverId);
+        if (driver) { driver.docTypes = types; driver.docCount = docs.length; }
+    }
+
+    async function loadDriverDocs(driverId) {
+        const snap = await col('drivers').doc(driverId).collection('documents').orderBy('uploadedAt', 'desc').get();
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    // ── Driver Detail Panel (slide-out) ───────
+    let detailPanelDriverId = null;
+    let detailPanelOpen = false;
+
+    function populateDetailDropdowns() {
+        const stSel = $('dpCdlState');
+        if (stSel && stSel.options.length <= 1) {
+            JURISDICTIONS.forEach(j => {
+                const o = document.createElement('option');
+                o.value = j.code;
+                o.textContent = j.code + ' \u2014 ' + j.name;
+                stSel.appendChild(o);
+            });
+        }
+        const trSel = $('dpTruck');
+        if (trSel) {
+            const cur = trSel.value;
+            trSel.innerHTML = '<option value="">Unassigned</option>';
+            state.trucks.filter(t => t.status === 'active').forEach(t => {
+                const o = document.createElement('option');
+                o.value = t.id;
+                o.textContent = 'Unit ' + t.unit + (t.make ? ' \u2014 ' + t.make + ' ' + (t.model || '') : '');
+                trSel.appendChild(o);
+            });
+            trSel.value = cur;
+        }
+        const stsSel = $('dpStatus');
+        if (stsSel && stsSel.options.length === 0) {
+            getDropdownOptions('driverStatus').forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.value;
+                opt.textContent = o.label;
+                stsSel.appendChild(opt);
+            });
+        }
+    }
+
+    function openDriverDetailPanel(id) {
+        const isCreate = !id;
+        const d = isCreate ? {} : state.drivers.find(x => x.id === id);
+        if (!isCreate && !d) return;
+        detailPanelDriverId = id || null;
+
+        populateDetailDropdowns();
+
+        const name = isCreate ? 'New Driver' : ([d.firstName, d.lastName].filter(Boolean).join(' ') || 'Unnamed Driver');
+        $('detailDriverName').textContent = name;
+        const statusEl = $('detailDriverStatus');
+        if (isCreate) {
+            statusEl.style.display = 'none';
+        } else {
+            statusEl.style.display = '';
+            statusEl.className = 'status-badge ' + (d.status || 'active');
+            statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(d.status || 'active');
+        }
+
+        $('dpFirstName').value = d.firstName || '';
+        $('dpLastName').value = d.lastName || '';
+        $('dpPhone').value = d.phone ? formatPhone(d.phone) : '';
+        $('dpEmail').value = d.email || '';
+        $('dpCdl').value = d.cdl ? d.cdl.toUpperCase() : '';
+        $('dpCdlClass').value = d.cdlClass || '';
+        $('dpCdlState').value = d.cdlState || '';
+        $('dpCdlExp').value = d.cdlExp || '';
+        $('dpMedExp').value = d.medExp || '';
+        $('dpMvrExp').value = d.mvrExp || '';
+        $('dpDrugTestDate').value = d.drugTestDate || '';
+        $('dpTwicExp').value = d.twicExp || '';
+        $('dpRestrictions').value = d.restrictions || '';
+        $('dpTruck').value = d.truck || '';
+        $('dpStatus').value = d.status || 'active';
+        $('dpHireDate').value = d.hireDate || '';
+        $('dpTerminationDate').value = d.terminationDate || '';
+        $('dpDob').value = d.dob || '';
+        $('dpEmergencyName').value = d.emergencyName || '';
+        $('dpEmergencyPhone').value = d.emergencyPhone ? formatPhone(d.emergencyPhone) : '';
+        $('dpAddress').value = d.address || '';
+        $('dpNotes').value = d.notes || '';
+
+        const endorsements = d.endorsements ? d.endorsements.split(',').map(e => e.trim()) : [];
+        document.querySelectorAll('#detailDriverInfo .dp-endorse-chip input').forEach(cb => {
+            cb.checked = endorsements.includes(cb.value);
+        });
+
+        document.querySelectorAll('#detailDriverInfo .detail-field-input').forEach(inp => {
+            inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
+        });
+
+        const docsSection = $('detailDocsSection');
+        if (docsSection) {
+            docsSection.style.display = '';
+            if (!isCreate && id) {
+                renderDetailDocGrid([], id);
+                loadDriverDocs(id).then(docs => renderDetailDocGrid(docs, id));
+            } else {
+                renderDetailDocGrid([], '__new__');
+            }
+        }
+
+        const panel = $('driverDetailPanel');
+        panel.classList.toggle('is-create', isCreate);
+
+        $('driverDetailBackdrop').classList.remove('hidden');
+        panel.classList.remove('hidden');
+        detailPanelOpen = true;
+
+        document.querySelectorAll('#driversTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
+        if (id) {
+            const activeRow = document.querySelector(`#driversTableBody tr[data-id="${id}"]`);
+            if (activeRow) activeRow.classList.add('detail-active');
+        }
+
+        if (isCreate) setTimeout(() => $('dpFirstName').focus(), 100);
+    }
+
+    function closeDriverDetailPanel() {
+        $('driverDetailBackdrop').classList.add('hidden');
+        $('driverDetailPanel').classList.add('hidden');
+        detailPanelDriverId = null;
+        detailPanelOpen = false;
+        document.querySelectorAll('#driversTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
+    }
+
+    function getDetailPanelPayload() {
+        const endorsements = [];
+        document.querySelectorAll('#detailDriverInfo .dp-endorse-chip input:checked').forEach(cb => {
+            endorsements.push(cb.value);
+        });
+        return {
+            firstName: $('dpFirstName').value.trim(),
+            lastName: $('dpLastName').value.trim(),
+            phone: stripPhone($('dpPhone').value),
+            email: $('dpEmail').value.trim(),
+            cdl: $('dpCdl').value.trim().toUpperCase(),
+            cdlClass: $('dpCdlClass').value,
+            cdlState: $('dpCdlState').value,
+            cdlExp: $('dpCdlExp').value,
+            medExp: $('dpMedExp').value,
+            mvrExp: $('dpMvrExp').value,
+            drugTestDate: $('dpDrugTestDate').value,
+            twicExp: $('dpTwicExp').value,
+            restrictions: $('dpRestrictions').value.trim(),
+            truck: $('dpTruck').value,
+            status: $('dpStatus').value || 'active',
+            hireDate: $('dpHireDate').value,
+            terminationDate: $('dpTerminationDate').value,
+            dob: $('dpDob').value,
+            endorsements: endorsements.join(','),
+            emergencyName: $('dpEmergencyName').value.trim(),
+            emergencyPhone: stripPhone($('dpEmergencyPhone').value),
+            address: $('dpAddress').value.trim(),
+            notes: $('dpNotes').value.trim(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+    }
+
+    async function saveDriverFromPanel() {
+        const payload = getDetailPanelPayload();
+        if (!payload.firstName) {
+            showMsg('First name is required', true);
+            $('dpFirstName').focus();
+            return;
+        }
+        try {
+            if (detailPanelDriverId) {
+                await col('drivers').doc(detailPanelDriverId).update(payload);
+                showMsg('Driver updated');
+            } else {
+                payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                const ref = await col('drivers').add(payload);
+                detailPanelDriverId = ref.id;
+                showMsg('Driver added');
+                $('detailDriverName').textContent = [payload.firstName, payload.lastName].filter(Boolean).join(' ');
+                $('driverDetailPanel').classList.remove('is-create');
+                const statusEl = $('detailDriverStatus');
+                statusEl.style.display = '';
+                statusEl.className = 'status-badge ' + payload.status;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
+                renderDetailDocGrid([], detailPanelDriverId);
+            }
+            await loadDrivers();
+            updateOverview();
+            renderDrivers();
+        } catch (err) {
+            console.error('Save driver panel error:', err);
+            showMsg('Error saving driver', true);
+        }
+    }
+
+    async function autoSaveDetailField(key) {
+        if (!detailPanelDriverId) return;
+        const payload = getDetailPanelPayload();
+        try {
+            await col('drivers').doc(detailPanelDriverId).update(payload);
+            const d = state.drivers.find(x => x.id === detailPanelDriverId);
+            if (d) Object.assign(d, payload, { id: detailPanelDriverId });
+            if (key === 'firstName' || key === 'lastName') {
+                const name = [payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Unnamed Driver';
+                $('detailDriverName').textContent = name;
+            }
+            if (key === 'status') {
+                const statusEl = $('detailDriverStatus');
+                statusEl.className = 'status-badge ' + payload.status;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
+            }
+            renderDrivers();
+        } catch (err) {
+            console.error('Auto-save field error:', err);
+        }
+    }
+
+    function renderDetailDocGrid(docs, driverId) {
+        const grid = $('detailDocGrid');
+        if (!grid) return;
+        const docsByType = {};
+        docs.forEach(doc => {
+            if (!docsByType[doc.type]) docsByType[doc.type] = [];
+            docsByType[doc.type].push(doc);
+        });
+
+        grid.innerHTML = DETAIL_DOC_TYPES.map(type => {
+            const label = DOC_TYPE_LABELS[type] || type;
+            const typeDocs = docsByType[type] || [];
+            const hasDoc = typeDocs.length > 0;
+            const statusBadgeHtml = hasDoc
+                ? '<span class="detail-doc-slot-status uploaded">Uploaded</span>'
+                : '<span class="detail-doc-slot-status missing">Missing</span>';
+
+            let bodyHtml;
+            if (hasDoc) {
+                bodyHtml = typeDocs.map(doc => {
+                    const isImage = doc.contentType && doc.contentType.startsWith('image/');
+                    const sizeStr = doc.size ? (doc.size < 1024 ? doc.size + ' B' : (doc.size / 1024).toFixed(0) + ' KB') : '';
+                    const thumb = isImage ? `<img src="${escapeHtml(doc.url)}" alt="" class="detail-doc-thumb" loading="lazy">` : '';
+                    return `<div class="detail-doc-file">
+                        ${thumb}
+                        <div class="detail-doc-file-info">
+                            <span class="detail-doc-file-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</span>
+                            <span class="detail-doc-file-meta">${sizeStr}</span>
+                        </div>
+                        <div class="detail-doc-file-actions">
+                            <a href="${escapeHtml(doc.url)}" target="_blank" rel="noopener" title="View / Download">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </a>
+                            <label class="doc-slot-replace" title="Replace" tabindex="0">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-driver="${driverId}" data-type="${type}" data-replace-doc="${doc.id}" data-replace-path="${escapeHtml(doc.storagePath)}" hidden>
+                            </label>
+                            <button type="button" class="doc-slot-delete" title="Delete" data-driver="${driverId}" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } else {
+                bodyHtml = `<label class="detail-doc-upload-prompt" tabindex="0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Upload ${escapeHtml(label)}
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-driver="${driverId}" data-type="${type}" hidden>
+                </label>`;
+            }
+
+            return `<div class="detail-doc-slot" data-doc-type="${type}">
+                <div class="detail-doc-slot-header">
+                    <span class="detail-doc-slot-label">${escapeHtml(label)}</span>
+                    ${statusBadgeHtml}
+                </div>
+                <div class="detail-doc-slot-body">${bodyHtml}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function initDriverDetailPanel() {
+        $('detailCloseBtn').addEventListener('click', closeDriverDetailPanel);
+        $('driverDetailBackdrop').addEventListener('click', closeDriverDetailPanel);
+        $('detailSaveBtn').addEventListener('click', saveDriverFromPanel);
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && detailPanelOpen) closeDriverDetailPanel();
+        });
+
+        document.querySelectorAll('#detailDriverInfo .detail-field-input').forEach(inp => {
+            inp.addEventListener('blur', () => {
+                const key = inp.closest('.detail-field')?.dataset.key;
+                if (key) {
+                    inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
+                    autoSaveDetailField(key);
+                }
+            });
+            if (inp.id === 'dpPhone' || inp.id === 'dpEmergencyPhone') {
+                inp.addEventListener('input', () => formatPhoneLive(inp));
+            }
+            if (inp.id === 'dpCdl') {
+                inp.addEventListener('input', () => { inp.value = inp.value.toUpperCase(); });
+            }
+        });
+
+        document.querySelectorAll('#detailDriverInfo .dp-endorse-chip input').forEach(cb => {
+            cb.addEventListener('change', () => autoSaveDetailField('endorsements'));
+        });
+
+        const grid = $('detailDocGrid');
+        if (grid) {
+            grid.addEventListener('change', async (e) => {
+                const input = e.target.closest('input[type="file"]');
+                if (!input || !input.files[0]) return;
+                let driverId = input.dataset.driver;
+                const docType = input.dataset.type;
+                const file = input.files[0];
+
+                if (!detailPanelDriverId || driverId === '__new__') {
+                    const payload = getDetailPanelPayload();
+                    if (!payload.firstName) {
+                        showMsg('Enter at least a first name before uploading', true);
+                        $('dpFirstName').focus();
+                        input.value = '';
+                        return;
+                    }
+                    try {
+                        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                        const ref = await col('drivers').add(payload);
+                        detailPanelDriverId = ref.id;
+                        driverId = ref.id;
+                        $('detailDriverName').textContent = [payload.firstName, payload.lastName].filter(Boolean).join(' ');
+                        $('driverDetailPanel').classList.remove('is-create');
+                        const statusEl = $('detailDriverStatus');
+                        statusEl.style.display = '';
+                        statusEl.className = 'status-badge ' + payload.status;
+                        statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
+                        await loadDrivers();
+                        updateOverview();
+                        renderDrivers();
+                        showMsg('Driver saved \u2014 uploading document\u2026');
+                    } catch (err) {
+                        console.error('Auto-save before upload error:', err);
+                        showMsg('Error saving driver', true);
+                        input.value = '';
+                        return;
+                    }
+                }
+
+                const replaceDocId = input.dataset.replaceDoc;
+                const replacePath = input.dataset.replacePath;
+                if (replaceDocId && replacePath) {
+                    await deleteDriverDoc(driverId, replaceDocId, replacePath);
+                }
+
+                await uploadDriverDoc(driverId, file, docType);
+                input.value = '';
+                const docs = await loadDriverDocs(driverId);
+                renderDetailDocGrid(docs, driverId);
+                renderDrivers();
+            });
+
+            grid.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.doc-slot-delete');
+                if (!btn) return;
+                if (!confirm('Delete this document?')) return;
+                const driverId = btn.dataset.driver;
+                const docId = btn.dataset.docId;
+                const path = btn.dataset.path;
+                await deleteDriverDoc(driverId, docId, path);
+                const docs = await loadDriverDocs(driverId);
+                renderDetailDocGrid(docs, driverId);
+                renderDrivers();
+            });
+        }
     }
 
     function openTruckModal(data) {
@@ -3013,8 +3473,8 @@
     }
 
     function initDriverForm() {
-        $('addDriverBtn').addEventListener('click', () => openSheetModal('driver'));
-        $('addFirstDriver').addEventListener('click', () => openSheetModal('driver'));
+        $('addDriverBtn').addEventListener('click', () => openDriverDetailPanel(null));
+        $('addFirstDriver').addEventListener('click', () => openDriverDetailPanel(null));
         $('closeDriverModal').addEventListener('click', () => $('driverModal').classList.add('hidden'));
         $('cancelDriver').addEventListener('click', () => $('driverModal').classList.add('hidden'));
 
@@ -3651,7 +4111,7 @@
     }
     function editDriver(id) {
         const d = state.drivers.find(x => x.id === id);
-        if (d) openDriverModal(d);
+        if (d) openDriverDetailPanel(id);
     }
 
     // ── Close modals on backdrop click ────
@@ -3975,6 +4435,7 @@
         initSheetModals();
         initTrailerForm();
         initDriverForm();
+        initDriverDetailPanel();
         initDropdownEditors();
         initModalBackdrops();
         initSearchFilters();
