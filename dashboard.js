@@ -1560,50 +1560,104 @@
     }
 
     async function fmcsaFetchDot(dot) {
-        const url = `${FMCSA_CONFIG.baseUrl}/carriers/${encodeURIComponent(dot)}?webKey=${encodeURIComponent(FMCSA_CONFIG.webKey)}`;
-        const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+        const base = FMCSA_CONFIG.baseUrl;
+        const key = FMCSA_CONFIG.webKey;
+        const mainUrl = `${base}/carriers/${encodeURIComponent(dot)}?webKey=${encodeURIComponent(key)}`;
+        const resp = await fetch(mainUrl, { headers: { Accept: 'application/json' } });
         if (resp.status === 404) throw new Error(`No carrier found for DOT number ${dot}`);
         if (!resp.ok) throw new Error('FMCSA API error. Try again later.');
         const body = await resp.json();
         const c = body?.content?.carrier;
         if (!c) throw new Error(`No carrier data returned for DOT number ${dot}`);
+
+        // Fetch docket numbers & operation classification in parallel (non-blocking)
+        let docketNumbers = [], operationClasses = [];
+        try {
+            const [docketResp, opsResp] = await Promise.all([
+                fetch(`${base}/carriers/${encodeURIComponent(dot)}/docket-numbers?webKey=${encodeURIComponent(key)}`, { headers: { Accept: 'application/json' } }),
+                fetch(`${base}/carriers/${encodeURIComponent(dot)}/operation-classification?webKey=${encodeURIComponent(key)}`, { headers: { Accept: 'application/json' } }),
+            ]);
+            if (docketResp.ok) { const d = await docketResp.json(); docketNumbers = d?.content || []; }
+            if (opsResp.ok) { const d = await opsResp.json(); operationClasses = d?.content || []; }
+        } catch (_) { /* non-critical */ }
+
         const fmt = (v) => (v != null && v !== '' ? String(v) : null);
         const fmtP = (v) => { if (!v) return null; const d = String(v).replace(/\D/g, ''); return d.length === 10 ? d.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3') : String(v); };
         const yn = (v) => (v === 'Y' || v === '1' || v === true);
+        const num = (v) => (v != null ? Number(v) : null);
+
+        // Build MC number from docket numbers if not in main record
+        let mcNumber = c.censusNum ? `MC-${c.censusNum}` : null;
+        if (!mcNumber && docketNumbers.length) {
+            const mc = docketNumbers.find(d => d.prefix === 'MC');
+            if (mc) mcNumber = `MC-${mc.docketNumber}`;
+        }
+
+        // Build operation descriptions from sub-endpoint
+        const opDescriptions = operationClasses.map(o => o.operationClassDesc).filter(Boolean);
+
         return {
+            // Identity
             legalName: fmt(c.legalName), dbaName: fmt(c.dbaName), dotNumber: fmt(c.dotNumber),
-            mcNumber: c.censusNum ? `MC-${c.censusNum}` : null,
-            einNumber: fmt(c.einNumber), dunsNumber: fmt(c.dunsNumber), statusCode: fmt(c.statusCode),
+            mcNumber,
+            einNumber: fmt(c.ein || c.einNumber),
+            dunsNumber: fmt(c.dunsNumber), statusCode: fmt(c.statusCode),
             allowedToOperate: yn(c.allowedToOperate) ? 'Authorized' : 'Not Authorized',
-            operationType: fmt(c.carrierOperationDesc), entityType: fmt(c.entityTypeDesc),
+            operationType: opDescriptions.length ? opDescriptions.join(', ') : fmt(c.carrierOperationDesc),
+            entityType: fmt(c.entityTypeDesc),
+            isPassengerCarrier: yn(c.isPassengerCarrier),
+
+            // Authority
+            commonAuthorityStatus: fmt(c.commonAuthorityStatus),
+            contractAuthorityStatus: fmt(c.contractAuthorityStatus),
+            brokerAuthorityStatus: fmt(c.brokerAuthorityStatus),
+            docketNumbers,
+
+            // Physical address
             phyStreet: fmt(c.phyStreet), phyCity: fmt(c.phyCityName || c.phyCity),
             phyState: fmt(c.phyStateAbbr || c.phyState), phyZip: fmt(c.phyZipcode), phyCountry: fmt(c.phyCountry),
+            // Mailing address
             maiStreet: fmt(c.maiStreet), maiCity: fmt(c.maiCityName || c.maiCity),
             maiState: fmt(c.maiStateAbbr || c.maiState), maiZip: fmt(c.maiZipcode), maiCountry: fmt(c.maiCountry),
+
             telephone: fmtP(c.telephone), fax: fmtP(c.fax), email: fmt(c.emailAddress),
-            totalDrivers: c.totalDrivers != null ? Number(c.totalDrivers) : null,
-            totalPowerUnits: c.totalPowerUnits != null ? Number(c.totalPowerUnits) : null,
-            mcs150Mileage: c.mcs150Mileage != null ? Number(c.mcs150Mileage) : null,
+
+            // Fleet size
+            totalDrivers: num(c.totalDrivers),
+            totalPowerUnits: num(c.totalPowerUnits),
+
+            // Mileage
+            mcs150Mileage: num(c.mcs150Mileage),
             mcs150MileageYear: fmt(c.mcs150MileageYear), mcs150FormDate: fmt(c.mcs150FormDate),
+            mcs150Outdated: fmt(c.mcs150Outdated),
+
+            // Safety
             safetyRating: fmt(c.safetyRating), safetyRatingDate: fmt(c.safetyRatingDate),
-            reviewDate: fmt(c.reviewDate), reviewType: fmt(c.reviewType),
-            crashTotal: c.crashTotal != null ? Number(c.crashTotal) : null,
-            fatalCrash: c.fatalCrash != null ? Number(c.fatalCrash) : null,
-            injCrash: c.injCrash != null ? Number(c.injCrash) : null,
-            towCrash: c.towCrash != null ? Number(c.towCrash) : null,
-            inspectionTotal: c.inspectionTotal != null ? Number(c.inspectionTotal) : null,
-            driverInsp: c.driverInsp != null ? Number(c.driverInsp) : null,
-            vehicleInsp: c.vehicleInsp != null ? Number(c.vehicleInsp) : null,
-            hazmatInsp: c.hazmatInsp != null ? Number(c.hazmatInsp) : null,
-            driverOOS: c.driverOOS != null ? Number(c.driverOOS) : null,
-            vehicleOOS: c.vehicleOOS != null ? Number(c.vehicleOOS) : null,
-            hazmatOOS: c.hazmatOOS != null ? Number(c.hazmatOOS) : null,
-            driverOOSRate: c.driverOOSRate != null ? Number(c.driverOOSRate) : null,
-            vehicleOOSRate: c.vehicleOOSRate != null ? Number(c.vehicleOOSRate) : null,
+            reviewDate: fmt(c.reviewDate || c.safetyReviewDate), reviewType: fmt(c.reviewType || c.safetyReviewType),
+            oosDate: fmt(c.oosDate),
+
+            // Crashes
+            crashTotal: num(c.crashTotal), fatalCrash: num(c.fatalCrash),
+            injCrash: num(c.injCrash), towCrash: num(c.towawayCrash ?? c.towCrash),
+
+            // Inspections
+            driverInsp: num(c.driverInsp), vehicleInsp: num(c.vehicleInsp), hazmatInsp: num(c.hazmatInsp),
+
+            // Out of service
+            driverOosInsp: num(c.driverOosInsp), vehicleOosInsp: num(c.vehicleOosInsp), hazmatOosInsp: num(c.hazmatOosInsp),
+            driverOosRate: num(c.driverOosRate), vehicleOosRate: num(c.vehicleOosRate), hazmatOosRate: num(c.hazmatOosRate),
+            driverOosRateNatAvg: fmt(c.driverOosRateNationalAverage),
+            vehicleOosRateNatAvg: fmt(c.vehicleOosRateNationalAverage),
+            hazmatOosRateNatAvg: fmt(c.hazmatOosRateNationalAverage),
+
+            // Insurance
             bipdInsuranceRequired: fmt(c.bipdInsuranceRequired), bipdInsuranceOnFile: fmt(c.bipdInsuranceOnFile),
+            bipdRequiredAmount: fmt(c.bipdRequiredAmount),
             cargoInsuranceRequired: fmt(c.cargoInsuranceRequired), cargoInsuranceOnFile: fmt(c.cargoInsuranceOnFile),
             bondInsuranceRequired: fmt(c.bondInsuranceRequired), bondInsuranceOnFile: fmt(c.bondInsuranceOnFile),
-            oicState: fmt(c.oicState), fetchedAt: new Date().toISOString(),
+            oicState: fmt(c.oicState),
+
+            fetchedAt: new Date().toISOString(),
         };
     }
 
@@ -1694,12 +1748,15 @@
             + (d.dbaName ? row('DBA', d.dbaName) : '')
             + row('USDOT', d.dotNumber)
             + row('MC Number', d.mcNumber)
+            + (d.einNumber ? row('EIN', d.einNumber) : '')
             + row('Address', address)
             + row('Phone', d.telephone || d.phone)
             + row('Entity Type', d.entityType)
             + row('Operation', d.operationType)
-            + (d.totalPowerUnits != null ? row('Power Units', String(d.totalPowerUnits)) : '')
-            + (d.totalDrivers != null ? row('Drivers', String(d.totalDrivers)) : '');
+            + (d.totalPowerUnits != null ? row('Power Units (Trucks)', String(d.totalPowerUnits)) : '')
+            + (d.totalDrivers != null ? row('Drivers', String(d.totalDrivers)) : '')
+            + (d.safetyRating ? row('Safety Rating', d.safetyRating) : '')
+            + (d.crashTotal != null ? row('Total Crashes', String(d.crashTotal)) : '');
 
         card.classList.remove('hidden');
     }
@@ -1815,48 +1872,79 @@
             + fmcsaRow('MC Number', d.mcNumber)
             + fmcsaRow('EIN', d.einNumber)
             + fmcsaRow('Entity Type', d.entityType)
+            + fmcsaRow('Operation Type', d.operationType)
+            + (d.isPassengerCarrier ? fmcsaRow('Passenger Carrier', 'Yes') : '')
             + fmcsaRow('Phone', d.telephone)
+            + fmcsaRow('Fax', d.fax)
             + fmcsaRow('Email', d.email)
-            + fmcsaRow('Address', [d.phyStreet, d.phyCity, d.phyState, d.phyZip].filter(Boolean).join(', '));
+            + fmcsaRow('Physical Address', [d.phyStreet, d.phyCity, d.phyState, d.phyZip].filter(Boolean).join(', '))
+            + fmcsaRow('Mailing Address', [d.maiStreet, d.maiCity, d.maiState, d.maiZip].filter(Boolean).join(', '));
+
+        // Authority
+        const authLabel = (code) => ({ A: 'Active', I: 'Inactive', N: 'None' }[code] || code || '\u2014');
+        const authorityEl = $('fmcsaAuthority');
+        if (authorityEl) {
+            let authorityHtml = fmcsaRow('Common (Property)', authLabel(d.commonAuthorityStatus))
+                + fmcsaRow('Contract', authLabel(d.contractAuthorityStatus))
+                + fmcsaRow('Broker', authLabel(d.brokerAuthorityStatus));
+            if (d.docketNumbers && d.docketNumbers.length) {
+                authorityHtml += fmcsaRow('Docket Numbers', d.docketNumbers.map(dn => dn.prefix + '-' + dn.docketNumber).join(', '));
+            }
+            authorityEl.innerHTML = authorityHtml;
+        }
 
         const mileageLabel = d.mcs150MileageYear ? `Miles (${d.mcs150MileageYear})` : 'Miles';
         $('fmcsaFleet').innerHTML =
             fmcsaRow('Power Units', d.totalPowerUnits)
             + fmcsaRow('Drivers', d.totalDrivers)
             + fmcsaRow(mileageLabel, d.mcs150Mileage != null ? Number(d.mcs150Mileage).toLocaleString() : null)
-            + fmcsaRow('MCS-150 Date', d.mcs150FormDate);
+            + fmcsaRow('MCS-150 Date', d.mcs150FormDate)
+            + fmcsaRow('MCS-150 Outdated', d.mcs150Outdated === 'Y' ? 'Yes' : d.mcs150Outdated === 'N' ? 'No' : d.mcs150Outdated);
 
         $('fmcsaSafety').innerHTML =
             fmcsaRow('Safety Rating', d.safetyRating)
             + fmcsaRow('Rating Date', d.safetyRatingDate)
             + fmcsaRow('Last Review', d.reviewDate)
-            + fmcsaRow('Review Type', d.reviewType);
+            + fmcsaRow('Review Type', d.reviewType)
+            + (d.oosDate ? fmcsaRow('OOS Date', d.oosDate) : '');
 
         const ins = (req, onFile) => {
             if (!req && !onFile) return '\u2014';
-            const r = req ? '$' + Number(req).toLocaleString() : '\u2014';
-            const f = onFile ? '$' + Number(onFile).toLocaleString() : '\u2014';
+            const r = req && req !== 'u' && req !== '0' ? '$' + Number(req).toLocaleString() : '\u2014';
+            const f = onFile && onFile !== '0' ? '$' + Number(onFile).toLocaleString() : '\u2014';
             return `Req: ${r} / On file: ${f}`;
         };
         $('fmcsaInsurance').innerHTML =
             fmcsaRow('BIPD Liability', ins(d.bipdInsuranceRequired, d.bipdInsuranceOnFile))
+            + (d.bipdRequiredAmount && d.bipdRequiredAmount !== '0' ? fmcsaRow('BIPD Required Amt', '$' + Number(d.bipdRequiredAmount).toLocaleString()) : '')
             + fmcsaRow('Cargo', ins(d.cargoInsuranceRequired, d.cargoInsuranceOnFile))
             + fmcsaRow('Bond/Surety', ins(d.bondInsuranceRequired, d.bondInsuranceOnFile))
             + fmcsaRow('Insurance State', d.oicState);
 
+        // Inspection totals
+        const totalInsp = (d.driverInsp || 0) + (d.vehicleInsp || 0) + (d.hazmatInsp || 0);
+        const oosRateWithAvg = (rate, natAvg) => {
+            let s = rate != null ? rate + '%' : '\u2014';
+            if (natAvg) s += ` (Nat. Avg: ${natAvg}%)`;
+            return s;
+        };
         $('fmcsaInspections').innerHTML =
-            fmcsaRow('Total', d.inspectionTotal)
-            + fmcsaRow('Driver', d.driverInsp)
-            + fmcsaRow('Vehicle', d.vehicleInsp)
-            + fmcsaRow('HazMat', d.hazmatInsp)
-            + fmcsaRow('Driver OOS Rate', d.driverOOSRate != null ? d.driverOOSRate + '%' : null)
-            + fmcsaRow('Vehicle OOS Rate', d.vehicleOOSRate != null ? d.vehicleOOSRate + '%' : null);
+            fmcsaRow('Total Inspections', totalInsp || null)
+            + fmcsaRow('Driver Inspections', d.driverInsp)
+            + fmcsaRow('Vehicle Inspections', d.vehicleInsp)
+            + fmcsaRow('HazMat Inspections', d.hazmatInsp)
+            + fmcsaRow('Driver OOS', d.driverOosInsp != null ? `${d.driverOosInsp} inspections` : null)
+            + fmcsaRow('Vehicle OOS', d.vehicleOosInsp != null ? `${d.vehicleOosInsp} inspections` : null)
+            + fmcsaRow('HazMat OOS', d.hazmatOosInsp != null ? `${d.hazmatOosInsp} inspections` : null)
+            + fmcsaRow('Driver OOS Rate', oosRateWithAvg(d.driverOosRate, d.driverOosRateNatAvg))
+            + fmcsaRow('Vehicle OOS Rate', oosRateWithAvg(d.vehicleOosRate, d.vehicleOosRateNatAvg))
+            + fmcsaRow('HazMat OOS Rate', oosRateWithAvg(d.hazmatOosRate, d.hazmatOosRateNatAvg));
 
         $('fmcsaCrashes').innerHTML =
             fmcsaRow('Total', d.crashTotal)
             + fmcsaRow('Fatal', d.fatalCrash)
             + fmcsaRow('Injury', d.injCrash)
-            + fmcsaRow('Tow', d.towCrash);
+            + fmcsaRow('Tow-Away', d.towCrash);
 
         if (d.fetchedAt) {
             $('fmcsaFetchedAt').textContent = 'Last fetched: ' + new Date(d.fetchedAt).toLocaleString();

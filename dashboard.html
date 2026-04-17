@@ -847,10 +847,11 @@
                                     <div class="fmcsa-status-bar" id="fmcsaStatusBar"></div>
                                     <div class="fmcsa-grid">
                                         <div class="fmcsa-card"><h4>Identity</h4><div class="fmcsa-rows" id="fmcsaIdentity"></div></div>
+                                        <div class="fmcsa-card"><h4>Authority</h4><div class="fmcsa-rows" id="fmcsaAuthority"></div></div>
                                         <div class="fmcsa-card"><h4>Fleet &amp; Mileage</h4><div class="fmcsa-rows" id="fmcsaFleet"></div></div>
                                         <div class="fmcsa-card"><h4>Safety Record</h4><div class="fmcsa-rows" id="fmcsaSafety"></div></div>
                                         <div class="fmcsa-card"><h4>Insurance</h4><div class="fmcsa-rows" id="fmcsaInsurance"></div></div>
-                                        <div class="fmcsa-card"><h4>Inspections</h4><div class="fmcsa-rows" id="fmcsaInspections"></div></div>
+                                        <div class="fmcsa-card"><h4>Inspections &amp; OOS</h4><div class="fmcsa-rows" id="fmcsaInspections"></div></div>
                                         <div class="fmcsa-card"><h4>Crashes</h4><div class="fmcsa-rows" id="fmcsaCrashes"></div></div>
                                     </div>
                                     <p class="fmcsa-fetched-at" id="fmcsaFetchedAt"></p>
@@ -2488,40 +2489,64 @@
             </div>
         </div>
         <div class="detail-panel-body">
-            <!-- Note / Task Composer -->
+            <!-- Compose -->
             <div class="detail-section" id="detailNoteSection">
                 <div class="detail-compose">
-                    <textarea id="detailNoteText" class="detail-compose-input" placeholder="Log a note, report an issue, or create a task…" rows="1"></textarea>
+                    <textarea id="detailNoteText" class="detail-compose-input" placeholder="Log a note, report an issue, or create a task…" rows="3"></textarea>
                     <div class="detail-compose-bar">
-                        <select id="detailNoteType" class="detail-compose-select">
-                            <option value="note">Note</option>
-                            <option value="incident">Incident</option>
-                            <option value="safety">Safety</option>
-                            <option value="maintenance">Maintenance</option>
-                            <option value="training">Training</option>
-                            <option value="inspection">Inspection</option>
-                        </select>
-                        <select id="detailNotePriority" class="detail-compose-select">
-                            <option value="normal">Normal</option>
-                            <option value="high">High</option>
-                            <option value="urgent">Urgent</option>
-                        </select>
+                        <div class="detail-compose-selects">
+                            <select id="detailNoteType" class="detail-compose-select">
+                                <option value="note">Note</option>
+                                <option value="incident">Incident</option>
+                                <option value="safety">Safety</option>
+                                <option value="maintenance">Maintenance</option>
+                                <option value="training">Training</option>
+                                <option value="inspection">Inspection</option>
+                            </select>
+                            <select id="detailNotePriority" class="detail-compose-select">
+                                <option value="normal">Normal</option>
+                                <option value="high">High</option>
+                                <option value="urgent">Urgent</option>
+                            </select>
+                        </div>
                         <button type="button" class="detail-compose-post" id="detailNotePost" disabled>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                             Post
                         </button>
                     </div>
                 </div>
-                <div class="detail-notes-feed" id="detailNotesFeed"></div>
             </div>
 
-            <!-- Editable Info Section (collapsible, starts collapsed) -->
+            <!-- Activity Feed -->
+            <div class="detail-section detail-section-collapsible" id="detailFeedSection">
+                <button class="detail-section-toggle" id="detailFeedToggle" type="button" aria-expanded="true">
+                    <span class="detail-toggle-label">Activity <span class="detail-badge" id="detailNoteCount"></span></span>
+                    <svg class="detail-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="detail-collapsible-body">
+                    <div class="detail-notes-feed" id="detailNotesFeed"></div>
+                </div>
+            </div>
+
+            <!-- Tasks -->
+            <div class="detail-section detail-section-collapsible" id="detailTasksSection">
+                <button class="detail-section-toggle" id="detailTasksToggle" type="button" aria-expanded="true">
+                    <span class="detail-toggle-label">Open Tasks <span class="detail-badge" id="detailTaskCount"></span></span>
+                    <svg class="detail-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="detail-collapsible-body">
+                    <div class="detail-tasks-feed" id="detailTasksFeed"></div>
+                </div>
+            </div>
+
+            <!-- Driver Information (collapsible, starts collapsed) -->
             <div class="detail-section detail-section-collapsible collapsed" id="detailInfoSection">
                 <button class="detail-section-toggle" id="detailInfoToggle" type="button" aria-expanded="false">
-                    <h3 class="detail-section-title" style="margin:0">Driver Information</h3>
-                    <svg class="detail-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="6 9 12 15 18 9"/></svg>
+                    <span class="detail-toggle-label">Driver Information</span>
+                    <svg class="detail-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
                 </button>
-                <div class="detail-info-grid" id="detailDriverInfo">
+                <div class="detail-collapsible-body">
+                    <div class="detail-info-grid" id="detailDriverInfo">
                     <div class="detail-field" data-key="firstName">
                         <label class="detail-field-label">First Name <span class="req">*</span></label>
                         <input type="text" class="detail-field-input" id="dpFirstName" placeholder="First name">
@@ -2642,6 +2667,6 @@
     </aside>
 
     <script src="firebase-config.js?v=3"></script>
-    <script src="dashboard.js?v=5"></script>
+    <script src="dashboard.js?v=6"></script>
 </body>
 </html>
