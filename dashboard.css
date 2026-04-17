@@ -4975,3 +4975,147 @@ tr.row-dnd td:first-child {
     .dp-quick-actions { padding: 0.5rem 1rem; flex-wrap: wrap; }
     .dp-compliance-grid { grid-template-columns: 1fr; }
 }
+
+/* ═══════════════════════════════════════════════════
+   Spreadsheet Edit Mode
+   ═══════════════════════════════════════════════════ */
+
+/* Toggle button active state */
+.ss-toggle-btn.active {
+    background: var(--primary) !important;
+    color: #fff !important;
+    border-color: var(--primary) !important;
+}
+
+/* Section expansion when spreadsheet is active */
+.spreadsheet-active .dash-table-wrap {
+    overflow-x: auto;
+}
+.spreadsheet-active .dash-table {
+    table-layout: fixed;
+    min-width: 100%;
+}
+
+/* Save bar */
+.ss-save-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.75rem;
+    background: #fef3c7;
+    border: 1px solid #fbbf24;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+.ss-save-count {
+    color: #92400e;
+    flex: 1;
+}
+.ss-save-btn {
+    padding: 0.25rem 0.75rem;
+    background: #059669;
+    color: #fff;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ss-save-btn:hover { background: #047857; }
+.ss-discard-btn {
+    padding: 0.25rem 0.75rem;
+    background: #fff;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+    border-radius: 0.375rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.ss-discard-btn:hover { background: #fef2f2; border-color: #dc2626; }
+
+/* Spreadsheet table header */
+.ss-th {
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+    font-size: 0.68rem !important;
+    font-weight: 600 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.4rem 0.35rem !important;
+    white-space: nowrap;
+    border-bottom: 2px solid #cbd5e1 !important;
+}
+.ss-th-num {
+    background: #f1f5f9 !important;
+    color: #94a3b8 !important;
+    font-size: 0.65rem !important;
+    font-weight: 600 !important;
+    padding: 0.4rem 0.3rem !important;
+    width: 2rem;
+    text-align: center;
+    border-bottom: 2px solid #cbd5e1 !important;
+}
+
+/* Row number cell */
+.ss-num {
+    color: #94a3b8;
+    font-size: 0.65rem;
+    text-align: center;
+    padding: 0.2rem 0.3rem !important;
+    background: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+    width: 2rem;
+    user-select: none;
+}
+
+/* Spreadsheet cell */
+.ss-cell {
+    padding: 0.1rem 0.15rem !important;
+    vertical-align: middle;
+}
+
+/* Spreadsheet inputs */
+.ss-input, .ss-select {
+    width: 100%;
+    padding: 0.25rem 0.35rem;
+    border: 1px solid transparent;
+    border-radius: 0.25rem;
+    font-size: 0.74rem;
+    font-family: inherit;
+    background: transparent;
+    color: var(--text);
+    transition: border-color 0.15s, background 0.15s;
+    box-sizing: border-box;
+    outline: none;
+}
+.ss-input:hover, .ss-select:hover {
+    border-color: #cbd5e1;
+    background: #fff;
+}
+.ss-input:focus, .ss-select:focus {
+    border-color: var(--primary);
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.15);
+}
+
+/* Dirty cell highlight */
+.ss-dirty {
+    border-color: #fbbf24 !important;
+    background: #fffbeb !important;
+}
+
+/* Spreadsheet row */
+.ss-row {
+    border-bottom: 1px solid #f1f5f9;
+}
+.ss-row:hover {
+    background: #f8fafc;
+}
+.ss-row:hover .ss-num {
+    background: #f1f5f9;
+}

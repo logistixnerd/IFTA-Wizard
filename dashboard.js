@@ -2153,6 +2153,7 @@
         const tbody = $('trucksTableBody');
         const table = $('trucksTable');
         const empty = $('trucksEmpty');
+        const thead = table?.querySelector('thead tr');
         if (state.trucks.length === 0) {
             table.style.display = 'none';
             empty.style.display = '';
@@ -2164,6 +2165,14 @@
         const sorted = sortItems(filtered, sortState.trucks, 'truck');
         bulkSelection.trucks = new Set([...bulkSelection.trucks].filter(id => sorted.some(t => t.id === id)));
         updateBulkBar('trucks');
+        if (spreadsheetMode.trucks) {
+            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.trucks.map(c => `<th class="ss-th">${c.label}</th>`).join('');
+            tbody.innerHTML = sorted.map((t, i) => `<tr data-id="${t.id}" class="ss-row">${'<td class="ss-num">' + (i+1) + '</td>'}${SPREADSHEET_COLS.trucks.map(c => '<td class="ss-cell">' + ssInput(c, t, 'trucks') + '</td>').join('')}</tr>`).join('');
+            return;
+        }
+        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="truckSelectAll" title="Select all"></th><th class="col-validation"></th><th style="width:9%">Unit #</th><th style="width:7%">Year</th><th style="width:11%">Make</th><th style="width:11%">Model</th><th style="width:17%">VIN</th><th style="width:12%">Plate</th><th style="width:8%">Fuel</th><th style="width:10%">Status</th><th style="width:8%"></th>`;
+        const selAll = thead?.querySelector('#truckSelectAll');
+        if (selAll) selAll.onchange = () => toggleSelectAll('trucks', selAll);
         tbody.innerHTML = sorted.map(t => `<tr data-id="${t.id}" class="${bulkSelection.trucks.has(t.id) ? 'row-selected' : ''} ${t.doNotDispatch ? 'row-dnd' : ''} ${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${t.id}" ${bulkSelection.trucks.has(t.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('trucks','${t.id}',this)"></td>
             ${validationIndicator(t)}
@@ -2425,6 +2434,139 @@
             if (d) d.truck = newTruck;
             showMsg('Truck ' + (newTruck ? 'assigned' : 'unassigned'));
         } catch (err) { console.error(err); showMsg('Error assigning truck', true); }
+    }
+
+    // ── Spreadsheet Edit Mode ──────────────────────
+    const spreadsheetMode = { trucks: false, trailers: false, drivers: false };
+    const spreadsheetDirty = { trucks: new Map(), trailers: new Map(), drivers: new Map() };
+
+    const SPREADSHEET_COLS = {
+        trucks: [
+            { key: 'unit', label: 'Unit #', type: 'text' },
+            { key: 'year', label: 'Year', type: 'text', maxlength: 4 },
+            { key: 'make', label: 'Make', type: 'text' },
+            { key: 'model', label: 'Model', type: 'text' },
+            { key: 'vin', label: 'VIN', type: 'text', maxlength: 17 },
+            { key: 'plate', label: 'Plate', type: 'text' },
+            { key: 'plateState', label: 'St', type: 'text', maxlength: 2 },
+            { key: 'fuel', label: 'Fuel', type: 'select', optionsKey: 'truckFuel' },
+            { key: 'status', label: 'Status', type: 'select', optionsKey: 'truckStatus' }
+        ],
+        trailers: [
+            { key: 'unit', label: 'Unit #', type: 'text' },
+            { key: 'year', label: 'Year', type: 'text', maxlength: 4 },
+            { key: 'make', label: 'Make', type: 'text' },
+            { key: 'type', label: 'Type', type: 'select', optionsKey: 'trailerType' },
+            { key: 'vin', label: 'VIN', type: 'text', maxlength: 17 },
+            { key: 'plate', label: 'Plate', type: 'text' },
+            { key: 'status', label: 'Status', type: 'select', optionsKey: 'trailerStatus' }
+        ],
+        drivers: [
+            { key: 'firstName', label: 'First', type: 'text' },
+            { key: 'lastName', label: 'Last', type: 'text' },
+            { key: 'cdl', label: 'CDL #', type: 'text' },
+            { key: 'cdlState', label: 'St', type: 'text', maxlength: 2 },
+            { key: 'cdlExp', label: 'CDL Exp', type: 'date' },
+            { key: 'medExp', label: 'Med Exp', type: 'date' },
+            { key: 'phone', label: 'Phone', type: 'text' },
+            { key: 'email', label: 'Email', type: 'text' },
+            { key: 'truck', label: 'Truck', type: 'truck-select' },
+            { key: 'status', label: 'Status', type: 'select', optionsKey: 'driverStatus' }
+        ]
+    };
+
+    function toggleSpreadsheet(collection) {
+        spreadsheetMode[collection] = !spreadsheetMode[collection];
+        spreadsheetDirty[collection].clear();
+        const section = $('section-' + collection);
+        if (section) section.classList.toggle('spreadsheet-active', spreadsheetMode[collection]);
+        const btn = $( collection + 'SpreadsheetBtn');
+        if (btn) {
+            btn.classList.toggle('active', spreadsheetMode[collection]);
+            btn.title = spreadsheetMode[collection] ? 'Exit spreadsheet mode' : 'Spreadsheet edit mode';
+        }
+        const saveBar = $(collection + 'SpreadsheetSave');
+        if (saveBar) saveBar.style.display = 'none';
+        if (collection === 'trucks') renderTrucks();
+        else if (collection === 'trailers') renderTrailers();
+        else renderDrivers();
+    }
+
+    function ssInput(col, item, collection) {
+        const val = item[col.key] || '';
+        const cls = 'ss-input';
+        const shared = `data-id="${item.id}" data-key="${col.key}" data-collection="${collection}"`;
+        if (col.type === 'select') {
+            const opts = getDropdownOptions(col.optionsKey);
+            return `<select class="${cls} ss-select" ${shared} onchange="Dashboard.ssChanged(this)">${opts.map(o => `<option value="${o.value}"${o.value === val ? ' selected' : ''}>${o.label}</option>`).join('')}</select>`;
+        }
+        if (col.type === 'truck-select') {
+            const opts = state.trucks.filter(t => t.status === 'active' || t.id === val);
+            return `<select class="${cls} ss-select" ${shared} onchange="Dashboard.ssChanged(this)"><option value="">— None —</option>${opts.map(t => `<option value="${t.id}"${t.id === val ? ' selected' : ''}>${escapeHtml(t.unit || t.id)}</option>`).join('')}</select>`;
+        }
+        if (col.type === 'date') {
+            return `<input type="date" class="${cls}" value="${escapeHtml(val)}" ${shared} ${col.maxlength ? 'maxlength="'+col.maxlength+'"' : ''} onchange="Dashboard.ssChanged(this)">`;
+        }
+        return `<input type="text" class="${cls}" value="${escapeHtml(val)}" placeholder="${col.label}" ${shared} ${col.maxlength ? 'maxlength="'+col.maxlength+'"' : ''} oninput="Dashboard.ssChanged(this)">`;
+    }
+
+    function ssChanged(input) {
+        const id = input.dataset.id;
+        const key = input.dataset.key;
+        const collection = input.dataset.collection;
+        const item = state[collection].find(x => x.id === id);
+        const orig = item ? (item[key] || '') : '';
+        const newVal = input.value;
+        if (!spreadsheetDirty[collection].has(id)) spreadsheetDirty[collection].set(id, {});
+        const rec = spreadsheetDirty[collection].get(id);
+        if (newVal !== orig) { rec[key] = newVal; input.classList.add('ss-dirty'); }
+        else { delete rec[key]; input.classList.remove('ss-dirty'); if (!Object.keys(rec).length) spreadsheetDirty[collection].delete(id); }
+        const saveBar = $(collection + 'SpreadsheetSave');
+        if (saveBar) saveBar.style.display = spreadsheetDirty[collection].size > 0 ? 'flex' : 'none';
+        const countEl = saveBar?.querySelector('.ss-save-count');
+        if (countEl) countEl.textContent = spreadsheetDirty[collection].size + ' changed';
+    }
+
+    async function ssSaveAll(collection) {
+        const dirty = spreadsheetDirty[collection];
+        if (!dirty.size) return;
+        const saveBar = $(collection + 'SpreadsheetSave');
+        const btn = saveBar?.querySelector('.ss-save-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+        try {
+            const batch = db.batch();
+            const type = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : 'driver';
+            for (const [id, changes] of dirty) {
+                const payload = normalizePayload({ ...changes, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, type);
+                batch.update(col(collection).doc(id), payload);
+                const item = state[collection].find(x => x.id === id);
+                if (item) Object.assign(item, changes);
+            }
+            const savedCount = dirty.size;
+            await batch.commit();
+            dirty.clear();
+            if (saveBar) saveBar.style.display = 'none';
+            document.querySelectorAll('#' + collection + 'TableBody .ss-dirty').forEach(el => el.classList.remove('ss-dirty'));
+            showMsg(savedCount + ' item' + (savedCount === 1 ? '' : 's') + ' saved');
+            if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
+            else if (collection === 'trailers') renderTrailers();
+            else renderDrivers();
+            updateOverview();
+        } catch (err) {
+            console.error('Spreadsheet save error:', err);
+            showMsg('Error saving changes', true);
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Save All'; }
+        }
+    }
+
+    function ssDiscardAll(collection) {
+        spreadsheetDirty[collection].clear();
+        const saveBar = $(collection + 'SpreadsheetSave');
+        if (saveBar) saveBar.style.display = 'none';
+        if (collection === 'trucks') renderTrucks();
+        else if (collection === 'trailers') renderTrailers();
+        else renderDrivers();
     }
 
     // ── Driver Documents ──────────────────────
@@ -6723,6 +6865,7 @@
         const tbody = $('trailersTableBody');
         const table = $('trailersTable');
         const empty = $('trailersEmpty');
+        const thead = table?.querySelector('thead tr');
         if (state.trailers.length === 0) {
             table.style.display = 'none';
             empty.style.display = '';
@@ -6734,6 +6877,14 @@
         const sorted = sortItems(filtered, sortState.trailers, 'trailer');
         bulkSelection.trailers = new Set([...bulkSelection.trailers].filter(id => sorted.some(t => t.id === id)));
         updateBulkBar('trailers');
+        if (spreadsheetMode.trailers) {
+            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.trailers.map(c => `<th class="ss-th">${c.label}</th>`).join('');
+            tbody.innerHTML = sorted.map((t, i) => `<tr data-id="${t.id}" class="ss-row">${'<td class="ss-num">' + (i+1) + '</td>'}${SPREADSHEET_COLS.trailers.map(c => '<td class="ss-cell">' + ssInput(c, t, 'trailers') + '</td>').join('')}</tr>`).join('');
+            return;
+        }
+        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="trailerSelectAll" title="Select all"></th><th class="col-validation"></th><th style="width:11%">Unit #</th><th style="width:9%">Year</th><th style="width:12%">Make</th><th style="width:12%">Type</th><th style="width:18%">VIN</th><th style="width:12%">Plate</th><th style="width:10%">Status</th><th style="width:7%"></th>`;
+        const selAll = thead?.querySelector('#trailerSelectAll');
+        if (selAll) selAll.onchange = () => toggleSelectAll('trailers', selAll);
         tbody.innerHTML = sorted.map(t => `<tr data-id="${t.id}" class="${bulkSelection.trailers.has(t.id) ? 'row-selected' : ''} ${t.doNotDispatch ? 'row-dnd' : ''} ${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${t.id}" ${bulkSelection.trailers.has(t.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('trailers','${t.id}',this)"></td>
             ${validationIndicator(t)}
@@ -6842,6 +6993,7 @@
         const tbody = $('driversTableBody');
         const table = $('driversTable');
         const empty = $('driversEmpty');
+        const thead = table?.querySelector('thead tr');
         if (state.drivers.length === 0) {
             table.style.display = 'none';
             empty.style.display = '';
@@ -6853,6 +7005,14 @@
         const sorted = sortItems(filtered, sortState.drivers, 'driver');
         bulkSelection.drivers = new Set([...bulkSelection.drivers].filter(id => sorted.some(d => d.id === id)));
         updateBulkBar('drivers');
+        if (spreadsheetMode.drivers) {
+            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.drivers.map(c => `<th class="ss-th">${c.label}</th>`).join('');
+            tbody.innerHTML = sorted.map((d, i) => `<tr data-id="${d.id}" class="ss-row">${'<td class="ss-num">' + (i+1) + '</td>'}${SPREADSHEET_COLS.drivers.map(c => '<td class="ss-cell">' + ssInput(c, d, 'drivers') + '</td>').join('')}</tr>`).join('');
+            return;
+        }
+        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="driverSelectAll" title="Select all"></th><th class="col-validation"></th><th style="width:14%">Name</th><th style="width:9%">CDL #</th><th style="width:5%">State</th><th style="width:9%">CDL Exp</th><th style="width:10%">Phone</th><th style="width:11%">Email</th><th style="width:12%">Truck</th><th style="width:10%">Status</th><th style="width:8%"></th>`;
+        const selAll = thead?.querySelector('#driverSelectAll');
+        if (selAll) selAll.onchange = () => toggleSelectAll('drivers', selAll);
         tbody.innerHTML = sorted.map(d => `<tr data-id="${d.id}" class="${bulkSelection.drivers.has(d.id) ? 'row-selected' : ''} ${d.doNotDispatch ? 'row-dnd' : ''} ${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${d.id}" ${bulkSelection.drivers.has(d.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('drivers','${d.id}',this)"></td>
             ${validationIndicator(d)}
@@ -7915,7 +8075,8 @@
         deleteTruck, deleteTrailer, deleteDriver,
         inlineStatus, inlineTruckAssign,
         toggleBulkSelect, bulkDelete, bulkChangeStatus, bulkExport,
-        openTruckProfile, openTrailerProfile, openDriverProfile
+        openTruckProfile, openTrailerProfile, openDriverProfile,
+        toggleSpreadsheet, ssChanged, ssSaveAll, ssDiscardAll
     };
 
     // Start when DOM is ready
