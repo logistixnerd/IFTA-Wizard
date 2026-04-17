@@ -4578,6 +4578,7 @@
             else rows = await parseCsvToRows(file);
         } catch (e) { console.warn('[Import] Primary parser failed:', e); }
 
+        console.log('[Import] Primary result:', rows ? rows.length + ' rows' : 'null', rows && rows.length > 0 ? 'Header: ' + JSON.stringify(rows[0]) : '');
         if (rows && rows.length >= 2) return rows;
 
         // Fallback: try Excel parser (handles xlsx/xls/csv via SheetJS)
