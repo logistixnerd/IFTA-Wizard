@@ -2734,6 +2734,34 @@
             notePost.addEventListener('click', panelPostCompose);
         }
 
+        // ── Task interaction wiring ──
+        const taskFeed = $('detailTasksFeed');
+        if (taskFeed) {
+            taskFeed.addEventListener('change', async (e) => {
+                const sel = e.target.closest('.dp-task-status-select');
+                if (!sel || !detailPanelDriverId) return;
+                const taskId = sel.dataset.taskId;
+                const newStatus = sel.value;
+                try {
+                    const result = await FirebaseDB.updateTaskStatus(state.user.uid, 'drivers', detailPanelDriverId, taskId, newStatus);
+                    if (!result.success) throw new Error(result.error);
+                    showMsg('Status updated');
+                    await Promise.all([loadPanelTasks(), loadPanelHistory()]);
+                } catch (err) { console.error(err); showMsg('Error updating status', true); }
+            });
+            taskFeed.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.dp-task-resolve');
+                if (!btn || !detailPanelDriverId) return;
+                const taskId = btn.dataset.taskId;
+                try {
+                    const result = await FirebaseDB.resolveTask(state.user.uid, 'drivers', detailPanelDriverId, taskId, '', state.user.email || state.user.uid);
+                    if (!result.success) throw new Error(result.error);
+                    showMsg('Task resolved');
+                    await Promise.all([loadPanelTasks(), loadPanelHistory()]);
+                } catch (err) { console.error(err); showMsg('Error resolving task', true); }
+            });
+        }
+
         // ── Collapsible toggles ──
         document.querySelectorAll('#driverDetailPanel .dp-section-toggle').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -2951,7 +2979,7 @@
             const overdue = dueDate && dueDate < now && t.status !== 'Resolved';
             const overdueHtml = overdue ? '<span class="dp-task-overdue">OVERDUE</span>' : '';
 
-            return `<div class="dp-task" data-id="${t.id}">
+            return `<div class="dp-task" data-id="${t.id}" data-entity-type="drivers" data-entity-id="${detailPanelDriverId}">
                 <div class="dp-task-top">
                     <span class="dp-task-type">${escapeHtml(t.type || 'note')}</span>
                     ${priHtml}${overdueHtml}
@@ -2959,7 +2987,12 @@
                 <div class="dp-task-text">${escapeHtml(t.text || '')}</div>
                 <div class="dp-task-bot">
                     <span class="dp-task-date">${dateStr}</span>
-                    <span class="dp-task-status" data-status="${escapeHtml(t.status || 'Open')}">${escapeHtml(t.status || 'Open')}</span>
+                    <select class="dp-task-status-select" data-task-id="${t.id}">
+                        <option value="Open"${t.status === 'Open' ? ' selected' : ''}>Open</option>
+                        <option value="In Progress"${t.status === 'In Progress' ? ' selected' : ''}>In Progress</option>
+                        <option value="Resolved"${t.status === 'Resolved' ? ' selected' : ''}>Resolved</option>
+                    </select>
+                    <button class="dp-task-resolve" data-task-id="${t.id}" title="Mark resolved">✓</button>
                 </div>
             </div>`;
         }).join('');
@@ -3534,10 +3567,14 @@
             const priHtml = (t.priority && t.priority !== 'normal') ? `<span class="dp-task-pri" data-pri="${escapeHtml(t.priority)}">${escapeHtml(t.priority)}</span>` : '';
             const dueDate = t.dueDate ? new Date(t.dueDate) : null;
             const overdue = dueDate && dueDate < now && t.status !== 'Resolved';
-            return `<div class="dp-task" data-id="${t.id}">
+            return `<div class="dp-task" data-id="${t.id}" data-entity-type="trucks" data-entity-id="${truckPanelId}">
                 <div class="dp-task-top"><span class="dp-task-type">${escapeHtml(t.type || 'note')}</span>${priHtml}${overdue ? '<span class="dp-task-overdue">OVERDUE</span>' : ''}</div>
                 <div class="dp-task-text">${escapeHtml(t.text || '')}</div>
-                <div class="dp-task-bot"><span class="dp-task-date">${dateStr}</span><span class="dp-task-status" data-status="${escapeHtml(t.status || 'Open')}">${escapeHtml(t.status || 'Open')}</span></div>
+                <div class="dp-task-bot">
+                    <span class="dp-task-date">${dateStr}</span>
+                    <select class="dp-task-status-select" data-task-id="${t.id}"><option value="Open"${t.status === 'Open' ? ' selected' : ''}>Open</option><option value="In Progress"${t.status === 'In Progress' ? ' selected' : ''}>In Progress</option><option value="Resolved"${t.status === 'Resolved' ? ' selected' : ''}>Resolved</option></select>
+                    <button class="dp-task-resolve" data-task-id="${t.id}" title="Mark resolved">✓</button>
+                </div>
             </div>`;
         }).join('');
     }
@@ -3634,6 +3671,34 @@
                 notePost.disabled = !noteText.value.trim();
             });
             notePost.addEventListener('click', truckPanelPostCompose);
+        }
+
+        // Task interaction wiring
+        const truckTaskFeed = $('truckTasksFeed');
+        if (truckTaskFeed) {
+            truckTaskFeed.addEventListener('change', async (e) => {
+                const sel = e.target.closest('.dp-task-status-select');
+                if (!sel || !truckPanelId) return;
+                const taskId = sel.dataset.taskId;
+                const newStatus = sel.value;
+                try {
+                    const result = await FirebaseDB.updateTaskStatus(state.user.uid, 'trucks', truckPanelId, taskId, newStatus);
+                    if (!result.success) throw new Error(result.error);
+                    showMsg('Status updated');
+                    await Promise.all([loadTruckPanelTasks(), loadTruckPanelHistory()]);
+                } catch (err) { console.error(err); showMsg('Error updating status', true); }
+            });
+            truckTaskFeed.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.dp-task-resolve');
+                if (!btn || !truckPanelId) return;
+                const taskId = btn.dataset.taskId;
+                try {
+                    const result = await FirebaseDB.resolveTask(state.user.uid, 'trucks', truckPanelId, taskId, '', state.user.email || state.user.uid);
+                    if (!result.success) throw new Error(result.error);
+                    showMsg('Task resolved');
+                    await Promise.all([loadTruckPanelTasks(), loadTruckPanelHistory()]);
+                } catch (err) { console.error(err); showMsg('Error resolving task', true); }
+            });
         }
 
         // Collapsible toggles
@@ -4102,10 +4167,14 @@
             const priHtml = (t.priority && t.priority !== 'normal') ? `<span class="dp-task-pri" data-pri="${escapeHtml(t.priority)}">${escapeHtml(t.priority)}</span>` : '';
             const dueDate = t.dueDate ? new Date(t.dueDate) : null;
             const overdue = dueDate && dueDate < now && t.status !== 'Resolved';
-            return `<div class="dp-task" data-id="${t.id}">
+            return `<div class="dp-task" data-id="${t.id}" data-entity-type="trailers" data-entity-id="${trailerPanelId}">
                 <div class="dp-task-top"><span class="dp-task-type">${escapeHtml(t.type || 'note')}</span>${priHtml}${overdue ? '<span class="dp-task-overdue">OVERDUE</span>' : ''}</div>
                 <div class="dp-task-text">${escapeHtml(t.text || '')}</div>
-                <div class="dp-task-bot"><span class="dp-task-date">${dateStr}</span><span class="dp-task-status" data-status="${escapeHtml(t.status || 'Open')}">${escapeHtml(t.status || 'Open')}</span></div>
+                <div class="dp-task-bot">
+                    <span class="dp-task-date">${dateStr}</span>
+                    <select class="dp-task-status-select" data-task-id="${t.id}"><option value="Open"${t.status === 'Open' ? ' selected' : ''}>Open</option><option value="In Progress"${t.status === 'In Progress' ? ' selected' : ''}>In Progress</option><option value="Resolved"${t.status === 'Resolved' ? ' selected' : ''}>Resolved</option></select>
+                    <button class="dp-task-resolve" data-task-id="${t.id}" title="Mark resolved">✓</button>
+                </div>
             </div>`;
         }).join('');
     }
@@ -4202,6 +4271,34 @@
                 notePost.disabled = !noteText.value.trim();
             });
             notePost.addEventListener('click', trailerPanelPostCompose);
+        }
+
+        // Task interaction wiring
+        const trailerTaskFeed = $('trailerTasksFeed');
+        if (trailerTaskFeed) {
+            trailerTaskFeed.addEventListener('change', async (e) => {
+                const sel = e.target.closest('.dp-task-status-select');
+                if (!sel || !trailerPanelId) return;
+                const taskId = sel.dataset.taskId;
+                const newStatus = sel.value;
+                try {
+                    const result = await FirebaseDB.updateTaskStatus(state.user.uid, 'trailers', trailerPanelId, taskId, newStatus);
+                    if (!result.success) throw new Error(result.error);
+                    showMsg('Status updated');
+                    await Promise.all([loadTrailerPanelTasks(), loadTrailerPanelHistory()]);
+                } catch (err) { console.error(err); showMsg('Error updating status', true); }
+            });
+            trailerTaskFeed.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.dp-task-resolve');
+                if (!btn || !trailerPanelId) return;
+                const taskId = btn.dataset.taskId;
+                try {
+                    const result = await FirebaseDB.resolveTask(state.user.uid, 'trailers', trailerPanelId, taskId, '', state.user.email || state.user.uid);
+                    if (!result.success) throw new Error(result.error);
+                    showMsg('Task resolved');
+                    await Promise.all([loadTrailerPanelTasks(), loadTrailerPanelHistory()]);
+                } catch (err) { console.error(err); showMsg('Error resolving task', true); }
+            });
         }
 
         // Collapsible toggles
@@ -6729,6 +6826,33 @@
         initSearchFilters();
         initInlineEditing();
         initAuth();
+
+        // Handle URL params to open detail panel (e.g. from Task Manager)
+        const params = new URLSearchParams(window.location.search);
+        const openPanel = params.get('openPanel');
+        const entityId = params.get('entityId');
+        if (openPanel && entityId) {
+            const waitForData = setInterval(() => {
+                if (!state.user) return;
+                if (openPanel === 'drivers' && state.drivers?.length) {
+                    clearInterval(waitForData);
+                    const driversNav = document.querySelector('[data-nav="drivers"]');
+                    if (driversNav) driversNav.click();
+                    setTimeout(() => openDriverDetailPanel(entityId), 200);
+                } else if (openPanel === 'trucks' && state.trucks?.length) {
+                    clearInterval(waitForData);
+                    const trucksNav = document.querySelector('[data-nav="trucks"]');
+                    if (trucksNav) trucksNav.click();
+                    setTimeout(() => openTruckDetailPanel(entityId), 200);
+                } else if (openPanel === 'trailers' && state.trailers?.length) {
+                    clearInterval(waitForData);
+                    const trailersNav = document.querySelector('[data-nav="trailers"]');
+                    if (trailersNav) trailersNav.click();
+                    setTimeout(() => openTrailerDetailPanel(entityId), 200);
+                }
+            }, 300);
+            setTimeout(() => clearInterval(waitForData), 10000);
+        }
     }
 
     // Expose edit/delete/inline methods for inline onclick

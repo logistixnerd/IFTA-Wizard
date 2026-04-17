@@ -428,19 +428,27 @@
         const select = $('taskEntityId');
         if (!select) return;
 
-        select.innerHTML = '<option value="">Select...</option>';
+        select.innerHTML = '<option value="">Loading...</option>';
 
-        if (!entityType) return;
+        if (!entityType) { select.innerHTML = '<option value="">Select...</option>'; return; }
 
-        const filteredTasks = state.allTasks.filter(t => t.entityType === entityType);
-        const uniqueEntities = [...new Set(filteredTasks.map(t => JSON.stringify({ id: t.entityId, name: t.entityName })))];
-
-        uniqueEntities.forEach(entityJson => {
-            const entity = JSON.parse(entityJson);
-            const option = document.createElement('option');
-            option.value = entity.id;
-            option.textContent = entity.name;
-            select.appendChild(option);
+        // Load all entities from Firestore
+        db.collection('users').doc(state.user.uid).collection(entityType).get().then(snap => {
+            select.innerHTML = '<option value="">Select...</option>';
+            snap.forEach(doc => {
+                const d = doc.data();
+                const option = document.createElement('option');
+                option.value = doc.id;
+                if (entityType === 'drivers') {
+                    option.textContent = [d.firstName, d.lastName].filter(Boolean).join(' ') || doc.id;
+                } else {
+                    option.textContent = d.unit || doc.id;
+                }
+                select.appendChild(option);
+            });
+        }).catch(err => {
+            console.error('Error loading entities:', err);
+            select.innerHTML = '<option value="">Error loading</option>';
         });
     }
 
@@ -764,17 +772,14 @@
                 return;
             }
 
-            // Jump to entity
+            // Jump to entity — open dashboard detail panel
             const jumpBtn = e.target.closest('.btn-jump-to-entity');
             if (jumpBtn) {
                 const entityType = jumpBtn.dataset.entityType;
                 const entityId = jumpBtn.dataset.entityId;
-                let url = '';
-                if (entityType === 'drivers') url = `driver-profile.html?driver=${encodeURIComponent(entityId)}`;
-                else if (entityType === 'trucks') url = `unit-profile.html?truck=${encodeURIComponent(entityId)}`;
-                else if (entityType === 'trailers') url = `trailer-profile.html?trailer=${encodeURIComponent(entityId)}`;
-                
-                if (url) window.open(url, '_blank');
+                if (entityType && entityId) {
+                    window.open(`dashboard.html?openPanel=${encodeURIComponent(entityType)}&entityId=${encodeURIComponent(entityId)}`, '_blank');
+                }
                 return;
             }
         });
