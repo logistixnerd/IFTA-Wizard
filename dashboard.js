@@ -2456,6 +2456,35 @@
         }
 
         if (isCreate) setTimeout(() => $('dpFirstName').focus(), 100);
+
+        // Render summary chips + compliance
+        renderPanelSummary();
+        renderPanelCompliance();
+
+        // Clear + load activity feed & tasks
+        const notesFeed = $('detailNotesFeed');
+        const tasksFeed = $('detailTasksFeed');
+        if (notesFeed) notesFeed.innerHTML = '<p class="dp-empty">Loading\u2026</p>';
+        if (tasksFeed) tasksFeed.innerHTML = '<p class="dp-empty">Loading\u2026</p>';
+        const noteBadge = $('detailNoteCount');
+        const taskBadge = $('detailTaskCount');
+        if (noteBadge) noteBadge.textContent = '';
+        if (taskBadge) taskBadge.textContent = '';
+
+        // Reset compose
+        const noteText = $('detailNoteText');
+        if (noteText) { noteText.value = ''; noteText.style.height = 'auto'; }
+        const notePost = $('detailNotePost');
+        if (notePost) notePost.disabled = true;
+        const noteType = $('detailNoteType');
+        if (noteType) noteType.value = 'note';
+        const notePri = $('detailNotePriority');
+        if (notePri) notePri.value = 'normal';
+
+        if (!isCreate && id) {
+            loadPanelHistory();
+            loadPanelTasks();
+        }
     }
 
     function closeDriverDetailPanel() {
@@ -2710,6 +2739,311 @@
                 renderDrivers();
             });
         }
+
+        // ── Compose wiring ──
+        const noteText = $('detailNoteText');
+        const notePost = $('detailNotePost');
+        if (noteText && notePost) {
+            noteText.addEventListener('input', () => {
+                noteText.style.height = 'auto';
+                noteText.style.height = noteText.scrollHeight + 'px';
+                notePost.disabled = !noteText.value.trim();
+            });
+            notePost.addEventListener('click', panelPostCompose);
+        }
+
+        // ── Collapsible toggles ──
+        document.querySelectorAll('#driverDetailPanel .dp-section-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const section = document.getElementById(btn.dataset.target);
+                if (!section) return;
+                const collapsed = section.classList.toggle('collapsed');
+                btn.setAttribute('aria-expanded', String(!collapsed));
+            });
+        });
+
+        // ── Quick actions ──
+        const callBtn = $('dpActionCall');
+        if (callBtn) callBtn.addEventListener('click', () => {
+            const phone = $('dpPhone')?.value?.replace(/\D/g, '');
+            if (phone) window.open('tel:' + phone);
+            else showMsg('No phone number on file', true);
+        });
+        const textBtn = $('dpActionText');
+        if (textBtn) textBtn.addEventListener('click', () => {
+            const phone = $('dpPhone')?.value?.replace(/\D/g, '');
+            if (phone) window.open('sms:' + phone);
+            else showMsg('No phone number on file', true);
+        });
+        const assignBtn = $('dpActionAssign');
+        if (assignBtn) assignBtn.addEventListener('click', () => {
+            const infoSection = $('detailInfoSection');
+            if (infoSection?.classList.contains('collapsed')) {
+                infoSection.classList.remove('collapsed');
+            }
+            setTimeout(() => $('dpTruck')?.focus(), 150);
+        });
+        const unavailBtn = $('dpActionUnavail');
+        if (unavailBtn) unavailBtn.addEventListener('click', async () => {
+            if (!detailPanelDriverId) return;
+            const d = state.drivers.find(x => x.id === detailPanelDriverId);
+            const newStatus = d?.status === 'inactive' ? 'active' : 'inactive';
+            try {
+                await col('drivers').doc(detailPanelDriverId).update({ status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                if (d) d.status = newStatus;
+                $('dpStatus').value = newStatus;
+                const statusEl = $('detailDriverStatus');
+                statusEl.className = 'status-badge ' + newStatus;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(newStatus);
+                renderPanelSummary();
+                renderDrivers();
+                updateOverview();
+                showMsg('Driver marked ' + statusLabel(newStatus));
+            } catch (err) { console.error(err); showMsg('Error updating status', true); }
+        });
+    }
+
+    // ── Panel Compose Post ──
+    async function panelPostCompose() {
+        const textarea = $('detailNoteText');
+        const postBtn = $('detailNotePost');
+        const compose = textarea?.closest('.dp-compose');
+        const text = textarea?.value?.trim();
+        if (!text || !detailPanelDriverId) return;
+
+        const type = $('detailNoteType')?.value || 'note';
+        const priority = $('detailNotePriority')?.value || 'normal';
+
+        postBtn.disabled = true;
+        postBtn.classList.add('posting');
+
+        try {
+            const d = state.drivers.find(x => x.id === detailPanelDriverId);
+            const driverName = d ? [d.firstName, d.lastName].filter(Boolean).join(' ') : detailPanelDriverId;
+
+            const taskData = {
+                text,
+                type,
+                status: 'Open',
+                priority,
+                assignedTo: [],
+                dueDate: null,
+                createdBy: state.user.email || state.user.uid,
+                source: 'driver-panel',
+                driverName,
+                createdAtIso: new Date().toISOString()
+            };
+
+            const result = await FirebaseDB.createTask(state.user.uid, 'drivers', detailPanelDriverId, taskData);
+            if (!result.success) throw new Error(result.error);
+
+            textarea.value = '';
+            textarea.style.height = 'auto';
+            $('detailNoteType').value = 'note';
+            $('detailNotePriority').value = 'normal';
+            postBtn.disabled = true;
+
+            if (compose) {
+                compose.classList.add('posted');
+                setTimeout(() => compose.classList.remove('posted'), 600);
+            }
+
+            await Promise.all([loadPanelHistory(), loadPanelTasks()]);
+        } catch (err) {
+            console.error('panelPostCompose error:', err);
+            showMsg('Could not post. ' + (err.message || ''), true);
+        } finally {
+            postBtn.classList.remove('posting');
+            postBtn.disabled = !textarea.value.trim();
+        }
+    }
+
+    // ── Load Panel History ──
+    async function loadPanelHistory() {
+        if (!detailPanelDriverId) return;
+        try {
+            const snap = await db.collection('users').doc(state.user.uid)
+                .collection('drivers').doc(detailPanelDriverId)
+                .collection('history').orderBy('createdAt', 'desc').limit(50).get();
+            const items = [];
+            snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+            renderPanelNotes(items);
+        } catch (err) {
+            console.error('loadPanelHistory error:', err);
+        }
+    }
+
+    // ── Render Panel Notes ──
+    function renderPanelNotes(items) {
+        const container = $('detailNotesFeed');
+        const badge = $('detailNoteCount');
+        if (!container) return;
+        if (badge) badge.textContent = items.length || '';
+
+        if (!items.length) {
+            container.innerHTML = '<p class="dp-empty">No activity yet. Post a note above.</p>';
+            return;
+        }
+
+        container.innerHTML = items.map(n => {
+            const ts = n.createdAt?.toDate?.() || (n.createdAtIso ? new Date(n.createdAtIso) : null);
+            const timeStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
+            const author = n.createdBy || '';
+            const initial = author.charAt(0).toUpperCase() || 'U';
+            const priHtml = (n.priority && n.priority !== 'normal') ? `<span class="dp-note-pri" data-pri="${escapeHtml(n.priority)}">${escapeHtml(n.priority)}</span>` : '';
+
+            return `<div class="dp-note" data-id="${n.id}">
+                <div class="dp-note-avi">${initial}</div>
+                <div class="dp-note-body">
+                    <div class="dp-note-meta">
+                        <span class="dp-note-tag" data-type="${escapeHtml(n.type || 'note')}">${escapeHtml(n.type || 'note')}</span>
+                        ${priHtml}
+                        <span class="dp-note-time">${timeStr}</span>
+                    </div>
+                    <div class="dp-note-text">${escapeHtml(n.text || '')}</div>
+                    <div class="dp-note-author">${escapeHtml(author)}</div>
+                </div>
+                <button class="dp-note-del" data-id="${n.id}" title="Delete">\u2715</button>
+            </div>`;
+        }).join('');
+
+        container.querySelectorAll('.dp-note-del').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                if (!confirm('Delete this note?')) return;
+                try {
+                    await db.collection('users').doc(state.user.uid)
+                        .collection('drivers').doc(detailPanelDriverId)
+                        .collection('history').doc(btn.dataset.id).delete();
+                    await Promise.all([loadPanelHistory(), loadPanelTasks()]);
+                } catch (err) { console.error(err); showMsg('Error deleting note', true); }
+            });
+        });
+    }
+
+    // ── Load Panel Tasks ──
+    async function loadPanelTasks() {
+        if (!detailPanelDriverId) return;
+        try {
+            const result = await FirebaseDB.getTasks(state.user.uid, 'drivers', detailPanelDriverId, { limit: 20 });
+            if (result.success) renderPanelTasks(result.data);
+        } catch (err) {
+            console.error('loadPanelTasks error:', err);
+        }
+    }
+
+    // ── Render Panel Tasks ──
+    function renderPanelTasks(tasks) {
+        const container = $('detailTasksFeed');
+        const badge = $('detailTaskCount');
+        if (!container) return;
+
+        const open = tasks.filter(t => t.status && t.status !== 'Resolved');
+        if (badge) badge.textContent = open.length || '';
+
+        if (!open.length) {
+            container.innerHTML = '<p class="dp-empty">No open tasks.</p>';
+            return;
+        }
+
+        const now = new Date();
+        container.innerHTML = open.slice(0, 8).map(t => {
+            const ts = t.createdAt?.toDate?.() || (t.createdAtIso ? new Date(t.createdAtIso) : null);
+            const dateStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            const priHtml = (t.priority && t.priority !== 'normal') ? `<span class="dp-task-pri" data-pri="${escapeHtml(t.priority)}">${escapeHtml(t.priority)}</span>` : '';
+            const dueDate = t.dueDate ? new Date(t.dueDate) : null;
+            const overdue = dueDate && dueDate < now && t.status !== 'Resolved';
+            const overdueHtml = overdue ? '<span class="dp-task-overdue">OVERDUE</span>' : '';
+
+            return `<div class="dp-task" data-id="${t.id}">
+                <div class="dp-task-top">
+                    <span class="dp-task-type">${escapeHtml(t.type || 'note')}</span>
+                    ${priHtml}${overdueHtml}
+                </div>
+                <div class="dp-task-text">${escapeHtml(t.text || '')}</div>
+                <div class="dp-task-bot">
+                    <span class="dp-task-date">${dateStr}</span>
+                    <span class="dp-task-status" data-status="${escapeHtml(t.status || 'Open')}">${escapeHtml(t.status || 'Open')}</span>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    // ── Render Summary Chips ──
+    function renderPanelSummary() {
+        const bar = $('detailSummaryBar');
+        if (!bar || !detailPanelDriverId) { if (bar) bar.innerHTML = ''; return; }
+        const d = state.drivers.find(x => x.id === detailPanelDriverId);
+        if (!d) { bar.innerHTML = ''; return; }
+
+        const chips = [];
+        const now = new Date();
+        const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        function dateChip(label, dateStr) {
+            if (!dateStr) return { label, text: 'N/A', cls: 'dp-chip--gray' };
+            const dt = new Date(dateStr);
+            if (dt < now) return { label, text: 'Expired', cls: 'dp-chip--red' };
+            if (dt < soon) return { label, text: 'Due soon', cls: 'dp-chip--yellow' };
+            return { label, text: 'Current', cls: 'dp-chip--green' };
+        }
+
+        chips.push(dateChip('CDL', d.cdlExp));
+        chips.push(dateChip('Medical', d.medExp));
+
+        if (d.truck) {
+            const truck = state.trucks.find(t => t.id === d.truck);
+            chips.push({ label: 'Truck', text: truck ? ('Unit ' + truck.unit) : 'Assigned', cls: 'dp-chip--blue' });
+        } else {
+            chips.push({ label: 'Truck', text: 'None', cls: 'dp-chip--gray' });
+        }
+
+        const statusCls = d.status === 'active' ? 'dp-chip--green' : d.status === 'inactive' ? 'dp-chip--red' : 'dp-chip--yellow';
+        chips.push({ label: 'Status', text: statusLabel(d.status || 'active'), cls: statusCls });
+
+        bar.innerHTML = chips.map(c =>
+            `<span class="${c.cls} dp-chip"><span class="dp-chip-dot"></span>${escapeHtml(c.label)}: ${escapeHtml(c.text)}</span>`
+        ).join('');
+    }
+
+    // ── Render Compliance Grid ──
+    function renderPanelCompliance() {
+        const grid = $('detailComplianceGrid');
+        if (!grid || !detailPanelDriverId) return;
+        const d = state.drivers.find(x => x.id === detailPanelDriverId);
+        if (!d) { grid.innerHTML = ''; return; }
+
+        const now = new Date();
+        const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+        function compItem(label, dateStr, extraInfo) {
+            if (!dateStr) return `<div class="dp-comp-item comp-na"><div class="dp-comp-label">${escapeHtml(label)}</div><div class="dp-comp-value">Not on file</div></div>`;
+            const dt = new Date(dateStr);
+            let cls = 'comp-ok', text = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            if (dt < now) { cls = 'comp-expired'; text += ' \u2014 Expired'; }
+            else if (dt < soon) { cls = 'comp-warn'; text += ' \u2014 Due soon'; }
+            const sub = extraInfo ? `<div class="dp-comp-sub">${escapeHtml(extraInfo)}</div>` : '';
+            return `<div class="dp-comp-item ${cls}"><div class="dp-comp-label">${escapeHtml(label)}</div><div class="dp-comp-value">${text}</div>${sub}</div>`;
+        }
+
+        const endorsements = d.endorsements ? d.endorsements.split(',').map(e => e.trim()).filter(Boolean) : [];
+        const endHtml = endorsements.length
+            ? `<div class="dp-comp-item comp-ok" style="grid-column:1/-1"><div class="dp-comp-label">Endorsements</div><div class="dp-comp-value">${endorsements.join(', ')}</div></div>`
+            : `<div class="dp-comp-item comp-na" style="grid-column:1/-1"><div class="dp-comp-label">Endorsements</div><div class="dp-comp-value">None</div></div>`;
+
+        const restHtml = d.restrictions
+            ? `<div class="dp-comp-item comp-warn" style="grid-column:1/-1"><div class="dp-comp-label">Restrictions</div><div class="dp-comp-value">${escapeHtml(d.restrictions)}</div></div>`
+            : '';
+
+        grid.innerHTML = [
+            compItem('CDL Expiration', d.cdlExp, d.cdl ? ('CDL: ' + d.cdl + (d.cdlClass ? ' (Class ' + d.cdlClass + ')' : '')) : ''),
+            compItem('Medical Card', d.medExp),
+            compItem('MVR Expiry', d.mvrExp),
+            compItem('Drug Test', d.drugTestDate),
+            compItem('TWIC Card', d.twicExp),
+            d.hireDate ? compItem('Hire Date', d.hireDate) : '',
+            endHtml,
+            restHtml
+        ].join('');
     }
 
     function openTruckModal(data) {
