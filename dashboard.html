@@ -2488,9 +2488,39 @@
             </div>
         </div>
         <div class="detail-panel-body">
-            <!-- Editable Info Section -->
-            <div class="detail-section">
-                <h3 class="detail-section-title">Driver Information</h3>
+            <!-- Note / Task Composer -->
+            <div class="detail-section" id="detailNoteSection">
+                <div class="detail-compose">
+                    <textarea id="detailNoteText" class="detail-compose-input" placeholder="Log a note, report an issue, or create a task…" rows="1"></textarea>
+                    <div class="detail-compose-bar">
+                        <select id="detailNoteType" class="detail-compose-select">
+                            <option value="note">Note</option>
+                            <option value="incident">Incident</option>
+                            <option value="safety">Safety</option>
+                            <option value="maintenance">Maintenance</option>
+                            <option value="training">Training</option>
+                            <option value="inspection">Inspection</option>
+                        </select>
+                        <select id="detailNotePriority" class="detail-compose-select">
+                            <option value="normal">Normal</option>
+                            <option value="high">High</option>
+                            <option value="urgent">Urgent</option>
+                        </select>
+                        <button type="button" class="detail-compose-post" id="detailNotePost" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            Post
+                        </button>
+                    </div>
+                </div>
+                <div class="detail-notes-feed" id="detailNotesFeed"></div>
+            </div>
+
+            <!-- Editable Info Section (collapsible, starts collapsed) -->
+            <div class="detail-section detail-section-collapsible collapsed" id="detailInfoSection">
+                <button class="detail-section-toggle" id="detailInfoToggle" type="button" aria-expanded="false">
+                    <h3 class="detail-section-title" style="margin:0">Driver Information</h3>
+                    <svg class="detail-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
                 <div class="detail-info-grid" id="detailDriverInfo">
                     <div class="detail-field" data-key="firstName">
                         <label class="detail-field-label">First Name <span class="req">*</span></label>

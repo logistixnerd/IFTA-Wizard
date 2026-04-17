@@ -1,20 +1,19 @@
 'use strict';
-// v2 — forced redeploy to ensure CORS headers are live
 /**
- * IFTA Wizard – MC Number Lookup Cloud Function
+ * IFTA Wizard – FMCSA Lookup Cloud Functions
  *
- * Endpoint: GET /mcLookup?mc=<number>
- *
- * Data source: FMCSA QCMobile REST API
- *   https://mobile.fmcsa.dot.gov/qc/services/carriers/docket-number/{mc}?webKey={key}
+ * Uses onRequest + Firebase Hosting rewrites so the browser calls
+ * /api/mclookup and /api/carrierlookup on the SAME origin.
+ * No CORS preflight, no Cloud Run IAM issue.
  *
  * Before deploying, set the API key secret:
  *   firebase functions:secrets:set FMCSA_API_KEY
- *   (Request a free key at https://mobile.fmcsa.dot.gov/developer/apidoc.page)
  */
 
-const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onRequest } = require('firebase-functions/v2/https');
 const { defineSecret } = require('firebase-functions/params');
+const admin = require('firebase-admin');
+admin.initializeApp();
 
 const FMCSA_API_KEY = defineSecret('FMCSA_API_KEY');
 const FMCSA_BASE_URL = 'https://mobile.fmcsa.dot.gov/qc/services';
@@ -55,49 +54,60 @@ function normaliseCarrier(carrier, requestedMc) {
   };
 }
 
-exports.mcLookup = onCall(
-  {
-    secrets: [FMCSA_API_KEY],
-    memory: '256MiB',
-    timeoutSeconds: 15,
-    region: 'us-central1',
-  },
-  async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Must be signed in to use this feature.');
-    }
+/**
+ * Verify Firebase Auth token from Authorization header.
+ * Returns decoded token or sends 401 and returns null.
+ */
+async function verifyAuth(req, res) {
+  const authHeader = req.headers.authorization || '';
+  const match = authHeader.match(/^Bearer (.+)$/);
+  if (!match) {
+    res.status(401).json({ error: 'Missing or invalid Authorization header' });
+    return null;
+  }
+  try {
+    return await admin.auth().verifyIdToken(match[1]);
+  } catch (e) {
+    res.status(401).json({ error: 'Invalid auth token' });
+    return null;
+  }
+}
 
-    const mc = String(request.data.mc || '').replace(/\D/g, '').trim();
+exports.mcLookup = onRequest(
+  { secrets: [FMCSA_API_KEY], memory: '256MiB', timeoutSeconds: 15, region: 'us-central1' },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const user = await verifyAuth(req, res);
+    if (!user) return;
 
-    if (!mc) throw new HttpsError('invalid-argument', 'Missing required parameter: mc');
-    if (mc.length < 3 || mc.length > 8) throw new HttpsError('invalid-argument', 'MC number must be between 3 and 8 digits');
+    const mc = String(req.body?.mc || '').replace(/\D/g, '').trim();
+    if (!mc) { res.status(400).json({ error: 'Missing required parameter: mc' }); return; }
+    if (mc.length < 3 || mc.length > 8) { res.status(400).json({ error: 'MC number must be between 3 and 8 digits' }); return; }
 
     try {
       const apiKey = FMCSA_API_KEY.value();
-      const url =
-        `${FMCSA_BASE_URL}/carriers/docket-number/${encodeURIComponent(mc)}` +
-        `?webKey=${encodeURIComponent(apiKey)}`;
+      const url = `${FMCSA_BASE_URL}/carriers/docket-number/${encodeURIComponent(mc)}?webKey=${encodeURIComponent(apiKey)}`;
 
       const upstream = await fetch(url, {
         headers: { Accept: 'application/json' },
         signal: AbortSignal.timeout(10_000),
       });
 
-      if (upstream.status === 404) throw new HttpsError('not-found', `No carrier found for MC number ${mc}`);
-      if (!upstream.ok) throw new HttpsError('unavailable', 'Upstream FMCSA API returned an error. Try again later.');
+      if (upstream.status === 404) { res.status(404).json({ error: `No carrier found for MC number ${mc}` }); return; }
+      if (!upstream.ok) { res.status(502).json({ error: 'Upstream FMCSA API error. Try again later.' }); return; }
 
       const body = await upstream.json();
       const carrier = body?.content?.carrier;
-      if (!carrier) throw new HttpsError('not-found', `No carrier data returned for MC number ${mc}`);
+      if (!carrier) { res.status(404).json({ error: `No carrier data returned for MC number ${mc}` }); return; }
 
-      return { success: true, data: normaliseCarrier(carrier, mc) };
+      res.json({ success: true, data: normaliseCarrier(carrier, mc) });
     } catch (err) {
-      if (err instanceof HttpsError) throw err;
       if (err.name === 'TimeoutError' || err.name === 'AbortError') {
-        throw new HttpsError('deadline-exceeded', 'FMCSA API request timed out. Try again.');
+        res.status(504).json({ error: 'FMCSA API request timed out. Try again.' });
+        return;
       }
       console.error('mcLookup unexpected error:', err);
-      throw new HttpsError('internal', 'Internal server error');
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 );
@@ -197,49 +207,41 @@ function normaliseCarrierFull(c) {
   };
 }
 
-exports.carrierLookup = onCall(
-  {
-    secrets: [FMCSA_API_KEY],
-    memory: '256MiB',
-    timeoutSeconds: 20,
-    region: 'us-central1',
-  },
-  async (request) => {
-    if (!request.auth) {
-      throw new HttpsError('unauthenticated', 'Must be signed in to use this feature.');
-    }
+exports.carrierLookup = onRequest(
+  { secrets: [FMCSA_API_KEY], memory: '256MiB', timeoutSeconds: 20, region: 'us-central1' },
+  async (req, res) => {
+    if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
+    const user = await verifyAuth(req, res);
+    if (!user) return;
 
-    const dot = String(request.data.dot || '').replace(/\D/g, '').trim();
-
-    if (!dot) throw new HttpsError('invalid-argument', 'Missing required parameter: dot');
-    if (dot.length < 1 || dot.length > 9) throw new HttpsError('invalid-argument', 'DOT number must be between 1 and 9 digits');
+    const dot = String(req.body?.dot || '').replace(/\D/g, '').trim();
+    if (!dot) { res.status(400).json({ error: 'Missing required parameter: dot' }); return; }
+    if (dot.length < 1 || dot.length > 9) { res.status(400).json({ error: 'DOT number must be between 1 and 9 digits' }); return; }
 
     try {
       const apiKey = FMCSA_API_KEY.value();
-      const url =
-        `${FMCSA_BASE_URL}/carriers/${encodeURIComponent(dot)}` +
-        `?webKey=${encodeURIComponent(apiKey)}`;
+      const url = `${FMCSA_BASE_URL}/carriers/${encodeURIComponent(dot)}?webKey=${encodeURIComponent(apiKey)}`;
 
       const upstream = await fetch(url, {
         headers: { Accept: 'application/json' },
         signal: AbortSignal.timeout(12_000),
       });
 
-      if (upstream.status === 404) throw new HttpsError('not-found', `No carrier found for DOT number ${dot}`);
-      if (!upstream.ok) throw new HttpsError('unavailable', 'Upstream FMCSA API returned an error. Try again later.');
+      if (upstream.status === 404) { res.status(404).json({ error: `No carrier found for DOT number ${dot}` }); return; }
+      if (!upstream.ok) { res.status(502).json({ error: 'Upstream FMCSA API error. Try again later.' }); return; }
 
       const body = await upstream.json();
       const carrier = body?.content?.carrier;
-      if (!carrier) throw new HttpsError('not-found', `No carrier data returned for DOT number ${dot}`);
+      if (!carrier) { res.status(404).json({ error: `No carrier data returned for DOT number ${dot}` }); return; }
 
-      return { success: true, data: normaliseCarrierFull(carrier) };
+      res.json({ success: true, data: normaliseCarrierFull(carrier) });
     } catch (err) {
-      if (err instanceof HttpsError) throw err;
       if (err.name === 'TimeoutError' || err.name === 'AbortError') {
-        throw new HttpsError('deadline-exceeded', 'FMCSA API request timed out. Try again.');
+        res.status(504).json({ error: 'FMCSA API request timed out. Try again.' });
+        return;
       }
       console.error('carrierLookup unexpected error:', err);
-      throw new HttpsError('internal', 'Internal server error');
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 );

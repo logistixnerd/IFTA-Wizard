@@ -1534,15 +1534,19 @@
     }
 
     // ── FMCSA Company Lookup (MC or DOT) ──────────────────
-    let _mcLookupFn = null;
-    let _carrierLookupFn = null;
-    function getFmcsaFns() {
-        if (!_mcLookupFn) {
-            const fns = firebase.functions();
-            _mcLookupFn = fns.httpsCallable('mcLookup');
-            _carrierLookupFn = fns.httpsCallable('carrierLookup');
-        }
-        return { mcLookupFn: _mcLookupFn, carrierLookupFn: _carrierLookupFn };
+    // Calls go to /api/mclookup and /api/carrierlookup (same-origin via Firebase Hosting rewrites)
+    async function fmcsaApiFetch(endpoint, body) {
+        const user = firebase.auth().currentUser;
+        if (!user) throw new Error('You must be signed in');
+        const token = await user.getIdToken();
+        const resp = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+            body: JSON.stringify(body),
+        });
+        const json = await resp.json();
+        if (!resp.ok) throw new Error(json.error || 'Request failed');
+        return json;
     }
 
     let pendingFmcsaData = null;
@@ -1587,14 +1591,13 @@
         btn.classList.add('searching');
 
         try {
-            const { mcLookupFn, carrierLookupFn } = getFmcsaFns();
             if (type === 'mc') {
-                const mcResult = await mcLookupFn({ mc: raw });
-                const mcData = mcResult.data.data;
+                const mcResult = await fmcsaApiFetch('/api/mclookup', { mc: raw });
+                const mcData = mcResult.data;
                 if (mcData.dotNumber) {
                     try {
-                        const dotResult = await carrierLookupFn({ dot: mcData.dotNumber });
-                        pendingFmcsaData = dotResult.data.data;
+                        const dotResult = await fmcsaApiFetch('/api/carrierlookup', { dot: mcData.dotNumber });
+                        pendingFmcsaData = dotResult.data;
                     } catch (_) {
                         pendingFmcsaData = mcData;
                     }
@@ -1602,8 +1605,8 @@
                     pendingFmcsaData = mcData;
                 }
             } else {
-                const dotResult = await carrierLookupFn({ dot: raw });
-                pendingFmcsaData = dotResult.data.data;
+                const dotResult = await fmcsaApiFetch('/api/carrierlookup', { dot: raw });
+                pendingFmcsaData = dotResult.data;
             }
 
             renderVerifyCard(pendingFmcsaData);

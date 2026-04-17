@@ -115,30 +115,53 @@
 
     function renderHistory() {
         $('historyCount').textContent = String(state.history.length);
-        const list = $('historyList');
+        renderNotesFeed();
+    }
+
+    function renderNotesFeed() {
+        const feed = $('dpNotesFeed');
+        const badge = $('noteCountBadge');
+        if (!feed) return;
+
+        if (badge) {
+            badge.textContent = state.history.length ? state.history.length : '';
+            badge.style.display = state.history.length ? '' : 'none';
+        }
+
         if (!state.history.length) {
-            list.innerHTML = '<div class="empty-state">No history yet. Add training completions, inspection results, CDL renewal notes, or any driver activity.</div>';
+            feed.innerHTML = '<p class="empty-state" style="padding:1.25rem;margin:0;">No activity yet. Use the compose card above to log notes, incidents, or tasks.</p>';
             return;
         }
-        list.innerHTML = state.history.map(item => `
-            <article class="timeline-item">
-                <div class="timeline-head">
-                    <div>
-                        <span class="timeline-type">${escapeHtml(item.type || 'note')}</span>
-                        <div class="timeline-text">${escapeHtml(item.text || '')}</div>
-                    </div>
-                    <div class="item-actions">
-                        <span class="timeline-date">${escapeHtml(formatDate(item.createdAt || item.createdAtIso))}</span>
-                        <button type="button" data-delete-history="${escapeHtml(item.id)}">Delete</button>
-                    </div>
-                </div>
-            </article>
-        `).join('');
 
-        list.querySelectorAll('[data-delete-history]').forEach(button => {
-            button.addEventListener('click', async () => {
-                const entryId = button.getAttribute('data-delete-history');
-                if (!entryId || !confirm('Delete this history entry?')) return;
+        feed.innerHTML = state.history.map(item => {
+            const typeLabel = (item.type || 'note').charAt(0).toUpperCase() + (item.type || 'note').slice(1);
+            const priorityColor = getPriorityColor(item.priority);
+            const dateStr = formatDate(item.createdAt || item.createdAtIso);
+            const author = item.createdBy ? item.createdBy.split('@')[0] : '';
+            const initial = author ? author.charAt(0).toUpperCase() : 'U';
+
+            return `
+                <div class="dp-note-item">
+                    <div class="dp-note-avatar">${initial}</div>
+                    <div class="dp-note-body">
+                        <div class="dp-note-header">
+                            <span class="dp-note-type">${escapeHtml(typeLabel)}</span>
+                            ${item.priority && item.priority !== 'normal' ? `<span class="dp-note-priority" style="color:${priorityColor}">${escapeHtml(item.priority.toUpperCase())}</span>` : ''}
+                            <span class="dp-note-date">${escapeHtml(dateStr)}</span>
+                        </div>
+                        <p class="dp-note-text">${escapeHtml(item.text || '')}</p>
+                        ${author ? `<span class="dp-note-author">${escapeHtml(author)}</span>` : ''}
+                    </div>
+                    <button type="button" class="dp-note-delete" data-delete-note="${escapeHtml(item.id)}" title="Delete">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </div>`;
+        }).join('');
+
+        feed.querySelectorAll('[data-delete-note]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const entryId = btn.getAttribute('data-delete-note');
+                if (!entryId || !confirm('Delete this note?')) return;
                 await historyRef().doc(entryId).delete();
                 await loadHistory();
             });
@@ -295,6 +318,18 @@
                 ? [state.driver.firstName, state.driver.lastName].filter(Boolean).join(' ')
                 : state.driverId;
 
+            // 1. Save to history (note engine feed)
+            await historyRef().add({
+                type,
+                text,
+                priority,
+                assignedTo: assignTo || '',
+                createdBy: state.user.email || state.user.uid,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAtIso: new Date().toISOString()
+            });
+
+            // 2. Also create a task for trackable items
             const taskData = {
                 text,
                 type,
@@ -326,8 +361,8 @@
                 setTimeout(() => card.classList.remove('posted'), 600);
             }
 
-            // Refresh tasks list
-            await loadTasks();
+            // Refresh both feeds
+            await Promise.all([loadHistory(), loadTasks()]);
         } catch (err) {
             console.error('postCompose error:', err);
             setAlert('Could not post task. ' + (err.message || ''));
@@ -407,26 +442,6 @@
     }
 
     function bindForms() {
-        $('historyForm').addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const type = $('historyType').value;
-            const text = $('historyText').value.trim();
-            if (!text) {
-                setAlert('History text is required.');
-                return;
-            }
-            setAlert('');
-            await historyRef().add({
-                type,
-                text,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdAtIso: new Date().toISOString()
-            });
-            $('historyForm').reset();
-            $('historyType').value = 'note';
-            await loadHistory();
-        });
-
         $('photoForm').addEventListener('submit', async (event) => {
             event.preventDefault();
             const file = $('photoUpload').files[0];

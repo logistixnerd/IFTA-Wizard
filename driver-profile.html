@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="unit-profile.css?v=3">
+    <link rel="stylesheet" href="unit-profile.css?v=4">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -97,7 +97,22 @@
                     </div>
                 </article>
 
-                <!-- ── Tasks (prominent, right after compose) ── -->
+                <!-- ── Activity Feed (notes posted from compose card) ── -->
+                <article class="card unit-card unit-card-wide dp-activity-card">
+                    <div class="card-header card-header-stacked">
+                        <div style="display:flex;align-items:center;gap:0.5rem">
+                            <div>
+                                <p class="eyebrow">Activity</p>
+                                <h2>Notes &amp; History <span class="dp-note-count" id="noteCountBadge"></span></h2>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="dp-notes-feed" id="dpNotesFeed">
+                        <p class="empty-state" style="padding:1.25rem;margin:0;">No activity yet. Use the compose card above to log notes, incidents, or tasks.</p>
+                    </div>
+                </article>
+
+                <!-- ── Tasks (open items) ── -->
                 <article class="card unit-card unit-card-wide dp-tasks-card">
                     <div class="card-header card-header-stacked">
                         <div style="display:flex;align-items:center;gap:0.5rem">
@@ -139,36 +154,7 @@
                     </dl>
                 </article>
 
-                <article class="card unit-card unit-card-wide">
-                    <div class="card-header card-header-stacked">
-                        <div>
-                            <p class="eyebrow">History</p>
-                            <h2>Notes and activity</h2>
-                        </div>
-                        <form class="history-form" id="historyForm">
-                            <div class="form-field">
-                                <label for="historyType">Entry type</label>
-                                <select id="historyType">
-                                    <option value="note">General note</option>
-                                    <option value="incident">Incident</option>
-                                    <option value="training">Training</option>
-                                    <option value="inspection">Inspection / roadside</option>
-                                    <option value="license">License / certification</option>
-                                    <option value="review">Performance review</option>
-                                </select>
-                            </div>
-                            <div class="form-field">
-                                <label for="historyText">What happened?</label>
-                                <textarea id="historyText" rows="4" placeholder="Add training completions, roadside inspection results, CDL renewal notes, or any driver-specific history."></textarea>
-                            </div>
-                            <div class="form-actions">
-                                <button type="submit" class="btn btn-primary">Save entry</button>
-                            </div>
-                        </form>
-                    </div>
-                    <div class="timeline-list" id="historyList"></div>
-                </article>
-
+                <!-- ── Documents ── -->
                 <article class="card unit-card">
                     <div class="card-header card-header-stacked">
                         <div>
@@ -196,6 +182,6 @@
     </div>
 
     <script src="firebase-config.js"></script>
-    <script src="driver-profile.js?v=3"></script>
+    <script src="driver-profile.js?v=4"></script>
 </body>
 </html>
