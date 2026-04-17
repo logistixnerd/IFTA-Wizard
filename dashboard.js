@@ -2166,7 +2166,7 @@
         bulkSelection.trucks = new Set([...bulkSelection.trucks].filter(id => sorted.some(t => t.id === id)));
         updateBulkBar('trucks');
         if (spreadsheetMode.trucks) {
-            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.trucks.map(c => `<th class="ss-th">${c.label}</th>`).join('');
+            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.trucks.map(c => `<th class="ss-th" style="width:${c.width}">${c.label}</th>`).join('');
             tbody.innerHTML = sorted.map((t, i) => `<tr data-id="${t.id}" class="ss-row">${'<td class="ss-num">' + (i+1) + '</td>'}${SPREADSHEET_COLS.trucks.map(c => '<td class="ss-cell">' + ssInput(c, t, 'trucks') + '</td>').join('')}</tr>`).join('');
             return;
         }
@@ -2442,36 +2442,47 @@
 
     const SPREADSHEET_COLS = {
         trucks: [
-            { key: 'unit', label: 'Unit #', type: 'text' },
-            { key: 'year', label: 'Year', type: 'text', maxlength: 4 },
-            { key: 'make', label: 'Make', type: 'text' },
-            { key: 'model', label: 'Model', type: 'text' },
-            { key: 'vin', label: 'VIN', type: 'text', maxlength: 17 },
-            { key: 'plate', label: 'Plate', type: 'text' },
-            { key: 'plateState', label: 'St', type: 'text', maxlength: 2 },
-            { key: 'fuel', label: 'Fuel', type: 'select', optionsKey: 'truckFuel' },
-            { key: 'status', label: 'Status', type: 'select', optionsKey: 'truckStatus' }
+            { key: 'unit', label: 'Unit #', type: 'text', width: '70px' },
+            { key: 'year', label: 'Year', type: 'text', maxlength: 4, width: '55px' },
+            { key: 'make', label: 'Make', type: 'text', width: '90px' },
+            { key: 'model', label: 'Model', type: 'text', width: '90px' },
+            { key: 'color', label: 'Color', type: 'text', width: '70px' },
+            { key: 'vin', label: 'VIN', type: 'text', maxlength: 17, width: '155px' },
+            { key: 'plate', label: 'Plate', type: 'text', width: '85px' },
+            { key: 'plateState', label: 'St', type: 'text', maxlength: 2, width: '40px' },
+            { key: 'fuel', label: 'Fuel', type: 'select', optionsKey: 'truckFuel', width: '80px' },
+            { key: 'annualInspDate', label: 'Insp Exp', type: 'date', width: '120px', expiry: true },
+            { key: 'registrationExp', label: 'Reg Exp', type: 'date', width: '120px', expiry: true },
+            { key: 'insuranceExp', label: 'Ins Exp', type: 'date', width: '120px', expiry: true },
+            { key: 'status', label: 'Status', type: 'select', optionsKey: 'truckStatus', width: '100px' }
         ],
         trailers: [
-            { key: 'unit', label: 'Unit #', type: 'text' },
-            { key: 'year', label: 'Year', type: 'text', maxlength: 4 },
-            { key: 'make', label: 'Make', type: 'text' },
-            { key: 'type', label: 'Type', type: 'select', optionsKey: 'trailerType' },
-            { key: 'vin', label: 'VIN', type: 'text', maxlength: 17 },
-            { key: 'plate', label: 'Plate', type: 'text' },
-            { key: 'status', label: 'Status', type: 'select', optionsKey: 'trailerStatus' }
+            { key: 'unit', label: 'Unit #', type: 'text', width: '70px' },
+            { key: 'year', label: 'Year', type: 'text', maxlength: 4, width: '55px' },
+            { key: 'make', label: 'Make', type: 'text', width: '90px' },
+            { key: 'type', label: 'Type', type: 'select', optionsKey: 'trailerType', width: '100px' },
+            { key: 'model', label: 'Model', type: 'text', width: '90px' },
+            { key: 'vin', label: 'VIN', type: 'text', maxlength: 17, width: '155px' },
+            { key: 'plate', label: 'Plate', type: 'text', width: '85px' },
+            { key: 'annualInspDate', label: 'Insp Exp', type: 'date', width: '120px', expiry: true },
+            { key: 'registrationExp', label: 'Reg Exp', type: 'date', width: '120px', expiry: true },
+            { key: 'insuranceExp', label: 'Ins Exp', type: 'date', width: '120px', expiry: true },
+            { key: 'status', label: 'Status', type: 'select', optionsKey: 'trailerStatus', width: '100px' }
         ],
         drivers: [
-            { key: 'firstName', label: 'First', type: 'text' },
-            { key: 'lastName', label: 'Last', type: 'text' },
-            { key: 'cdl', label: 'CDL #', type: 'text' },
-            { key: 'cdlState', label: 'St', type: 'text', maxlength: 2 },
-            { key: 'cdlExp', label: 'CDL Exp', type: 'date' },
-            { key: 'medExp', label: 'Med Exp', type: 'date' },
-            { key: 'phone', label: 'Phone', type: 'text' },
-            { key: 'email', label: 'Email', type: 'text' },
-            { key: 'truck', label: 'Truck', type: 'truck-select' },
-            { key: 'status', label: 'Status', type: 'select', optionsKey: 'driverStatus' }
+            { key: 'firstName', label: 'First', type: 'text', width: '90px' },
+            { key: 'lastName', label: 'Last', type: 'text', width: '90px' },
+            { key: 'dob', label: 'DOB', type: 'date', width: '120px' },
+            { key: 'phone', label: 'Phone', type: 'text', width: '110px' },
+            { key: 'email', label: 'Email', type: 'text', width: '150px' },
+            { key: 'cdl', label: 'CDL #', type: 'text', width: '120px' },
+            { key: 'cdlState', label: 'St', type: 'text', maxlength: 2, width: '40px' },
+            { key: 'cdlExp', label: 'CDL Exp', type: 'date', width: '120px', expiry: true },
+            { key: 'medExp', label: 'Med Exp', type: 'date', width: '120px', expiry: true },
+            { key: 'mvrExp', label: 'MVR Exp', type: 'date', width: '120px', expiry: true },
+            { key: 'hireDate', label: 'Hire Date', type: 'date', width: '120px' },
+            { key: 'truck', label: 'Truck', type: 'truck-select', width: '90px' },
+            { key: 'status', label: 'Status', type: 'select', optionsKey: 'driverStatus', width: '100px' }
         ]
     };
 
@@ -2492,6 +2503,16 @@
         else renderDrivers();
     }
 
+    function ssExpiryClass(val) {
+        if (!val) return '';
+        const d = new Date(val + 'T00:00:00');
+        if (isNaN(d)) return '';
+        const diff = Math.ceil((d - new Date()) / 86400000);
+        if (diff < 0) return ' ss-expired';
+        if (diff <= 30) return ' ss-expiring';
+        return '';
+    }
+
     function ssInput(col, item, collection) {
         const val = item[col.key] || '';
         const cls = 'ss-input';
@@ -2505,7 +2526,8 @@
             return `<select class="${cls} ss-select" ${shared} onchange="Dashboard.ssChanged(this)"><option value="">— None —</option>${opts.map(t => `<option value="${t.id}"${t.id === val ? ' selected' : ''}>${escapeHtml(t.unit || t.id)}</option>`).join('')}</select>`;
         }
         if (col.type === 'date') {
-            return `<input type="date" class="${cls}" value="${escapeHtml(val)}" ${shared} ${col.maxlength ? 'maxlength="'+col.maxlength+'"' : ''} onchange="Dashboard.ssChanged(this)">`;
+            const expCls = col.expiry ? ssExpiryClass(val) : '';
+            return `<input type="date" class="${cls}${expCls}" value="${escapeHtml(val)}" ${shared} onchange="Dashboard.ssChanged(this)">`;
         }
         return `<input type="text" class="${cls}" value="${escapeHtml(val)}" placeholder="${col.label}" ${shared} ${col.maxlength ? 'maxlength="'+col.maxlength+'"' : ''} oninput="Dashboard.ssChanged(this)">`;
     }
@@ -6878,7 +6900,7 @@
         bulkSelection.trailers = new Set([...bulkSelection.trailers].filter(id => sorted.some(t => t.id === id)));
         updateBulkBar('trailers');
         if (spreadsheetMode.trailers) {
-            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.trailers.map(c => `<th class="ss-th">${c.label}</th>`).join('');
+            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.trailers.map(c => `<th class="ss-th" style="width:${c.width}">${c.label}</th>`).join('');
             tbody.innerHTML = sorted.map((t, i) => `<tr data-id="${t.id}" class="ss-row">${'<td class="ss-num">' + (i+1) + '</td>'}${SPREADSHEET_COLS.trailers.map(c => '<td class="ss-cell">' + ssInput(c, t, 'trailers') + '</td>').join('')}</tr>`).join('');
             return;
         }
@@ -7006,7 +7028,7 @@
         bulkSelection.drivers = new Set([...bulkSelection.drivers].filter(id => sorted.some(d => d.id === id)));
         updateBulkBar('drivers');
         if (spreadsheetMode.drivers) {
-            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.drivers.map(c => `<th class="ss-th">${c.label}</th>`).join('');
+            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.drivers.map(c => `<th class="ss-th" style="width:${c.width}">${c.label}</th>`).join('');
             tbody.innerHTML = sorted.map((d, i) => `<tr data-id="${d.id}" class="ss-row">${'<td class="ss-num">' + (i+1) + '</td>'}${SPREADSHEET_COLS.drivers.map(c => '<td class="ss-cell">' + ssInput(c, d, 'drivers') + '</td>').join('')}</tr>`).join('');
             return;
         }
