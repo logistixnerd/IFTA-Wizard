@@ -40,7 +40,11 @@
         switch ((value || '').toLowerCase()) {
         case 'active': return 'Active';
         case 'inactive': return 'Inactive';
-        case 'on leave': return 'Home Time';
+        case 'home-time': case 'home time': return 'Home Time';
+        case 'training': return 'Training';
+        case 'pending': return 'Pending';
+        case 'suspended': return 'Suspended';
+        case 'terminated': return 'Terminated';
         default: return value || 'Unknown';
         }
     }

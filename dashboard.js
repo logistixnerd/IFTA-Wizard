@@ -252,7 +252,7 @@
             defaults: [
                 { value: 'active', label: 'Active' },
                 { value: 'inactive', label: 'Inactive' },
-                { value: 'on-leave', label: 'On Leave' },
+                { value: 'home-time', label: 'Home Time' },
                 { value: 'training', label: 'Training' },
                 { value: 'pending', label: 'Pending' },
                 { value: 'suspended', label: 'Suspended' },
@@ -5511,7 +5511,7 @@
                 return hits.length / vals.length;
             },
             status: vals => {
-                const kw = ['active', 'inactive', 'on leave', 'on-leave', 'terminated', 'y', 'n', 'yes', 'no'];
+                const kw = ['active', 'inactive', 'home time', 'home-time', 'on leave', 'on-leave', 'terminated', 'y', 'n', 'yes', 'no'];
                 const hits = vals.filter(v => kw.includes(v.toLowerCase().trim()));
                 return hits.length / vals.length;
             },
@@ -6053,7 +6053,7 @@
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Inactive' },
-                    { value: 'on-leave', label: 'On Leave' },
+                    { value: 'home-time', label: 'Home Time' },
                     { value: 'training', label: 'Training' },
                     { value: 'pending', label: 'Pending' },
                     { value: 'suspended', label: 'Suspended' },
