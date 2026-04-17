@@ -4905,9 +4905,15 @@
 
             // Build column mapping with fuzzy matching
             const colMap = buildSmartColumnMap(header, aliases);
-            console.log('[Import] Column map:', JSON.stringify(colMap));
+            console.log('[Import] Header-based column map:', JSON.stringify(colMap));
 
-            // Resolve name columns: merge firstName+lastName into name, or use fullName
+            // Content-based detection: fill in any fields the header matching missed
+            const allDriverFields = ['firstName', 'lastName', 'fullName', 'phone', 'email',
+                'cdl', 'cdlState', 'cdlClass', 'status', 'dob', 'ssn'];
+            detectColumnsByContent(dataRows, header, colMap, allDriverFields);
+            console.log('[Import] Final column map:', JSON.stringify(colMap));
+
+            // Resolve name columns
             const hasFullName = colMap.fullName !== undefined;
             const hasFirstName = colMap.firstName !== undefined;
             const hasLastName = colMap.lastName !== undefined;
@@ -4915,28 +4921,6 @@
             if (!hasFirstName && !hasFullName) {
                 const nameIdx = header.findIndex(h => /^(name|driver|employee|person)$/i.test((h || '').toString().replace(/[^a-z]/gi, '')));
                 if (nameIdx !== -1) colMap.fullName = nameIdx;
-            }
-
-            // Fallback: if no name column found, scan unmapped columns for one that contains name-like data
-            if (colMap.firstName === undefined && colMap.fullName === undefined) {
-                const usedCols = new Set(Object.values(colMap));
-                for (let c = 0; c < header.length; c++) {
-                    if (usedCols.has(c)) continue;
-                    // Sample up to 10 data rows in this column
-                    let nameCount = 0, total = 0;
-                    for (let r = 0; r < Math.min(dataRows.length, 10); r++) {
-                        const val = (dataRows[r][c] || '').toString().trim();
-                        if (!val) continue;
-                        total++;
-                        // Name-like: mostly letters/spaces, no long numbers, at least 2 chars
-                        if (/^[A-Za-z\s'.,-]{2,}$/.test(val) && !/\d{3,}/.test(val)) nameCount++;
-                    }
-                    if (total > 0 && nameCount / total >= 0.7) {
-                        console.log('[Import] Column', c, 'contains name-like data (' + nameCount + '/' + total + ') — using as firstName');
-                        colMap.firstName = c;
-                        break;
-                    }
-                }
             }
 
             if (colMap.firstName === undefined && colMap.fullName === undefined) {
@@ -5089,6 +5073,136 @@
             if (idx !== -1 && !Object.values(colMap).includes(idx)) {
                 colMap[field] = idx;
             }
+        }
+
+        return colMap;
+    }
+
+    // Detect column types by sampling actual data content (handles missing/wrong headers)
+    function detectColumnsByContent(dataRows, headerRow, colMap, fieldList) {
+        const usedCols = new Set(Object.values(colMap));
+        const mappedFields = new Set(Object.keys(colMap));
+
+        // Data pattern matchers — each returns a confidence 0-1 for a set of sample values
+        const patterns = {
+            firstName: vals => {
+                const hits = vals.filter(v => /^[A-Za-z' \-]{2,25}$/.test(v) && v.split(/\s+/).length <= 2 && !/\d/.test(v));
+                return hits.length / vals.length;
+            },
+            lastName: vals => {
+                const hits = vals.filter(v => /^[A-Za-z' \-]{2,30}$/.test(v) && v.split(/\s+/).length <= 3 && !/\d/.test(v));
+                return hits.length / vals.length;
+            },
+            fullName: vals => {
+                const hits = vals.filter(v => /^[A-Za-z' \-]{2,}$/.test(v) && v.split(/\s+/).length >= 2 && !/\d/.test(v));
+                return hits.length / vals.length;
+            },
+            phone: vals => {
+                const hits = vals.filter(v => {
+                    const digits = v.replace(/\D/g, '');
+                    return digits.length >= 7 && digits.length <= 11 && /[\d()\-\s.+]{7,}/.test(v);
+                });
+                return hits.length / vals.length;
+            },
+            email: vals => {
+                const hits = vals.filter(v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v));
+                return hits.length / vals.length;
+            },
+            cdl: vals => {
+                const hits = vals.filter(v => /^[A-Z0-9\-]{4,20}$/i.test(v) && /\d/.test(v) && /[A-Z]/i.test(v));
+                return hits.length / vals.length;
+            },
+            cdlState: vals => {
+                const states = 'AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC'.split(' ');
+                const hits = vals.filter(v => states.includes(v.toUpperCase().trim()));
+                return hits.length / vals.length;
+            },
+            cdlClass: vals => {
+                const hits = vals.filter(v => /^(A|B|C|CLASS\s*[ABC])$/i.test(v.trim()));
+                return hits.length / vals.length;
+            },
+            status: vals => {
+                const kw = ['active', 'inactive', 'on leave', 'on-leave', 'terminated', 'y', 'n', 'yes', 'no'];
+                const hits = vals.filter(v => kw.includes(v.toLowerCase().trim()));
+                return hits.length / vals.length;
+            },
+            dob: vals => {
+                const hits = vals.filter(v => {
+                    if (!/\d/.test(v)) return false;
+                    const d = new Date(v);
+                    if (isNaN(d)) return false;
+                    const yr = d.getFullYear();
+                    return yr >= 1940 && yr <= 2010; // reasonable DOB range
+                });
+                return hits.length / vals.length;
+            },
+            ssn: vals => {
+                const hits = vals.filter(v => /^\d{3}[\s\-]?\d{2}[\s\-]?\d{4}$/.test(v.trim()));
+                return hits.length / vals.length;
+            },
+            // Generic date detector for expiration/hire dates
+            _date: vals => {
+                const hits = vals.filter(v => {
+                    if (!/\d/.test(v)) return false;
+                    const d = new Date(v);
+                    if (isNaN(d)) return false;
+                    const yr = d.getFullYear();
+                    return yr >= 2000 && yr <= 2040;
+                });
+                return hits.length / vals.length;
+            }
+        };
+
+        // Sample data from each unmapped column
+        const colSamples = {};
+        for (let c = 0; c < headerRow.length; c++) {
+            if (usedCols.has(c)) continue;
+            const samples = [];
+            for (let r = 0; r < Math.min(dataRows.length, 15); r++) {
+                const val = (dataRows[r][c] || '').toString().trim();
+                if (val) samples.push(val);
+            }
+            if (samples.length > 0) colSamples[c] = samples;
+        }
+
+        // Score each unmapped column against each unmapped field
+        const fieldsToDetect = fieldList.filter(f => !mappedFields.has(f));
+        const scores = []; // { field, col, score }
+
+        for (const field of fieldsToDetect) {
+            const patternKey = patterns[field] ? field : null;
+            for (const [colStr, samples] of Object.entries(colSamples)) {
+                const col = parseInt(colStr);
+                let score = 0;
+                if (patternKey) {
+                    score = patterns[patternKey](samples);
+                }
+                // Also check header hint (even partial/misspelled)
+                const hdr = (headerRow[col] || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
+                if (hdr && field === 'phone' && /ph|tel|cell|mob|contact/.test(hdr)) score += 0.3;
+                if (hdr && field === 'email' && /mail|email/.test(hdr)) score += 0.3;
+                if (hdr && field === 'cdl' && /cdl|lic|dl/.test(hdr)) score += 0.3;
+                if (hdr && field === 'cdlState' && /state/.test(hdr)) score += 0.3;
+                if (hdr && field === 'dob' && /dob|birth|bday/.test(hdr)) score += 0.3;
+                if (hdr && field === 'status' && /status|active/.test(hdr)) score += 0.3;
+                if (hdr && (field === 'firstName' || field === 'fullName') && /name|first|driver/.test(hdr)) score += 0.3;
+                if (hdr && field === 'lastName' && /last|sur|family/.test(hdr)) score += 0.3;
+
+                if (score >= 0.5) scores.push({ field, col, score });
+            }
+        }
+
+        // Assign best matches greedily (highest score first, no column reuse)
+        scores.sort((a, b) => b.score - a.score);
+        const assignedCols = new Set(usedCols);
+        const assignedFields = new Set(mappedFields);
+
+        for (const { field, col, score } of scores) {
+            if (assignedCols.has(col) || assignedFields.has(field)) continue;
+            colMap[field] = col;
+            assignedCols.add(col);
+            assignedFields.add(field);
+            console.log('[Import] Content-detected: column', col, '(' + (headerRow[col] || '<blank>') + ') → ' + field, '(score: ' + score.toFixed(2) + ')');
         }
 
         return colMap;
