@@ -1679,6 +1679,157 @@
     color: var(--gray-800);
 }
 
+/* Sort dropdown */
+.dash-sort {
+    width: 140px;
+    min-width: 120px;
+    height: var(--dash-control-height);
+    padding: 0 1.75rem 0 0.625rem;
+    font-size: var(--dash-control-font-size);
+    font-weight: 600;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.8);
+    color: var(--gray-600);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M3 4.5 6 7.5 9 4.5'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 12px;
+    flex: 0 0 auto;
+}
+
+.dash-sort:hover {
+    border-color: rgba(0, 0, 0, 0.1);
+    background-color: var(--white);
+}
+
+.dash-sort:focus {
+    outline: none;
+    border-color: var(--primary);
+    background-color: var(--white);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.08);
+}
+
+/* Checkbox column */
+.col-checkbox {
+    width: 32px !important;
+    min-width: 32px;
+    max-width: 32px;
+    text-align: center;
+    padding: 0 4px !important;
+}
+
+.col-checkbox input[type="checkbox"],
+.bulk-cb {
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+.row-selected {
+    background: rgba(79, 70, 229, 0.06) !important;
+}
+
+/* Bulk action bar */
+.bulk-bar {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(79, 70, 229, 0.06);
+    border: 1px solid rgba(79, 70, 229, 0.15);
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+}
+
+.bulk-bar.visible {
+    display: flex;
+}
+
+.bulk-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--primary);
+    margin-right: 0.25rem;
+}
+
+.bulk-btn {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 0.25rem 0.625rem;
+    border-radius: 6px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+}
+
+.bulk-btn-status {
+    background: rgba(79, 70, 229, 0.1);
+    color: var(--primary);
+}
+
+.bulk-btn-status:hover {
+    background: rgba(79, 70, 229, 0.2);
+}
+
+.bulk-btn-export {
+    background: rgba(22, 163, 74, 0.1);
+    color: #15803d;
+}
+
+.bulk-btn-export:hover {
+    background: rgba(22, 163, 74, 0.2);
+}
+
+.bulk-btn-delete {
+    background: rgba(239, 68, 68, 0.1);
+    color: #dc2626;
+    margin-left: auto;
+}
+
+.bulk-btn-delete:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+/* Inline truck select */
+.inline-truck-select {
+    width: 100%;
+    padding: 0.2rem 0.35rem;
+    font-size: 0.75rem;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 6px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M2.5 3.75 5 6.25 7.5 3.75'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 4px center;
+    background-size: 10px;
+}
+
+.inline-truck-select:hover {
+    border-color: rgba(0, 0, 0, 0.15);
+    background-color: rgba(255, 255, 255, 0.5);
+}
+
+.inline-truck-select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+}
+
+.inline-truck-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Toolbar add button */
 .dash-toolbar-add {
     margin-left: auto;
@@ -1798,6 +1949,29 @@
 .status-badge.on-leave {
     color: #b45309;
     background: rgba(217, 119, 6, 0.1);
+}
+
+.status-badge.inshop,
+.status-badge.pending {
+    color: #b45309;
+    background: rgba(217, 119, 6, 0.1);
+}
+
+.status-badge.training,
+.status-badge.reserved {
+    color: #1d4ed8;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.status-badge.sold,
+.status-badge.terminated {
+    color: #dc2626;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.status-badge.suspended {
+    color: #991b1b;
+    background: rgba(153, 27, 27, 0.12);
 }
 
 /* Empty State */

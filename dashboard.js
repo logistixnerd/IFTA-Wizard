@@ -209,7 +209,10 @@
             defaults: [
                 { value: 'active', label: 'Active' },
                 { value: 'inactive', label: 'Out of Service' },
-                { value: 'maintenance', label: 'In Maintenance' }
+                { value: 'maintenance', label: 'In Maintenance' },
+                { value: 'inshop', label: 'In Shop' },
+                { value: 'reserved', label: 'Reserved' },
+                { value: 'sold', label: 'Sold' }
             ],
             formIds: ['truckStatus'],
             filterIds: ['truckStatusFilter'],
@@ -235,7 +238,10 @@
             defaults: [
                 { value: 'active', label: 'Active' },
                 { value: 'inactive', label: 'Out of Service' },
-                { value: 'maintenance', label: 'In Maintenance' }
+                { value: 'maintenance', label: 'In Maintenance' },
+                { value: 'inshop', label: 'In Shop' },
+                { value: 'reserved', label: 'Reserved' },
+                { value: 'sold', label: 'Sold' }
             ],
             formIds: ['trailerStatus'],
             filterIds: ['trailerStatusFilter'],
@@ -246,7 +252,11 @@
             defaults: [
                 { value: 'active', label: 'Active' },
                 { value: 'inactive', label: 'Inactive' },
-                { value: 'on-leave', label: 'On Leave' }
+                { value: 'on-leave', label: 'On Leave' },
+                { value: 'training', label: 'Training' },
+                { value: 'pending', label: 'Pending' },
+                { value: 'suspended', label: 'Suspended' },
+                { value: 'terminated', label: 'Terminated' }
             ],
             formIds: ['driverStatus'],
             filterIds: ['driverStatusFilter'],
@@ -2151,7 +2161,11 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.trucks.filter(t => matchesFilter(t, 'truck'));
-        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.doNotDispatch ? 'row-dnd' : ''} ${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+        const sorted = sortItems(filtered, sortState.trucks, 'truck');
+        bulkSelection.trucks = new Set([...bulkSelection.trucks].filter(id => sorted.some(t => t.id === id)));
+        updateBulkBar('trucks');
+        tbody.innerHTML = sorted.map(t => `<tr data-id="${t.id}" class="${bulkSelection.trucks.has(t.id) ? 'row-selected' : ''} ${t.doNotDispatch ? 'row-dnd' : ''} ${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+            <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${t.id}" ${bulkSelection.trucks.has(t.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('trucks','${t.id}',this)"></td>
             ${validationIndicator(t)}
             <td class="col-unit"><div class="cell cell-primary" title="Open truck profile for ${escapeHtml(t.unit || t.id)}"><strong>${escapeHtml(t.unit || t.id)}</strong>${t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : ''}</div></td>
             <td class="col-year"><div class="cell">${escapeHtml(t.year)}</div></td>
@@ -2208,6 +2222,209 @@
 
     function stripPhone(val) {
         return val.replace(/\D/g, '');
+    }
+
+    // ── Data Normalization (consistent format across all save paths) ──
+    const DATE_FIELDS = ['cdlExp', 'medExp', 'mvrExp', 'drugTestDate', 'twicExp', 'hireDate', 'terminationDate', 'dob', 'annualInspDate', 'registrationExp', 'insuranceExp', 'dotInspDate'];
+    function normalizePayload(data, type) {
+        if (data.vin) data.vin = data.vin.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (data.cdl) data.cdl = data.cdl.toUpperCase().replace(/[^A-Z0-9\-]/g, '');
+        if (data.plateState) data.plateState = data.plateState.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+        if (data.cdlState) data.cdlState = data.cdlState.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+        if (data.plate) data.plate = data.plate.toUpperCase().trim();
+        if (data.phone) data.phone = stripPhone(data.phone);
+        if (data.emergencyPhone) data.emergencyPhone = stripPhone(data.emergencyPhone);
+        if (data.email) data.email = data.email.toLowerCase().trim();
+        DATE_FIELDS.forEach(f => { if (data[f]) data[f] = normalizeDate(data[f]); });
+        return data;
+    }
+
+    async function checkDuplicate(collection, field, value, excludeId) {
+        if (!value) return null;
+        try {
+            const snap = await col(collection).where(field, '==', value).get();
+            const matches = snap.docs.filter(d => d.id !== excludeId);
+            return matches.length ? matches[0] : null;
+        } catch (e) { console.warn('Duplicate check failed:', e); return null; }
+    }
+
+    // ── Bulk Selection State ──
+    const bulkSelection = { trucks: new Set(), trailers: new Set(), drivers: new Set() };
+
+    function toggleBulkSelect(collection, id, checkbox) {
+        if (checkbox.checked) bulkSelection[collection].add(id);
+        else bulkSelection[collection].delete(id);
+        updateBulkBar(collection);
+        const row = checkbox.closest('tr');
+        if (row) row.classList.toggle('row-selected', checkbox.checked);
+    }
+
+    function toggleSelectAll(collection, masterCheckbox) {
+        const tbody = collection === 'trucks' ? $('trucksTableBody') : collection === 'trailers' ? $('trailersTableBody') : $('driversTableBody');
+        const checkboxes = tbody.querySelectorAll('.bulk-cb');
+        checkboxes.forEach(cb => {
+            cb.checked = masterCheckbox.checked;
+            const id = cb.dataset.id;
+            if (masterCheckbox.checked) bulkSelection[collection].add(id);
+            else bulkSelection[collection].delete(id);
+            const row = cb.closest('tr');
+            if (row) row.classList.toggle('row-selected', masterCheckbox.checked);
+        });
+        updateBulkBar(collection);
+    }
+
+    function updateBulkBar(collection) {
+        const count = bulkSelection[collection].size;
+        const barId = collection === 'trucks' ? 'truckBulkBar' : collection === 'trailers' ? 'trailerBulkBar' : 'driverBulkBar';
+        const bar = $(barId);
+        if (!bar) return;
+        if (count > 0) {
+            bar.classList.add('visible');
+            bar.querySelector('.bulk-count').textContent = count + ' selected';
+        } else {
+            bar.classList.remove('visible');
+        }
+    }
+
+    async function bulkDelete(collection) {
+        const ids = [...bulkSelection[collection]];
+        if (!ids.length) return;
+        const label = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : 'driver';
+        if (!confirm('Delete ' + ids.length + ' ' + label + (ids.length > 1 ? 's' : '') + '? This cannot be undone.')) return;
+        try {
+            const batch = firebase.firestore().batch();
+            ids.forEach(id => batch.delete(col(collection).doc(id)));
+            await batch.commit();
+            bulkSelection[collection].clear();
+            if (collection === 'trucks') { await loadTrucks(); populateTruckDropdown(); }
+            else if (collection === 'trailers') await loadTrailers();
+            else await loadDrivers();
+            updateOverview();
+            showMsg(ids.length + ' ' + label + (ids.length > 1 ? 's' : '') + ' deleted');
+        } catch (err) { console.error(err); showMsg('Error deleting', true); }
+    }
+
+    async function bulkChangeStatus(collection) {
+        const ids = [...bulkSelection[collection]];
+        if (!ids.length) return;
+        const key = collection === 'trucks' ? 'truckStatus' : collection === 'trailers' ? 'trailerStatus' : 'driverStatus';
+        const options = getDropdownOptions(key);
+        const statusStr = options.map((o, i) => (i + 1) + '. ' + o.label).join('\n');
+        const choice = prompt('Choose new status:\n' + statusStr + '\n\nEnter number:');
+        if (!choice) return;
+        const idx = parseInt(choice) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= options.length) { showMsg('Invalid choice', true); return; }
+        const newStatus = options[idx].value;
+        try {
+            const batch = firebase.firestore().batch();
+            ids.forEach(id => batch.update(col(collection).doc(id), { status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }));
+            await batch.commit();
+            const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : state.drivers;
+            ids.forEach(id => { const item = stateArr.find(x => x.id === id); if (item) item.status = newStatus; });
+            bulkSelection[collection].clear();
+            if (collection === 'trucks') renderTrucks();
+            else if (collection === 'trailers') renderTrailers();
+            else renderDrivers();
+            updateOverview();
+            showMsg(ids.length + ' status' + (ids.length > 1 ? 'es' : '') + ' updated to ' + options[idx].label);
+        } catch (err) { console.error(err); showMsg('Error updating status', true); }
+    }
+
+    function bulkExport(collection) {
+        const ids = [...bulkSelection[collection]];
+        if (!ids.length) return;
+        const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : state.drivers;
+        const selected = stateArr.filter(x => ids.includes(x.id));
+        if (!selected.length) return;
+        const exclude = ['id', 'createdAt', 'updatedAt', 'validationStatus', 'validationIssues'];
+        const allKeys = [...new Set(selected.flatMap(r => Object.keys(r)))].filter(k => !exclude.includes(k));
+        const header = allKeys.join(',');
+        const rows = selected.map(r => allKeys.map(k => {
+            let v = r[k] || '';
+            if (typeof v === 'object') v = JSON.stringify(v);
+            v = String(v);
+            return v.includes(',') || v.includes('"') || v.includes('\n') ? '"' + v.replace(/"/g, '""') + '"' : v;
+        }).join(','));
+        const csv = header + '\n' + rows.join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = collection + '_export.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showMsg(selected.length + ' ' + collection.slice(0, -1) + (selected.length > 1 ? 's' : '') + ' exported');
+    }
+
+    // ── Sort State ──
+    const sortState = { trucks: 'unit-az', trailers: 'unit-az', drivers: 'name-az' };
+
+    function sortItems(arr, sortKey, type) {
+        const cmp = (a, b, field, dir) => {
+            const va = (a[field] || '').toString().toLowerCase();
+            const vb = (b[field] || '').toString().toLowerCase();
+            return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
+        };
+        const dateCmp = (a, b, field, soonestFirst) => {
+            const da = a[field] || '';
+            const db = b[field] || '';
+            if (!da && !db) return 0;
+            if (!da) return 1;
+            if (!db) return -1;
+            return soonestFirst ? da.localeCompare(db) : db.localeCompare(da);
+        };
+        const sorted = [...arr];
+        switch (sortKey) {
+            // Shared
+            case 'unit-az': sorted.sort((a, b) => cmp(a, b, 'unit', 'asc')); break;
+            case 'unit-za': sorted.sort((a, b) => cmp(a, b, 'unit', 'desc')); break;
+            case 'year-new': sorted.sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0)); break;
+            case 'year-old': sorted.sort((a, b) => (parseInt(a.year) || 0) - (parseInt(b.year) || 0)); break;
+            case 'make-az': sorted.sort((a, b) => cmp(a, b, 'make', 'asc')); break;
+            case 'status': sorted.sort((a, b) => cmp(a, b, 'status', 'asc')); break;
+            case 'insp-exp': sorted.sort((a, b) => dateCmp(a, b, 'annualInspDate', true)); break;
+            case 'reg-exp': sorted.sort((a, b) => dateCmp(a, b, 'registrationExp', true)); break;
+            // Trailer
+            case 'type-az': sorted.sort((a, b) => cmp(a, b, 'type', 'asc')); break;
+            // Driver
+            case 'name-az': sorted.sort((a, b) => { const r = cmp(a, b, 'lastName', 'asc'); return r !== 0 ? r : cmp(a, b, 'firstName', 'asc'); }); break;
+            case 'name-za': sorted.sort((a, b) => { const r = cmp(a, b, 'lastName', 'desc'); return r !== 0 ? r : cmp(a, b, 'firstName', 'desc'); }); break;
+            case 'hired-new': sorted.sort((a, b) => dateCmp(a, b, 'hireDate', false)); break;
+            case 'cdl-exp': sorted.sort((a, b) => dateCmp(a, b, 'cdlExp', true)); break;
+            case 'med-exp': sorted.sort((a, b) => dateCmp(a, b, 'medExp', true)); break;
+            case 'mvr-exp': sorted.sort((a, b) => dateCmp(a, b, 'mvrExp', true)); break;
+            case 'drug-test': sorted.sort((a, b) => dateCmp(a, b, 'drugTestDate', true)); break;
+            case 'twic-exp': sorted.sort((a, b) => dateCmp(a, b, 'twicExp', true)); break;
+            case 'truck-assigned': sorted.sort((a, b) => (a.truck ? 0 : 1) - (b.truck ? 0 : 1)); break;
+            case 'unassigned': sorted.sort((a, b) => (b.truck ? 0 : 1) - (a.truck ? 0 : 1)); break;
+            case 'dob-oldest': sorted.sort((a, b) => dateCmp(a, b, 'dob', true)); break;
+        }
+        return sorted;
+    }
+
+    // ── Inline Truck Assignment ──
+    function truckSelectHtml(driverId, currentTruckId, isDnd) {
+        const activeTrucks = state.trucks.filter(t => t.status === 'active');
+        const opts = '<option value="">—</option>' + activeTrucks.map(t =>
+            '<option value="' + escapeHtml(t.id) + '"' + (t.id === currentTruckId ? ' selected' : '') + '>' + escapeHtml(t.unit) + '</option>'
+        ).join('');
+        return '<select class="inline-truck-select" data-id="' + driverId + '" onchange="Dashboard.inlineTruckAssign(this)"' + (isDnd ? ' disabled title="DND — cannot assign"' : '') + '>' + opts + '</select>';
+    }
+
+    async function inlineTruckAssign(select) {
+        const id = select.dataset.id;
+        const newTruck = select.value;
+        const d = state.drivers.find(x => x.id === id);
+        if (d && d.doNotDispatch) {
+            showMsg('Cannot assign truck — driver is on Do Not Dispatch', true);
+            select.value = d.truck || '';
+            return;
+        }
+        try {
+            await col('drivers').doc(id).update({ truck: newTruck, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            if (d) d.truck = newTruck;
+            showMsg('Truck ' + (newTruck ? 'assigned' : 'unassigned'));
+        } catch (err) { console.error(err); showMsg('Error assigning truck', true); }
     }
 
     // ── Driver Documents ──────────────────────
@@ -2473,12 +2690,12 @@
         document.querySelectorAll('#detailDriverInfo .dp-endorse-chip input:checked').forEach(cb => {
             endorsements.push(cb.value);
         });
-        return {
+        return normalizePayload({
             firstName: $('dpFirstName').value.trim(),
             lastName: $('dpLastName').value.trim(),
-            phone: stripPhone($('dpPhone').value),
+            phone: $('dpPhone').value,
             email: $('dpEmail').value.trim(),
-            cdl: $('dpCdl').value.trim().toUpperCase(),
+            cdl: $('dpCdl').value.trim(),
             cdlClass: $('dpCdlClass').value,
             cdlState: $('dpCdlState').value,
             cdlExp: $('dpCdlExp').value,
@@ -2494,11 +2711,11 @@
             dob: $('dpDob').value,
             endorsements: endorsements.join(','),
             emergencyName: $('dpEmergencyName').value.trim(),
-            emergencyPhone: stripPhone($('dpEmergencyPhone').value),
+            emergencyPhone: $('dpEmergencyPhone').value,
             address: $('dpAddress').value.trim(),
             notes: $('dpNotes').value.trim(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
+        }, 'driver');
     }
 
     async function saveDriverFromPanel() {
@@ -2507,6 +2724,10 @@
             showMsg('First name is required', true);
             $('dpFirstName').focus();
             return;
+        }
+        if (payload.cdl) {
+            const dup = await checkDuplicate('drivers', 'cdl', payload.cdl, detailPanelDriverId);
+            if (dup) { const dd = dup.data(); if (!confirm('A driver with CDL ' + payload.cdl + ' already exists (' + (dd.firstName || '') + ' ' + (dd.lastName || '') + '). Save anyway?')) return; }
         }
         // Block truck assignment for DND drivers
         if (detailPanelDriverId && payload.truck) {
@@ -4849,20 +5070,24 @@
 
         $('truckForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const payload = {
+            const payload = normalizePayload({
                 unit: $('truckUnit').value.trim(),
                 year: $('truckYear').value.trim(),
                 make: $('truckMake').value.trim(),
                 model: $('truckModel').value.trim(),
                 vin: $('truckVin').value.trim(),
                 plate: $('truckPlate').value.trim(),
-                plateState: $('truckPlateState').value.trim().toUpperCase(),
+                plateState: $('truckPlateState').value.trim(),
                 fuel: $('truckFuel').value,
                 status: $('truckStatus').value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
+            }, 'truck');
             try {
                 const editId = $('truckEditId').value;
+                if (payload.vin && payload.vin.length === 17) {
+                    const dup = await checkDuplicate('trucks', 'vin', payload.vin, editId);
+                    if (dup && !confirm('A truck with VIN ' + payload.vin + ' already exists (Unit: ' + (dup.data().unit || '?') + '). Save anyway?')) return;
+                }
                 if (editId) {
                     await col('trucks').doc(editId).update(payload);
                 } else {
@@ -5711,7 +5936,10 @@
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Out of Service' },
-                    { value: 'maintenance', label: 'In Maintenance' }
+                    { value: 'maintenance', label: 'In Maintenance' },
+                    { value: 'inshop', label: 'In Shop' },
+                    { value: 'reserved', label: 'Reserved' },
+                    { value: 'sold', label: 'Sold' }
                 ]}
             ],
             collection: 'trucks',
@@ -5769,7 +5997,10 @@
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Out of Service' },
-                    { value: 'maintenance', label: 'In Maintenance' }
+                    { value: 'maintenance', label: 'In Maintenance' },
+                    { value: 'inshop', label: 'In Shop' },
+                    { value: 'reserved', label: 'Reserved' },
+                    { value: 'sold', label: 'Sold' }
                 ]}
             ],
             collection: 'trailers',
@@ -5822,13 +6053,17 @@
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Inactive' },
-                    { value: 'on-leave', label: 'On Leave' }
+                    { value: 'on-leave', label: 'On Leave' },
+                    { value: 'training', label: 'Training' },
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'suspended', label: 'Suspended' },
+                    { value: 'terminated', label: 'Terminated' }
                 ]}
             ],
             collection: 'drivers',
             label: 'driver',
             requiredKey: 'name',
-            duplicateKey: null,
+            duplicateKey: 'cdl',
             modalId: 'multiDriverModal',
             tbodyId: 'multiDriverBody',
             countId: 'multiDriverRowCount',
@@ -6450,6 +6685,7 @@
                 // Uppercase state fields
                 if (data.plateState) data.plateState = data.plateState.toUpperCase();
                 if (data.cdlState) data.cdlState = data.cdlState.toUpperCase();
+                normalizePayload(data, type);
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
                 const doc = col(config.collection).doc();
@@ -6495,7 +6731,11 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.trailers.filter(t => matchesFilter(t, 'trailer'));
-        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.doNotDispatch ? 'row-dnd' : ''} ${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+        const sorted = sortItems(filtered, sortState.trailers, 'trailer');
+        bulkSelection.trailers = new Set([...bulkSelection.trailers].filter(id => sorted.some(t => t.id === id)));
+        updateBulkBar('trailers');
+        tbody.innerHTML = sorted.map(t => `<tr data-id="${t.id}" class="${bulkSelection.trailers.has(t.id) ? 'row-selected' : ''} ${t.doNotDispatch ? 'row-dnd' : ''} ${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+            <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${t.id}" ${bulkSelection.trailers.has(t.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('trailers','${t.id}',this)"></td>
             ${validationIndicator(t)}
             <td><div class="cell cell-primary" title="Open trailer profile for ${escapeHtml(t.unit || t.id)}"><strong>${escapeHtml(t.unit || t.id)}</strong>${t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : ''}</div></td>
             <td><div class="cell">${escapeHtml(t.year)}</div></td>
@@ -6555,7 +6795,7 @@
 
         $('trailerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const payload = {
+            const payload = normalizePayload({
                 unit: $('trailerUnit').value.trim(),
                 year: $('trailerYear').value.trim(),
                 make: $('trailerMake').value.trim(),
@@ -6564,9 +6804,13 @@
                 plate: $('trailerPlate').value.trim(),
                 status: $('trailerStatus').value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
+            }, 'trailer');
             try {
                 const editId = $('trailerEditId').value;
+                if (payload.vin && payload.vin.length === 17) {
+                    const dup = await checkDuplicate('trailers', 'vin', payload.vin, editId);
+                    if (dup && !confirm('A trailer with VIN ' + payload.vin + ' already exists (Unit: ' + (dup.data().unit || '?') + '). Save anyway?')) return;
+                }
                 if (editId) {
                     await col('trailers').doc(editId).update(payload);
                 } else {
@@ -6606,15 +6850,19 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.drivers.filter(d => matchesFilter(d, 'driver'));
-        tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}" class="${d.doNotDispatch ? 'row-dnd' : ''} ${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+        const sorted = sortItems(filtered, sortState.drivers, 'driver');
+        bulkSelection.drivers = new Set([...bulkSelection.drivers].filter(id => sorted.some(d => d.id === id)));
+        updateBulkBar('drivers');
+        tbody.innerHTML = sorted.map(d => `<tr data-id="${d.id}" class="${bulkSelection.drivers.has(d.id) ? 'row-selected' : ''} ${d.doNotDispatch ? 'row-dnd' : ''} ${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+            <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${d.id}" ${bulkSelection.drivers.has(d.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('drivers','${d.id}',this)"></td>
             ${validationIndicator(d)}
             <td><div class="cell cell-primary" title="Open driver profile for ${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong>${d.doNotDispatch ? '<span class="dnd-tag">DND</span>' : ''}</div></td>
             <td><div class="cell">${escapeHtml(d.cdl)}</div></td>
             <td><div class="cell">${escapeHtml(d.cdlState)}</div></td>
             <td><div class="cell">${escapeHtml(d.cdlExp)}</div></td>
-            <td><div class="cell">${escapeHtml(d.phone)}</div></td>
+            <td><div class="cell">${escapeHtml(d.phone ? formatPhone(d.phone) : '')}</div></td>
             <td><div class="cell">${escapeHtml(d.email)}</div></td>
-            <td><div class="cell">${escapeHtml(truckLabel(d.truck))}</div></td>
+            <td><div class="cell">${truckSelectHtml(d.id, d.truck, d.doNotDispatch)}</div></td>
             <td><div class="cell">${statusSelect(d.status, d.id, 'drivers', 'driver')}</div></td>
             <td class="row-actions"><div class="cell">
                 <button title="Edit" onclick="Dashboard.editDriver('${d.id}')">
@@ -6663,11 +6911,11 @@
 
         $('driverForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const payload = {
+            const payload = normalizePayload({
                 firstName: $('driverFirstName').value.trim(),
                 lastName: $('driverLastName').value.trim(),
                 cdl: $('driverCdl').value.trim(),
-                cdlState: $('driverCdlState').value.trim().toUpperCase(),
+                cdlState: $('driverCdlState').value.trim(),
                 cdlExp: $('driverCdlExp').value,
                 medExp: $('driverMedExp').value,
                 phone: $('driverPhone').value.trim(),
@@ -6675,9 +6923,13 @@
                 truck: $('driverTruck').value,
                 status: $('driverStatus').value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
+            }, 'driver');
             try {
                 const editId = $('driverEditId').value;
+                if (payload.cdl) {
+                    const dup = await checkDuplicate('drivers', 'cdl', payload.cdl, editId);
+                    if (dup) { const dd = dup.data(); if (!confirm('A driver with CDL ' + payload.cdl + ' already exists (' + (dd.firstName || '') + ' ' + (dd.lastName || '') + '). Save anyway?')) return; }
+                }
                 if (editId) {
                     await col('drivers').doc(editId).update(payload);
                 } else {
@@ -7047,6 +7299,20 @@
             const el = $(id);
             if (el) el.addEventListener('input', renderDrivers);
         });
+        // Sort dropdowns
+        const truckSort = $('truckSort');
+        if (truckSort) truckSort.addEventListener('change', () => { sortState.trucks = truckSort.value; renderTrucks(); });
+        const trailerSort = $('trailerSort');
+        if (trailerSort) trailerSort.addEventListener('change', () => { sortState.trailers = trailerSort.value; renderTrailers(); });
+        const driverSort = $('driverSort');
+        if (driverSort) driverSort.addEventListener('change', () => { sortState.drivers = driverSort.value; renderDrivers(); });
+        // Select-all checkboxes
+        const truckSelAll = $('truckSelectAll');
+        if (truckSelAll) truckSelAll.addEventListener('change', () => toggleSelectAll('trucks', truckSelAll));
+        const trailerSelAll = $('trailerSelectAll');
+        if (trailerSelAll) trailerSelAll.addEventListener('change', () => toggleSelectAll('trailers', trailerSelAll));
+        const driverSelAll = $('driverSelectAll');
+        if (driverSelAll) driverSelAll.addEventListener('change', () => toggleSelectAll('drivers', driverSelAll));
     }
 
     // ── Operational Alerts ────────────────
@@ -7647,7 +7913,8 @@
     window.Dashboard = {
         editTruck, editTrailer, editDriver,
         deleteTruck, deleteTrailer, deleteDriver,
-        inlineStatus,
+        inlineStatus, inlineTruckAssign,
+        toggleBulkSelect, bulkDelete, bulkChangeStatus, bulkExport,
         openTruckProfile, openTrailerProfile, openDriverProfile
     };
 

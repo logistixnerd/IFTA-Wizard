@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=8">
+    <link rel="stylesheet" href="dashboard.css?v=9">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -961,6 +961,9 @@
                                 <option value="active">Active</option>
                                 <option value="maintenance">Maintenance</option>
                                 <option value="inactive">Out of Service</option>
+                                <option value="inshop">In Shop</option>
+                                <option value="reserved">Reserved</option>
+                                <option value="sold">Sold</option>
                             </select>
                             <select class="dash-filter" id="truckFuelFilter">
                                 <option value="">All Fuel</option>
@@ -969,6 +972,22 @@
                                 <option value="cng">CNG</option>
                                 <option value="lng">LNG</option>
                             </select>
+                            <select class="dash-sort" id="truckSort">
+                                <option value="unit-az">Unit # A-Z</option>
+                                <option value="unit-za">Unit # Z-A</option>
+                                <option value="year-new">Newest Year</option>
+                                <option value="year-old">Oldest Year</option>
+                                <option value="make-az">Make A-Z</option>
+                                <option value="status">Status</option>
+                                <option value="insp-exp">Inspection Exp</option>
+                                <option value="reg-exp">Registration Exp</option>
+                            </select>
+                        </div>
+                        <div class="bulk-bar" id="truckBulkBar">
+                            <span class="bulk-count">0 selected</span>
+                            <button class="btn btn-sm bulk-btn bulk-btn-status" onclick="Dashboard.bulkChangeStatus('trucks')">Change Status</button>
+                            <button class="btn btn-sm bulk-btn bulk-btn-export" onclick="Dashboard.bulkExport('trucks')">Export CSV</button>
+                            <button class="btn btn-sm bulk-btn bulk-btn-delete" onclick="Dashboard.bulkDelete('trucks')">Delete</button>
                         </div>
                         <div class="dash-empty" id="trucksEmpty">
                             <p>No trucks added yet</p>
@@ -978,16 +997,17 @@
                             <table class="dash-table" id="trucksTable" style="display: none;">
                                 <thead>
                                     <tr>
+                                        <th class="col-checkbox"><input type="checkbox" id="truckSelectAll" title="Select all"></th>
                                         <th class="col-validation"></th>
                                         <th style="width:9%">Unit #</th>
                                         <th style="width:7%">Year</th>
-                                        <th style="width:12%">Make</th>
-                                        <th style="width:12%">Model</th>
+                                        <th style="width:11%">Make</th>
+                                        <th style="width:11%">Model</th>
                                         <th style="width:17%">VIN</th>
-                                        <th style="width:13%">Plate</th>
+                                        <th style="width:12%">Plate</th>
                                         <th style="width:8%">Fuel</th>
                                         <th style="width:10%">Status</th>
-                                        <th style="width:9%"></th>
+                                        <th style="width:8%"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="trucksTableBody"></tbody>
@@ -1024,7 +1044,27 @@
                                 <option value="active">Active</option>
                                 <option value="maintenance">Maintenance</option>
                                 <option value="inactive">Out of Service</option>
+                                <option value="inshop">In Shop</option>
+                                <option value="reserved">Reserved</option>
+                                <option value="sold">Sold</option>
                             </select>
+                            <select class="dash-sort" id="trailerSort">
+                                <option value="unit-az">Unit # A-Z</option>
+                                <option value="unit-za">Unit # Z-A</option>
+                                <option value="year-new">Newest Year</option>
+                                <option value="year-old">Oldest Year</option>
+                                <option value="make-az">Make A-Z</option>
+                                <option value="type-az">Type</option>
+                                <option value="status">Status</option>
+                                <option value="insp-exp">Inspection Exp</option>
+                                <option value="reg-exp">Registration Exp</option>
+                            </select>
+                        </div>
+                        <div class="bulk-bar" id="trailerBulkBar">
+                            <span class="bulk-count">0 selected</span>
+                            <button class="btn btn-sm bulk-btn bulk-btn-status" onclick="Dashboard.bulkChangeStatus('trailers')">Change Status</button>
+                            <button class="btn btn-sm bulk-btn bulk-btn-export" onclick="Dashboard.bulkExport('trailers')">Export CSV</button>
+                            <button class="btn btn-sm bulk-btn bulk-btn-delete" onclick="Dashboard.bulkDelete('trailers')">Delete</button>
                         </div>
                         <div class="dash-empty" id="trailersEmpty">
                             <p>No trailers added yet</p>
@@ -1034,13 +1074,14 @@
                             <table class="dash-table" id="trailersTable" style="display: none;">
                                 <thead>
                                     <tr>
+                                        <th class="col-checkbox"><input type="checkbox" id="trailerSelectAll" title="Select all"></th>
                                         <th class="col-validation"></th>
-                                        <th style="width:12%">Unit #</th>
-                                        <th style="width:10%">Year</th>
-                                        <th style="width:13%">Make</th>
-                                        <th style="width:13%">Type</th>
-                                        <th style="width:19%">VIN</th>
-                                        <th style="width:13%">Plate</th>
+                                        <th style="width:11%">Unit #</th>
+                                        <th style="width:9%">Year</th>
+                                        <th style="width:12%">Make</th>
+                                        <th style="width:12%">Type</th>
+                                        <th style="width:18%">VIN</th>
+                                        <th style="width:12%">Plate</th>
                                         <th style="width:10%">Status</th>
                                         <th style="width:7%"></th>
                                     </tr>
@@ -1079,7 +1120,31 @@
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
                                 <option value="on-leave">On Leave</option>
+                                <option value="training">Training</option>
+                                <option value="pending">Pending</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="terminated">Terminated</option>
                             </select>
+                            <select class="dash-sort" id="driverSort">
+                                <option value="name-az">Name A-Z</option>
+                                <option value="name-za">Name Z-A</option>
+                                <option value="hired-new">Newest Hired</option>
+                                <option value="cdl-exp">CDL Expiry</option>
+                                <option value="med-exp">Medical Expiry</option>
+                                <option value="mvr-exp">MVR Expiry</option>
+                                <option value="drug-test">Drug Test</option>
+                                <option value="twic-exp">TWIC Expiry</option>
+                                <option value="status">Status</option>
+                                <option value="truck-assigned">Truck Assigned</option>
+                                <option value="unassigned">Unassigned First</option>
+                                <option value="dob-oldest">Age (Oldest)</option>
+                            </select>
+                        </div>
+                        <div class="bulk-bar" id="driverBulkBar">
+                            <span class="bulk-count">0 selected</span>
+                            <button class="btn btn-sm bulk-btn bulk-btn-status" onclick="Dashboard.bulkChangeStatus('drivers')">Change Status</button>
+                            <button class="btn btn-sm bulk-btn bulk-btn-export" onclick="Dashboard.bulkExport('drivers')">Export CSV</button>
+                            <button class="btn btn-sm bulk-btn bulk-btn-delete" onclick="Dashboard.bulkDelete('drivers')">Delete</button>
                         </div>
                         <div class="dash-empty" id="driversEmpty">
                             <p>No drivers added yet</p>
@@ -1089,16 +1154,17 @@
                             <table class="dash-table" id="driversTable" style="display: none;">
                                 <thead>
                                     <tr>
+                                        <th class="col-checkbox"><input type="checkbox" id="driverSelectAll" title="Select all"></th>
                                         <th class="col-validation"></th>
-                                        <th style="width:15%">Name</th>
-                                        <th style="width:10%">CDL #</th>
-                                        <th style="width:7%">State</th>
+                                        <th style="width:14%">Name</th>
+                                        <th style="width:9%">CDL #</th>
+                                        <th style="width:5%">State</th>
                                         <th style="width:9%">CDL Exp</th>
-                                        <th style="width:11%">Phone</th>
-                                        <th style="width:12%">Email</th>
-                                        <th style="width:13%">Truck</th>
+                                        <th style="width:10%">Phone</th>
+                                        <th style="width:11%">Email</th>
+                                        <th style="width:12%">Truck</th>
                                         <th style="width:10%">Status</th>
-                                        <th style="width:10%"></th>
+                                        <th style="width:8%"></th>
                                     </tr>
                                 </thead>
                                 <tbody id="driversTableBody"></tbody>
@@ -3169,6 +3235,6 @@
     </aside>
 
     <script src="firebase-config.js?v=3"></script>
-    <script src="dashboard.js?v=14"></script>
+    <script src="dashboard.js?v=15"></script>
 </body>
 </html>
