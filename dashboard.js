@@ -2339,8 +2339,17 @@
         if (dndBadge) dndBadge.classList.toggle('hidden', isCreate || !d.doNotDispatch);
         const dndBtn = $('dpActionDND');
         if (dndBtn) {
-            dndBtn.classList.toggle('hidden', isCreate || !canToggleDND());
+            // Only show quick action button when driver IS on DND (for removal)
+            dndBtn.classList.toggle('hidden', isCreate || !d.doNotDispatch || !canToggleDND());
             if (!isCreate) updateDNDVisuals(d);
+        }
+        // DND toggle in driver info section (for applying DND)
+        const dndField = $('dpDNDField');
+        const dndToggle = $('dpDNDToggle');
+        if (dndField && dndToggle) {
+            dndField.classList.toggle('hidden', isCreate || !canToggleDND());
+            dndToggle.checked = !!d.doNotDispatch;
+            $('dpDNDLabel').textContent = d.doNotDispatch ? 'Active' : 'Off';
         }
 
         $('dpFirstName').value = d.firstName || '';
@@ -2763,44 +2772,13 @@
             }
             setTimeout(() => $('dpTruck')?.focus(), 150);
         });
-        // DND button
+        // DND button (quick action — only visible when DND is active, for removal)
         const dndBtn = $('dpActionDND');
-        if (dndBtn) dndBtn.addEventListener('click', async () => {
-            if (!detailPanelDriverId || !canToggleDND()) return;
-            const d = state.drivers.find(x => x.id === detailPanelDriverId);
-            if (!d) return;
-            const newDnd = !d.doNotDispatch;
-            const action = newDnd ? 'place on' : 'remove from';
-            if (!confirm(`Are you sure you want to ${action} Do Not Dispatch for ${d.firstName} ${d.lastName}?`)) return;
-            try {
-                await col('drivers').doc(detailPanelDriverId).update({
-                    doNotDispatch: newDnd,
-                    dndSetBy: state.user.email || '',
-                    dndSetAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                d.doNotDispatch = newDnd;
-                d.dndSetBy = state.user.email || '';
-                d.dndSetAt = new Date().toISOString();
-                updateDNDVisuals(d);
-                renderDrivers();
-                renderPanelSummary();
-                showMsg(newDnd ? 'Driver placed on Do Not Dispatch' : 'Do Not Dispatch removed');
-                // Log to activity feed
-                try {
-                    await col('drivers').doc(detailPanelDriverId).collection('history').add({
-                        type: 'system',
-                        text: newDnd ? 'Placed on Do Not Dispatch' : 'Removed from Do Not Dispatch',
-                        by: state.user.email || 'Unknown',
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                    loadPanelFeed();
-                } catch (e) { console.error('DND history log error:', e); }
-            } catch (err) {
-                console.error('DND toggle error:', err);
-                showMsg('Error updating Do Not Dispatch', true);
-            }
-        });
+        if (dndBtn) dndBtn.addEventListener('click', () => toggleDND());
+
+        // DND toggle switch in driver info section
+        const dndToggle = $('dpDNDToggle');
+        if (dndToggle) dndToggle.addEventListener('change', () => toggleDND());
 
         const unavailBtn = $('dpActionUnavail');
         if (unavailBtn) unavailBtn.addEventListener('click', async () => {
@@ -2988,6 +2966,56 @@
     }
 
     // ── Render Summary Chips ──
+    async function toggleDND() {
+        if (!detailPanelDriverId || !canToggleDND()) return;
+        const d = state.drivers.find(x => x.id === detailPanelDriverId);
+        if (!d) return;
+        const newDnd = !d.doNotDispatch;
+        const action = newDnd ? 'place on' : 'remove from';
+        if (!confirm(`Are you sure you want to ${action} Do Not Dispatch for ${d.firstName} ${d.lastName}?`)) {
+            // Reset toggle switch if cancelled
+            const toggle = $('dpDNDToggle');
+            if (toggle) toggle.checked = !!d.doNotDispatch;
+            return;
+        }
+        try {
+            await col('drivers').doc(detailPanelDriverId).update({
+                doNotDispatch: newDnd,
+                dndSetBy: state.user.email || '',
+                dndSetAt: firebase.firestore.FieldValue.serverTimestamp(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            d.doNotDispatch = newDnd;
+            d.dndSetBy = state.user.email || '';
+            d.dndSetAt = new Date().toISOString();
+            updateDNDVisuals(d);
+            // Show/hide the quick action button based on new state
+            const dndBtn = $('dpActionDND');
+            if (dndBtn) dndBtn.classList.toggle('hidden', !newDnd);
+            // Update toggle switch
+            const toggle = $('dpDNDToggle');
+            if (toggle) toggle.checked = newDnd;
+            $('dpDNDLabel').textContent = newDnd ? 'Active' : 'Off';
+            renderDrivers();
+            renderPanelSummary();
+            showMsg(newDnd ? 'Driver placed on Do Not Dispatch' : 'Do Not Dispatch removed');
+            try {
+                await col('drivers').doc(detailPanelDriverId).collection('history').add({
+                    type: 'system',
+                    text: newDnd ? 'Placed on Do Not Dispatch' : 'Removed from Do Not Dispatch',
+                    by: state.user.email || 'Unknown',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                loadPanelFeed();
+            } catch (e) { console.error('DND history log error:', e); }
+        } catch (err) {
+            console.error('DND toggle error:', err);
+            const toggle = $('dpDNDToggle');
+            if (toggle) toggle.checked = !!d.doNotDispatch;
+            showMsg('Error updating Do Not Dispatch', true);
+        }
+    }
+
     function updateDNDVisuals(d) {
         const dndBtn = $('dpActionDND');
         if (dndBtn) {
