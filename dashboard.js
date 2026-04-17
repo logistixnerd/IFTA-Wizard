@@ -4355,7 +4355,7 @@
     // ── Google Drive Import ─────────────────
     const GDRIVE_CONFIG = {
         clientId: '1019904853500-dgr51js0f2scs3om1l4jocbho85g0ona.apps.googleusercontent.com',
-        apiKey: 'AIzaSyAmMfBcWSGN9w3rLC4vRobWqAG6ahyfEQM',
+        apiKey: 'AIzaSyDrjI76QLlhLnmX80_XdFaD4QHP32I9QxY',
         scopes: 'https://www.googleapis.com/auth/drive.readonly',
         pickerMimeTypes: [
             'application/vnd.google-apps.spreadsheet',
