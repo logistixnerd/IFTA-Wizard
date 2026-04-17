@@ -972,7 +972,7 @@
     color: #4f46e5;
 }
 
-/* ── Inline Add Row (Monday.com style) ────────────────────────── */
+/* ── Inline Sheet Panel (Google Sheets style) ─────────────────── */
 .inline-add-trigger {
     padding: 0 0 0 0.35rem;
     border-top: 1.5px solid #e2e6ed;
@@ -997,65 +997,161 @@
 .inline-add-btn svg { opacity: 0.65; }
 .inline-add-btn:hover svg { opacity: 1; }
 
-/* Active inline-add row — full-width grid */
-#driversInlineAdd tr {
-    background: #f8faff;
+/* Sheet panel container */
+.driver-sheet-panel {
+    border: 1.5px solid #e2e6ed;
+    border-top: 2.5px solid #4f46e5;
+    border-radius: 0 0 8px 8px;
+    background: #fff;
+    margin-top: -1px;
 }
-#driversInlineAdd td {
-    padding: 0;
-    border-bottom: 2.5px solid #4f46e5;
-}
-.inline-add-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
-    gap: 0.45rem 0.5rem;
-    padding: 0.65rem 0.85rem 0.35rem;
-}
-.inline-field {
+
+/* Toolbar */
+.driver-sheet-toolbar {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.45rem 0.75rem;
+    border-bottom: 1px solid #f0f1f3;
+    background: #fafafc;
+    flex-wrap: wrap;
 }
-.inline-field label {
-    font-size: 0.6rem;
-    font-weight: 600;
-    color: #8b95a5;
+.driver-sheet-title {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #374151;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    line-height: 1;
-    white-space: nowrap;
 }
-.inline-field.required label::after {
-    content: ' *';
-    color: #e2445c;
-}
-.inline-field input,
-.inline-field select {
-    width: 100%;
-    height: 28px;
-    padding: 0 0.4rem;
-    font-size: var(--dash-table-font-size);
-    font-family: inherit;
-    border: 1.5px solid #e2e6ed;
-    border-radius: 4px;
-    background: #fff;
-    outline: none;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    box-sizing: border-box;
-}
-.inline-field input:focus,
-.inline-field select:focus {
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12);
-}
-.inline-field input::placeholder {
-    color: #c0c5ce;
+.driver-sheet-count {
     font-size: 0.65rem;
+    color: #9ca3af;
+    background: #f3f4f6;
+    padding: 0.15rem 0.5rem;
+    border-radius: 10px;
 }
-.inline-field input[type="date"] {
+.driver-sheet-hint {
+    font-size: 0.6rem;
+    color: #b0b7c3;
+    flex: 1;
+    text-align: right;
+}
+.driver-sheet-actions {
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+}
+.ds-cancel-btn,
+.ds-save-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    font-family: inherit;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ds-cancel-btn {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+.ds-cancel-btn:hover { background: #e5e7eb; }
+.ds-save-btn {
+    background: #00c875;
+    color: #fff;
+}
+.ds-save-btn:hover { background: #00b368; }
+.ds-save-btn:disabled {
+    background: #d1d5db;
+    cursor: not-allowed;
+}
+
+/* Scrollable sheet area */
+.driver-sheet-scroll {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 260px;
+}
+
+/* Sheet table */
+.driver-sheet-table {
+    width: max-content;
+    min-width: 100%;
+    border-collapse: collapse;
+    font-size: var(--dash-table-font-size);
+}
+.driver-sheet-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: 0.35rem 0.4rem;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #8b95a5;
+    background: #f8f9fb;
+    border-bottom: 1.5px solid #e2e6ed;
+    white-space: nowrap;
+    text-align: left;
+}
+.driver-sheet-table thead th.ds-req {
     color: #374151;
 }
-.inline-field select {
+
+/* Row number column */
+.ds-row-num {
+    width: 32px;
+    min-width: 32px;
+    text-align: center;
+    color: #b0b7c3;
+    font-size: 0.6rem;
+    font-weight: 600;
+    background: #fafafc;
+    border-right: 1px solid #eef0f3;
+    user-select: none;
+}
+
+/* Data cells */
+.ds-cell {
+    padding: 1px 2px;
+    border-bottom: 1px solid #f0f1f3;
+    border-right: 1px solid #f0f1f3;
+    min-width: 100px;
+}
+.ds-cell:last-of-type { border-right: none; }
+
+/* Inputs */
+.ds-input {
+    width: 100%;
+    height: 28px;
+    padding: 0 0.35rem;
+    font-size: var(--dash-table-font-size);
+    font-family: inherit;
+    border: 1.5px solid transparent;
+    border-radius: 3px;
+    background: transparent;
+    outline: none;
+    transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+    box-sizing: border-box;
+}
+.ds-input:hover {
+    background: #f8f9fb;
+}
+.ds-input:focus {
+    border-color: #4f46e5;
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.10);
+}
+.ds-input::placeholder {
+    color: #d0d4db;
+    font-size: 0.65rem;
+}
+select.ds-input {
     color: #374151;
     cursor: pointer;
     appearance: none;
@@ -1065,49 +1161,68 @@
     background-position: right 6px center;
     padding-right: 20px;
 }
-.inline-add-bar {
+input[type="date"].ds-input {
+    color: #374151;
+}
+
+/* Delete row button */
+.ds-row-del {
+    width: 28px;
+    min-width: 28px;
+    text-align: center;
+    border-bottom: 1px solid #f0f1f3;
+    background: #fafafc;
+}
+.ds-del-btn {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0.35rem 0.85rem 0.55rem;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin: auto;
+    border: none;
+    border-radius: 3px;
+    background: none;
+    color: #c5c9d2;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+    padding: 0;
 }
-.inline-add-hint {
-    font-size: 0.625rem;
-    color: #9ca3af;
+.ds-del-btn:hover {
+    color: #e2445c;
+    background: #fef2f2;
 }
-.inline-actions {
-    display: flex;
-    gap: 0.4rem;
-    align-items: center;
+
+/* Row hover */
+.driver-sheet-table tbody tr:hover .ds-cell {
+    background: #f8faff;
 }
-.inline-save-btn,
-.inline-cancel-btn {
+
+/* Add row button */
+.ds-add-row-btn {
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
-    padding: 0.3rem 0.75rem;
-    font-size: 0.7rem;
-    font-weight: 600;
+    margin: 0.3rem 0.6rem 0.5rem;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.68rem;
+    font-weight: 500;
     font-family: inherit;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background 0.15s, opacity 0.15s;
-}
-.inline-save-btn {
-    background: #00c875;
-    color: #fff;
-}
-.inline-save-btn:hover { background: #00b368; }
-.inline-save-btn:disabled {
-    background: #d1d5db;
-    cursor: not-allowed;
-}
-.inline-cancel-btn {
-    background: #f3f4f6;
     color: #6b7280;
+    background: none;
+    border: 1px dashed #d1d5db;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.inline-cancel-btn:hover { background: #e5e7eb; }
+.ds-add-row-btn:hover {
+    color: #4f46e5;
+    border-color: #a5b4fc;
+    background: #f0f0ff;
+}
+.ds-add-row-btn svg { opacity: 0.6; }
+.ds-add-row-btn:hover svg { opacity: 1; }
 
 /* ── Panel container ──────────────────────────────────────────── */
 .col-picker-panel {

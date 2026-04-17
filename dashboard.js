@@ -2814,7 +2814,7 @@
         const table = $('driversTable');
         const empty = $('driversEmpty');
         const trigger = $('driverAddTrigger');
-        const inlineTbody = $('driversInlineAdd');
+        const sheetPanel = $('driverSheetPanel');
         if (state.drivers.length === 0) {
             table.style.display = 'none';
             empty.style.display = '';
@@ -2823,7 +2823,7 @@
         }
         empty.style.display = 'none';
         table.style.display = '';
-        if (trigger && (!inlineTbody || !inlineTbody.children.length)) trigger.style.display = '';
+        if (trigger && (!sheetPanel || sheetPanel.style.display === 'none')) trigger.style.display = '';
         
         // Render header with visible columns
         renderDriversHeader();
@@ -2856,8 +2856,8 @@
         }).join('');
     }
 
-    // ── Inline Add Row (Monday.com style — full-width, all fields) ──
-    const INLINE_FIELDS = [
+    // ── Inline Sheet Add (Google Sheets style) ────────────────────
+    const DRIVER_SHEET_COLS = [
         { key: 'firstName', label: 'First Name', type: 'text', placeholder: 'First name', required: true },
         { key: 'lastName', label: 'Last Name', type: 'text', placeholder: 'Last name' },
         { key: 'phone', label: 'Phone', type: 'text', placeholder: '(555) 123-4567' },
@@ -2879,113 +2879,257 @@
         { key: 'notes', label: 'Notes', type: 'text', placeholder: 'Notes' }
     ];
 
-    function buildInlineAddRow() {
-        const tbody = $('driversInlineAdd');
-        const trigger = $('driverAddTrigger');
-        if (!tbody) return;
-        tbody.innerHTML = '';
+    function buildDriverSheetRow(rowIdx) {
+        const tr = document.createElement('tr');
+        tr.dataset.sheetRow = rowIdx;
+        const numTd = document.createElement('td');
+        numTd.className = 'ds-row-num';
+        numTd.textContent = rowIdx + 1;
+        tr.appendChild(numTd);
 
-        const visibleCols = (state.driverColumns || ALL_DRIVER_COLUMNS.map((c, i) => ({ ...c, visible: c.defaultVisible, order: i }))).filter(c => c.visible);
-        const totalCols = visibleCols.length + 3; // validation + actions + picker
-
-        let fieldsHtml = '';
-        INLINE_FIELDS.forEach(f => {
-            let inputHtml;
-            if (f.type === 'select') {
-                const opts = getDropdownOptions(f.options);
-                inputHtml = `<select data-inline-key="${f.key}">` +
-                    opts.map(o => `<option value="${escapeHtml(o.value)}"${o.value === 'active' ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') +
-                    '</select>';
+        DRIVER_SHEET_COLS.forEach((col, colIdx) => {
+            const td = document.createElement('td');
+            td.className = 'ds-cell';
+            td.dataset.col = col.key;
+            td.dataset.colIdx = colIdx;
+            let input;
+            if (col.type === 'select') {
+                input = document.createElement('select');
+                const opts = getDropdownOptions(col.options);
+                opts.forEach(o => {
+                    const opt = document.createElement('option');
+                    opt.value = o.value;
+                    opt.textContent = o.label;
+                    if (o.value === 'active') opt.selected = true;
+                    input.appendChild(opt);
+                });
             } else {
-                inputHtml = `<input type="${f.type}" data-inline-key="${f.key}"${f.placeholder ? ' placeholder="' + escapeHtml(f.placeholder) + '"' : ''}${f.maxlength ? ' maxlength="' + f.maxlength + '"' : ''}>`;
+                input = document.createElement('input');
+                input.type = col.type;
+                if (col.placeholder) input.placeholder = col.placeholder;
+                if (col.maxlength) input.maxLength = col.maxlength;
             }
-            fieldsHtml += `<div class="inline-field${f.required ? ' required' : ''}">
-                <label>${escapeHtml(f.label)}</label>${inputHtml}</div>`;
+            input.dataset.key = col.key;
+            input.className = 'ds-input';
+            td.appendChild(input);
+            tr.appendChild(td);
         });
 
-        const html = `<tr class="inline-add-row"><td colspan="${totalCols}">
-            <div class="inline-add-grid">${fieldsHtml}</div>
-            <div class="inline-add-bar">
-                <span class="inline-add-hint">Tab between fields &middot; Enter to save &middot; Esc to cancel</span>
-                <div class="inline-actions">
-                    <button class="inline-cancel-btn" id="inlineCancelDriver" title="Cancel">Cancel</button>
-                    <button class="inline-save-btn" id="inlineSaveDriver" title="Save driver" disabled>
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>
-                        Save
-                    </button>
-                </div>
-            </div>
-        </td></tr>`;
-
-        tbody.innerHTML = html;
-        if (trigger) trigger.style.display = 'none';
-
-        // Focus first input
-        const first = tbody.querySelector('input[type="text"]');
-        if (first) setTimeout(() => first.focus(), 50);
-
-        // Enable save when firstName has a value
-        const saveBtn = $('inlineSaveDriver');
-        tbody.addEventListener('input', () => {
-            const fn = tbody.querySelector('[data-inline-key="firstName"]');
-            if (saveBtn && fn) saveBtn.disabled = !fn.value.trim();
+        const delTd = document.createElement('td');
+        delTd.className = 'ds-row-del';
+        delTd.innerHTML = '<button class="ds-del-btn" title="Remove row">&times;</button>';
+        delTd.querySelector('button').addEventListener('click', () => {
+            tr.remove();
+            renumberDriverSheetRows();
+            updateDriverSheetCount();
         });
-
-        // Keyboard nav
-        tbody.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (saveBtn && !saveBtn.disabled) saveInlineDriver();
-            }
-            if (e.key === 'Escape') {
-                e.preventDefault();
-                cancelInlineAdd();
-            }
-        });
-
-        // Button handlers
-        saveBtn.addEventListener('click', () => saveInlineDriver());
-        $('inlineCancelDriver').addEventListener('click', () => cancelInlineAdd());
+        tr.appendChild(delTd);
+        return tr;
     }
 
-    function cancelInlineAdd() {
-        const tbody = $('driversInlineAdd');
+    function renumberDriverSheetRows() {
+        const tbody = $('driverSheetBody');
+        if (!tbody) return;
+        tbody.querySelectorAll('tr').forEach((tr, i) => {
+            tr.dataset.sheetRow = i;
+            const num = tr.querySelector('.ds-row-num');
+            if (num) num.textContent = i + 1;
+        });
+    }
+
+    function updateDriverSheetCount() {
+        const countEl = $('driverSheetCount');
+        const saveBtn = $('driverSheetSave');
+        const tbody = $('driverSheetBody');
+        if (!tbody || !countEl) return;
+        const rows = tbody.querySelectorAll('tr');
+        const filled = Array.from(rows).filter(tr => {
+            const fn = tr.querySelector('[data-key="firstName"]');
+            return fn && fn.value.trim();
+        }).length;
+        countEl.textContent = `${filled} of ${rows.length} row${rows.length !== 1 ? 's' : ''}`;
+        if (saveBtn) saveBtn.disabled = filled === 0;
+    }
+
+    function openDriverSheet() {
+        const panel = $('driverSheetPanel');
         const trigger = $('driverAddTrigger');
-        if (tbody) tbody.innerHTML = '';
+        const table = $('driversTable');
+        const empty = $('driversEmpty');
+        if (!panel) return;
+
+        if (table) table.style.display = '';
+        if (empty) empty.style.display = 'none';
+        if (state.drivers.length === 0) renderDriversHeader();
+
+        // Build column headers
+        const thead = panel.querySelector('.driver-sheet-table thead tr');
+        if (thead) {
+            let hHtml = '<th class="ds-row-num">#</th>';
+            DRIVER_SHEET_COLS.forEach(col => {
+                hHtml += `<th${col.required ? ' class="ds-req"' : ''}>${escapeHtml(col.label)}${col.required ? ' *' : ''}</th>`;
+            });
+            hHtml += '<th class="ds-row-del"></th>';
+            thead.innerHTML = hHtml;
+        }
+
+        const tbody = $('driverSheetBody');
+        tbody.innerHTML = '';
+        for (let i = 0; i < 3; i++) tbody.appendChild(buildDriverSheetRow(i));
+
+        panel.style.display = '';
+        if (trigger) trigger.style.display = 'none';
+        updateDriverSheetCount();
+
+        const first = tbody.querySelector('.ds-input');
+        if (first) setTimeout(() => first.focus(), 50);
+    }
+
+    function closeDriverSheet() {
+        const panel = $('driverSheetPanel');
+        const trigger = $('driverAddTrigger');
+        if (panel) panel.style.display = 'none';
         if (trigger) trigger.style.display = '';
     }
 
-    async function saveInlineDriver() {
-        const tbody = $('driversInlineAdd');
+    function addDriverSheetRow() {
+        const tbody = $('driverSheetBody');
         if (!tbody) return;
-        const payload = {};
-        tbody.querySelectorAll('[data-inline-key]').forEach(el => {
-            const key = el.dataset.inlineKey;
-            let val = el.value.trim();
-            if (key === 'cdlState') val = val.toUpperCase();
-            payload[key] = val;
+        const idx = tbody.querySelectorAll('tr').length;
+        const tr = buildDriverSheetRow(idx);
+        tbody.appendChild(tr);
+        updateDriverSheetCount();
+        const first = tr.querySelector('.ds-input');
+        if (first) first.focus();
+        tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    async function saveDriverSheet() {
+        const tbody = $('driverSheetBody');
+        if (!tbody) return;
+        const payloads = [];
+
+        tbody.querySelectorAll('tr').forEach(tr => {
+            const data = {};
+            tr.querySelectorAll('.ds-input').forEach(input => {
+                let val = input.value.trim();
+                if (input.dataset.key === 'cdlState') val = val.toUpperCase();
+                if (val) data[input.dataset.key] = val;
+            });
+            if (data.firstName) {
+                data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                if (!data.status) data.status = 'active';
+                payloads.push(data);
+            }
         });
 
-        if (!payload.firstName) {
-            showMsg('First name is required', true);
+        if (payloads.length === 0) {
+            showMsg('At least one driver needs a first name', true);
             return;
         }
 
-        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-        payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-        if (!payload.status) payload.status = 'active';
-
         try {
-            await col('drivers').add(payload);
-            showMsg('Driver added');
+            const batch = firebase.firestore().batch();
+            payloads.forEach(p => {
+                const ref = col('drivers').doc();
+                batch.set(ref, p);
+            });
+            await batch.commit();
+            showMsg(`${payloads.length} driver${payloads.length > 1 ? 's' : ''} added`);
+            closeDriverSheet();
             await loadDrivers();
             updateOverview();
-            // Reopen inline add for quick successive entry
-            setTimeout(() => buildInlineAddRow(), 100);
         } catch (err) {
-            console.error('Inline add driver error:', err);
-            showMsg('Error adding driver', true);
+            console.error('Save driver sheet error:', err);
+            showMsg('Error saving drivers', true);
         }
+    }
+
+    function handleDriverSheetPaste(e) {
+        const clipText = (e.clipboardData || window.clipboardData).getData('text');
+        if (!clipText || !clipText.includes('\t')) return;
+        e.preventDefault();
+
+        const target = e.target;
+        if (!target.classList.contains('ds-input')) return;
+        const td = target.closest('td');
+        const tr = target.closest('tr');
+        const tbody = $('driverSheetBody');
+        if (!td || !tr || !tbody) return;
+
+        const startColIdx = parseInt(td.dataset.colIdx) || 0;
+        const rows = clipText.split(/\r?\n/).filter(r => r.trim());
+        const allRows = Array.from(tbody.querySelectorAll('tr'));
+        const startRowIdx = allRows.indexOf(tr);
+
+        rows.forEach((rowText, rOffset) => {
+            const cells = rowText.split('\t');
+            const rowIdx = startRowIdx + rOffset;
+            while (rowIdx >= tbody.querySelectorAll('tr').length) {
+                const newIdx = tbody.querySelectorAll('tr').length;
+                tbody.appendChild(buildDriverSheetRow(newIdx));
+            }
+            const targetRow = tbody.querySelectorAll('tr')[rowIdx];
+            const inputs = Array.from(targetRow.querySelectorAll('.ds-input'));
+            cells.forEach((val, cOffset) => {
+                const colIdx = startColIdx + cOffset;
+                if (colIdx < inputs.length) {
+                    const input = inputs[colIdx];
+                    const clean = val.trim();
+                    if (input.type === 'date' && clean) {
+                        input.value = parseFlexDate(clean);
+                    } else {
+                        input.value = clean;
+                    }
+                }
+            });
+        });
+        updateDriverSheetCount();
+    }
+
+    function parseFlexDate(str) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+        const mdy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (mdy) return `${mdy[3]}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
+        const mdy2 = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+        if (mdy2) {
+            const y = parseInt(mdy2[3]) > 50 ? '19' + mdy2[3] : '20' + mdy2[3];
+            return `${y}-${mdy2[1].padStart(2,'0')}-${mdy2[2].padStart(2,'0')}`;
+        }
+        return '';
+    }
+
+    function initDriverSheetEvents() {
+        const tbody = $('driverSheetBody');
+        if (!tbody) return;
+
+        tbody.addEventListener('input', () => updateDriverSheetCount());
+        tbody.addEventListener('paste', handleDriverSheetPaste);
+
+        tbody.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { e.preventDefault(); closeDriverSheet(); }
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const input = e.target;
+                if (!input.classList.contains('ds-input')) return;
+                const td = input.closest('td');
+                const tr = input.closest('tr');
+                if (!td || !tr) return;
+                const colIdx = td.dataset.colIdx;
+                const nextRow = tr.nextElementSibling;
+                if (nextRow) {
+                    const next = nextRow.querySelector(`td[data-col-idx="${colIdx}"] .ds-input`);
+                    if (next) next.focus();
+                } else {
+                    addDriverSheetRow();
+                }
+            }
+        });
+
+        $('driverSheetAddRow').addEventListener('click', () => addDriverSheetRow());
+        $('driverSheetSave').addEventListener('click', () => saveDriverSheet());
+        $('driverSheetCancel').addEventListener('click', () => closeDriverSheet());
     }
 
     async function loadDriverColumnPrefs() {
@@ -3173,15 +3317,10 @@
     }
 
     function initDriverForm() {
-        $('addDriverBtn').addEventListener('click', () => buildInlineAddRow());
-        $('addFirstDriver').addEventListener('click', () => {
-            // Show table even if empty so inline row appears
-            $('driversTable').style.display = '';
-            $('driversEmpty').style.display = 'none';
-            renderDriversHeader();
-            buildInlineAddRow();
-        });
-        $('driverInlineAddBtn').addEventListener('click', () => buildInlineAddRow());
+        $('addDriverBtn').addEventListener('click', () => openDriverSheet());
+        $('addFirstDriver').addEventListener('click', () => openDriverSheet());
+        $('driverInlineAddBtn').addEventListener('click', () => openDriverSheet());
+        initDriverSheetEvents();
         $('closeDriverModal').addEventListener('click', () => $('driverModal').classList.add('hidden'));
         $('cancelDriver').addEventListener('click', () => $('driverModal').classList.add('hidden'));
 
@@ -4449,7 +4588,7 @@
         toggleDriverColumn,
         addTruck: () => openSheetModal('truck'),
         addTrailer: () => openSheetModal('trailer'),
-        addDriver: () => buildInlineAddRow()
+        addDriver: () => openDriverSheet()
     };
 
     // Start when DOM is ready

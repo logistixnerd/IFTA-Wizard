@@ -990,8 +990,29 @@
                                     </tr>
                                 </thead>
                                 <tbody id="driversTableBody"></tbody>
-                                <tbody id="driversInlineAdd"></tbody>
                             </table>
+                            <!-- Inline Sheet Panel (Google Sheets style) -->
+                            <div id="driverSheetPanel" class="driver-sheet-panel" style="display:none;">
+                                <div class="driver-sheet-toolbar">
+                                    <span class="driver-sheet-title">Add Drivers</span>
+                                    <span class="driver-sheet-count" id="driverSheetCount">0 of 3 rows</span>
+                                    <span class="driver-sheet-hint">Tab between cells &middot; Paste from Excel / Sheets &middot; Enter &#8595; next row &middot; Esc to close</span>
+                                    <div class="driver-sheet-actions">
+                                        <button class="ds-cancel-btn" id="driverSheetCancel">Cancel</button>
+                                        <button class="ds-save-btn" id="driverSheetSave" disabled>Save All</button>
+                                    </div>
+                                </div>
+                                <div class="driver-sheet-scroll">
+                                    <table class="driver-sheet-table">
+                                        <thead><tr><!-- built by JS --></tr></thead>
+                                        <tbody id="driverSheetBody"></tbody>
+                                    </table>
+                                </div>
+                                <button class="ds-add-row-btn" id="driverSheetAddRow">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                    Add row
+                                </button>
+                            </div>
                             <div class="inline-add-trigger" id="driverAddTrigger">
                                 <button class="inline-add-btn" id="driverInlineAddBtn">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
