@@ -2834,6 +2834,28 @@
             }
         },
         {
+            key: 'docs',
+            label: 'Docs',
+            defaultVisible: true,
+            locked: false,
+            render: (d) => {
+                const types = Array.isArray(d.docTypes) ? d.docTypes : [];
+                const count = d.docCount || 0;
+                const KEY_DOCS = ['cdl', 'medical'];
+                if (count === 0) {
+                    return '<span class="doc-status doc-status-none" title="No documents uploaded"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> <span class="doc-status-label">None</span></span>';
+                }
+                const missing = KEY_DOCS.filter(k => !types.includes(k));
+                let cls = 'doc-status-ok';
+                let tip = count + ' doc' + (count !== 1 ? 's' : '') + ' uploaded';
+                if (missing.length > 0) {
+                    cls = missing.length === KEY_DOCS.length ? 'doc-status-warn' : 'doc-status-partial';
+                    tip += ' \u2022 Missing: ' + missing.map(k => DOC_TYPE_LABELS[k] || k).join(', ');
+                }
+                return `<span class="doc-status ${cls}" title="${escapeHtml(tip)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> <span class="doc-status-label">${count}</span></span>`;
+            }
+        },
+        {
             key: 'status',
             label: 'Status',
             defaultVisible: true,
@@ -3587,10 +3609,8 @@
             };
             // Save to Firestore driver subcollection
             await col('drivers').doc(driverId).collection('documents').add(docEntry);
-            // Update docs array on driver record for quick access
-            await col('drivers').doc(driverId).update({
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
+            // Sync doc summary on driver record for table indicators
+            await syncDriverDocSummary(driverId);
             if (uploading) uploading.classList.add('hidden');
             if (bar) bar.style.width = '0%';
             showMsg('Document uploaded');
@@ -3611,8 +3631,21 @@
             if (err.code !== 'storage/object-not-found') console.warn('Storage delete warning:', err);
         }
         await col('drivers').doc(driverId).collection('documents').doc(docId).delete();
-        await col('drivers').doc(driverId).update({ updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        await syncDriverDocSummary(driverId);
         showMsg('Document removed');
+    }
+
+    async function syncDriverDocSummary(driverId) {
+        const docs = await loadDriverDocs(driverId);
+        const types = [...new Set(docs.map(d => d.type).filter(Boolean))];
+        await col('drivers').doc(driverId).update({
+            docTypes: types,
+            docCount: docs.length,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        // Update local state
+        const driver = state.drivers.find(d => d.id === driverId);
+        if (driver) { driver.docTypes = types; driver.docCount = docs.length; }
     }
 
     async function loadDriverDocs(driverId) {

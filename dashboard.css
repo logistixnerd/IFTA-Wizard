@@ -4008,6 +4008,53 @@ th.col-validation {
     color: #9ca3af;
 }
 
+/* ── Document Status Indicators ── */
+.doc-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 2px 7px 2px 5px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: default;
+    transition: opacity 0.15s ease;
+}
+
+.doc-status svg {
+    flex-shrink: 0;
+}
+
+.doc-status-label {
+    font-size: 0.72rem;
+}
+
+.doc-status-none {
+    color: #9ca3af;
+    background: rgba(156, 163, 175, 0.08);
+}
+.doc-status-none svg { stroke: #9ca3af; }
+
+.doc-status-ok {
+    color: #059669;
+    background: rgba(5, 150, 105, 0.08);
+}
+.doc-status-ok svg { stroke: #059669; }
+
+.doc-status-partial {
+    color: #d97706;
+    background: rgba(217, 119, 6, 0.08);
+}
+.doc-status-partial svg { stroke: #d97706; }
+
+.doc-status-warn {
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.08);
+}
+.doc-status-warn svg { stroke: #dc2626; }
+
 /* Row-level status stripe on left */
 tr.row-status-terminated {
     opacity: 0.55;
