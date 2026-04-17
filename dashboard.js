@@ -4565,7 +4565,7 @@
         return ext === 'xlsx' || ext === 'xls' ? 'excel' : 'csv';
     }
 
-    async function parseFileToRows(file) {
+    async function parseFileToRows(file, importType) {
         const type = detectFileType(file);
         console.log('[Import] File:', file.name, 'MIME:', file.type, 'Detected:', type, 'Size:', file.size);
         let rows;
@@ -4573,7 +4573,7 @@
         // Primary parser based on detected type
         try {
             if (type === 'pdf') rows = await parsePdfToRows(file);
-            else if (type === 'excel') rows = await parseExcelToRows(file);
+            else if (type === 'excel') rows = await parseExcelToRows(file, importType);
             else rows = await parseCsvToRows(file);
         } catch (e) { console.warn('[Import] Primary parser failed:', e); }
 
@@ -4584,7 +4584,7 @@
         if (type !== 'excel') {
             try {
                 console.log('[Import] Falling back to Excel parser');
-                rows = await parseExcelToRows(file);
+                rows = await parseExcelToRows(file, importType);
                 if (rows && rows.length >= 2) return rows;
             } catch (e) { console.warn('[Import] Excel fallback failed:', e); }
         }
@@ -4605,7 +4605,7 @@
         if (!file) return;
         showMsg('Reading file\u2026');
         try {
-            let rows = await parseFileToRows(file);
+            let rows = await parseFileToRows(file, 'truck');
             if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
             const config = SHEET_CONFIGS.truck;
             const colMap = buildSmartColumnMap(rows[0], config.csvAliases);
@@ -4659,7 +4659,7 @@
         if (!file) return;
         showMsg('Reading file\u2026');
         try {
-            let rows = await parseFileToRows(file);
+            let rows = await parseFileToRows(file, 'trailer');
             if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
             const config = SHEET_CONFIGS.trailer;
             const colMap = buildSmartColumnMap(rows[0], config.csvAliases);
@@ -4876,7 +4876,7 @@
             if (ext === 'pdf') {
                 rows = await parsePdfToRows(file);
             } else if (ext === 'xlsx' || ext === 'xls') {
-                rows = await parseExcelToRows(file);
+                rows = await parseExcelToRows(file, 'driver');
             } else {
                 rows = await parseCsvToRows(file);
             }
@@ -5110,14 +5110,78 @@
         });
     }
 
-    async function parseExcelToRows(file) {
+    async function parseExcelToRows(file, importType) {
         if (typeof XLSX === 'undefined') { showMsg('Excel library not loaded', true); return null; }
         const data = await file.arrayBuffer();
         const wb = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd' });
-        const ws = wb.Sheets[wb.SheetNames[0]];
+
+        let ws;
+        if (wb.SheetNames.length > 1 && importType) {
+            ws = pickBestSheet(wb, importType);
+            console.log('[Import] Multi-sheet workbook — picked sheet:', ws.__sheetName || '(best match)');
+        } else {
+            ws = wb.Sheets[wb.SheetNames[0]];
+        }
+
         const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
         // Filter out completely empty rows
         return json.filter(r => r.some(c => c !== null && c !== undefined && c.toString().trim() !== ''));
+    }
+
+    // Score each sheet in a workbook and return the best match for the given import type
+    function pickBestSheet(wb, importType) {
+        const sheetKeywords = {
+            driver: {
+                sheetNames: ['driver', 'drivers', 'employee', 'employees', 'personnel', 'staff', 'roster'],
+                headers: ['name', 'firstname', 'lastname', 'drivername', 'cdl', 'licensenumber',
+                           'phone', 'email', 'hiredate', 'dob', 'endorsements', 'medicalcard',
+                           'emergencycontact', 'drugtest', 'cdlstate', 'cdlexp', 'cdlclass', 'driver']
+            },
+            truck: {
+                sheetNames: ['truck', 'trucks', 'vehicle', 'vehicles', 'unit', 'units', 'fleet', 'equipment', 'tractor', 'tractors'],
+                headers: ['vin', 'make', 'model', 'year', 'plate', 'platenumber', 'unit', 'unitnumber',
+                           'mileage', 'odometer', 'fueltype', 'grossweight', 'dotinspection']
+            },
+            trailer: {
+                sheetNames: ['trailer', 'trailers'],
+                headers: ['vin', 'make', 'model', 'year', 'plate', 'platenumber', 'unit', 'unitnumber',
+                           'trailertype', 'length', 'axles', 'dotinspection']
+            }
+        };
+
+        const kw = sheetKeywords[importType] || sheetKeywords.driver;
+        let bestSheet = wb.Sheets[wb.SheetNames[0]];
+        let bestScore = -1;
+
+        for (const sheetName of wb.SheetNames) {
+            let score = 0;
+            const cleanName = sheetName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            // Score sheet name match (high weight)
+            if (kw.sheetNames.some(k => cleanName === k)) score += 10;
+            else if (kw.sheetNames.some(k => cleanName.includes(k))) score += 5;
+
+            // Score header matches
+            const ws = wb.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+            if (rows.length > 0) {
+                const headerRow = rows[0].map(h => (h || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
+                const headerMatches = headerRow.filter(h => h && kw.headers.some(k => h.includes(k) || k.includes(h))).length;
+                score += headerMatches * 2;
+
+                // Small bonus for having data rows
+                if (rows.length > 1) score += 1;
+            }
+
+            console.log('[Import] Sheet "' + sheetName + '" score for ' + importType + ':', score);
+            if (score > bestScore) {
+                bestScore = score;
+                bestSheet = ws;
+                bestSheet.__sheetName = sheetName;
+            }
+        }
+
+        return bestSheet;
     }
 
     async function parsePdfToRows(file) {
