@@ -4362,7 +4362,6 @@
             'text/csv',
             'application/vnd.ms-excel',
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'application/pdf',
             'text/plain',
             'text/tab-separated-values'
         ]
@@ -4530,7 +4529,7 @@
             dropdown.remove();
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = '.csv,.tsv,.txt,.xlsx,.xls,.pdf';
+            input.accept = '.csv,.tsv,.txt,.xlsx,.xls';
             input.addEventListener('change', (e) => smartImportFn(e.target.files[0]));
             input.click();
         });
