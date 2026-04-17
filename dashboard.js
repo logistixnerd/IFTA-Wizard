@@ -5118,44 +5118,101 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         const data = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data }).promise;
-        const allText = [];
+
+        // Extract text items with position info across all pages
+        const allItems = [];
         for (let p = 1; p <= pdf.numPages; p++) {
             const page = await pdf.getPage(p);
             const content = await page.getTextContent();
-            const items = content.items.map(i => i.str);
-            allText.push(items.join(' '));
+            const vp = page.getViewport({ scale: 1 });
+            content.items.forEach(item => {
+                if (!item.str || !item.str.trim()) return;
+                // Convert PDF coords (bottom-left origin) to top-left origin
+                const y = vp.height - item.transform[5];
+                const x = item.transform[4];
+                allItems.push({ text: item.str.trim(), x, y, page: p });
+            });
         }
-        // Try to detect table structure from the text
-        const fullText = allText.join('\n');
-        const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
 
-        // Heuristic: find the line most likely to be a header (has multiple known keywords)
-        const tableKeywords = ['name', 'first', 'last', 'cdl', 'license', 'phone', 'email', 'driver', 'dob', 'hire', 'status', 'unit', 'vin', 'plate', 'make', 'model', 'year', 'type', 'fuel', 'trailer', 'truck', 'vehicle', 'number', 'registration', 'insurance', 'inspection', 'expiration', 'date'];
-        let headerIdx = -1, bestScore = 0;
-        lines.forEach((line, i) => {
-            const lower = line.toLowerCase();
-            const score = tableKeywords.filter(kw => lower.includes(kw)).length;
-            if (score > bestScore) { bestScore = score; headerIdx = i; }
-        });
-
-        if (headerIdx === -1 || bestScore < 2) {
-            // Fallback: try splitting by consistent whitespace
-            showMsg('Could not detect table structure in PDF. Try Excel or CSV instead.', true);
+        if (allItems.length === 0) {
+            console.warn('[PDF] No text items extracted');
             return null;
         }
 
-        // Split header and data lines by multiple spaces or tabs
-        const splitLine = (line) => line.split(/\s{2,}|\t/).map(c => c.trim()).filter(Boolean);
-        const header = splitLine(lines[headerIdx]);
+        // Group items into rows by Y-coordinate (within tolerance)
+        allItems.sort((a, b) => a.page - b.page || a.y - b.y || a.x - b.x);
+        const yTolerance = 5;
+        const rowGroups = [];
+        let currentGroup = [allItems[0]];
+
+        for (let i = 1; i < allItems.length; i++) {
+            const item = allItems[i];
+            const prev = currentGroup[currentGroup.length - 1];
+            if (item.page === prev.page && Math.abs(item.y - prev.y) <= yTolerance) {
+                currentGroup.push(item);
+            } else {
+                rowGroups.push(currentGroup);
+                currentGroup = [item];
+            }
+        }
+        rowGroups.push(currentGroup);
+
+        // Convert each row group into an array of cell strings (sorted by X)
+        const lines = rowGroups.map(group => {
+            group.sort((a, b) => a.x - b.x);
+            // Detect column gaps: if X gap > 15px, treat as separate cell
+            const cells = [];
+            let cell = group[0].text;
+            for (let i = 1; i < group.length; i++) {
+                const gap = group[i].x - (group[i - 1].x + group[i - 1].text.length * 4);
+                if (gap > 15) {
+                    cells.push(cell.trim());
+                    cell = group[i].text;
+                } else {
+                    cell += ' ' + group[i].text;
+                }
+            }
+            cells.push(cell.trim());
+            return cells.filter(Boolean);
+        }).filter(row => row.length > 0);
+
+        console.log('[PDF] Extracted', lines.length, 'lines. First 3:', JSON.stringify(lines.slice(0, 3)));
+
+        if (lines.length < 2) return null;
+
+        // Find header row
+        const tableKeywords = ['name', 'first', 'last', 'cdl', 'license', 'phone', 'email', 'driver', 'dob', 'hire', 'status', 'unit', 'vin', 'plate', 'make', 'model', 'year', 'type', 'fuel', 'trailer', 'truck', 'vehicle', 'number', 'registration', 'insurance', 'inspection', 'expiration', 'date'];
+        let headerIdx = -1, bestScore = 0;
+        lines.forEach((cells, i) => {
+            const joined = cells.join(' ').toLowerCase();
+            const score = tableKeywords.filter(kw => joined.includes(kw)).length;
+            if (score > bestScore) { bestScore = score; headerIdx = i; }
+        });
+
+        console.log('[PDF] Best header at line', headerIdx, 'score', bestScore, headerIdx >= 0 ? JSON.stringify(lines[headerIdx]) : '');
+
+        if (headerIdx === -1 || bestScore < 2) {
+            // Fallback: assume first row with 2+ cells is header
+            headerIdx = lines.findIndex(cells => cells.length >= 2);
+            if (headerIdx === -1) {
+                showMsg('Could not detect table structure in PDF. Try Excel or CSV instead.', true);
+                return null;
+            }
+            console.log('[PDF] Using fallback header at line', headerIdx);
+        }
+
+        const header = lines[headerIdx];
+        const headerLen = header.length;
         const rows = [header];
 
         for (let i = headerIdx + 1; i < lines.length; i++) {
-            const cells = splitLine(lines[i]);
-            if (cells.length >= Math.max(2, header.length - 2)) {
-                rows.push(cells);
+            // Accept rows with reasonable column count (within +/- 2 of header)
+            if (lines[i].length >= Math.max(2, headerLen - 2) && lines[i].length <= headerLen + 2) {
+                rows.push(lines[i]);
             }
         }
 
+        console.log('[PDF] Final result:', rows.length, 'rows (incl header)');
         return rows.length >= 2 ? rows : null;
     }
 
