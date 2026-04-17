@@ -5035,8 +5035,8 @@
             let idx = cleaned.findIndex(h => names.includes(h));
             if (idx !== -1) { colMap[field] = idx; continue; }
 
-            // Substring match — header contains alias or alias contains header
-            idx = cleaned.findIndex(h => h && names.some(n => h.includes(n) || n.includes(h)));
+            // Substring match — but skip indices already claimed
+            idx = cleaned.findIndex((h, i) => h && !Object.values(colMap).includes(i) && names.some(n => h.includes(n) || n.includes(h)));
             if (idx !== -1) { colMap[field] = idx; continue; }
 
             // Partial word match for compound headers
