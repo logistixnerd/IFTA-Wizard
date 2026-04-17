@@ -197,6 +197,30 @@
     margin-bottom: 1.25rem;
     transition: all 0.3s ease;
 }
+.company-locked-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    margin-bottom: 1rem;
+    border-radius: 10px;
+    background: rgba(79, 70, 229, 0.04);
+    border: 1px solid rgba(79, 70, 229, 0.12);
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    line-height: 1.4;
+}
+.company-locked-notice svg {
+    flex-shrink: 0;
+    color: var(--primary);
+    opacity: 0.6;
+}
+.company-locked-notice.hidden { display: none; }
+.field-locked {
+    background: rgba(0, 0, 0, 0.02) !important;
+    color: var(--gray-500) !important;
+    cursor: not-allowed;
+}
 .fmcsa-lookup-bar.fmcsa-lookup-done {
     background: rgba(16, 185, 129, 0.04);
     border-color: rgba(16, 185, 129, 0.15);
