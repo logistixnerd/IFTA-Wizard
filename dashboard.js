@@ -2444,9 +2444,8 @@
 
         if (isCreate) setTimeout(() => $('dpFirstName').focus(), 100);
 
-        // Render summary chips + compliance
+        // Render summary chips
         renderPanelSummary();
-        renderPanelCompliance();
 
         // Clear + load activity feed & tasks
         const notesFeed = $('detailNotesFeed');
