@@ -2634,8 +2634,8 @@
         const days = daysUntilExpiry(dateStr);
         if (days === null) return '';
         if (days < 0) return 'cell-expired';
-        if (days <= 30) return 'cell-expiring-soon';
-        return '';
+        if (days <= 60) return 'cell-expiring-soon';
+        return 'cell-valid';
     }
 
     function formatPhone(raw) {
@@ -2681,7 +2681,8 @@
                 const days = daysUntilExpiry(d.cdlExp);
                 let tag = '';
                 if (days !== null && days < 0) tag = ' <span class="cell-exp-tag expired">Expired</span>';
-                else if (days !== null && days <= 30) tag = ` <span class="cell-exp-tag expiring">${days}d</span>`;
+                else if (days !== null && days <= 60) tag = ` <span class="cell-exp-tag expiring">${days}d</span>`;
+                else if (days !== null) tag = ' <span class="cell-exp-tag valid">Valid</span>';
                 return `<span class="${cls}">${text}</span>${tag}`;
             }
         },
@@ -2697,7 +2698,8 @@
                 const days = daysUntilExpiry(d.medExp);
                 let tag = '';
                 if (days !== null && days < 0) tag = ' <span class="cell-exp-tag expired">Expired</span>';
-                else if (days !== null && days <= 30) tag = ` <span class="cell-exp-tag expiring">${days}d</span>`;
+                else if (days !== null && days <= 60) tag = ` <span class="cell-exp-tag expiring">${days}d</span>`;
+                else if (days !== null) tag = ' <span class="cell-exp-tag valid">Valid</span>';
                 return `<span class="${cls}">${text}</span>${tag}`;
             }
         },

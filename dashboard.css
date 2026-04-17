@@ -3725,6 +3725,11 @@ th.col-validation {
     font-weight: 600;
 }
 
+.cell-valid {
+    color: #059669;
+    font-weight: 500;
+}
+
 /* Expiry micro-tags next to dates */
 .cell-exp-tag {
     display: inline-block;
@@ -3747,6 +3752,11 @@ th.col-validation {
 .cell-exp-tag.expiring {
     background: rgba(217, 119, 6, 0.12);
     color: #d97706;
+}
+
+.cell-exp-tag.valid {
+    background: rgba(5, 150, 105, 0.10);
+    color: #059669;
 }
 
 /* Missing data cell */
