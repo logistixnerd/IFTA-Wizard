@@ -5357,10 +5357,23 @@ input[type="date"].ss-input {
     box-shadow: 0 8px 24px rgba(0,0,0,0.08);
     padding: 6px;
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 2px;
     max-width: 360px;
     min-width: 180px;
+    max-height: 320px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,0,0,0.1) transparent;
+}
+
+.usheet-col-dropdown::-webkit-scrollbar {
+    width: 5px;
+}
+
+.usheet-col-dropdown::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.1);
+    border-radius: 3px;
 }
 
 .usheet-col-opt {
@@ -5398,25 +5411,32 @@ input[type="date"].ss-input {
 .usheet-body {
     flex: 1;
     min-height: 0;
-    overflow: hidden;
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,0,0,0.12) transparent;
+}
+
+.usheet-body::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+}
+
+.usheet-body::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.usheet-body::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.12);
+    border-radius: 4px;
+}
+
+.usheet-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(0,0,0,0.22);
 }
 
 .usheet-wrap {
     width: 100%;
-    height: 100%;
-    overflow: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0,0,0,0.1) transparent;
-}
-
-.usheet-wrap::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-}
-
-.usheet-wrap::-webkit-scrollbar-thumb {
-    background: rgba(0,0,0,0.1);
-    border-radius: 3px;
+    min-width: max-content;
 }
 
 .usheet-table {
