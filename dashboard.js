@@ -1535,7 +1535,7 @@
 
         // Toggle placeholder based on type
         typeSelect.addEventListener('change', () => {
-            input.placeholder = typeSelect.value === 'mc' ? 'Enter MC number' : 'Enter DOT number';
+            input.placeholder = typeSelect.value === 'mc' ? 'e.g. 123456' : 'e.g. 1234567';
             input.value = '';
             verifyCard.classList.add('hidden');
             pendingFmcsaData = null;
