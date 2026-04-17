@@ -2388,6 +2388,28 @@
         const panel = $('driverDetailPanel');
         panel.classList.toggle('is-create', isCreate);
 
+        // Set section collapse states
+        // New driver: info open, compose collapsed, rest collapsed
+        // Existing driver: info collapsed, compose open, rest open
+        const infoSec = $('detailInfoSection');
+        const composeSec = $('detailComposeSection');
+        const tasksSec = $('detailTasksSection');
+        const feedSec = $('detailFeedSection');
+        const docsSec = $('detailDocsSection');
+        if (isCreate) {
+            infoSec?.classList.remove('collapsed');
+            composeSec?.classList.add('collapsed');
+            tasksSec?.classList.add('collapsed');
+            feedSec?.classList.add('collapsed');
+            docsSec?.classList.add('collapsed');
+        } else {
+            infoSec?.classList.add('collapsed');
+            composeSec?.classList.remove('collapsed');
+            tasksSec?.classList.remove('collapsed');
+            feedSec?.classList.remove('collapsed');
+            docsSec?.classList.add('collapsed');
+        }
+
         $('driverDetailBackdrop').classList.remove('hidden');
         panel.classList.remove('hidden');
         detailPanelOpen = true;

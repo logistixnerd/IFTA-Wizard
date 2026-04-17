@@ -2594,57 +2594,7 @@
         </div>
 
         <div class="detail-panel-body">
-            <!-- Compose -->
-            <div class="detail-section dp-compose-section">
-                <div class="dp-compose">
-                    <textarea id="detailNoteText" class="dp-compose-input" placeholder="Log a note, report an issue, or create a task..." rows="3"></textarea>
-                    <div class="dp-compose-bar">
-                        <div class="dp-compose-selects">
-                            <select id="detailNoteType" class="dp-compose-select">
-                                <option value="note">Note</option>
-                                <option value="incident">Incident</option>
-                                <option value="safety">Safety</option>
-                                <option value="maintenance">Maintenance</option>
-                                <option value="training">Training</option>
-                                <option value="inspection">Inspection</option>
-                            </select>
-                            <select id="detailNotePriority" class="dp-compose-select">
-                                <option value="normal">Normal</option>
-                                <option value="high">High</option>
-                                <option value="urgent">Urgent</option>
-                            </select>
-                        </div>
-                        <button type="button" class="dp-compose-post" id="detailNotePost" disabled>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                            Post
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Activity Feed -->
-            <div class="detail-section dp-section-collapsible" id="detailFeedSection">
-                <button class="dp-section-toggle" data-target="detailFeedSection" type="button" aria-expanded="true">
-                    <span class="dp-toggle-label">Activity <span class="dp-badge" id="detailNoteCount"></span></span>
-                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div class="dp-collapse-body">
-                    <div class="dp-feed" id="detailNotesFeed"></div>
-                </div>
-            </div>
-
-            <!-- Open Tasks -->
-            <div class="detail-section dp-section-collapsible" id="detailTasksSection">
-                <button class="dp-section-toggle" data-target="detailTasksSection" type="button" aria-expanded="true">
-                    <span class="dp-toggle-label">Open Tasks <span class="dp-badge" id="detailTaskCount"></span></span>
-                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
-                </button>
-                <div class="dp-collapse-body">
-                    <div class="dp-feed" id="detailTasksFeed"></div>
-                </div>
-            </div>
-
-            <!-- Driver Information (collapsed by default) -->
+            <!-- Driver Information -->
             <div class="detail-section dp-section-collapsible collapsed" id="detailInfoSection">
                 <button class="dp-section-toggle" data-target="detailInfoSection" type="button" aria-expanded="false">
                     <span class="dp-toggle-label">Driver Information</span>
@@ -2761,6 +2711,62 @@
                             <textarea class="detail-field-input" id="dpNotes" rows="2" placeholder="Notes"></textarea>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- Compose -->
+            <div class="detail-section dp-section-collapsible" id="detailComposeSection">
+                <button class="dp-section-toggle" data-target="detailComposeSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Compose</span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="dp-compose">
+                        <textarea id="detailNoteText" class="dp-compose-input" placeholder="Log a note, report an issue, or create a task..." rows="3"></textarea>
+                        <div class="dp-compose-bar">
+                            <div class="dp-compose-selects">
+                                <select id="detailNoteType" class="dp-compose-select">
+                                    <option value="note">Note</option>
+                                    <option value="incident">Incident</option>
+                                    <option value="safety">Safety</option>
+                                    <option value="maintenance">Maintenance</option>
+                                    <option value="training">Training</option>
+                                    <option value="inspection">Inspection</option>
+                                </select>
+                                <select id="detailNotePriority" class="dp-compose-select">
+                                    <option value="normal">Normal</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </select>
+                            </div>
+                            <button type="button" class="dp-compose-post" id="detailNotePost" disabled>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                Post
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Open Tasks -->
+            <div class="detail-section dp-section-collapsible" id="detailTasksSection">
+                <button class="dp-section-toggle" data-target="detailTasksSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Open Tasks <span class="dp-badge" id="detailTaskCount"></span></span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="dp-feed" id="detailTasksFeed"></div>
+                </div>
+            </div>
+
+            <!-- Activity Feed -->
+            <div class="detail-section dp-section-collapsible" id="detailFeedSection">
+                <button class="dp-section-toggle" data-target="detailFeedSection" type="button" aria-expanded="true">
+                    <span class="dp-toggle-label">Activity <span class="dp-badge" id="detailNoteCount"></span></span>
+                    <svg class="dp-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+                <div class="dp-collapse-body">
+                    <div class="dp-feed" id="detailNotesFeed"></div>
                 </div>
             </div>
 
