@@ -4951,8 +4951,8 @@
                     }
                 });
 
-                // Always resolve into firstName + lastName
-                if (!data.firstName) {
+                // Always resolve into single name field
+                if (!data.name) {
                     let fullName = '';
                     if (hasFullName) {
                         fullName = (row[colMap.fullName] || '').toString().trim();
@@ -4963,19 +4963,17 @@
                         fullName = [first, last].filter(Boolean).join(' ');
                     }
                     if (fullName) {
+                        // Flip "Last, First" format
                         if (fullName.includes(',')) {
                             const parts = fullName.split(',').map(p => p.trim()).filter(Boolean);
-                            data.firstName = parts[1] || '';
-                            data.lastName = parts[0] || '';
-                        } else {
-                            const parts = fullName.trim().split(/\s+/);
-                            data.firstName = parts[0] || '';
-                            data.lastName = parts.slice(1).join(' ') || '';
+                            fullName = (parts[1] || '') + ' ' + (parts[0] || '');
                         }
+                        data.name = fullName.trim();
                         hasValue = true;
                     }
                 }
-                delete data.name;
+                delete data.firstName;
+                delete data.lastName;
                 delete data.fullName;
 
                 // Try to match truck by unit number
@@ -4985,7 +4983,7 @@
                     data.truck = match ? match.id : '';
                 }
 
-                if (hasValue && (data.firstName || data.lastName)) {
+                if (hasValue && data.name) {
                     parsed.push(data);
                 }
             }
@@ -5362,8 +5360,7 @@
         },
         driver: {
             cols: [
-                { key: 'firstName', placeholder: 'e.g., John', type: 'text', required: true },
-                { key: 'lastName', placeholder: 'e.g., Smith', type: 'text' },
+                { key: 'name', placeholder: 'e.g., John Smith', type: 'text', required: true },
                 { key: 'phone', placeholder: '(555) 123-4567', type: 'text' },
                 { key: 'cdl', placeholder: 'CDL number', type: 'text' },
                 { key: 'cdlState', placeholder: 'TX', type: 'text', maxlength: 2, pattern: /^[A-Z]{2}$/, warnMsg: 'Invalid state code' },
@@ -5376,7 +5373,7 @@
             ],
             collection: 'drivers',
             label: 'driver',
-            requiredKey: 'firstName',
+            requiredKey: 'name',
             duplicateKey: null,
             modalId: 'multiDriverModal',
             tbodyId: 'multiDriverBody',
@@ -5988,6 +5985,13 @@
                     Object.entries(config.defaults).forEach(([k, v]) => {
                         if (!data[k]) data[k] = v;
                     });
+                }
+                // For drivers: split name into firstName + lastName for Firestore
+                if (type === 'driver' && data.name) {
+                    const parts = data.name.trim().split(/\s+/);
+                    data.firstName = parts[0] || '';
+                    data.lastName = parts.slice(1).join(' ') || '';
+                    delete data.name;
                 }
                 // Uppercase state fields
                 if (data.plateState) data.plateState = data.plateState.toUpperCase();
