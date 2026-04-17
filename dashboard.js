@@ -2369,27 +2369,21 @@
         const panel = $('driverDetailPanel');
         panel.classList.toggle('is-create', isCreate);
 
-        // Toggle section visibility
-        const feedSection = $('detailFeedSection');
-        const tasksSection = $('detailTasksSection');
+        // Toggle section visibility — same layout for new & existing
         const infoSection = $('detailInfoSection');
         const composeSection = $('detailComposeSection');
+        const tasksSection = $('detailTasksSection');
+        const feedSection = $('detailFeedSection');
         const docsSection = $('detailDocsSection');
         if (isCreate) {
-            // New driver: only info open
             if (infoSection) infoSection.classList.remove('collapsed');
-            if (composeSection) composeSection.classList.add('collapsed');
-            if (tasksSection) tasksSection.classList.add('collapsed');
-            if (feedSection) feedSection.classList.add('collapsed');
-            if (docsSection) docsSection.classList.add('collapsed');
         } else {
-            // Existing driver: compose open, everything else collapsed
             if (infoSection) infoSection.classList.add('collapsed');
-            if (composeSection) composeSection.classList.remove('collapsed');
-            if (tasksSection) tasksSection.classList.add('collapsed');
-            if (feedSection) feedSection.classList.add('collapsed');
-            if (docsSection) docsSection.classList.add('collapsed');
         }
+        if (composeSection) composeSection.classList.add('collapsed');
+        if (tasksSection) tasksSection.classList.add('collapsed');
+        if (feedSection) feedSection.classList.add('collapsed');
+        if (docsSection) docsSection.classList.add('collapsed');
 
         $('driverDetailBackdrop').classList.remove('hidden');
         panel.classList.remove('hidden');
