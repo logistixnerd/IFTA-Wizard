@@ -2904,6 +2904,7 @@
             if (!confirm('You have unsaved changes. Discard?')) return;
         }
         modal.classList.add('hidden');
+        $('usheetColDropdown').classList.add('hidden');
         uSheetState.open = false;
         uSheetState.dirty.clear();
     }
@@ -2940,19 +2941,35 @@
         }
 
         // Column picker toggle
-        $('usheetColPicker').addEventListener('click', (e) => {
+        const colPickerBtn = $('usheetColPicker');
+        const colDropdown = $('usheetColDropdown');
+        // Move dropdown to body so it's not clipped by modal overflow
+        document.body.appendChild(colDropdown);
+
+        colPickerBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const dd = $('usheetColDropdown');
-            dd.classList.toggle('hidden');
-            if (!dd.classList.contains('hidden')) {
-                const rect = e.currentTarget.getBoundingClientRect();
-                dd.style.top = (rect.bottom + 4) + 'px';
-                dd.style.left = Math.max(8, rect.right - dd.offsetWidth) + 'px';
+            const wasHidden = colDropdown.classList.contains('hidden');
+            colDropdown.classList.toggle('hidden');
+            if (wasHidden) {
+                const rect = colPickerBtn.getBoundingClientRect();
+                colDropdown.style.top = (rect.bottom + 4) + 'px';
+                // Right-align: position so right edge aligns with button right edge
+                colDropdown.style.left = '';
+                colDropdown.style.right = '';
+                // First place it, then adjust after measuring
+                colDropdown.style.top = (rect.bottom + 4) + 'px';
+                colDropdown.style.left = rect.left + 'px';
+                // After reflow, right-align
+                requestAnimationFrame(() => {
+                    const ddW = colDropdown.offsetWidth;
+                    const left = Math.max(8, rect.right - ddW);
+                    colDropdown.style.left = left + 'px';
+                });
             }
         });
 
         // Column picker change
-        $('usheetColDropdown').addEventListener('change', (e) => {
+        colDropdown.addEventListener('change', (e) => {
             if (e.target.type === 'checkbox') {
                 uToggleCol(uSheetState.type, e.target.value, e.target.checked);
             }
@@ -2960,9 +2977,8 @@
 
         // Close column picker on outside click
         document.addEventListener('click', (e) => {
-            const dd = $('usheetColDropdown');
-            if (dd && !dd.classList.contains('hidden') && !dd.contains(e.target) && e.target !== $('usheetColPicker')) {
-                dd.classList.add('hidden');
+            if (!colDropdown.classList.contains('hidden') && !colDropdown.contains(e.target) && !colPickerBtn.contains(e.target)) {
+                colDropdown.classList.add('hidden');
             }
         });
 
