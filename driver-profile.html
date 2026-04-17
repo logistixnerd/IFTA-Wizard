@@ -50,32 +50,7 @@
             <section class="unit-alert hidden" id="unitAlert"></section>
 
             <section class="unit-grid">
-                <article class="card unit-card dp-collapsible" id="driverDetailsCard">
-                    <button class="card-header dp-collapse-toggle" id="driverDetailsToggle" type="button" aria-expanded="true">
-                        <div>
-                            <p class="eyebrow">Driver details</p>
-                            <h2>Personal summary</h2>
-                        </div>
-                        <svg class="dp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="6 9 12 15 18 9"/></svg>
-                    </button>
-                    <dl class="unit-details-list dp-collapse-body" id="driverDetailsBody">
-                        <div><dt>Full name</dt><dd id="detailName">-</dd></div>
-                        <div><dt>Phone</dt><dd id="detailPhone">-</dd></div>
-                        <div><dt>Email</dt><dd id="detailEmail">-</dd></div>
-                        <div><dt>CDL number</dt><dd id="detailCdl">-</dd></div>
-                        <div><dt>CDL class</dt><dd id="detailCdlClass">-</dd></div>
-                        <div><dt>CDL state</dt><dd id="detailCdlState">-</dd></div>
-                        <div><dt>CDL expiration</dt><dd id="detailCdlExp">-</dd></div>
-                        <div><dt>Medical card exp.</dt><dd id="detailMedExp">-</dd></div>
-                        <div><dt>MVR expiry</dt><dd id="detailMvrExp">-</dd></div>
-                        <div><dt>Last drug test</dt><dd id="detailDrugTestDate">-</dd></div>
-                        <div><dt>TWIC card exp.</dt><dd id="detailTwicExp">-</dd></div>
-                        <div><dt>Restrictions</dt><dd id="detailRestrictions">-</dd></div>
-                        <div><dt>Assigned truck</dt><dd id="detailTruck">-</dd></div>
-                    </dl>
-                </article>
-
-                <!-- ── Report / Task Composer ── -->
+                <!-- ── Report / Task Composer (first for quick access) ── -->
                 <article class="card unit-card unit-card-wide dp-compose-card">
                     <div class="dp-compose-header">
                         <div class="dp-compose-avatar" id="dpComposeAvatar">U</div>
@@ -122,6 +97,48 @@
                     </div>
                 </article>
 
+                <!-- ── Tasks (prominent, right after compose) ── -->
+                <article class="card unit-card unit-card-wide dp-tasks-card">
+                    <div class="card-header card-header-stacked">
+                        <div style="display:flex;align-items:center;gap:0.5rem">
+                            <div>
+                                <p class="eyebrow">Tasks &amp; Issues</p>
+                                <h2>Open items <span class="dp-task-count" id="taskCountBadge"></span></h2>
+                            </div>
+                        </div>
+                        <a href="task-manager.html" class="btn btn-sm btn-primary">View all tasks</a>
+                    </div>
+                    <div class="profile-tasks-list" id="profileTasksList">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </article>
+
+                <!-- ── Driver Details (collapsible, starts collapsed) ── -->
+                <article class="card unit-card dp-collapsible collapsed" id="driverDetailsCard">
+                    <button class="card-header dp-collapse-toggle" id="driverDetailsToggle" type="button" aria-expanded="false">
+                        <div>
+                            <p class="eyebrow">Driver details</p>
+                            <h2>Personal summary</h2>
+                        </div>
+                        <svg class="dp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="6 9 12 15 18 9"/></svg>
+                    </button>
+                    <dl class="unit-details-list dp-collapse-body" id="driverDetailsBody">
+                        <div><dt>Full name</dt><dd id="detailName">-</dd></div>
+                        <div><dt>Phone</dt><dd id="detailPhone">-</dd></div>
+                        <div><dt>Email</dt><dd id="detailEmail">-</dd></div>
+                        <div><dt>CDL number</dt><dd id="detailCdl">-</dd></div>
+                        <div><dt>CDL class</dt><dd id="detailCdlClass">-</dd></div>
+                        <div><dt>CDL state</dt><dd id="detailCdlState">-</dd></div>
+                        <div><dt>CDL expiration</dt><dd id="detailCdlExp">-</dd></div>
+                        <div><dt>Medical card exp.</dt><dd id="detailMedExp">-</dd></div>
+                        <div><dt>MVR expiry</dt><dd id="detailMvrExp">-</dd></div>
+                        <div><dt>Last drug test</dt><dd id="detailDrugTestDate">-</dd></div>
+                        <div><dt>TWIC card exp.</dt><dd id="detailTwicExp">-</dd></div>
+                        <div><dt>Restrictions</dt><dd id="detailRestrictions">-</dd></div>
+                        <div><dt>Assigned truck</dt><dd id="detailTruck">-</dd></div>
+                    </dl>
+                </article>
+
                 <article class="card unit-card unit-card-wide">
                     <div class="card-header card-header-stacked">
                         <div>
@@ -150,19 +167,6 @@
                         </form>
                     </div>
                     <div class="timeline-list" id="historyList"></div>
-                </article>
-
-                <article class="card unit-card">
-                    <div class="card-header card-header-stacked">
-                        <div>
-                            <p class="eyebrow">Tasks</p>
-                            <h2>Open tasks</h2>
-                        </div>
-                        <a href="task-manager.html" class="btn btn-sm btn-primary">View all tasks</a>
-                    </div>
-                    <div class="profile-tasks-list" id="profileTasksList">
-                        <!-- Populated by JavaScript -->
-                    </div>
                 </article>
 
                 <article class="card unit-card">

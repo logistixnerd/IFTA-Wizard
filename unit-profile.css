@@ -8,6 +8,13 @@
 
 body {
     margin: 0;
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 28%),
+        radial-gradient(circle at bottom left, rgba(37, 99, 235, 0.12), transparent 24%),
+        linear-gradient(160deg, #f5fbfa 0%, #f8fafc 42%, #fff7ed 100%);
+    color: var(--unit-ink);
+}
 
 /* ── Collapsible driver details ─── */
 .dp-collapsible { overflow: hidden; }
@@ -50,13 +57,6 @@ body {
     opacity: 0;
     padding-top: 0;
     padding-bottom: 0;
-}
-    min-height: 100vh;
-    background:
-        radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 28%),
-        radial-gradient(circle at bottom left, rgba(37, 99, 235, 0.12), transparent 24%),
-        linear-gradient(160deg, #f5fbfa 0%, #f8fafc 42%, #fff7ed 100%);
-    color: var(--unit-ink);
 }
 
 .unit-page {
@@ -529,6 +529,108 @@ body {
     50%  { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0.08); }
     100% { box-shadow: none; }
 }
+
+/* ── Task count badge ── */
+.dp-task-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+    background: #ef4444;
+    border-radius: 10px;
+    margin-left: 0.35rem;
+    vertical-align: middle;
+}
+
+/* ── Task items ── */
+.dp-tasks-card .profile-tasks-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.dp-task-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    transition: background 0.12s ease;
+}
+.dp-task-item:last-child { border-bottom: none; }
+.dp-task-item:hover { background: rgba(0, 0, 0, 0.015); }
+
+.dp-task-item-top {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.25rem;
+}
+
+.dp-task-type {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-400, #9ca3af);
+}
+
+.dp-task-priority {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+}
+
+.dp-task-overdue {
+    font-size: 0.6rem;
+    font-weight: 800;
+    color: #dc2626;
+    letter-spacing: 0.03em;
+}
+
+.dp-task-text {
+    margin: 0 0 0.35rem;
+    font-size: 0.84rem;
+    font-weight: 500;
+    line-height: 1.45;
+    color: var(--gray-800, #1e293b);
+}
+
+.dp-task-item-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.dp-task-meta {
+    font-size: 0.7rem;
+    color: var(--gray-400, #9ca3af);
+}
+
+.dp-task-status {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.dp-task-more {
+    padding: 0.75rem;
+    margin: 0;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--gray-500, #6b7280);
+}
+.dp-task-more a {
+    color: var(--primary, #4f46e5);
+    font-weight: 600;
+    text-decoration: none;
+}
+.dp-task-more a:hover { text-decoration: underline; }
 
 .photo-card-body {
     padding: 0.85rem;

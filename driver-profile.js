@@ -111,14 +111,6 @@
         $('detailTruck').textContent = d.truck || '-';
 
         document.title = fullName + ' - Driver Profile - IFTA Wizard';
-
-        // Auto-collapse details once filled so user sees compose area
-        const card = document.getElementById('driverDetailsCard');
-        const toggle = document.getElementById('driverDetailsToggle');
-        if (card && toggle) {
-            card.classList.add('collapsed');
-            toggle.setAttribute('aria-expanded', 'false');
-        }
     }
 
     function renderHistory() {
@@ -187,43 +179,55 @@
 
     function renderTasks(tasks) {
         const container = $('profileTasksList');
+        const badge = $('taskCountBadge');
         if (!container) return;
 
         const openTasks = tasks.filter(t => t.status !== 'Resolved');
-        
+
+        // Update count badge
+        if (badge) {
+            badge.textContent = openTasks.length ? openTasks.length : '';
+            badge.style.display = openTasks.length ? '' : 'none';
+        }
+
         if (!openTasks.length) {
-            container.innerHTML = '<p class="empty-state" style="padding: 1rem; margin: 0;">No open tasks</p>';
+            container.innerHTML = '<p class="empty-state" style="padding:1.25rem;margin:0;">No open tasks or issues. Use the compose card above to create one.</p>';
             return;
         }
 
-        container.innerHTML = openTasks.slice(0, 3).map(task => {
+        container.innerHTML = openTasks.slice(0, 8).map(task => {
             const overdue = task.dueDate ? toDate(task.dueDate)?.getTime?.() < Date.now() : false;
-            const dueDate = task.dueDate ? formatDate(task.dueDate) : 'No due date';
+            const created = task.createdAt ? formatDate(task.createdAt) : '';
             const statusColor = getStatusColor(task.status);
-            
+            const priorityColor = getPriorityColor(task.priority);
+            const typeLabel = task.type ? task.type.charAt(0).toUpperCase() + task.type.slice(1) : 'General';
+
             return `
-                <div class="profile-task-item" style="padding: 0.75rem; border-bottom: 1px solid var(--gray-100); display: flex; justify-content: space-between; align-items: center;">
-                    <div style="flex: 1;">
-                        <p style="margin: 0 0 0.25rem; font-weight: 500; color: var(--gray-900); font-size: 0.875rem;">${escapeHtml(task.text.substring(0, 60))}</p>
-                        <p style="margin: 0; font-size: 0.75rem; color: var(--gray-500);">${escapeHtml(dueDate)}${overdue ? ' <span style="color: #dc2626; font-weight: 600;">OVERDUE</span>' : ''}</p>
+                <div class="dp-task-item">
+                    <div class="dp-task-item-top">
+                        <span class="dp-task-type">${escapeHtml(typeLabel)}</span>
+                        ${task.priority && task.priority !== 'normal' ? `<span class="dp-task-priority" style="color:${priorityColor}">${escapeHtml(task.priority.toUpperCase())}</span>` : ''}
+                        ${overdue ? '<span class="dp-task-overdue">OVERDUE</span>' : ''}
                     </div>
-                    <span style="display: inline-block; padding: 0.25rem 0.625rem; background-color: ${statusColor}40; color: ${statusColor}; font-size: 0.75rem; font-weight: 600; border-radius: 3px; margin-left: 1rem; white-space: nowrap;">${escapeHtml(task.status)}</span>
-                </div>
-            `;
+                    <p class="dp-task-text">${escapeHtml(task.text.substring(0, 120))}</p>
+                    <div class="dp-task-item-bottom">
+                        <span class="dp-task-meta">${escapeHtml(created)}${task.createdBy ? ' &middot; ' + escapeHtml(task.createdBy.split('@')[0]) : ''}</span>
+                        <span class="dp-task-status" style="background:${statusColor}18;color:${statusColor}">${escapeHtml(task.status)}</span>
+                    </div>
+                </div>`;
         }).join('');
 
-        if (openTasks.length > 3) {
-            container.innerHTML += `<p style="padding: 0.75rem; margin: 0; text-align: center; color: var(--gray-500); font-size: 0.8rem;">+${openTasks.length - 3} more tasks</p>`;
+        if (openTasks.length > 8) {
+            container.innerHTML += `<p class="dp-task-more">+${openTasks.length - 8} more &mdash; <a href="task-manager.html">view all</a></p>`;
         }
     }
 
     function getStatusColor(status) {
-        const statusMap = {
-            'Open': '#ef4444',
-            'In Progress': '#f59e0b',
-            'Resolved': '#10b981'
-        };
-        return statusMap[status] || '#6b7280';
+        return { 'Open': '#ef4444', 'In Progress': '#f59e0b', 'Resolved': '#10b981' }[status] || '#6b7280';
+    }
+
+    function getPriorityColor(priority) {
+        return { 'urgent': '#dc2626', 'high': '#f59e0b', 'normal': '#6b7280' }[priority] || '#6b7280';
     }
 
     async function loadTasks() {
