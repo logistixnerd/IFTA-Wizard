@@ -4263,7 +4263,66 @@ tr.detail-active {
     border-color: rgba(220, 38, 38, 0.2);
     color: #dc2626;
 }
+.dp-qaction--danger {
+    border-color: rgba(220, 38, 38, 0.15);
+    color: #b91c1c;
+}
+.dp-qaction--danger:hover {
+    background: rgba(220, 38, 38, 0.08);
+    border-color: rgba(220, 38, 38, 0.3);
+    color: #991b1b;
+}
+.dp-qaction--active {
+    background: #dc2626 !important;
+    border-color: #dc2626 !important;
+    color: #fff !important;
+}
+.dp-qaction--active:hover {
+    background: #b91c1c !important;
+    border-color: #b91c1c !important;
+}
 .dp-qaction svg { flex-shrink: 0; }
+
+/* DND badge in panel header */
+.dnd-badge {
+    display: inline-block;
+    background: #dc2626;
+    color: #fff;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    vertical-align: middle;
+    margin-left: 8px;
+    animation: dnd-pulse 2s infinite;
+}
+@keyframes dnd-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* DND tag in drivers table */
+.dnd-tag {
+    display: inline-block;
+    background: #dc2626;
+    color: #fff;
+    font-size: 0.5625rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 6px;
+    vertical-align: middle;
+    text-transform: uppercase;
+}
+tr.row-dnd {
+    background: rgba(220, 38, 38, 0.03) !important;
+}
+tr.row-dnd td:first-child {
+    border-left: 3px solid #dc2626;
+}
 
 /* ── Compose ── */
 .dp-compose {

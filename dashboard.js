@@ -63,6 +63,18 @@
         return prefix + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     }
 
+    function getCurrentUserRole() {
+        if (!state.user || !state.companyDashboard?.users) return 'Owner';
+        const email = (state.user.email || '').toLowerCase();
+        const me = state.companyDashboard.users.find(u => u.id === uid() || ((u.email || '').toLowerCase() === email));
+        return me?.role || 'Owner';
+    }
+
+    function canToggleDND() {
+        const role = getCurrentUserRole();
+        return ['Owner', 'Admin', 'Safety Manager'].includes(role);
+    }
+
     function ensureCompanyOwnerMember() {
         if (!state.user) return;
         if (!state.companyDashboard) state.companyDashboard = getDefaultCompanyDashboard();
@@ -2322,6 +2334,15 @@
             statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(d.status || 'active');
         }
 
+        // DND badge + button visibility
+        const dndBadge = $('detailDNDBadge');
+        if (dndBadge) dndBadge.classList.toggle('hidden', isCreate || !d.doNotDispatch);
+        const dndBtn = $('dpActionDND');
+        if (dndBtn) {
+            dndBtn.classList.toggle('hidden', isCreate || !canToggleDND());
+            if (!isCreate) updateDNDVisuals(d);
+        }
+
         $('dpFirstName').value = d.firstName || '';
         $('dpLastName').value = d.lastName || '';
         $('dpPhone').value = d.phone ? formatPhone(d.phone) : '';
@@ -2455,6 +2476,15 @@
             showMsg('First name is required', true);
             $('dpFirstName').focus();
             return;
+        }
+        // Block truck assignment for DND drivers
+        if (detailPanelDriverId && payload.truck) {
+            const d = state.drivers.find(x => x.id === detailPanelDriverId);
+            if (d?.doNotDispatch) {
+                showMsg('Cannot assign truck \u2014 driver is on Do Not Dispatch', true);
+                payload.truck = '';
+                $('dpTruck').value = '';
+            }
         }
         try {
             if (detailPanelDriverId) {
@@ -2698,12 +2728,58 @@
         });
         const assignBtn = $('dpActionAssign');
         if (assignBtn) assignBtn.addEventListener('click', () => {
+            if (detailPanelDriverId) {
+                const d = state.drivers.find(x => x.id === detailPanelDriverId);
+                if (d?.doNotDispatch) {
+                    showMsg('Cannot assign truck \u2014 driver is on Do Not Dispatch', true);
+                    return;
+                }
+            }
             const infoSection = $('detailInfoSection');
             if (infoSection?.classList.contains('collapsed')) {
                 infoSection.classList.remove('collapsed');
             }
             setTimeout(() => $('dpTruck')?.focus(), 150);
         });
+        // DND button
+        const dndBtn = $('dpActionDND');
+        if (dndBtn) dndBtn.addEventListener('click', async () => {
+            if (!detailPanelDriverId || !canToggleDND()) return;
+            const d = state.drivers.find(x => x.id === detailPanelDriverId);
+            if (!d) return;
+            const newDnd = !d.doNotDispatch;
+            const action = newDnd ? 'place on' : 'remove from';
+            if (!confirm(`Are you sure you want to ${action} Do Not Dispatch for ${d.firstName} ${d.lastName}?`)) return;
+            try {
+                await col('drivers').doc(detailPanelDriverId).update({
+                    doNotDispatch: newDnd,
+                    dndSetBy: state.user.email || '',
+                    dndSetAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                d.doNotDispatch = newDnd;
+                d.dndSetBy = state.user.email || '';
+                d.dndSetAt = new Date().toISOString();
+                updateDNDVisuals(d);
+                renderDrivers();
+                renderPanelSummary();
+                showMsg(newDnd ? 'Driver placed on Do Not Dispatch' : 'Do Not Dispatch removed');
+                // Log to activity feed
+                try {
+                    await col('drivers').doc(detailPanelDriverId).collection('history').add({
+                        type: 'system',
+                        text: newDnd ? 'Placed on Do Not Dispatch' : 'Removed from Do Not Dispatch',
+                        by: state.user.email || 'Unknown',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    loadPanelFeed();
+                } catch (e) { console.error('DND history log error:', e); }
+            } catch (err) {
+                console.error('DND toggle error:', err);
+                showMsg('Error updating Do Not Dispatch', true);
+            }
+        });
+
         const unavailBtn = $('dpActionUnavail');
         if (unavailBtn) unavailBtn.addEventListener('click', async () => {
             if (!detailPanelDriverId) return;
@@ -2890,6 +2966,26 @@
     }
 
     // ── Render Summary Chips ──
+    function updateDNDVisuals(d) {
+        const dndBtn = $('dpActionDND');
+        if (dndBtn) {
+            if (d.doNotDispatch) {
+                dndBtn.classList.add('dp-qaction--active');
+                dndBtn.querySelector('span:last-child').textContent = 'Remove DND';
+                dndBtn.title = 'Remove Do Not Dispatch';
+            } else {
+                dndBtn.classList.remove('dp-qaction--active');
+                dndBtn.querySelector('span:last-child').textContent = 'DND';
+                dndBtn.title = 'Do Not Dispatch';
+            }
+        }
+        // Update header badge
+        const headerBadge = $('detailDNDBadge');
+        if (headerBadge) {
+            headerBadge.classList.toggle('hidden', !d.doNotDispatch);
+        }
+    }
+
     function renderPanelSummary() {
         const bar = $('detailSummaryBar');
         if (!bar || !detailPanelDriverId) { if (bar) bar.innerHTML = ''; return; }
@@ -2920,6 +3016,10 @@
 
         const statusCls = d.status === 'active' ? 'dp-chip--green' : d.status === 'inactive' ? 'dp-chip--red' : 'dp-chip--yellow';
         chips.push({ label: 'Status', text: statusLabel(d.status || 'active'), cls: statusCls });
+
+        if (d.doNotDispatch) {
+            chips.unshift({ label: 'DND', text: 'Do Not Dispatch', cls: 'dp-chip--red' });
+        }
 
         bar.innerHTML = chips.map(c =>
             `<span class="${c.cls} dp-chip"><span class="dp-chip-dot"></span>${escapeHtml(c.label)}: ${escapeHtml(c.text)}</span>`
@@ -4304,9 +4404,9 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.drivers.filter(d => matchesFilter(d, 'driver'));
-        tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}" class="${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+        tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}" class="${d.doNotDispatch ? 'row-dnd' : ''} ${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
             ${validationIndicator(d)}
-            <td><div class="cell cell-primary" title="Open driver profile for ${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></div></td>
+            <td><div class="cell cell-primary" title="Open driver profile for ${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong>${d.doNotDispatch ? '<span class="dnd-tag">DND</span>' : ''}</div></td>
             <td><div class="cell">${escapeHtml(d.cdl)}</div></td>
             <td><div class="cell">${escapeHtml(d.cdlState)}</div></td>
             <td><div class="cell">${escapeHtml(d.cdlExp)}</div></td>
