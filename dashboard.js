@@ -1852,14 +1852,14 @@
             cols: [
                 { key: 'firstName', placeholder: 'e.g., John', type: 'text', required: true },
                 { key: 'lastName', placeholder: 'e.g., Smith', type: 'text' },
-                { key: 'phone', placeholder: '(555) 123-4567', type: 'text' },
-                { key: 'cdl', placeholder: 'CDL number', type: 'text' },
-                { key: 'cdlState', placeholder: 'TX', type: 'text', maxlength: 2, pattern: /^[A-Z]{2}$/, warnMsg: 'Invalid state code' },
+                { key: 'phone', placeholder: '(555) 123-4567', type: 'tel' },
+                { key: 'cdl', placeholder: 'CDL number', type: 'text', uppercase: true },
+                { key: 'cdlState', type: 'jurisdiction' },
                 { key: 'cdlExp', type: 'date' },
                 { key: 'medExp', type: 'date' },
                 { key: 'email', placeholder: 'john@example.com', type: 'text' },
                 { key: 'hireDate', type: 'date' },
-                { key: 'truck', placeholder: 'Truck unit #', type: 'text' },
+                { key: 'truck', placeholder: 'Truck unit #', type: 'text', autocomplete: 'truck' },
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Inactive' },
@@ -1915,21 +1915,28 @@
         let cells = `<td class="sheet-row-num">${index + 1}</td>`;
         cols.forEach(col => {
             const val = data[col.key] || '';
-            const displayText = col.type === 'select'
-                ? sheetSelectLabel(col, val)
+            const isJurisdiction = col.type === 'jurisdiction';
+            const isSelect = col.type === 'select';
+            const displayText = isSelect ? sheetSelectLabel(col, val)
+                : isJurisdiction ? (val || '')
                 : escapeHtml(val);
-            const isPlaceholder = !val && col.type !== 'select';
+            const isPlaceholder = !val && !isSelect && !isJurisdiction;
             const textClass = 'sheet-cell-text' + (isPlaceholder ? ' placeholder' : '');
             const placeholderText = isPlaceholder ? (col.placeholder || '') : displayText;
 
             cells += `<td><div class="sheet-cell" data-col-key="${col.key}">`;
             cells += `<span class="${textClass}">${isPlaceholder ? escapeHtml(placeholderText) : displayText}</span>`;
-            if (col.type === 'select') {
+            if (isSelect) {
                 cells += `<select data-key="${col.key}" tabindex="-1">` +
                     col.options.map(o => `<option value="${escapeHtml(o.value)}"${o.value === (val || col.options[0].value) ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') +
                     '</select>';
+            } else if (isJurisdiction) {
+                cells += `<select data-key="${col.key}" tabindex="-1"><option value="">Select…</option>` +
+                    JURISDICTIONS.map(j => `<option value="${j.code}"${j.code === val ? ' selected' : ''}>${j.code} – ${escapeHtml(j.name)}</option>`).join('') +
+                    '</select>';
             } else {
-                cells += `<input type="${col.type || 'text'}" data-key="${col.key}" value="${escapeHtml(val)}" placeholder="${col.placeholder || ''}"${col.maxlength ? ' maxlength="' + col.maxlength + '"' : ''}${col.min != null ? ' min="' + col.min + '"' : ''}${col.max != null ? ' max="' + col.max + '"' : ''} tabindex="-1">`;
+                const inputType = col.type === 'tel' ? 'text' : (col.type || 'text');
+                cells += `<input type="${inputType}" data-key="${col.key}" value="${escapeHtml(val)}" placeholder="${col.placeholder || ''}"${col.maxlength ? ' maxlength="' + col.maxlength + '"' : ''}${col.min != null ? ' min="' + col.min + '"' : ''}${col.max != null ? ' max="' + col.max + '"' : ''}${col.uppercase ? ' style="text-transform:uppercase"' : ''} tabindex="-1">`;
             }
             cells += '</div></td>';
         });
@@ -1952,6 +1959,12 @@
         const config = getSheetConfig(cell);
         const colKey = cell.dataset.colKey;
         const colDef = config ? config.cols.find(c => c.key === colKey) : null;
+
+        // Live formatting on commit
+        if (input && colDef) {
+            if (colDef.type === 'tel') { formatPhoneLive(input); }
+            if (colDef.uppercase) { input.value = input.value.toUpperCase(); }
+        }
 
         if (select) {
             textEl.textContent = select.options[select.selectedIndex].text;
@@ -2029,13 +2042,24 @@
             if (input) input.select();
         }
 
-        // Attach autocomplete for make/model columns in sheet grid
         const colKey = cell.dataset.colKey;
+        const config = getSheetConfig(cell);
+        const colDef = config ? config.cols.find(c => c.key === colKey) : null;
+
+        // Attach autocomplete for make/model columns
         if (input && (colKey === 'make' || colKey === 'model')) {
-            const config = getSheetConfig(cell);
             const entityType = config ? config.label : 'truck';
             const suggestions = getSuggestionsFor(colKey, entityType);
             if (suggestions.length) attachAutocomplete(input, suggestions);
+        }
+
+        // Attach autocomplete for truck assignment column
+        if (input && colDef && colDef.autocomplete === 'truck') {
+            const truckUnits = state.trucks
+                .filter(t => t.status === 'active' || !t.status)
+                .map(t => t.unit)
+                .filter(Boolean);
+            if (truckUnits.length) attachAutocomplete(input, truckUnits);
         }
     }
 
@@ -2085,13 +2109,13 @@
         const colKey = cell.dataset.colKey;
         const colDef = config.cols.find(c => c.key === colKey);
         const input = cell.querySelector('input');
-        if (!input) return;
-        const val = input.value.trim();
+        const select = cell.querySelector('select');
+        const val = input ? input.value.trim() : (select ? select.value : '');
 
         // Required field check (only flag if row has other data)
         if (colKey === config.requiredKey && !val) {
             const tr = cell.closest('tr');
-            const hasOtherData = Array.from(tr.querySelectorAll('input[data-key]'))
+            const hasOtherData = Array.from(tr.querySelectorAll('[data-key]'))
                 .some(i => i.dataset.key !== config.requiredKey && i.value.trim());
             if (hasOtherData) {
                 cell.classList.add('cell-invalid');
@@ -2120,8 +2144,63 @@
             }
         }
 
+        if (!colDef) return;
+
+        // Driver-specific: flag missing CDL on rows that have a name
+        if (config.collection === 'drivers') {
+            const tr = cell.closest('tr');
+            const getVal = (k) => { const el = tr.querySelector('[data-key="' + k + '"]'); return el ? el.value.trim() : ''; };
+            const hasName = getVal('firstName');
+            if (hasName) {
+                if (colKey === 'cdl' && !val) {
+                    cell.classList.add('cell-warning');
+                    cell.title = 'CDL number is recommended';
+                    return;
+                }
+                if (colKey === 'cdlExp') {
+                    if (!val) {
+                        cell.classList.add('cell-warning');
+                        cell.title = 'CDL expiration is recommended';
+                        return;
+                    }
+                    const days = daysUntilExpiry(val);
+                    if (days !== null && days < 0) {
+                        cell.classList.add('cell-invalid');
+                        cell.title = 'CDL is expired';
+                        return;
+                    }
+                    if (days !== null && days <= 60) {
+                        cell.classList.add('cell-warning');
+                        cell.title = 'CDL expires in ' + days + ' days';
+                        return;
+                    }
+                }
+                if (colKey === 'medExp' && val) {
+                    const days = daysUntilExpiry(val);
+                    if (days !== null && days < 0) {
+                        cell.classList.add('cell-invalid');
+                        cell.title = 'Medical card is expired';
+                        return;
+                    }
+                    if (days !== null && days <= 60) {
+                        cell.classList.add('cell-warning');
+                        cell.title = 'Medical card expires in ' + days + ' days';
+                        return;
+                    }
+                }
+                if (colKey === 'phone' && val) {
+                    const digits = val.replace(/\D/g, '');
+                    if (digits.length !== 10 && digits.length !== 11) {
+                        cell.classList.add('cell-warning');
+                        cell.title = 'Phone number looks invalid';
+                        return;
+                    }
+                }
+            }
+        }
+
         // Column-specific validation (only if cell has a value)
-        if (!val || !colDef) return;
+        if (!val) return;
 
         // Exact length (e.g. VIN = 17)
         if (colDef.exactLength && val.length !== colDef.exactLength) {
@@ -2130,7 +2209,7 @@
             return;
         }
 
-        // Regex pattern (e.g. state code = /^[A-Z]{2}$/)
+        // Regex pattern
         if (colDef.pattern && !colDef.pattern.test(val.toUpperCase())) {
             cell.classList.add('cell-warning');
             cell.title = colDef.warnMsg || ('Invalid ' + colKey);
@@ -2384,21 +2463,30 @@
                         const select = cell.querySelector('select');
                         const textEl = cell.querySelector('.sheet-cell-text');
 
-                        if (select && colDef && colDef.type === 'select') {
-                            const match = colDef.options.find(o =>
-                                o.value.toLowerCase() === val.toLowerCase() ||
-                                o.label.toLowerCase() === val.toLowerCase()
-                            );
-                            if (match) {
-                                select.value = match.value;
-                                textEl.textContent = match.label;
-                            } else if (val) {
-                                select.value = colDef.options[0].value;
-                                textEl.textContent = colDef.options[0].label;
+                        if (select && colDef && (colDef.type === 'select' || colDef.type === 'jurisdiction')) {
+                            if (colDef.type === 'jurisdiction') {
+                                const code = val.toUpperCase().replace(/[^A-Z]/g, '');
+                                const jMatch = JURISDICTIONS.find(j => j.code === code || j.name.toLowerCase() === val.toLowerCase());
+                                select.value = jMatch ? jMatch.code : '';
+                                textEl.textContent = jMatch ? jMatch.code : val;
+                            } else {
+                                const match = colDef.options.find(o =>
+                                    o.value.toLowerCase() === val.toLowerCase() ||
+                                    o.label.toLowerCase() === val.toLowerCase()
+                                );
+                                if (match) {
+                                    select.value = match.value;
+                                    textEl.textContent = match.label;
+                                } else if (val) {
+                                    select.value = colDef.options[0].value;
+                                    textEl.textContent = colDef.options[0].label;
+                                }
                             }
                             textEl.classList.remove('placeholder');
                         } else if (input) {
-                            if (colDef && (colDef.key === 'plateState' || colDef.key === 'cdlState')) val = val.toUpperCase();
+                            if (colDef && colDef.key === 'plateState') val = val.toUpperCase();
+                            if (colDef && colDef.uppercase) val = val.toUpperCase();
+                            if (colDef && colDef.type === 'tel') val = formatPhone(val);
                             input.value = val;
                             if (val) {
                                 textEl.textContent = val;
@@ -2460,9 +2548,12 @@
                         if (!data[k]) data[k] = v;
                     });
                 }
-                // Uppercase state fields
+                // Clean field values
                 if (data.plateState) data.plateState = data.plateState.toUpperCase();
                 if (data.cdlState) data.cdlState = data.cdlState.toUpperCase();
+                if (data.cdl) data.cdl = data.cdl.toUpperCase();
+                if (data.phone) data.phone = stripPhone(data.phone);
+                if (data.emergencyPhone) data.emergencyPhone = stripPhone(data.emergencyPhone);
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
                 const doc = col(config.collection).doc();
@@ -2826,6 +2917,7 @@
     ];
 
     function renderDrivers() {
+        updateDriverChipCounts();
         const tbody = $('driversTableBody');
         const table = $('driversTable');
         const empty = $('driversEmpty');
@@ -3832,6 +3924,54 @@
     }
 
     // ── Search / Filter ──────────────────
+    // ── Driver filter chip helpers ──────────
+    function getActiveDriverChip() {
+        const bar = $('driverFilterBar');
+        if (!bar) return 'all';
+        const active = bar.querySelector('.filter-chip.active');
+        return active ? active.dataset.filter : 'all';
+    }
+
+    function matchesDriverChip(driver, chip) {
+        if (chip === 'all') return true;
+        if (chip === 'active') return driver.status === 'active';
+        if (chip === 'expired') {
+            const cdlDays = daysUntilExpiry(driver.cdlExp);
+            const medDays = daysUntilExpiry(driver.medExp);
+            return (cdlDays !== null && cdlDays < 0) || (medDays !== null && medDays < 0);
+        }
+        if (chip === 'expiring') {
+            const cdlDays = daysUntilExpiry(driver.cdlExp);
+            const medDays = daysUntilExpiry(driver.medExp);
+            return (cdlDays !== null && cdlDays > 0 && cdlDays <= 60) || (medDays !== null && medDays > 0 && medDays <= 60);
+        }
+        if (chip === 'unassigned') return driver.status === 'active' && !driver.truck;
+        return true;
+    }
+
+    function updateDriverChipCounts() {
+        const bar = $('driverFilterBar');
+        if (!bar) return;
+        const drivers = state.drivers;
+        const counts = {
+            all: drivers.length,
+            active: drivers.filter(d => d.status === 'active').length,
+            expiring: drivers.filter(d => matchesDriverChip(d, 'expiring')).length,
+            expired: drivers.filter(d => matchesDriverChip(d, 'expired')).length,
+            unassigned: drivers.filter(d => d.status === 'active' && !d.truck).length
+        };
+        bar.querySelectorAll('.filter-chip').forEach(btn => {
+            const key = btn.dataset.filter;
+            let countEl = btn.querySelector('.chip-count');
+            if (!countEl) {
+                countEl = document.createElement('span');
+                countEl.className = 'chip-count';
+                btn.appendChild(countEl);
+            }
+            countEl.textContent = counts[key] || 0;
+        });
+    }
+
     function matchesFilter(item, type) {
         const searchEl = $(type + 'Search');
         const filterEl = $(type + 'StatusFilter');
@@ -3845,6 +3985,12 @@
             const fuelEl = $('truckFuelFilter');
             const fuelVal = fuelEl ? fuelEl.value : '';
             if (fuelVal && item.fuel !== fuelVal) return false;
+        }
+
+        // Driver chip filter
+        if (type === 'driver') {
+            const chip = getActiveDriverChip();
+            if (!matchesDriverChip(item, chip)) return false;
         }
 
         if (!q) return true;
@@ -3874,6 +4020,21 @@
             const el = $(id);
             if (el) el.addEventListener('input', renderDrivers);
         });
+
+        // Driver filter chip bar
+        const driverFilterBar = $('driverFilterBar');
+        if (driverFilterBar) {
+            driverFilterBar.addEventListener('click', (e) => {
+                const chip = e.target.closest('.filter-chip');
+                if (!chip) return;
+                driverFilterBar.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                // Sync status dropdown: reset when chip is active/all, or set matching value
+                const filterEl = $('driverStatusFilter');
+                if (filterEl) filterEl.value = '';
+                renderDrivers();
+            });
+        }
 
         initDriverColPicker();
     }
