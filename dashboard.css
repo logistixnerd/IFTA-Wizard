@@ -5246,3 +5246,433 @@ input[type="date"].ss-input {
     color: #64748b;
     font-style: italic;
 }
+
+/* ══════════════════════════════════════════════
+   UNIFIED SPREADSHEET POPUP
+   ══════════════════════════════════════════════ */
+
+.usheet-modal {
+    width: 96vw;
+    max-width: 1320px;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.04);
+}
+
+/* ── Header ── */
+.usheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+    flex-shrink: 0;
+    position: relative;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.usheet-header h2 {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.usheet-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.usheet-row-badge {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #6366f1;
+    background: #eef2ff;
+    padding: 3px 8px;
+    border-radius: 6px;
+    letter-spacing: 0.01em;
+}
+
+.usheet-btn-cols,
+.usheet-btn-add,
+.usheet-btn-import {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.usheet-btn-cols:hover,
+.usheet-btn-add:hover,
+.usheet-btn-import:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+}
+
+.usheet-close {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    font-size: 1.25rem;
+    color: #9ca3af;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+    line-height: 1;
+}
+
+.usheet-close:hover {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+/* ── Column Picker Dropdown ── */
+.usheet-col-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 1.25rem;
+    z-index: 50;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    padding: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+    max-width: 360px;
+    min-width: 180px;
+}
+
+.usheet-col-opt {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: #374151;
+    transition: background 0.1s;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.usheet-col-opt:hover {
+    background: #f3f4f6;
+}
+
+.usheet-col-opt input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    accent-color: #6366f1;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.usheet-col-opt input:disabled + span {
+    color: #9ca3af;
+}
+
+/* ── Body / Table ── */
+.usheet-body {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.usheet-wrap {
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,0,0,0.1) transparent;
+}
+
+.usheet-wrap::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.usheet-wrap::-webkit-scrollbar-thumb {
+    background: rgba(0,0,0,0.1);
+    border-radius: 3px;
+}
+
+.usheet-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.75rem;
+}
+
+/* ── Header ── */
+.usheet-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+}
+
+.usheet-table thead th {
+    background: #f9fafb;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+    padding: 7px 8px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #f3f4f6;
+    white-space: nowrap;
+    user-select: none;
+}
+
+.usheet-table thead th:last-child {
+    border-right: none;
+}
+
+.usheet-num-col {
+    width: 36px;
+    text-align: center !important;
+}
+
+.usheet-action-col {
+    width: 64px;
+    text-align: center !important;
+}
+
+/* ── Rows ── */
+.usheet-row {
+    transition: background 0.1s;
+}
+
+.usheet-row:nth-child(even) {
+    background: #fafbfc;
+}
+
+.usheet-row:hover {
+    background: #f0f4ff;
+}
+
+.usheet-row.usheet-dirty {
+    background: #fffbeb;
+}
+
+.usheet-row.usheet-dirty:hover {
+    background: #fef3c7;
+}
+
+.usheet-row.usheet-saved {
+    background: #ecfdf5 !important;
+    transition: background 0.15s;
+}
+
+/* Row num */
+.usheet-num {
+    text-align: center;
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: #9ca3af;
+    padding: 0 4px;
+    border-right: 1px solid #f3f4f6;
+    border-bottom: 1px solid #f3f4f6;
+    user-select: none;
+}
+
+.usheet-row:hover .usheet-num {
+    color: #6366f1;
+}
+
+/* ── Cells ── */
+.usheet-cell {
+    padding: 0;
+    border-bottom: 1px solid #f3f4f6;
+    border-right: 1px solid #f3f4f6;
+    position: relative;
+}
+
+.usheet-cell:last-of-type {
+    border-right: none;
+}
+
+.usheet-cell input,
+.usheet-cell select {
+    width: 100%;
+    height: 30px;
+    padding: 0 8px;
+    margin: 0;
+    border: 1px solid transparent;
+    border-radius: 0;
+    outline: none;
+    background: transparent;
+    font-size: 0.75rem;
+    font-family: inherit;
+    font-weight: 500;
+    color: #111827;
+    transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
+    box-sizing: border-box;
+}
+
+.usheet-cell input::placeholder {
+    color: #d1d5db;
+    font-weight: 400;
+}
+
+/* Hover state — subtle cue that cell is editable */
+.usheet-cell:hover input,
+.usheet-cell:hover select {
+    border-color: #c7d2fe;
+    background: #fafbff;
+}
+
+/* Focus state — clear edit mode */
+.usheet-cell input:focus,
+.usheet-cell select:focus {
+    border-color: #6366f1;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px #6366f1;
+    z-index: 2;
+    position: relative;
+}
+
+.usheet-cell select {
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+    padding-right: 20px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 6px center;
+}
+
+/* Date input - consistent height */
+.usheet-cell input[type="date"] {
+    padding-right: 4px;
+}
+
+/* ── Row Actions ── */
+.usheet-actions {
+    padding: 0 4px;
+    border-bottom: 1px solid #f3f4f6;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.usheet-row-save,
+.usheet-row-delete {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 5px;
+    transition: all 0.15s;
+    opacity: 0;
+    color: #9ca3af;
+}
+
+.usheet-row:hover .usheet-row-save,
+.usheet-row:hover .usheet-row-delete {
+    opacity: 1;
+}
+
+.usheet-row-save:hover {
+    color: #059669;
+    background: #ecfdf5;
+}
+
+.usheet-row-delete:hover {
+    color: #dc2626;
+    background: #fef2f2;
+}
+
+/* Show save button always on dirty rows */
+.usheet-dirty .usheet-row-save {
+    opacity: 1;
+    color: #059669;
+}
+
+/* ── Footer ── */
+.usheet-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+    background: #fff;
+    flex-shrink: 0;
+    gap: 1rem;
+}
+
+.usheet-footer-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.usheet-hint {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.6875rem;
+    color: #9ca3af;
+}
+
+.usheet-dirty-count {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: #d97706;
+}
+
+.usheet-footer-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* ── Bulk Edit button ── */
+.bulk-btn-edit {
+    background: #eef2ff !important;
+    color: #4f46e5 !important;
+    border-color: #c7d2fe !important;
+}
+
+.bulk-btn-edit:hover {
+    background: #e0e7ff !important;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .usheet-modal {
+        width: 100vw;
+        max-width: 100vw;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+    .usheet-hint {
+        display: none;
+    }
+}

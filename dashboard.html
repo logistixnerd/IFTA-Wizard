@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=15">
+    <link rel="stylesheet" href="dashboard.css?v=16">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -993,6 +993,7 @@
                         </div>
                         <div class="bulk-bar" id="truckBulkBar">
                             <span class="bulk-count">0 selected</span>
+                            <button class="btn btn-sm bulk-btn bulk-btn-edit" onclick="Dashboard.bulkEdit('trucks')">Edit</button>
                             <button class="btn btn-sm bulk-btn bulk-btn-status" onclick="Dashboard.bulkChangeStatus('trucks')">Change Status</button>
                             <button class="btn btn-sm bulk-btn bulk-btn-export" onclick="Dashboard.bulkExport('trucks')">Export CSV</button>
                             <button class="btn btn-sm bulk-btn bulk-btn-delete" onclick="Dashboard.bulkDelete('trucks')">Delete</button>
@@ -1078,6 +1079,7 @@
                         </div>
                         <div class="bulk-bar" id="trailerBulkBar">
                             <span class="bulk-count">0 selected</span>
+                            <button class="btn btn-sm bulk-btn bulk-btn-edit" onclick="Dashboard.bulkEdit('trailers')">Edit</button>
                             <button class="btn btn-sm bulk-btn bulk-btn-status" onclick="Dashboard.bulkChangeStatus('trailers')">Change Status</button>
                             <button class="btn btn-sm bulk-btn bulk-btn-export" onclick="Dashboard.bulkExport('trailers')">Export CSV</button>
                             <button class="btn btn-sm bulk-btn bulk-btn-delete" onclick="Dashboard.bulkDelete('trailers')">Delete</button>
@@ -1166,6 +1168,7 @@
                         </div>
                         <div class="bulk-bar" id="driverBulkBar">
                             <span class="bulk-count">0 selected</span>
+                            <button class="btn btn-sm bulk-btn bulk-btn-edit" onclick="Dashboard.bulkEdit('drivers')">Edit</button>
                             <button class="btn btn-sm bulk-btn bulk-btn-status" onclick="Dashboard.bulkChangeStatus('drivers')">Change Status</button>
                             <button class="btn btn-sm bulk-btn bulk-btn-export" onclick="Dashboard.bulkExport('drivers')">Export CSV</button>
                             <button class="btn btn-sm bulk-btn bulk-btn-delete" onclick="Dashboard.bulkDelete('drivers')">Delete</button>
@@ -2594,6 +2597,56 @@
         </div>
     </div>
 
+    <!-- ═══ Unified Spreadsheet Popup ═══ -->
+    <div id="unifiedSheetModal" class="modal hidden">
+        <div class="modal-content usheet-modal">
+            <div class="usheet-header">
+                <h2 id="usheetTitle">Add</h2>
+                <div class="usheet-header-actions">
+                    <span class="usheet-row-badge" id="usheetRowCount">0 rows</span>
+                    <button class="btn btn-sm usheet-btn-cols" id="usheetColPicker" title="Choose columns">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                        Columns
+                    </button>
+                    <button class="btn btn-sm usheet-btn-add" id="usheetAddRow" title="Add empty row">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                        Row
+                    </button>
+                    <button class="btn btn-sm usheet-btn-import" id="usheetImportFile" title="Import from file" style="display:none">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                        File
+                    </button>
+                    <button class="usheet-close" id="usheetClose">&times;</button>
+                </div>
+                <div class="usheet-col-dropdown hidden" id="usheetColDropdown"></div>
+            </div>
+            <div class="usheet-body">
+                <div class="usheet-wrap">
+                    <table class="usheet-table" id="usheetTable">
+                        <thead><tr id="usheetThead"></tr></thead>
+                        <tbody id="usheetTbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="usheet-footer">
+                <div class="usheet-footer-left">
+                    <span class="usheet-hint">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                        Hover to edit &middot; Tab between cells &middot; Paste from Excel
+                    </span>
+                    <span class="usheet-dirty-count" id="usheetDirtyCount"></span>
+                </div>
+                <div class="usheet-footer-actions">
+                    <button class="btn btn-secondary btn-sm" id="usheetCancel">Cancel</button>
+                    <button class="btn btn-primary btn-sm" id="usheetSaveAll">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Save All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Truck(s) Sheet Modal -->
     <div id="multiTruckModal" class="modal hidden" data-sheet-type="truck">
         <div class="modal-content sheet-modal">
@@ -3390,6 +3443,6 @@
     </aside>
 
     <script src="firebase-config.js?v=3"></script>
-    <script src="dashboard.js?v=20"></script>
+    <script src="dashboard.js?v=21"></script>
 </body>
 </html>
