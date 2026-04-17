@@ -2646,6 +2646,20 @@
         return raw;
     }
 
+    function formatPhoneLive(input) {
+        const raw = input.value.replace(/\D/g, '');
+        let formatted = '';
+        if (raw.length === 0) { formatted = ''; }
+        else if (raw.length <= 3) { formatted = '(' + raw; }
+        else if (raw.length <= 6) { formatted = '(' + raw.slice(0, 3) + ') ' + raw.slice(3); }
+        else { formatted = '(' + raw.slice(0, 3) + ') ' + raw.slice(3, 6) + '-' + raw.slice(6, 10); }
+        input.value = formatted;
+    }
+
+    function stripPhone(val) {
+        return val.replace(/\D/g, '');
+    }
+
     const ALL_DRIVER_COLUMNS = [
         {
             key: 'name',
@@ -2862,9 +2876,9 @@
     const DRIVER_SHEET_COLS = [
         { key: 'firstName', label: 'First Name', type: 'text', placeholder: 'First name', required: true },
         { key: 'lastName', label: 'Last Name', type: 'text', placeholder: 'Last name' },
-        { key: 'phone', label: 'Phone', type: 'text', placeholder: '(555) 123-4567' },
-        { key: 'cdl', label: 'CDL #', type: 'text', placeholder: 'CDL number' },
-        { key: 'cdlState', label: 'CDL State', type: 'text', placeholder: 'TX', maxlength: 2 },
+        { key: 'phone', label: 'Phone', type: 'tel', placeholder: '(555) 123-4567' },
+        { key: 'cdl', label: 'CDL #', type: 'text', placeholder: 'CDL number', uppercase: true },
+        { key: 'cdlState', label: 'CDL State', type: 'jurisdiction' },
         { key: 'cdlExp', label: 'CDL Exp', type: 'date' },
         { key: 'medExp', label: 'Med Card Exp', type: 'date' },
         { key: 'email', label: 'Email', type: 'text', placeholder: 'email@example.com' },
@@ -2874,7 +2888,7 @@
         { key: 'dob', label: 'DOB', type: 'date' },
         { key: 'address', label: 'Address', type: 'text', placeholder: 'Home address' },
         { key: 'emergencyName', label: 'Emergency Name', type: 'text', placeholder: 'Contact name' },
-        { key: 'emergencyPhone', label: 'Emergency Phone', type: 'text', placeholder: 'Contact phone' },
+        { key: 'emergencyPhone', label: 'Emergency Phone', type: 'tel', placeholder: 'Contact phone' },
         { key: 'endorsements', label: 'Endorsements', type: 'text', placeholder: 'H,N,T,X...' },
         { key: 'mvrDate', label: 'MVR Review', type: 'date' },
         { key: 'bgCheck', label: 'Background Check', type: 'date' },
@@ -2905,11 +2919,23 @@
                     if (o.value === 'active') opt.selected = true;
                     input.appendChild(opt);
                 });
+            } else if (col.type === 'jurisdiction') {
+                input = document.createElement('select');
+                const blank = document.createElement('option');
+                blank.value = ''; blank.textContent = 'Select…';
+                input.appendChild(blank);
+                JURISDICTIONS.forEach(j => {
+                    const opt = document.createElement('option');
+                    opt.value = j.code;
+                    opt.textContent = j.code + ' – ' + j.name;
+                    input.appendChild(opt);
+                });
             } else {
                 input = document.createElement('input');
-                input.type = col.type;
+                input.type = col.type === 'tel' ? 'text' : col.type;
                 if (col.placeholder) input.placeholder = col.placeholder;
                 if (col.maxlength) input.maxLength = col.maxlength;
+                if (col.uppercase) input.style.textTransform = 'uppercase';
             }
             input.dataset.key = col.key;
             input.className = 'ds-input';
@@ -3015,8 +3041,11 @@
             const data = {};
             tr.querySelectorAll('.ds-input').forEach(input => {
                 let val = input.value.trim();
-                if (input.dataset.key === 'cdlState') val = val.toUpperCase();
-                if (val) data[input.dataset.key] = val;
+                const key = input.dataset.key;
+                if (key === 'cdlState') val = val.toUpperCase();
+                if (key === 'cdl') val = val.toUpperCase();
+                if (key === 'phone' || key === 'emergencyPhone') val = stripPhone(val);
+                if (val) data[key] = val;
             });
             if (data.firstName) {
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -3078,9 +3107,22 @@
                 const colIdx = startColIdx + cOffset;
                 if (colIdx < inputs.length) {
                     const input = inputs[colIdx];
+                    const key = input.dataset.key;
                     const clean = val.trim();
                     if (input.type === 'date' && clean) {
                         input.value = parseFlexDate(clean);
+                    } else if (key === 'cdl') {
+                        input.value = clean.toUpperCase();
+                    } else if (key === 'cdlState' && input.tagName === 'SELECT') {
+                        const code = clean.toUpperCase().replace(/[^A-Z]/g, '');
+                        const match = JURISDICTIONS.find(j => j.code === code || j.name.toLowerCase() === clean.toLowerCase());
+                        input.value = match ? match.code : '';
+                    } else if (key === 'phone' || key === 'emergencyPhone') {
+                        input.value = formatPhone(clean);
+                    } else if (key === 'status' && input.tagName === 'SELECT') {
+                        const lc = clean.toLowerCase().replace(/\s+/g, '-');
+                        const opt = Array.from(input.options).find(o => o.value === lc || o.textContent.toLowerCase() === clean.toLowerCase());
+                        input.value = opt ? opt.value : 'active';
                     } else {
                         input.value = clean;
                     }
@@ -3106,7 +3148,14 @@
         const tbody = $('driverSheetBody');
         if (!tbody) return;
 
-        tbody.addEventListener('input', () => updateDriverSheetCount());
+        tbody.addEventListener('input', (e) => {
+            updateDriverSheetCount();
+            const inp = e.target;
+            if (!inp.classList.contains('ds-input')) return;
+            const key = inp.dataset.key;
+            if (key === 'phone' || key === 'emergencyPhone') formatPhoneLive(inp);
+            if (key === 'cdl') inp.value = inp.value.toUpperCase();
+        });
         tbody.addEventListener('paste', handleDriverSheetPaste);
 
         tbody.addEventListener('keydown', (e) => {
@@ -3326,6 +3375,15 @@
         $('closeDriverModal').addEventListener('click', () => $('driverModal').classList.add('hidden'));
         $('cancelDriver').addEventListener('click', () => $('driverModal').classList.add('hidden'));
 
+        // Live phone formatting on edit modal
+        const phoneEl = $('driverPhone');
+        if (phoneEl) phoneEl.addEventListener('input', () => formatPhoneLive(phoneEl));
+        const ePhoneEl = $('driverEmergencyPhone');
+        if (ePhoneEl) ePhoneEl.addEventListener('input', () => formatPhoneLive(ePhoneEl));
+        // Uppercase CDL in edit modal
+        const cdlEl = $('driverCdl');
+        if (cdlEl) cdlEl.addEventListener('input', () => { cdlEl.value = cdlEl.value.toUpperCase(); });
+
         const importDriverBtn = $('importDriversBtn');
         if (importDriverBtn) {
             importDriverBtn.addEventListener('click', () => {
@@ -3345,20 +3403,20 @@
             const payload = {
                 firstName: $('driverFirstName').value.trim(),
                 lastName: $('driverLastName').value.trim(),
-                cdl: $('driverCdl').value.trim(),
-                cdlState: $('driverCdlState').value.trim().toUpperCase(),
+                cdl: $('driverCdl').value.trim().toUpperCase(),
+                cdlState: $('driverCdlState').value,
                 cdlExp: $('driverCdlExp').value,
                 medExp: $('driverMedExp').value,
                 hireDate: $('driverHireDate').value,
                 dob: $('driverDob').value,
                 address: $('driverAddress').value.trim(),
                 emergencyName: $('driverEmergencyName').value.trim(),
-                emergencyPhone: $('driverEmergencyPhone').value.trim(),
+                emergencyPhone: stripPhone($('driverEmergencyPhone').value),
                 endorsements: endorsements,
                 mvrDate: $('driverMvrDate').value,
                 bgCheck: $('driverBgCheck').value,
                 notes: $('driverNotes').value.trim(),
-                phone: $('driverPhone').value.trim(),
+                phone: stripPhone($('driverPhone').value),
                 email: $('driverEmail').value.trim(),
                 truck: $('driverTruck').value,
                 status: $('driverStatus').value,
