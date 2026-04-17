@@ -4147,7 +4147,7 @@
     function truckLabel(truckId) {
         if (!truckId) return '—';
         const t = state.trucks.find(tr => tr.id === truckId);
-        return t ? ('Unit ' + t.unit) : '—';
+        return t ? t.unit : '—';
     }
 
     // ── Validation Indicator Helpers ───────
