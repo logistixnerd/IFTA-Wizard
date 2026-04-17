@@ -1046,37 +1046,6 @@
                 </div>
             </section>
 
-            <!-- Driver Detail Panel (slide-out) -->
-            <div id="driverDetailBackdrop" class="detail-backdrop hidden"></div>
-            <aside id="driverDetailPanel" class="detail-panel hidden">
-                <div class="detail-panel-header">
-                    <div class="detail-panel-title">
-                        <h2 id="detailDriverName">Driver</h2>
-                        <span id="detailDriverStatus" class="status-badge active"></span>
-                    </div>
-                    <div class="detail-panel-actions">
-                        <button class="detail-action-btn" id="detailEditBtn" title="Edit driver">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                        </button>
-                        <button class="detail-action-btn" id="detailCloseBtn" title="Close">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
-                        </button>
-                    </div>
-                </div>
-                <div class="detail-panel-body">
-                    <!-- Info Section -->
-                    <div class="detail-section">
-                        <h3 class="detail-section-title">Driver Information</h3>
-                        <div class="detail-info-grid" id="detailDriverInfo"></div>
-                    </div>
-                    <!-- Documents Section -->
-                    <div class="detail-section">
-                        <h3 class="detail-section-title">Documents</h3>
-                        <div class="detail-doc-grid" id="detailDocGrid"></div>
-                    </div>
-                </div>
-            </aside>
-
             <!-- ========================================== -->
             <!-- SAFETY DEPARTMENT SECTIONS                 -->
             <!-- ========================================== -->
@@ -1911,6 +1880,37 @@
             </div>
         </div>
     </div>
+
+    <!-- Driver Detail Panel (slide-out) -->
+    <div id="driverDetailBackdrop" class="detail-backdrop hidden"></div>
+    <aside id="driverDetailPanel" class="detail-panel hidden">
+        <div class="detail-panel-header">
+            <div class="detail-panel-title">
+                <h2 id="detailDriverName">Driver</h2>
+                <span id="detailDriverStatus" class="status-badge active"></span>
+            </div>
+            <div class="detail-panel-actions">
+                <button class="detail-action-btn" id="detailEditBtn" title="Edit driver">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button class="detail-action-btn" id="detailCloseBtn" title="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="detail-panel-body">
+            <!-- Info Section -->
+            <div class="detail-section">
+                <h3 class="detail-section-title">Driver Information</h3>
+                <div class="detail-info-grid" id="detailDriverInfo"></div>
+            </div>
+            <!-- Documents Section -->
+            <div class="detail-section">
+                <h3 class="detail-section-title">Documents</h3>
+                <div class="detail-doc-grid" id="detailDocGrid"></div>
+            </div>
+        </div>
+    </aside>
 
     <!-- Add/Edit Driver Modal -->
     <div id="driverModal" class="modal hidden">
