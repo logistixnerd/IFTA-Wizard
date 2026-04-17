@@ -621,23 +621,23 @@
         // Map sections to their parent department groups
         const sectionGroups = {
             // Safety
-            'safety-dashboard': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'violations': 'safety',
+            'safety': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'violations': 'safety',
             // Fleet Maintenance
-            'maintenance-dashboard': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
+            'maintenance': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
             // Dispatch
-            'dispatch-board': 'dispatch', 'active-loads': 'dispatch', 'driver-assignments': 'dispatch',
+            'dispatch': 'dispatch', 'dispatch-board': 'dispatch', 'active-loads': 'dispatch', 'driver-assignments': 'dispatch',
             // Track & Trace
-            'live-map': 'tracking', 'load-status': 'tracking', 'eta-tracking': 'tracking',
+            'tracking': 'tracking', 'live-map': 'tracking', 'load-status': 'tracking', 'eta-tracking': 'tracking',
             // Accounting
-            'invoices': 'accounting', 'settlements': 'accounting', 'expenses': 'accounting', 'payroll': 'accounting',
+            'accounting': 'accounting', 'invoices': 'accounting', 'settlements': 'accounting', 'expenses': 'accounting', 'payroll': 'accounting',
             // Hiring
-            'applications': 'hiring', 'hiring-pipeline': 'hiring', 'onboarding': 'hiring',
+            'hiring': 'hiring', 'applications': 'hiring', 'hiring-pipeline': 'hiring', 'onboarding': 'hiring',
             // Claims
-            'accidents': 'claims', 'cargo-claims': 'claims', 'insurance': 'claims',
+            'claims': 'claims', 'accidents': 'claims', 'cargo-claims': 'claims', 'insurance': 'claims',
             // Afterhours
-            'on-call': 'afterhours', 'emergency-contacts': 'afterhours', 'driver-support': 'afterhours',
+            'afterhours': 'afterhours', 'on-call': 'afterhours', 'emergency-contacts': 'afterhours', 'driver-support': 'afterhours',
             // Operations
-            'command-center': 'operations', 'cross-dept-alerts': 'operations', 'reports': 'operations',
+            'operations': 'operations', 'command-center': 'operations', 'cross-dept-alerts': 'operations', 'reports': 'operations',
             // Reports
             'task-manager': 'reports'
         };
