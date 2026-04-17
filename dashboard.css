@@ -1710,6 +1710,28 @@
     background: rgba(217, 119, 6, 0.1);
 }
 
+.status-badge.suspended {
+    color: #dc2626;
+    background: rgba(220, 38, 38, 0.09);
+}
+
+.status-badge.terminated {
+    color: #991b1b;
+    background: rgba(153, 27, 27, 0.09);
+    text-decoration: line-through;
+    text-decoration-color: rgba(153, 27, 27, 0.35);
+}
+
+.status-badge.pending {
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.09);
+}
+
+.status-badge.training {
+    color: #0369a1;
+    background: rgba(3, 105, 161, 0.09);
+}
+
 /* Empty State */
 .dash-empty {
     text-align: center;
@@ -3404,13 +3426,72 @@ th.col-validation {
 
 /* Expiry date highlighting */
 .cell-expired {
-    color: #dc3545;
+    color: #dc2626;
     font-weight: 600;
 }
 
 .cell-expiring-soon {
-    color: #e6a817;
+    color: #d97706;
     font-weight: 600;
+}
+
+/* Expiry micro-tags next to dates */
+.cell-exp-tag {
+    display: inline-block;
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 1px 5px;
+    border-radius: 3px;
+    margin-left: 4px;
+    vertical-align: middle;
+    line-height: 1.5;
+}
+
+.cell-exp-tag.expired {
+    background: rgba(220, 38, 38, 0.12);
+    color: #dc2626;
+}
+
+.cell-exp-tag.expiring {
+    background: rgba(217, 119, 6, 0.12);
+    color: #d97706;
+}
+
+/* Missing data cell */
+.cell-missing {
+    color: #dc2626;
+    font-weight: 500;
+    font-style: italic;
+    font-size: 0.73rem;
+    opacity: 0.85;
+}
+
+/* Muted placeholder */
+.cell-muted {
+    color: #9ca3af;
+}
+
+/* Row-level status stripe on left */
+tr.row-status-terminated {
+    opacity: 0.55;
+}
+
+tr.row-status-suspended td:first-child {
+    box-shadow: inset 3px 0 0 #dc2626;
+}
+
+tr.row-status-pending td:first-child {
+    box-shadow: inset 3px 0 0 #7c3aed;
+}
+
+tr.row-status-training td:first-child {
+    box-shadow: inset 3px 0 0 #0369a1;
+}
+
+tr.row-status-on-leave td:first-child {
+    box-shadow: inset 3px 0 0 #d97706;
 }
 
 /* Endorsement tags */

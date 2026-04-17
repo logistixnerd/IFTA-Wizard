@@ -234,7 +234,11 @@
             defaults: [
                 { value: 'active', label: 'Active' },
                 { value: 'inactive', label: 'Inactive' },
-                { value: 'on-leave', label: 'On Leave' }
+                { value: 'on-leave', label: 'On Leave' },
+                { value: 'suspended', label: 'Suspended' },
+                { value: 'terminated', label: 'Terminated' },
+                { value: 'pending', label: 'Pending' },
+                { value: 'training', label: 'Training' }
             ],
             formIds: ['driverStatus'],
             filterIds: ['driverStatusFilter'],
@@ -2630,7 +2634,10 @@
             label: 'Name',
             defaultVisible: true,
             locked: true,
-            render: (d) => `<strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong>` || 'Unnamed'
+            render: (d) => {
+                const name = [d.firstName, d.lastName].filter(Boolean).map(s => escapeHtml(s)).join(' ');
+                return name ? `<strong>${name}</strong>` : '<span class="cell-missing">No name</span>';
+            }
         },
         {
             key: 'cdl-info',
@@ -2639,8 +2646,9 @@
             locked: false,
             render: (d) => {
                 const cdl = escapeHtml(d.cdl || '');
-                const state = escapeHtml(d.cdlState || '');
-                return cdl ? `${cdl}${state ? ' (' + state + ')' : ''}` : '–';
+                const st = escapeHtml(d.cdlState || '');
+                if (!cdl) return '<span class="cell-missing" title="CDL number is missing">Missing</span>';
+                return `${cdl}${st ? ' <span class="cell-muted">(' + st + ')</span>' : ''}`;
             }
         },
         {
@@ -2649,9 +2657,14 @@
             defaultVisible: true,
             locked: false,
             render: (d) => {
+                if (!d.cdlExp) return '<span class="cell-missing" title="CDL expiration date is missing">Missing</span>';
                 const cls = expiryClass(d.cdlExp);
-                const text = formatDate(d.cdlExp) || '–';
-                return `<span class="${cls}">${text}</span>`;
+                const text = formatDate(d.cdlExp);
+                const days = daysUntilExpiry(d.cdlExp);
+                let tag = '';
+                if (days !== null && days < 0) tag = ' <span class="cell-exp-tag expired">Expired</span>';
+                else if (days !== null && days <= 30) tag = ` <span class="cell-exp-tag expiring">${days}d</span>`;
+                return `<span class="${cls}">${text}</span>${tag}`;
             }
         },
         {
@@ -2660,9 +2673,14 @@
             defaultVisible: false,
             locked: false,
             render: (d) => {
+                if (!d.medExp) return '<span class="cell-missing" title="Medical card expiration is missing">Missing</span>';
                 const cls = expiryClass(d.medExp);
-                const text = formatDate(d.medExp) || '–';
-                return `<span class="${cls}">${text}</span>`;
+                const text = formatDate(d.medExp);
+                const days = daysUntilExpiry(d.medExp);
+                let tag = '';
+                if (days !== null && days < 0) tag = ' <span class="cell-exp-tag expired">Expired</span>';
+                else if (days !== null && days <= 30) tag = ` <span class="cell-exp-tag expiring">${days}d</span>`;
+                return `<span class="${cls}">${text}</span>${tag}`;
             }
         },
         {
@@ -2670,21 +2688,25 @@
             label: 'Phone',
             defaultVisible: true,
             locked: false,
-            render: (d) => escapeHtml(d.phone || '–')
+            render: (d) => d.phone ? escapeHtml(d.phone) : '<span class="cell-missing" title="Phone number is missing">Missing</span>'
         },
         {
             key: 'email',
             label: 'Email',
             defaultVisible: false,
             locked: false,
-            render: (d) => escapeHtml(d.email || '–')
+            render: (d) => d.email ? escapeHtml(d.email) : '<span class="cell-muted">–</span>'
         },
         {
             key: 'truck',
             label: 'Assigned Truck',
             defaultVisible: true,
             locked: false,
-            render: (d) => escapeHtml(truckLabel(d.truck))
+            render: (d) => {
+                const label = truckLabel(d.truck);
+                if (!d.truck && d.status === 'active') return '<span class="cell-missing" title="Active driver has no truck assigned">Unassigned</span>';
+                return d.truck ? escapeHtml(label) : '<span class="cell-muted">–</span>';
+            }
         },
         {
             key: 'status',
@@ -2698,21 +2720,21 @@
             label: 'Date of Hire',
             defaultVisible: false,
             locked: false,
-            render: (d) => formatDate(d.hireDate) || '–'
+            render: (d) => d.hireDate ? formatDate(d.hireDate) : '<span class="cell-muted">–</span>'
         },
         {
             key: 'dob',
             label: 'Date of Birth',
             defaultVisible: false,
             locked: false,
-            render: (d) => formatDate(d.dob) || '–'
+            render: (d) => d.dob ? formatDate(d.dob) : '<span class="cell-muted">–</span>'
         },
         {
             key: 'address',
             label: 'Home Address',
             defaultVisible: false,
             locked: false,
-            render: (d) => `<span title="${escapeHtml(d.address || '')}">${escapeHtml((d.address || '–').substring(0, 30))}</span>`
+            render: (d) => d.address ? `<span title="${escapeHtml(d.address)}">${escapeHtml(d.address.substring(0, 30))}</span>` : '<span class="cell-muted">–</span>'
         },
         {
             key: 'emergency',
@@ -2722,7 +2744,7 @@
             render: (d) => {
                 const name = d.emergencyName ? escapeHtml(d.emergencyName) : '';
                 const phone = d.emergencyPhone ? escapeHtml(d.emergencyPhone) : '';
-                if (!name && !phone) return '–';
+                if (!name && !phone) return '<span class="cell-missing" title="Emergency contact is missing">Missing</span>';
                 return `${name}${name && phone ? '<br>' : ''}${phone}`;
             }
         },
@@ -2732,9 +2754,9 @@
             defaultVisible: false,
             locked: false,
             render: (d) => {
-                if (!d.endorsements) return '–';
+                if (!d.endorsements) return '<span class="cell-muted">None</span>';
                 const tags = d.endorsements.split(',').map(e => e.trim()).filter(Boolean);
-                if (tags.length === 0) return '–';
+                if (tags.length === 0) return '<span class="cell-muted">None</span>';
                 return tags.map(t => `<span class="endorsement-tag">${escapeHtml(t)}</span>`).join('');
             }
         },
@@ -2743,21 +2765,29 @@
             label: 'MVR Review',
             defaultVisible: false,
             locked: false,
-            render: (d) => formatDate(d.mvrDate) || '–'
+            render: (d) => {
+                if (!d.mvrDate) return '<span class="cell-missing" title="MVR review date is missing">Missing</span>';
+                const days = daysUntilExpiry(d.mvrDate);
+                if (days !== null && days < -365) return `<span class="cell-expired" title="MVR is over 1 year old">${formatDate(d.mvrDate)} <span class="cell-exp-tag expired">Overdue</span></span>`;
+                return formatDate(d.mvrDate);
+            }
         },
         {
             key: 'bgCheck',
             label: 'Background Check',
             defaultVisible: false,
             locked: false,
-            render: (d) => formatDate(d.bgCheck) || '–'
+            render: (d) => {
+                if (!d.bgCheck) return '<span class="cell-missing" title="Background check date is missing">Missing</span>';
+                return formatDate(d.bgCheck);
+            }
         },
         {
             key: 'notes',
             label: 'Notes',
             defaultVisible: false,
             locked: false,
-            render: (d) => `<span title="${escapeHtml(d.notes || '')}" class="cell-notes">${escapeHtml((d.notes || '–').substring(0, 25))}</span>`
+            render: (d) => d.notes ? `<span title="${escapeHtml(d.notes)}" class="cell-notes">${escapeHtml(d.notes.substring(0, 25))}</span>` : '<span class="cell-muted">–</span>'
         }
     ];
 
@@ -2780,7 +2810,9 @@
         const visibleCols = (state.driverColumns || ALL_DRIVER_COLUMNS.map((col, idx) => ({ ...col, visible: col.defaultVisible, order: idx }))).filter(c => c.visible);
         
         tbody.innerHTML = filtered.map(d => {
-            let row = `<tr data-id="${d.id}" class="${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+            const valClass = d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : '';
+            const statusClass = d.status ? 'row-status-' + escapeHtml(d.status) : '';
+            let row = `<tr data-id="${d.id}" class="${valClass} ${statusClass}">
                 ${validationIndicator(d)}`;
             
             visibleCols.forEach(col => {
@@ -3129,6 +3161,11 @@
             if (status === 'active' && !item.truck) {
                 appendUniqueIssue(issues, 'Active driver is not assigned to a truck');
             }
+            if (!item.cdl) appendUniqueIssue(issues, 'CDL number is missing');
+            if (!item.cdlExp) appendUniqueIssue(issues, 'CDL expiration date is missing');
+            if (!item.medExp) appendUniqueIssue(issues, 'Medical card expiration is missing');
+            if (!item.phone) appendUniqueIssue(issues, 'Phone number is missing');
+            if (!item.emergencyName && !item.emergencyPhone) appendUniqueIssue(issues, 'Emergency contact is missing');
             const cdlDays = daysUntilExpiry(item.cdlExp);
             const medDays = daysUntilExpiry(item.medExp);
             if (cdlDays !== null && cdlDays < 0) appendUniqueIssue(issues, 'CDL is expired');
@@ -3593,16 +3630,40 @@
         const today = new Date().toISOString().split('T')[0];
         const soon = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
 
+        // Expired CDLs
+        const expiredCdl = state.drivers.filter(d => d.cdlExp && d.cdlExp < today);
+        if (expiredCdl.length) {
+            alerts.push({ type: 'danger', icon: 'alert', text: expiredCdl.length + ' driver' + (expiredCdl.length > 1 ? 's' : '') + ' with expired CDL' });
+        }
+
         // Drivers with expiring CDL (within 30 days)
         const expiringCdl = state.drivers.filter(d => d.cdlExp && d.cdlExp >= today && d.cdlExp <= soon);
         if (expiringCdl.length) {
             alerts.push({ type: 'warning', icon: 'clock', text: expiringCdl.length + ' driver' + (expiringCdl.length > 1 ? 's' : '') + ' with CDL expiring within 30 days' });
         }
 
-        // Expired CDLs
-        const expiredCdl = state.drivers.filter(d => d.cdlExp && d.cdlExp < today);
-        if (expiredCdl.length) {
-            alerts.push({ type: 'danger', icon: 'alert', text: expiredCdl.length + ' driver' + (expiredCdl.length > 1 ? 's' : '') + ' with expired CDL' });
+        // Expired medical cards
+        const expiredMed = state.drivers.filter(d => d.medExp && d.medExp < today);
+        if (expiredMed.length) {
+            alerts.push({ type: 'danger', icon: 'alert', text: expiredMed.length + ' driver' + (expiredMed.length > 1 ? 's' : '') + ' with expired medical card' });
+        }
+
+        // Drivers with expiring medical card (within 30 days)
+        const expiringMed = state.drivers.filter(d => d.medExp && d.medExp >= today && d.medExp <= soon);
+        if (expiringMed.length) {
+            alerts.push({ type: 'warning', icon: 'clock', text: expiringMed.length + ' driver' + (expiringMed.length > 1 ? 's' : '') + ' with medical card expiring within 30 days' });
+        }
+
+        // Missing CDL info
+        const missingCdl = state.drivers.filter(d => d.status === 'active' && !d.cdl);
+        if (missingCdl.length) {
+            alerts.push({ type: 'warning', icon: 'alert', text: missingCdl.length + ' active driver' + (missingCdl.length > 1 ? 's' : '') + ' missing CDL number' });
+        }
+
+        // Missing phone
+        const missingPhone = state.drivers.filter(d => d.status === 'active' && !d.phone);
+        if (missingPhone.length) {
+            alerts.push({ type: 'info', icon: 'alert', text: missingPhone.length + ' active driver' + (missingPhone.length > 1 ? 's' : '') + ' missing phone number' });
         }
 
         // Trucks in maintenance
