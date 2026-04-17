@@ -4354,7 +4354,7 @@
 
     // ── Google Drive Import ─────────────────
     const GDRIVE_CONFIG = {
-        clientId: '1005752295612-5ib4pggv00hgrnoiho50fvguln8a75sn.apps.googleusercontent.com',
+        clientId: '1019904853500-dgr51js0f2scs3om1l4jocbho85g0ona.apps.googleusercontent.com',
         apiKey: 'AIzaSyAmMfBcWSGN9w3rLC4vRobWqAG6ahyfEQM',
         scopes: 'https://www.googleapis.com/auth/drive.readonly',
         pickerMimeTypes: [
