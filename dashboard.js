@@ -856,7 +856,6 @@
             if (lookupBar) lookupBar.style.display = 'none';
             if (verifyCard) verifyCard.classList.add('hidden');
 
-            // Lock core identity fields
             ['dashCompany', 'dashDotNumber', 'dashMcNumber', 'dashEin'].forEach(id => {
                 const el = $(id);
                 if (el) { el.readOnly = true; el.classList.add('field-locked'); }
@@ -864,6 +863,44 @@
         } else {
             if (notice) notice.classList.add('hidden');
             if (lookupBar) lookupBar.style.display = '';
+
+            ['dashCompany', 'dashDotNumber', 'dashMcNumber', 'dashEin'].forEach(id => {
+                const el = $(id);
+                if (el) { el.readOnly = false; el.classList.remove('field-locked'); }
+            });
+        }
+
+        const removeBtn = $('removeCompanyBtn');
+        if (removeBtn && !removeBtn._bound) {
+            removeBtn._bound = true;
+            removeBtn.addEventListener('click', removeCompany);
+        }
+    }
+
+    async function removeCompany() {
+        if (!confirm('Are you sure you want to remove this company? All company identity fields will be cleared. Your trucks, trailers, and drivers will remain.')) return;
+        try {
+            await db.collection('users').doc(uid()).set({
+                company: firebase.firestore.FieldValue.delete(),
+                dotNumber: firebase.firestore.FieldValue.delete(),
+                mcNumber: firebase.firestore.FieldValue.delete(),
+                ein: firebase.firestore.FieldValue.delete(),
+                fmcsaSnapshot: firebase.firestore.FieldValue.delete(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            ['dashCompany', 'dashDotNumber', 'dashMcNumber', 'dashEin'].forEach(id => {
+                const el = $(id);
+                if (el) { el.value = ''; el.readOnly = false; el.classList.remove('field-locked'); }
+            });
+            state.fmcsaSnapshot = null;
+            lockCompanyIfSet();
+            renderComplianceSection(null);
+            renderComplianceReminders(null);
+            showMsg('Company removed. You can now set up a new company.');
+        } catch (err) {
+            console.error('Remove company error:', err);
+            showMsg('Failed to remove company', true);
         }
     }
 
@@ -2331,6 +2368,20 @@
 
         const panel = $('driverDetailPanel');
         panel.classList.toggle('is-create', isCreate);
+
+        // Toggle section visibility: new driver = info first, existing = feed first
+        const feedSection = $('detailFeedSection');
+        const tasksSection = $('detailTasksSection');
+        const infoSection = $('detailInfoSection');
+        if (isCreate) {
+            if (feedSection) feedSection.classList.add('collapsed');
+            if (tasksSection) tasksSection.classList.add('collapsed');
+            if (infoSection) infoSection.classList.remove('collapsed');
+        } else {
+            if (feedSection) feedSection.classList.remove('collapsed');
+            if (tasksSection) tasksSection.classList.remove('collapsed');
+            if (infoSection) infoSection.classList.add('collapsed');
+        }
 
         $('driverDetailBackdrop').classList.remove('hidden');
         panel.classList.remove('hidden');
