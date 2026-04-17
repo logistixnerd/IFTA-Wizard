@@ -1856,11 +1856,18 @@
                 { key: 'cdl', placeholder: 'CDL number', type: 'text' },
                 { key: 'cdlState', placeholder: 'TX', type: 'text', maxlength: 2, pattern: /^[A-Z]{2}$/, warnMsg: 'Invalid state code' },
                 { key: 'cdlExp', type: 'date' },
+                { key: 'medExp', type: 'date' },
                 { key: 'email', placeholder: 'john@example.com', type: 'text' },
+                { key: 'hireDate', type: 'date' },
+                { key: 'truck', placeholder: 'Truck unit #', type: 'text' },
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Inactive' },
-                    { value: 'on-leave', label: 'On Leave' }
+                    { value: 'on-leave', label: 'On Leave' },
+                    { value: 'suspended', label: 'Suspended' },
+                    { value: 'terminated', label: 'Terminated' },
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'training', label: 'Training' }
                 ]}
             ],
             collection: 'drivers',
@@ -1883,7 +1890,10 @@
                 cdl: ['cdl', 'cdlnumber', 'cdlno', 'licensenumber', 'license', 'dl'],
                 cdlState: ['cdlstate', 'licensestate', 'dlstate', 'state'],
                 cdlExp: ['cdlexp', 'cdlexpiration', 'cdlexpirationdate', 'licenseexp'],
+                medExp: ['medexp', 'medicalexp', 'medicalcard', 'medcardexp', 'medicalcardexp'],
                 email: ['email', 'emailaddress', 'mail'],
+                hireDate: ['hiredate', 'dateofhire', 'hired', 'startdate'],
+                truck: ['truck', 'unit', 'truckunit', 'assignedtruck', 'vehicle'],
                 status: ['status']
             }
         }
@@ -3027,8 +3037,8 @@
     }
 
     function initDriverForm() {
-        $('addDriverBtn').addEventListener('click', () => openDriverModal());
-        $('addFirstDriver').addEventListener('click', () => openDriverModal());
+        $('addDriverBtn').addEventListener('click', () => openSheetModal('driver'));
+        $('addFirstDriver').addEventListener('click', () => openSheetModal('driver'));
         $('closeDriverModal').addEventListener('click', () => $('driverModal').classList.add('hidden'));
         $('cancelDriver').addEventListener('click', () => $('driverModal').classList.add('hidden'));
 
@@ -4296,7 +4306,7 @@
         toggleDriverColumn,
         addTruck: () => openSheetModal('truck'),
         addTrailer: () => openSheetModal('trailer'),
-        addDriver: () => openDriverModal()
+        addDriver: () => openSheetModal('driver')
     };
 
     // Start when DOM is ready
