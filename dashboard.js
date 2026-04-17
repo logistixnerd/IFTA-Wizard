@@ -2825,7 +2825,8 @@
             
             visibleCols.forEach(col => {
                 const cellContent = col.render(d);
-                row += `<td><div class="cell">${cellContent}</div></td>`;
+                const tdClass = col.key === 'status' ? ' class="col-status"' : '';
+                row += `<td${tdClass}><div class="cell">${cellContent}</div></td>`;
             });
             
             row += `<td class="row-actions"><div class="cell">
