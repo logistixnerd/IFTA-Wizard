@@ -2,6 +2,9 @@
    CARRIER DASHBOARD – Premium Workspace
    ========================================== */
 
+/* Global hidden utility */
+.hidden { display: none !important; }
+
 /* Layout */
 .dash-layout {
     display: flex;
@@ -4298,6 +4301,7 @@ tr.detail-active {
     margin-left: 8px;
     animation: dnd-pulse 2s infinite;
 }
+.dnd-badge.hidden { display: none; }
 @keyframes dnd-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.7; }
