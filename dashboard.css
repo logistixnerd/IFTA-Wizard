@@ -997,21 +997,40 @@
 .inline-add-btn svg { opacity: 0.65; }
 .inline-add-btn:hover svg { opacity: 1; }
 
-/* Active inline-add row */
+/* Active inline-add row — full-width grid */
 #driversInlineAdd tr {
     background: #f8faff;
-    border-bottom: 2px solid #4f46e5;
 }
 #driversInlineAdd td {
-    padding: 0 0.25rem;
-    height: var(--dash-row-height);
-    vertical-align: middle;
+    padding: 0;
+    border-bottom: 2.5px solid #4f46e5;
 }
-#driversInlineAdd .inline-cell {
-    position: relative;
+.inline-add-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+    gap: 0.45rem 0.5rem;
+    padding: 0.65rem 0.85rem 0.35rem;
 }
-#driversInlineAdd .inline-cell input,
-#driversInlineAdd .inline-cell select {
+.inline-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.inline-field label {
+    font-size: 0.6rem;
+    font-weight: 600;
+    color: #8b95a5;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1;
+    white-space: nowrap;
+}
+.inline-field.required label::after {
+    content: ' *';
+    color: #e2445c;
+}
+.inline-field input,
+.inline-field select {
     width: 100%;
     height: 28px;
     padding: 0 0.4rem;
@@ -1024,23 +1043,19 @@
     transition: border-color 0.15s, box-shadow 0.15s;
     box-sizing: border-box;
 }
-#driversInlineAdd .inline-cell input:focus,
-#driversInlineAdd .inline-cell select:focus {
+.inline-field input:focus,
+.inline-field select:focus {
     border-color: #4f46e5;
     box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12);
 }
-#driversInlineAdd .inline-cell input::placeholder {
+.inline-field input::placeholder {
     color: #c0c5ce;
     font-size: 0.65rem;
 }
-#driversInlineAdd .inline-cell input[type="date"] {
+.inline-field input[type="date"] {
     color: #374151;
 }
-#driversInlineAdd .inline-cell input[type="date"]:invalid,
-#driversInlineAdd .inline-cell input[type="date"][value=""] {
-    color: #c0c5ce;
-}
-#driversInlineAdd .inline-cell select {
+.inline-field select {
     color: #374151;
     cursor: pointer;
     appearance: none;
@@ -1050,39 +1065,49 @@
     background-position: right 6px center;
     padding-right: 20px;
 }
-#driversInlineAdd .inline-actions {
+.inline-add-bar {
     display: flex;
-    gap: 0.25rem;
     align-items: center;
-    justify-content: center;
+    justify-content: space-between;
+    padding: 0.35rem 0.85rem 0.55rem;
 }
-#driversInlineAdd .inline-save-btn,
-#driversInlineAdd .inline-cancel-btn {
+.inline-add-hint {
+    font-size: 0.625rem;
+    color: #9ca3af;
+}
+.inline-actions {
     display: flex;
+    gap: 0.4rem;
     align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
+}
+.inline-save-btn,
+.inline-cancel-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: inherit;
     border: none;
-    border-radius: 4px;
+    border-radius: 5px;
     cursor: pointer;
-    padding: 0;
-    transition: background 0.15s;
+    transition: background 0.15s, opacity 0.15s;
 }
-#driversInlineAdd .inline-save-btn {
+.inline-save-btn {
     background: #00c875;
     color: #fff;
 }
-#driversInlineAdd .inline-save-btn:hover { background: #00b368; }
-#driversInlineAdd .inline-save-btn:disabled {
+.inline-save-btn:hover { background: #00b368; }
+.inline-save-btn:disabled {
     background: #d1d5db;
     cursor: not-allowed;
 }
-#driversInlineAdd .inline-cancel-btn {
+.inline-cancel-btn {
     background: #f3f4f6;
     color: #6b7280;
 }
-#driversInlineAdd .inline-cancel-btn:hover { background: #e5e7eb; }
+.inline-cancel-btn:hover { background: #e5e7eb; }
 
 /* ── Panel container ──────────────────────────────────────────── */
 .col-picker-panel {

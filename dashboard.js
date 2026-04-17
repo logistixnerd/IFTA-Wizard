@@ -2856,62 +2856,66 @@
         }).join('');
     }
 
-    // ── Inline Add Row (Monday.com style) ──────────────────
-    const INLINE_COL_MAP = {
-        'name':        { fields: [{key:'firstName',type:'text',placeholder:'First name'},{key:'lastName',type:'text',placeholder:'Last name'}] },
-        'cdl-info':    { fields: [{key:'cdl',type:'text',placeholder:'CDL #'},{key:'cdlState',type:'text',placeholder:'ST',maxlength:2}] },
-        'cdlExp':      { fields: [{key:'cdlExp',type:'date'}] },
-        'medExp':      { fields: [{key:'medExp',type:'date'}] },
-        'phone':       { fields: [{key:'phone',type:'text',placeholder:'(555) 123-4567'}] },
-        'email':       { fields: [{key:'email',type:'text',placeholder:'Email'}] },
-        'truck':       { fields: [{key:'truck',type:'text',placeholder:'Unit #'}] },
-        'status':      { fields: [{key:'status',type:'select',options:'driverStatus'}] },
-        'hireDate':    { fields: [{key:'hireDate',type:'date'}] },
-        'dob':         { fields: [{key:'dob',type:'date'}] },
-        'address':     { fields: [{key:'address',type:'text',placeholder:'Address'}] },
-        'emergency':   { fields: [{key:'emergencyName',type:'text',placeholder:'Name'},{key:'emergencyPhone',type:'text',placeholder:'Phone'}] },
-        'endorsements':{ fields: [{key:'endorsements',type:'text',placeholder:'H,N,T...'}] },
-        'mvrDate':     { fields: [{key:'mvrDate',type:'date'}] },
-        'bgCheck':     { fields: [{key:'bgCheck',type:'date'}] },
-        'notes':       { fields: [{key:'notes',type:'text',placeholder:'Notes'}] }
-    };
+    // ── Inline Add Row (Monday.com style — full-width, all fields) ──
+    const INLINE_FIELDS = [
+        { key: 'firstName', label: 'First Name', type: 'text', placeholder: 'First name', required: true },
+        { key: 'lastName', label: 'Last Name', type: 'text', placeholder: 'Last name' },
+        { key: 'phone', label: 'Phone', type: 'text', placeholder: '(555) 123-4567' },
+        { key: 'cdl', label: 'CDL #', type: 'text', placeholder: 'CDL number' },
+        { key: 'cdlState', label: 'CDL State', type: 'text', placeholder: 'TX', maxlength: 2 },
+        { key: 'cdlExp', label: 'CDL Exp', type: 'date' },
+        { key: 'medExp', label: 'Med Card Exp', type: 'date' },
+        { key: 'email', label: 'Email', type: 'text', placeholder: 'email@example.com' },
+        { key: 'truck', label: 'Truck', type: 'text', placeholder: 'Unit #' },
+        { key: 'status', label: 'Status', type: 'select', options: 'driverStatus' },
+        { key: 'hireDate', label: 'Hire Date', type: 'date' },
+        { key: 'dob', label: 'DOB', type: 'date' },
+        { key: 'address', label: 'Address', type: 'text', placeholder: 'Home address' },
+        { key: 'emergencyName', label: 'Emergency Name', type: 'text', placeholder: 'Contact name' },
+        { key: 'emergencyPhone', label: 'Emergency Phone', type: 'text', placeholder: 'Contact phone' },
+        { key: 'endorsements', label: 'Endorsements', type: 'text', placeholder: 'H,N,T,X...' },
+        { key: 'mvrDate', label: 'MVR Review', type: 'date' },
+        { key: 'bgCheck', label: 'Background Check', type: 'date' },
+        { key: 'notes', label: 'Notes', type: 'text', placeholder: 'Notes' }
+    ];
 
     function buildInlineAddRow() {
         const tbody = $('driversInlineAdd');
         const trigger = $('driverAddTrigger');
         if (!tbody) return;
         tbody.innerHTML = '';
-        if (trigger) trigger.style.display = '';
 
         const visibleCols = (state.driverColumns || ALL_DRIVER_COLUMNS.map((c, i) => ({ ...c, visible: c.defaultVisible, order: i }))).filter(c => c.visible);
+        const totalCols = visibleCols.length + 3; // validation + actions + picker
 
-        let html = '<tr class="inline-add-row"><td></td>'; // validation col
-
-        visibleCols.forEach(col => {
-            const mapping = INLINE_COL_MAP[col.key];
-            if (!mapping) { html += '<td></td>'; return; }
-            html += '<td><div class="inline-cell" style="display:flex;gap:3px;">';
-            mapping.fields.forEach(f => {
-                if (f.type === 'select') {
-                    const opts = getDropdownOptions(f.options);
-                    html += `<select data-inline-key="${f.key}">` +
-                        opts.map(o => `<option value="${escapeHtml(o.value)}"${o.value === 'active' ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') +
-                        '</select>';
-                } else {
-                    html += `<input type="${f.type}" data-inline-key="${f.key}"${f.placeholder ? ' placeholder="' + escapeHtml(f.placeholder) + '"' : ''}${f.maxlength ? ' maxlength="' + f.maxlength + '"' : ''}>`;
-                }
-            });
-            html += '</div></td>';
+        let fieldsHtml = '';
+        INLINE_FIELDS.forEach(f => {
+            let inputHtml;
+            if (f.type === 'select') {
+                const opts = getDropdownOptions(f.options);
+                inputHtml = `<select data-inline-key="${f.key}">` +
+                    opts.map(o => `<option value="${escapeHtml(o.value)}"${o.value === 'active' ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') +
+                    '</select>';
+            } else {
+                inputHtml = `<input type="${f.type}" data-inline-key="${f.key}"${f.placeholder ? ' placeholder="' + escapeHtml(f.placeholder) + '"' : ''}${f.maxlength ? ' maxlength="' + f.maxlength + '"' : ''}>`;
+            }
+            fieldsHtml += `<div class="inline-field${f.required ? ' required' : ''}">
+                <label>${escapeHtml(f.label)}</label>${inputHtml}</div>`;
         });
 
-        html += `<td><div class="inline-actions">
-            <button class="inline-save-btn" id="inlineSaveDriver" title="Save driver" disabled>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
-            </button>
-            <button class="inline-cancel-btn" id="inlineCancelDriver" title="Cancel">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
-            </button>
-        </div></td><td></td></tr>`;
+        const html = `<tr class="inline-add-row"><td colspan="${totalCols}">
+            <div class="inline-add-grid">${fieldsHtml}</div>
+            <div class="inline-add-bar">
+                <span class="inline-add-hint">Tab between fields &middot; Enter to save &middot; Esc to cancel</span>
+                <div class="inline-actions">
+                    <button class="inline-cancel-btn" id="inlineCancelDriver" title="Cancel">Cancel</button>
+                    <button class="inline-save-btn" id="inlineSaveDriver" title="Save driver" disabled>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" width="13" height="13"><polyline points="20 6 9 17 4 12"/></svg>
+                        Save
+                    </button>
+                </div>
+            </div>
+        </td></tr>`;
 
         tbody.innerHTML = html;
         if (trigger) trigger.style.display = 'none';
@@ -2921,7 +2925,6 @@
         if (first) setTimeout(() => first.focus(), 50);
 
         // Enable save when firstName has a value
-        const fnInput = tbody.querySelector('[data-inline-key="firstName"]');
         const saveBtn = $('inlineSaveDriver');
         tbody.addEventListener('input', () => {
             const fn = tbody.querySelector('[data-inline-key="firstName"]');
@@ -2929,18 +2932,8 @@
         });
 
         // Keyboard nav
-        const allInputs = Array.from(tbody.querySelectorAll('input, select'));
         tbody.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                const idx = allInputs.indexOf(e.target);
-                if (idx === -1) return;
-                if (!e.shiftKey && idx === allInputs.length - 1) {
-                    e.preventDefault();
-                    saveInlineDriver();
-                    return;
-                }
-            }
-            if (e.key === 'Enter') {
+            if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
                 if (saveBtn && !saveBtn.disabled) saveInlineDriver();
             }
