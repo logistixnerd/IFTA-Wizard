@@ -5130,7 +5130,8 @@
                 const y = vp.height - item.transform[5];
                 const x = item.transform[4];
                 const w = item.width || (item.str.length * Math.abs(item.transform[0]) * 0.6);
-                allItems.push({ text: item.str.trim(), x, y, w, page: p });
+                const fontSize = Math.abs(item.transform[0]) || 10;
+                allItems.push({ text: item.str.trim(), x, y, w, fontSize, page: p });
             });
         }
 
@@ -5157,109 +5158,93 @@
         }
         rowGroups.push(currentGroup);
 
-        // Collect all X-start positions and find column boundaries using gap analysis
-        const allXPositions = [];
+        // Measure actual whitespace gaps between consecutive items in each row
+        const allGaps = [];
         rowGroups.forEach(group => {
-            group.forEach(item => allXPositions.push(item.x));
-        });
-        allXPositions.sort((a, b) => a - b);
-
-        // Remove near-duplicates first (within 3px)
-        const uniqueX = [allXPositions[0]];
-        for (let i = 1; i < allXPositions.length; i++) {
-            if (allXPositions[i] - uniqueX[uniqueX.length - 1] > 3) {
-                uniqueX.push(allXPositions[i]);
+            group.sort((a, b) => a.x - b.x);
+            for (let i = 1; i < group.length; i++) {
+                const prevEnd = group[i - 1].x + group[i - 1].w;
+                const gap = group[i].x - prevEnd;
+                if (gap > 0) allGaps.push(gap);
             }
-        }
-
-        // Find gaps between consecutive X positions and use gap analysis to determine column breaks
-        const gaps = [];
-        for (let i = 1; i < uniqueX.length; i++) {
-            gaps.push({ gap: uniqueX[i] - uniqueX[i - 1], idx: i });
-        }
-        gaps.sort((a, b) => b.gap - a.gap);
-
-        // Determine how many columns by finding the biggest drop in gap sizes
-        // Take gaps that are significantly larger than the median gap
-        const sortedGapValues = gaps.map(g => g.gap).sort((a, b) => b - a);
-        const medianGap = sortedGapValues[Math.floor(sortedGapValues.length / 2)] || 10;
-        const breakThreshold = Math.max(medianGap * 2, 30);
-
-        const breakIndices = new Set();
-        breakIndices.add(0); // first position is always a column start
-        gaps.forEach(g => {
-            if (g.gap >= breakThreshold) breakIndices.add(g.idx);
         });
+        allGaps.sort((a, b) => a - b);
 
-        const colBoundaries = Array.from(breakIndices).sort((a, b) => a - b).map(i => uniqueX[i]);
-        console.log('[PDF] Column boundaries (' + colBoundaries.length + '):', colBoundaries.map(b => Math.round(b)), 'threshold:', Math.round(breakThreshold));
+        console.log('[PDF] All gaps (' + allGaps.length + '):', allGaps.map(g => Math.round(g * 10) / 10));
 
-        // Assign each item to the nearest column boundary
-        function getColIndex(x) {
-            let bestIdx = 0, bestDist = Infinity;
-            colBoundaries.forEach((b, idx) => {
-                const dist = Math.abs(x - b);
-                if (dist < bestDist) { bestDist = dist; bestIdx = idx; }
-            });
-            return bestIdx;
+        // Find the natural break between "within-word" gaps and "between-column" gaps
+        // Use Jenks/Otsu-like approach: find the gap value with the biggest jump
+        let colGapThreshold;
+        if (allGaps.length >= 2) {
+            let maxJump = 0, jumpAt = 0;
+            for (let i = 1; i < allGaps.length; i++) {
+                const jump = allGaps[i] - allGaps[i - 1];
+                if (jump > maxJump) { maxJump = jump; jumpAt = i; }
+            }
+            // Threshold is midpoint between the two gap clusters
+            colGapThreshold = (allGaps[jumpAt - 1] + allGaps[jumpAt]) / 2;
+        } else {
+            colGapThreshold = 20;
         }
+        // Ensure a reasonable minimum
+        const avgFontSize = allItems.reduce((s, it) => s + it.fontSize, 0) / allItems.length;
+        colGapThreshold = Math.max(colGapThreshold, avgFontSize * 1.5);
 
-        // Convert each row group into cells aligned to column boundaries
+        console.log('[PDF] Column gap threshold:', Math.round(colGapThreshold * 10) / 10, 'avgFontSize:', Math.round(avgFontSize * 10) / 10);
+
+        // Build rows by splitting on gaps > threshold
         const lines = rowGroups.map(group => {
             group.sort((a, b) => a.x - b.x);
-            const cells = new Array(colBoundaries.length).fill('');
-            group.forEach(item => {
-                const colIdx = getColIndex(item.x);
-                cells[colIdx] = cells[colIdx] ? cells[colIdx] + ' ' + item.text : item.text;
-            });
-            return cells;
-        });
+            const cells = [group[0].text];
+            for (let i = 1; i < group.length; i++) {
+                const prevEnd = group[i - 1].x + group[i - 1].w;
+                const gap = group[i].x - prevEnd;
+                if (gap >= colGapThreshold) {
+                    cells.push(group[i].text);
+                } else {
+                    cells[cells.length - 1] += ' ' + group[i].text;
+                }
+            }
+            return cells.map(c => c.trim()).filter(Boolean);
+        }).filter(row => row.length > 0);
 
-        // Filter empty rows
-        const nonEmptyLines = lines.filter(row => row.some(c => c.trim()));
+        console.log('[PDF] Extracted', lines.length, 'lines. First 3:', JSON.stringify(lines.slice(0, 3)));
 
-        console.log('[PDF] Extracted', nonEmptyLines.length, 'lines. First 3:', JSON.stringify(nonEmptyLines.slice(0, 3)));
-
-        if (nonEmptyLines.length < 2) return null;
+        if (lines.length < 2) return null;
 
         // Find header row
         const tableKeywords = ['name', 'first', 'last', 'cdl', 'license', 'phone', 'email', 'driver', 'dob', 'hire', 'status', 'unit', 'vin', 'plate', 'make', 'model', 'year', 'type', 'fuel', 'trailer', 'truck', 'vehicle', 'number', 'registration', 'insurance', 'inspection', 'expiration', 'date', 'termination'];
         let headerIdx = -1, bestScore = 0;
-        nonEmptyLines.forEach((cells, i) => {
+        lines.forEach((cells, i) => {
             const joined = cells.join(' ').toLowerCase();
             const score = tableKeywords.filter(kw => joined.includes(kw)).length;
             if (score > bestScore) { bestScore = score; headerIdx = i; }
         });
 
-        console.log('[PDF] Best header at line', headerIdx, 'score', bestScore, headerIdx >= 0 ? JSON.stringify(nonEmptyLines[headerIdx]) : '');
+        console.log('[PDF] Best header at line', headerIdx, 'score', bestScore, headerIdx >= 0 ? JSON.stringify(lines[headerIdx]) : '');
 
         if (headerIdx === -1 || bestScore < 2) {
-            headerIdx = nonEmptyLines.findIndex(cells => cells.filter(c => c.trim()).length >= 2);
+            headerIdx = lines.findIndex(cells => cells.length >= 2);
             if (headerIdx === -1) {
                 showMsg('Could not detect table structure in PDF. Try Excel or CSV instead.', true);
                 return null;
             }
-            console.log('[PDF] Using fallback header at line', headerIdx);
         }
 
-        // Clean: remove empty columns (where header is empty and all data is empty)
-        const header = nonEmptyLines[headerIdx];
-        const dataLines = nonEmptyLines.slice(headerIdx + 1);
-        const usedCols = [];
-        for (let c = 0; c < header.length; c++) {
-            if (header[c].trim() || dataLines.some(row => row[c] && row[c].trim())) {
-                usedCols.push(c);
+        // Normalize: pad shorter rows to match header length
+        const header = lines[headerIdx];
+        const numCols = header.length;
+        const rows = [header];
+        for (let i = headerIdx + 1; i < lines.length; i++) {
+            const row = lines[i];
+            if (row.length >= Math.max(2, numCols - 2)) {
+                while (row.length < numCols) row.push('');
+                rows.push(row.slice(0, numCols));
             }
         }
 
-        const cleanRows = [usedCols.map(c => header[c].trim())];
-        for (const row of dataLines) {
-            const cleaned = usedCols.map(c => (row[c] || '').trim());
-            if (cleaned.some(c => c)) cleanRows.push(cleaned);
-        }
-
-        console.log('[PDF] Final result:', cleanRows.length, 'rows (incl header). Header:', JSON.stringify(cleanRows[0]));
-        return cleanRows.length >= 2 ? cleanRows : null;
+        console.log('[PDF] Final result:', rows.length, 'rows (incl header). Header:', JSON.stringify(rows[0]));
+        return rows.length >= 2 ? rows : null;
     }
 
     // ── SHEET MODAL SYSTEM (Trucks, Trailers, Drivers) ──
