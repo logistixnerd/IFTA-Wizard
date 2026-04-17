@@ -2075,36 +2075,24 @@
         }
     }
 
-    function initComplianceSection() {
-        const btn = $('complianceRefreshBtn');
-        if (btn) {
-            btn.addEventListener('click', async () => {
-                const dot = ($('dashDotNumber')?.value || '').replace(/\D/g, '').trim();
-                if (!dot) { showMsg('Enter a DOT number in Company Settings first', true); return; }
-                btn.disabled = true;
-                btn.textContent = 'Fetching\u2026';
-                try {
-                    const data = await fmcsaFetchDot(dot);
-                    if (!data) throw new Error('Lookup failed');
-                    state.fmcsaSnapshot = data;
-                    await db.collection('users').doc(uid()).set({
-                        fmcsaSnapshot: data,
-                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }, { merge: true });
-                    renderComplianceSection(data);
-                    renderFmcsaSnapshot(data);
-                    renderComplianceReminders(data);
-                    showMsg('FMCSA data refreshed');
-                } catch (err) {
-                    console.error('Compliance refresh error:', err);
-                    showMsg(err.message || 'Failed to fetch FMCSA data', true);
-                } finally {
-                    btn.disabled = false;
-                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Refresh from FMCSA';
-                }
-            });
-        }
+    async function initComplianceSection() {
         renderComplianceSection(state.fmcsaSnapshot || null);
+        const dot = ($('dashDotNumber')?.value || '').replace(/\D/g, '').trim();
+        if (!dot) return;
+        try {
+            const data = await fmcsaFetchDot(dot);
+            if (!data) return;
+            state.fmcsaSnapshot = data;
+            await db.collection('users').doc(uid()).set({
+                fmcsaSnapshot: data,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            renderComplianceSection(data);
+            renderFmcsaSnapshot(data);
+            renderComplianceReminders(data);
+        } catch (err) {
+            console.error('Compliance auto-refresh error:', err);
+        }
     }
 
     function renderComplianceReminders(fmcsaData) {
