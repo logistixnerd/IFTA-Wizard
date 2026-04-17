@@ -14,7 +14,8 @@
         driverColumns: null,
         profile: {},
         dropdownOptions: {},
-        companyDashboard: null
+        companyDashboard: null,
+        fmcsaSnapshot: null
     };
 
     const COMPANY_TOOL_LABELS = {
@@ -836,6 +837,7 @@
             $('dashBaseState').value = data.baseState || '';
 
             state.companyDashboard = normalizeCompanyDashboard(data.companyDashboard);
+            state.fmcsaSnapshot = data.fmcsaSnapshot || null;
             ensureCompanyOwnerMember();
             renderCompanyDashboard();
         } catch (e) {
@@ -1510,6 +1512,212 @@
         tabs.forEach(tab => {
             tab.addEventListener('click', () => activateTab(tab.dataset.companyTab));
         });
+    }
+
+    // ── FMCSA Carrier Snapshot ──────────────────────────
+    const CARRIER_LOOKUP_URL = 'https://us-central1-ifta-wizard-a9061.cloudfunctions.net/carrierLookup';
+
+    async function fetchFmcsaSnapshot() {
+        const dot = ($('dashDotNumber').value || '').replace(/\D/g, '').trim();
+        if (!dot) { showMsg('Enter a DOT number in the Information tab first', true); return; }
+
+        const btn = $('fmcsaFetchBtn');
+        btn.disabled = true;
+        btn.textContent = 'Fetching…';
+
+        try {
+            const res = await fetch(`${CARRIER_LOOKUP_URL}?dot=${encodeURIComponent(dot)}`);
+            const json = await res.json();
+            if (!json.success) throw new Error(json.error || 'Lookup failed');
+
+            state.fmcsaSnapshot = json.data;
+            // Persist the snapshot to Firestore
+            await db.collection('users').doc(uid()).set({
+                fmcsaSnapshot: json.data,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+
+            renderFmcsaSnapshot(json.data);
+            renderComplianceReminders(json.data);
+            showMsg('FMCSA data loaded');
+        } catch (err) {
+            console.error('FMCSA fetch error:', err);
+            showMsg(err.message || 'Failed to fetch FMCSA data', true);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg> Fetch from FMCSA';
+        }
+    }
+
+    function fmcsaRow(label, value) {
+        const v = value != null && value !== '' ? String(value) : '—';
+        return `<div class="fmcsa-row"><span class="fmcsa-row-label">${escapeHtml(label)}</span><span class="fmcsa-row-value">${escapeHtml(v)}</span></div>`;
+    }
+
+    function renderFmcsaSnapshot(d) {
+        $('fmcsaHint').style.display = 'none';
+        $('fmcsaSnapshot').style.display = '';
+
+        // Status bar
+        const authorised = d.allowedToOperate === 'Authorized';
+        $('fmcsaStatusBar').className = 'fmcsa-status-bar ' + (authorised ? 'fmcsa-status-ok' : 'fmcsa-status-bad');
+        $('fmcsaStatusBar').innerHTML = '<span class="fmcsa-status-dot"></span><strong>'
+            + escapeHtml(d.allowedToOperate || 'Unknown') + '</strong>'
+            + (d.operationType ? ' &mdash; ' + escapeHtml(d.operationType) : '');
+
+        // Identity
+        $('fmcsaIdentity').innerHTML =
+            fmcsaRow('Legal Name', d.legalName)
+            + fmcsaRow('DBA Name', d.dbaName)
+            + fmcsaRow('USDOT', d.dotNumber)
+            + fmcsaRow('MC Number', d.mcNumber)
+            + fmcsaRow('EIN', d.einNumber)
+            + fmcsaRow('Entity Type', d.entityType)
+            + fmcsaRow('Phone', d.telephone)
+            + fmcsaRow('Email', d.email)
+            + fmcsaRow('Address', [d.phyStreet, d.phyCity, d.phyState, d.phyZip].filter(Boolean).join(', '));
+
+        // Fleet & Mileage
+        const mileageLabel = d.mcs150MileageYear ? `Miles (${d.mcs150MileageYear})` : 'Miles';
+        $('fmcsaFleet').innerHTML =
+            fmcsaRow('Power Units', d.totalPowerUnits)
+            + fmcsaRow('Drivers', d.totalDrivers)
+            + fmcsaRow(mileageLabel, d.mcs150Mileage != null ? Number(d.mcs150Mileage).toLocaleString() : null)
+            + fmcsaRow('MCS-150 Date', d.mcs150FormDate);
+
+        // Safety
+        $('fmcsaSafety').innerHTML =
+            fmcsaRow('Safety Rating', d.safetyRating)
+            + fmcsaRow('Rating Date', d.safetyRatingDate)
+            + fmcsaRow('Last Review', d.reviewDate)
+            + fmcsaRow('Review Type', d.reviewType);
+
+        // Insurance
+        const ins = (req, onFile) => {
+            if (!req && !onFile) return '—';
+            const r = req ? '$' + Number(req).toLocaleString() : '—';
+            const f = onFile ? '$' + Number(onFile).toLocaleString() : '—';
+            return `Req: ${r} / On file: ${f}`;
+        };
+        $('fmcsaInsurance').innerHTML =
+            fmcsaRow('BIPD Liability', ins(d.bipdInsuranceRequired, d.bipdInsuranceOnFile))
+            + fmcsaRow('Cargo', ins(d.cargoInsuranceRequired, d.cargoInsuranceOnFile))
+            + fmcsaRow('Bond/Surety', ins(d.bondInsuranceRequired, d.bondInsuranceOnFile))
+            + fmcsaRow('Insurance State', d.oicState);
+
+        // Inspections
+        $('fmcsaInspections').innerHTML =
+            fmcsaRow('Total', d.inspectionTotal)
+            + fmcsaRow('Driver', d.driverInsp)
+            + fmcsaRow('Vehicle', d.vehicleInsp)
+            + fmcsaRow('HazMat', d.hazmatInsp)
+            + fmcsaRow('Driver OOS Rate', d.driverOOSRate != null ? d.driverOOSRate + '%' : null)
+            + fmcsaRow('Vehicle OOS Rate', d.vehicleOOSRate != null ? d.vehicleOOSRate + '%' : null);
+
+        // Crashes
+        $('fmcsaCrashes').innerHTML =
+            fmcsaRow('Total', d.crashTotal)
+            + fmcsaRow('Fatal', d.fatalCrash)
+            + fmcsaRow('Injury', d.injCrash)
+            + fmcsaRow('Tow', d.towCrash);
+
+        // Fetched timestamp
+        if (d.fetchedAt) {
+            $('fmcsaFetchedAt').textContent = 'Last fetched: ' + new Date(d.fetchedAt).toLocaleString();
+        }
+    }
+
+    // ── Compliance Reminders (MCS-150 & IFTA) ───────────
+    function renderComplianceReminders(fmcsaData) {
+        const container = $('fmcsaReminders');
+        if (!container) return;
+        const reminders = [];
+        const today = new Date();
+
+        // ── IFTA quarterly filing deadlines ──
+        // Q1 Jan-Mar → Apr 30, Q2 Apr-Jun → Jul 31, Q3 Jul-Sep → Oct 31, Q4 Oct-Dec → Jan 31 next year
+        const iftaDeadlines = [
+            { q: 'Q1', month: 3, day: 30, label: 'Q1 (Jan–Mar)' },
+            { q: 'Q2', month: 6, day: 31, label: 'Q2 (Apr–Jun)' },
+            { q: 'Q3', month: 9, day: 31, label: 'Q3 (Jul–Sep)' },
+            { q: 'Q4', month: 0, day: 31, label: 'Q4 (Oct–Dec)', nextYear: true }
+        ];
+
+        iftaDeadlines.forEach(dl => {
+            const yr = dl.nextYear && today.getMonth() >= 10 ? today.getFullYear() + 1 : today.getFullYear();
+            const deadline = new Date(yr, dl.month, dl.day);
+            const daysUntil = Math.ceil((deadline - today) / 86400000);
+
+            if (daysUntil >= 0 && daysUntil <= 60) {
+                const type = daysUntil <= 7 ? 'danger' : daysUntil <= 30 ? 'warning' : 'info';
+                reminders.push({
+                    type, icon: 'calendar',
+                    text: `IFTA ${dl.label} filing due ${deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} — ${daysUntil} day${daysUntil !== 1 ? 's' : ''} left`
+                });
+            }
+        });
+
+        // ── MCS-150 biennial update ──
+        // Due every 2 years. Last filing date comes from FMCSA data.
+        if (fmcsaData && fmcsaData.mcs150FormDate) {
+            const lastFiled = new Date(fmcsaData.mcs150FormDate);
+            if (!isNaN(lastFiled.getTime())) {
+                const nextDue = new Date(lastFiled);
+                nextDue.setFullYear(nextDue.getFullYear() + 2);
+                const daysUntilMcs = Math.ceil((nextDue - today) / 86400000);
+
+                if (daysUntilMcs < 0) {
+                    reminders.push({
+                        type: 'danger', icon: 'alert',
+                        text: `MCS-150 biennial update is OVERDUE — last filed ${lastFiled.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. File immediately at FMCSA.`
+                    });
+                } else if (daysUntilMcs <= 90) {
+                    reminders.push({
+                        type: daysUntilMcs <= 30 ? 'danger' : 'warning', icon: 'calendar',
+                        text: `MCS-150 biennial update due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} — ${daysUntilMcs} day${daysUntilMcs !== 1 ? 's' : ''} left`
+                    });
+                } else {
+                    reminders.push({
+                        type: 'info', icon: 'check',
+                        text: `MCS-150 up to date — next due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                    });
+                }
+            }
+        } else {
+            reminders.push({
+                type: 'warning', icon: 'alert',
+                text: 'MCS-150 filing date unknown — fetch FMCSA data or verify your biennial update is filed'
+            });
+        }
+
+        if (reminders.length === 0) {
+            container.innerHTML = '<p class="fmcsa-no-reminders">No upcoming deadlines.</p>';
+            return;
+        }
+
+        const iconMap = {
+            calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+            alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+        };
+
+        container.innerHTML = reminders.map(r =>
+            `<div class="fmcsa-reminder fmcsa-reminder-${escapeHtml(r.type)}">`
+            + `${iconMap[r.icon] || ''}  <span>${escapeHtml(r.text)}</span></div>`
+        ).join('');
+    }
+
+    function initFmcsaTab() {
+        const btn = $('fmcsaFetchBtn');
+        if (btn) btn.addEventListener('click', fetchFmcsaSnapshot);
+
+        // If we have a cached snapshot from Firestore, render it
+        if (state.fmcsaSnapshot) {
+            renderFmcsaSnapshot(state.fmcsaSnapshot);
+            renderComplianceReminders(state.fmcsaSnapshot);
+        } else {
+            renderComplianceReminders(null);
+        }
     }
 
     function resizeImage(file, maxSize) {
@@ -3804,15 +4012,16 @@
             inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
         });
 
-        // Documents section — only for existing drivers
+        // Documents section — always visible
         const docsSection = $('detailDocsSection');
         if (docsSection) {
+            docsSection.style.display = '';
             if (!isCreate && id) {
-                docsSection.style.display = '';
                 renderDetailDocGrid([], id);
                 loadDriverDocs(id).then(docs => renderDetailDocGrid(docs, id));
             } else {
-                docsSection.style.display = 'none';
+                // Create mode: show empty upload slots (driver will be auto-saved on upload)
+                renderDetailDocGrid([], '__new__');
             }
         }
 
@@ -3889,18 +4098,14 @@
                 const ref = await col('drivers').add(payload);
                 detailPanelDriverId = ref.id;
                 showMsg('Driver added');
-                // Switch to edit mode — show docs section, update header
+                // Switch to edit mode — update header and re-render doc grid with real ID
                 $('detailDriverName').textContent = [payload.firstName, payload.lastName].filter(Boolean).join(' ');
                 $('driverDetailPanel').classList.remove('is-create');
                 const statusEl = $('detailDriverStatus');
                 statusEl.style.display = '';
                 statusEl.className = 'status-badge ' + payload.status;
                 statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
-                const docsSection = $('detailDocsSection');
-                if (docsSection) {
-                    docsSection.style.display = '';
-                    renderDetailDocGrid([], detailPanelDriverId);
-                }
+                renderDetailDocGrid([], detailPanelDriverId);
             }
             await loadDrivers();
             updateOverview();
@@ -4036,9 +4241,42 @@
             grid.addEventListener('change', async (e) => {
                 const input = e.target.closest('input[type="file"]');
                 if (!input || !input.files[0]) return;
-                const driverId = input.dataset.driver;
+                let driverId = input.dataset.driver;
                 const docType = input.dataset.type;
                 const file = input.files[0];
+
+                // If in create mode, auto-save the driver first
+                if (!detailPanelDriverId || driverId === '__new__') {
+                    const payload = getDetailPanelPayload();
+                    if (!payload.firstName) {
+                        showMsg('Enter at least a first name before uploading', true);
+                        $('dpFirstName').focus();
+                        input.value = '';
+                        return;
+                    }
+                    try {
+                        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                        const ref = await col('drivers').add(payload);
+                        detailPanelDriverId = ref.id;
+                        driverId = ref.id;
+                        // Switch to edit mode visuals
+                        $('detailDriverName').textContent = [payload.firstName, payload.lastName].filter(Boolean).join(' ');
+                        $('driverDetailPanel').classList.remove('is-create');
+                        const statusEl = $('detailDriverStatus');
+                        statusEl.style.display = '';
+                        statusEl.className = 'status-badge ' + payload.status;
+                        statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
+                        await loadDrivers();
+                        updateOverview();
+                        renderDrivers();
+                        showMsg('Driver saved — uploading document…');
+                    } catch (err) {
+                        console.error('Auto-save before upload error:', err);
+                        showMsg('Error saving driver', true);
+                        input.value = '';
+                        return;
+                    }
+                }
 
                 const replaceDocId = input.dataset.replaceDoc;
                 const replacePath = input.dataset.replacePath;
@@ -4784,6 +5022,42 @@
             });
         }
 
+        // ── IFTA quarterly filing deadline alerts ──
+        const nowDate = new Date();
+        const iftaAlertDeadlines = [
+            { q: 'Q1', month: 3, day: 30, label: 'Q1 (Jan–Mar)' },
+            { q: 'Q2', month: 6, day: 31, label: 'Q2 (Apr–Jun)' },
+            { q: 'Q3', month: 9, day: 31, label: 'Q3 (Jul–Sep)' },
+            { q: 'Q4', month: 0, day: 31, label: 'Q4 (Oct–Dec)', nextYear: true }
+        ];
+        iftaAlertDeadlines.forEach(dl => {
+            const yr = dl.nextYear && nowDate.getMonth() >= 10 ? nowDate.getFullYear() + 1 : nowDate.getFullYear();
+            const deadline = new Date(yr, dl.month, dl.day);
+            const daysLeft = Math.ceil((deadline - nowDate) / 86400000);
+            if (daysLeft >= 0 && daysLeft <= 30) {
+                alerts.push({
+                    type: daysLeft <= 7 ? 'danger' : 'warning',
+                    icon: 'clock',
+                    text: 'IFTA ' + dl.label + ' filing due in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '')
+                });
+            }
+        });
+
+        // ── MCS-150 biennial update alert ──
+        if (state.fmcsaSnapshot && state.fmcsaSnapshot.mcs150FormDate) {
+            const lastFiled = new Date(state.fmcsaSnapshot.mcs150FormDate);
+            if (!isNaN(lastFiled.getTime())) {
+                const nextDue = new Date(lastFiled);
+                nextDue.setFullYear(nextDue.getFullYear() + 2);
+                const daysMcs = Math.ceil((nextDue - nowDate) / 86400000);
+                if (daysMcs < 0) {
+                    alerts.push({ type: 'danger', icon: 'alert', text: 'MCS-150 biennial update is OVERDUE — file immediately' });
+                } else if (daysMcs <= 60) {
+                    alerts.push({ type: daysMcs <= 30 ? 'danger' : 'warning', icon: 'clock', text: 'MCS-150 biennial update due in ' + daysMcs + ' day' + (daysMcs !== 1 ? 's' : '') });
+                }
+            }
+        }
+
         const container = $('overviewAlerts');
         if (!container) return;
 
@@ -5301,6 +5575,7 @@
         initProfileForm();
         initCompanyTabs();
         initCompanyDashboard();
+        initFmcsaTab();
         initTruckForm();
         initSheetModals();
         initTrailerForm();

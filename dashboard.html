@@ -590,6 +590,7 @@
                             <button type="button" class="company-tab" data-company-tab="tools" role="tab" aria-selected="false">Tools & Options</button>
                             <button type="button" class="company-tab" data-company-tab="users" role="tab" aria-selected="false">Users & Roles</button>
                             <button type="button" class="company-tab" data-company-tab="templates" role="tab" aria-selected="false">Templates</button>
+                            <button type="button" class="company-tab" data-company-tab="fmcsa" role="tab" aria-selected="false">FMCSA</button>
                         </div>
 
                         <div class="company-tab-panel active" data-company-panel="info" role="tabpanel">
@@ -747,6 +748,57 @@
                                     <label><input type="checkbox" value="integrations"> Integrations</label>
                                 </div>
                                 <div class="company-template-list" id="companyTemplateList"></div>
+                            </div>
+                        </div>
+
+                        <div class="company-tab-panel" data-company-panel="fmcsa" role="tabpanel">
+                            <div class="company-block">
+                                <div class="company-block-head">
+                                    <h3>FMCSA Carrier Snapshot</h3>
+                                    <button type="button" class="btn btn-primary btn-sm" id="fmcsaFetchBtn">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                                        Fetch from FMCSA
+                                    </button>
+                                </div>
+                                <p class="fmcsa-hint" id="fmcsaHint">Enter your DOT number in the Information tab, then click <strong>Fetch from FMCSA</strong> to pull your carrier record.</p>
+                                <div class="fmcsa-snapshot" id="fmcsaSnapshot" style="display:none">
+                                    <div class="fmcsa-status-bar" id="fmcsaStatusBar"></div>
+
+                                    <div class="fmcsa-grid">
+                                        <div class="fmcsa-card">
+                                            <h4>Identity</h4>
+                                            <div class="fmcsa-rows" id="fmcsaIdentity"></div>
+                                        </div>
+                                        <div class="fmcsa-card">
+                                            <h4>Fleet &amp; Mileage</h4>
+                                            <div class="fmcsa-rows" id="fmcsaFleet"></div>
+                                        </div>
+                                        <div class="fmcsa-card">
+                                            <h4>Safety Record</h4>
+                                            <div class="fmcsa-rows" id="fmcsaSafety"></div>
+                                        </div>
+                                        <div class="fmcsa-card">
+                                            <h4>Insurance</h4>
+                                            <div class="fmcsa-rows" id="fmcsaInsurance"></div>
+                                        </div>
+                                        <div class="fmcsa-card">
+                                            <h4>Inspections</h4>
+                                            <div class="fmcsa-rows" id="fmcsaInspections"></div>
+                                        </div>
+                                        <div class="fmcsa-card">
+                                            <h4>Crashes</h4>
+                                            <div class="fmcsa-rows" id="fmcsaCrashes"></div>
+                                        </div>
+                                    </div>
+                                    <p class="fmcsa-fetched-at" id="fmcsaFetchedAt"></p>
+                                </div>
+                            </div>
+
+                            <div class="company-block">
+                                <div class="company-block-head">
+                                    <h3>Compliance Reminders</h3>
+                                </div>
+                                <div class="fmcsa-reminders" id="fmcsaReminders"></div>
                             </div>
                         </div>
                     </div>
@@ -1985,8 +2037,8 @@
                     </div>
                 </div>
             </div>
-            <!-- Documents Section (hidden for new drivers) -->
-            <div class="detail-section" id="detailDocsSection" style="display:none">
+            <!-- Documents Section -->
+            <div class="detail-section" id="detailDocsSection">
                 <h3 class="detail-section-title">Documents</h3>
                 <div class="detail-doc-grid" id="detailDocGrid"></div>
             </div>

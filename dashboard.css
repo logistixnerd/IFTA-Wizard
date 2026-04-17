@@ -414,6 +414,134 @@
     color: var(--gray-500);
 }
 
+/* ── FMCSA Carrier Snapshot ────────────── */
+.fmcsa-hint {
+    font-size: 0.82rem;
+    color: var(--gray-400);
+    margin: 0;
+    line-height: 1.6;
+}
+.fmcsa-hint strong { color: var(--gray-600); }
+
+.fmcsa-status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    color: var(--gray-600);
+    margin-bottom: 1rem;
+}
+.fmcsa-status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.fmcsa-status-ok {
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+.fmcsa-status-ok .fmcsa-status-dot { background: #10b981; }
+.fmcsa-status-bad {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+.fmcsa-status-bad .fmcsa-status-dot { background: #ef4444; }
+
+.fmcsa-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.75rem;
+}
+
+.fmcsa-card {
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 10px;
+    padding: 0.75rem 0.875rem;
+    background: rgba(0, 0, 0, 0.012);
+}
+.fmcsa-card h4 {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-400);
+    margin: 0 0 0.5rem;
+}
+
+.fmcsa-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.22rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+}
+.fmcsa-row:last-child { border-bottom: none; }
+
+.fmcsa-row-label {
+    font-size: 0.72rem;
+    color: var(--gray-400);
+    font-weight: 500;
+    flex-shrink: 0;
+    margin-right: 0.75rem;
+}
+.fmcsa-row-value {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    text-align: right;
+    word-break: break-word;
+}
+
+.fmcsa-fetched-at {
+    font-size: 0.68rem;
+    color: var(--gray-300);
+    margin: 0.75rem 0 0;
+    text-align: right;
+}
+
+/* Compliance reminders */
+.fmcsa-reminders {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.fmcsa-reminder {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.85rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.4;
+}
+.fmcsa-reminder svg { flex-shrink: 0; }
+
+.fmcsa-reminder-info {
+    background: rgba(59, 130, 246, 0.06);
+    border: 1px solid rgba(59, 130, 246, 0.15);
+    color: #2563eb;
+}
+.fmcsa-reminder-warning {
+    background: rgba(245, 158, 11, 0.06);
+    border: 1px solid rgba(245, 158, 11, 0.18);
+    color: #b45309;
+}
+.fmcsa-reminder-danger {
+    background: rgba(239, 68, 68, 0.06);
+    border: 1px solid rgba(239, 68, 68, 0.18);
+    color: #dc2626;
+}
+
+.fmcsa-no-reminders {
+    font-size: 0.82rem;
+    color: var(--gray-400);
+    margin: 0;
+}
+
 /* ── Settings Page ─────────────────────── */
 .settings-group {
     padding: 1.25rem 0;
