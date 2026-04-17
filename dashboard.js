@@ -4550,9 +4550,37 @@
 
     async function parseFileToRows(file) {
         const type = detectFileType(file);
-        if (type === 'pdf') return await parsePdfToRows(file);
-        if (type === 'excel') return await parseExcelToRows(file);
-        return await parseCsvToRows(file);
+        console.log('[Import] File:', file.name, 'MIME:', file.type, 'Detected:', type, 'Size:', file.size);
+        let rows;
+
+        // Primary parser based on detected type
+        try {
+            if (type === 'pdf') rows = await parsePdfToRows(file);
+            else if (type === 'excel') rows = await parseExcelToRows(file);
+            else rows = await parseCsvToRows(file);
+        } catch (e) { console.warn('[Import] Primary parser failed:', e); }
+
+        if (rows && rows.length >= 2) return rows;
+
+        // Fallback: try Excel parser (handles xlsx/xls/csv via SheetJS)
+        if (type !== 'excel') {
+            try {
+                console.log('[Import] Falling back to Excel parser');
+                rows = await parseExcelToRows(file);
+                if (rows && rows.length >= 2) return rows;
+            } catch (e) { console.warn('[Import] Excel fallback failed:', e); }
+        }
+
+        // Fallback: try CSV parser
+        if (type !== 'csv') {
+            try {
+                console.log('[Import] Falling back to CSV parser');
+                rows = await parseCsvToRows(file);
+                if (rows && rows.length >= 2) return rows;
+            } catch (e) { console.warn('[Import] CSV fallback failed:', e); }
+        }
+
+        return rows;
     }
 
     async function smartImportTrucks(file) {
