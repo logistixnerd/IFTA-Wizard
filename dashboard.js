@@ -4446,12 +4446,14 @@
     }
 
     async function onPickerAction(data) {
+        console.log('[GDrive] Picker action:', data.action);
         if (data.action !== google.picker.Action.PICKED) return;
         const doc = data.docs[0];
-        if (!doc) return;
+        if (!doc) { console.warn('[GDrive] No doc selected'); return; }
         const fileId = doc.id;
         const fileName = doc.name;
         const mimeType = doc.mimeType;
+        console.log('[GDrive] Picked:', fileName, 'MIME:', mimeType, 'ID:', fileId);
 
         showMsg('Downloading from Google Drive\u2026');
 
@@ -4459,27 +4461,43 @@
             let blob;
             if (mimeType === 'application/vnd.google-apps.spreadsheet') {
                 // Google Sheets — export as xlsx
+                console.log('[GDrive] Exporting Google Sheet as xlsx');
                 const resp = await fetch(
                     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export?mimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`,
                     { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
                 );
-                if (!resp.ok) throw new Error('Export failed: ' + resp.status);
+                console.log('[GDrive] Export response:', resp.status, resp.statusText);
+                if (!resp.ok) {
+                    const errText = await resp.text();
+                    console.error('[GDrive] Export error body:', errText);
+                    throw new Error('Export failed: ' + resp.status);
+                }
                 blob = await resp.blob();
+                console.log('[GDrive] Blob size:', blob.size, 'type:', blob.type);
                 const file = new File([blob], fileName + '.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 if (gdrivePickerCallback) gdrivePickerCallback(file);
+                else console.warn('[GDrive] No callback set!');
             } else {
                 // Regular file — download directly
+                console.log('[GDrive] Downloading file directly');
                 const resp = await fetch(
                     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
                     { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
                 );
-                if (!resp.ok) throw new Error('Download failed: ' + resp.status);
+                console.log('[GDrive] Download response:', resp.status, resp.statusText);
+                if (!resp.ok) {
+                    const errText = await resp.text();
+                    console.error('[GDrive] Download error body:', errText);
+                    throw new Error('Download failed: ' + resp.status);
+                }
                 blob = await resp.blob();
+                console.log('[GDrive] Blob size:', blob.size, 'type:', blob.type);
                 const file = new File([blob], fileName, { type: mimeType || 'application/octet-stream' });
                 if (gdrivePickerCallback) gdrivePickerCallback(file);
+                else console.warn('[GDrive] No callback set!');
             }
         } catch (err) {
-            console.error('Google Drive download error:', err);
+            console.error('[GDrive] Download error:', err);
             showMsg('Failed to download file from Google Drive', true);
         }
     }
