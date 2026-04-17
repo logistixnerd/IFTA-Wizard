@@ -521,35 +521,20 @@ const FirebaseDB = {
                     .collection(entityType).get();
                 
                 for (const entityDoc of entitiesSnapshot.docs) {
-                    let query = entityDoc.ref.collection('history');
-                    
-                    // Filter by status if provided
-                    if (filters.status && filters.status.length > 0) {
-                        query = query.where('status', 'in', filters.status);
-                    }
-                    
-                    // Filter by assigned user if provided
-                    if (filters.assignedTo) {
-                        query = query.where('assignedTo', 'array-contains', filters.assignedTo);
-                    }
-                    
-                    // Filter by due date range if provided
-                    if (filters.dueDateFrom) {
-                        query = query.where('dueDate', '>=', filters.dueDateFrom);
-                    }
-                    if (filters.dueDateTo) {
-                        query = query.where('dueDate', '<=', filters.dueDateTo);
-                    }
-                    
-                    const tasksSnapshot = await query.orderBy('createdAt', 'desc').get();
+                    // Fetch all history entries and filter client-side to avoid composite index requirement
+                    const tasksSnapshot = await entityDoc.ref.collection('history')
+                        .orderBy('createdAt', 'desc').get();
                     
                     tasksSnapshot.forEach(taskDoc => {
+                        const data = taskDoc.data();
+                        // Only include docs that have a status field (actual tasks, not plain history)
+                        if (!data.status) return;
                         allTasks.push({
                             id: taskDoc.id,
                             entityType: entityType,
                             entityId: entityDoc.id,
                             entityName: entityDoc.data()[entityType === 'drivers' ? 'firstName' : 'unit'] || entityDoc.id,
-                            ...taskDoc.data()
+                            ...data
                         });
                     });
                 }

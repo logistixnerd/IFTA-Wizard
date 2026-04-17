@@ -25,13 +25,13 @@
                 </div>
                 <div class="task-manager-actions">
                     <div class="task-view-toggle">
-                        <button class="toggle-btn active" data-view="kanban" title="Kanban view">
+                        <button class="toggle-btn" data-view="kanban" title="Kanban view">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                                 <rect x="3" y="3" width="4" height="18"/><rect x="10" y="3" width="4" height="10"/><rect x="17" y="3" width="4" height="6"/>
                             </svg>
                             <span>Kanban</span>
                         </button>
-                        <button class="toggle-btn" data-view="table" title="Table view">
+                        <button class="toggle-btn active" data-view="table" title="Table view">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                                 <line x1="3" y1="7" x2="21" y2="7"/><line x1="3" y1="13" x2="21" y2="13"/><line x1="3" y1="19" x2="21" y2="19"/><line x1="8" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="16" y2="21"/>
                             </svg>
@@ -80,14 +80,14 @@
         </header>
 
         <!-- Kanban View -->
-        <div class="task-view-container task-view-kanban active">
+        <div class="task-view-container task-view-kanban">
             <div class="kanban-board" id="kanbanBoard">
                 <!-- Columns populated by JavaScript -->
             </div>
         </div>
 
         <!-- Table View -->
-        <div class="task-view-container task-view-table">
+        <div class="task-view-container task-view-table active">
             <div class="task-table-wrapper">
                 <table class="task-table" id="taskTable">
                     <thead>

@@ -7,7 +7,7 @@
         allTasks: [],
         customStatuses: [],
         filteredTasks: [],
-        currentView: localStorage.getItem('taskManagerView') || 'kanban',
+        currentView: localStorage.getItem('taskManagerView') || 'table',
         filters: {
             status: [],
             assignedTo: null,
@@ -91,9 +91,7 @@
     // ── Load Data ──────────────────────────
     async function loadTasks() {
         try {
-            const result = await FirebaseDB.getAllTasks(state.user.uid, {
-                status: state.filters.status.length > 0 ? state.filters.status : undefined
-            });
+            const result = await FirebaseDB.getAllTasks(state.user.uid);
             
             if (!result.success) throw new Error(result.error);
             
@@ -802,6 +800,15 @@
                 return;
             }
             state.user = user;
+
+            // Sync view toggle buttons with state
+            document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.querySelector(`.toggle-btn[data-view="${state.currentView}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+            document.querySelectorAll('.task-view-container').forEach(c => c.classList.remove('active'));
+            const activeContainer = document.querySelector(state.currentView === 'kanban' ? '.task-view-kanban' : '.task-view-table');
+            if (activeContainer) activeContainer.classList.add('active');
+
             await loadCustomStatuses();
             await loadTasks();
             initEventListeners();
