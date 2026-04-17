@@ -1534,8 +1534,16 @@
     }
 
     // ── FMCSA Company Lookup (MC or DOT) ──────────────────
-    const MC_LOOKUP_URL = '/api/mclookup';
-    const CARRIER_LOOKUP_URL = '/api/carrierlookup';
+    let _mcLookupFn = null;
+    let _carrierLookupFn = null;
+    function getFmcsaFns() {
+        if (!_mcLookupFn) {
+            const fns = firebase.functions();
+            _mcLookupFn = fns.httpsCallable('mcLookup');
+            _carrierLookupFn = fns.httpsCallable('carrierLookup');
+        }
+        return { mcLookupFn: _mcLookupFn, carrierLookupFn: _carrierLookupFn };
+    }
 
     let pendingFmcsaData = null;
 
@@ -1579,42 +1587,29 @@
         btn.classList.add('searching');
 
         try {
-            let url, res, json;
+            const { mcLookupFn, carrierLookupFn } = getFmcsaFns();
             if (type === 'mc') {
-                url = `${MC_LOOKUP_URL}?mc=${encodeURIComponent(raw)}`;
-                res = await fetch(url).catch(() => null);
-                if (!res) throw new Error('Could not reach FMCSA service. Check your connection.');
-                json = await res.json();
-                if (!json.success) throw new Error(json.error || 'MC lookup failed');
-
-                const mcData = json.data;
+                const mcResult = await mcLookupFn({ mc: raw });
+                const mcData = mcResult.data.data;
                 if (mcData.dotNumber) {
-                    const dotRes = await fetch(`${CARRIER_LOOKUP_URL}?dot=${encodeURIComponent(mcData.dotNumber)}`).catch(() => null);
-                    if (dotRes) {
-                        const dotJson = await dotRes.json();
-                        if (dotJson.success) {
-                            pendingFmcsaData = dotJson.data;
-                        } else {
-                            pendingFmcsaData = mcData;
-                        }
-                    } else {
+                    try {
+                        const dotResult = await carrierLookupFn({ dot: mcData.dotNumber });
+                        pendingFmcsaData = dotResult.data.data;
+                    } catch (_) {
                         pendingFmcsaData = mcData;
                     }
                 } else {
                     pendingFmcsaData = mcData;
                 }
             } else {
-                url = `${CARRIER_LOOKUP_URL}?dot=${encodeURIComponent(raw)}`;
-                res = await fetch(url).catch(() => null);
-                if (!res) throw new Error('Could not reach FMCSA service. Check your connection.');
-                json = await res.json();
-                if (!json.success) throw new Error(json.error || 'DOT lookup failed');
-                pendingFmcsaData = json.data;
+                const dotResult = await carrierLookupFn({ dot: raw });
+                pendingFmcsaData = dotResult.data.data;
             }
 
             renderVerifyCard(pendingFmcsaData);
         } catch (err) {
             console.error('FMCSA lookup error:', err);
+            // Firebase HttpsError has the message in err.message directly
             showMsg(err.message || 'Lookup failed', true);
             pendingFmcsaData = null;
         } finally {
@@ -1719,18 +1714,19 @@
         btn.textContent = 'Fetching\u2026';
 
         try {
-            const res = await fetch(`${CARRIER_LOOKUP_URL}?dot=${encodeURIComponent(dot)}`);
-            const json = await res.json();
-            if (!json.success) throw new Error(json.error || 'Lookup failed');
+            const { carrierLookupFn } = getFmcsaFns();
+            const result = await carrierLookupFn({ dot });
+            const data = result?.data?.data;
+            if (!data) throw new Error('Lookup failed');
 
-            state.fmcsaSnapshot = json.data;
+            state.fmcsaSnapshot = data;
             await db.collection('users').doc(uid()).set({
-                fmcsaSnapshot: json.data,
+                fmcsaSnapshot: data,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
 
-            renderFmcsaSnapshot(json.data);
-            renderComplianceReminders(json.data);
+            renderFmcsaSnapshot(data);
+            renderComplianceReminders(data);
             showMsg('FMCSA data loaded');
         } catch (err) {
             console.error('FMCSA fetch error:', err);

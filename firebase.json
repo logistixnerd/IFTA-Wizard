@@ -5,6 +5,20 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "functions/**",
+      "*.tmp.*"
+    ],
+    "rewrites": [
+      { "source": "/api/mclookup", "function": "mcLookup", "region": "us-central1" },
+      { "source": "/api/carrierlookup", "function": "carrierLookup", "region": "us-central1" }
+    ]
+  },
   "functions": [
     {
       "source": "functions",
