@@ -129,7 +129,7 @@
         }
 
         if (!state.history.length) {
-            feed.innerHTML = '<p class="empty-state" style="padding:1.25rem;margin:0;">No activity yet. Use the compose card above to log notes, incidents, or tasks.</p>';
+            feed.innerHTML = '<p class="up-empty">No activity yet. Use the compose card above to log notes, incidents, or tasks.</p>';
             return;
         }
 
@@ -141,19 +141,19 @@
             const initial = author ? author.charAt(0).toUpperCase() : 'U';
 
             return `
-                <div class="dp-note-item">
-                    <div class="dp-note-avatar">${initial}</div>
-                    <div class="dp-note-body">
-                        <div class="dp-note-header">
-                            <span class="dp-note-type">${escapeHtml(typeLabel)}</span>
-                            ${item.priority && item.priority !== 'normal' ? `<span class="dp-note-priority" style="color:${priorityColor}">${escapeHtml(item.priority.toUpperCase())}</span>` : ''}
-                            <span class="dp-note-date">${escapeHtml(dateStr)}</span>
+                <div class="up-note">
+                    <div class="up-note-avi">${initial}</div>
+                    <div class="up-note-body">
+                        <div class="up-note-meta">
+                            <span class="up-note-tag">${escapeHtml(typeLabel)}</span>
+                            ${item.priority && item.priority !== 'normal' ? `<span class="up-note-pri" style="color:${priorityColor}">${escapeHtml(item.priority.toUpperCase())}</span>` : ''}
+                            <span class="up-note-time">${escapeHtml(dateStr)}</span>
                         </div>
-                        <p class="dp-note-text">${escapeHtml(item.text || '')}</p>
-                        ${author ? `<span class="dp-note-author">${escapeHtml(author)}</span>` : ''}
+                        <p class="up-note-text">${escapeHtml(item.text || '')}</p>
+                        ${author ? `<span class="up-note-author">${escapeHtml(author)}</span>` : ''}
                     </div>
-                    <button type="button" class="dp-note-delete" data-delete-note="${escapeHtml(item.id)}" title="Delete">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    <button type="button" class="up-note-del" data-delete-note="${escapeHtml(item.id)}" title="Delete">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                     </button>
                 </div>`;
         }).join('');
@@ -172,22 +172,20 @@
         $('photoCount').textContent = String(state.photos.length);
         const grid = $('photoGrid');
         if (!state.photos.length) {
-            grid.innerHTML = '<div class="empty-state">No documents uploaded yet. Add CDL scans, medical card photos, training certificates, or other driver documents.</div>';
+            grid.innerHTML = '<p class="up-empty">No documents uploaded yet. Add CDL scans, medical card photos, training certificates, or other driver documents.</p>';
             return;
         }
         grid.innerHTML = state.photos.map(photo => `
-            <article class="photo-card">
+            <div class="up-photo">
                 <img src="${escapeHtml(photo.imageUrl || '')}" alt="${escapeHtml(photo.caption || 'Driver document')}">
-                <div class="photo-card-body">
-                    <div class="photo-card-head">
-                        <strong>${escapeHtml(photo.caption || 'Driver document')}</strong>
-                        <div class="item-actions">
-                            <span class="photo-date">${escapeHtml(formatDate(photo.createdAt || photo.createdAtIso))}</span>
-                            <button type="button" data-delete-photo="${escapeHtml(photo.id)}">Delete</button>
-                        </div>
-                    </div>
+                <div class="up-photo-info">
+                    <strong>${escapeHtml(photo.caption || 'Driver document')}</strong>
+                    <span>${escapeHtml(formatDate(photo.createdAt || photo.createdAtIso))}</span>
                 </div>
-            </article>
+                <div class="up-photo-actions">
+                    <button type="button" class="up-photo-del" data-delete-photo="${escapeHtml(photo.id)}">Delete</button>
+                </div>
+            </div>
         `).join('');
 
         grid.querySelectorAll('[data-delete-photo]').forEach(button => {
@@ -214,7 +212,7 @@
         }
 
         if (!openTasks.length) {
-            container.innerHTML = '<p class="empty-state" style="padding:1.25rem;margin:0;">No open tasks or issues. Use the compose card above to create one.</p>';
+            container.innerHTML = '<p class="up-empty">No open tasks or issues. Use the compose card above to create one.</p>';
             return;
         }
 
@@ -226,22 +224,22 @@
             const typeLabel = task.type ? task.type.charAt(0).toUpperCase() + task.type.slice(1) : 'General';
 
             return `
-                <div class="dp-task-item">
-                    <div class="dp-task-item-top">
-                        <span class="dp-task-type">${escapeHtml(typeLabel)}</span>
-                        ${task.priority && task.priority !== 'normal' ? `<span class="dp-task-priority" style="color:${priorityColor}">${escapeHtml(task.priority.toUpperCase())}</span>` : ''}
-                        ${overdue ? '<span class="dp-task-overdue">OVERDUE</span>' : ''}
+                <div class="up-task">
+                    <div class="up-task-top">
+                        <span class="up-task-type">${escapeHtml(typeLabel)}</span>
+                        ${task.priority && task.priority !== 'normal' ? `<span class="up-task-pri" style="color:${priorityColor}">${escapeHtml(task.priority.toUpperCase())}</span>` : ''}
+                        ${overdue ? '<span class="up-task-overdue">OVERDUE</span>' : ''}
                     </div>
-                    <p class="dp-task-text">${escapeHtml(task.text.substring(0, 120))}</p>
-                    <div class="dp-task-item-bottom">
-                        <span class="dp-task-meta">${escapeHtml(created)}${task.createdBy ? ' &middot; ' + escapeHtml(task.createdBy.split('@')[0]) : ''}</span>
-                        <span class="dp-task-status" style="background:${statusColor}18;color:${statusColor}">${escapeHtml(task.status)}</span>
+                    <p class="up-task-text">${escapeHtml(task.text.substring(0, 120))}</p>
+                    <div class="up-task-bot">
+                        <span class="up-task-date">${escapeHtml(created)}${task.createdBy ? ' &middot; ' + escapeHtml(task.createdBy.split('@')[0]) : ''}</span>
+                        <span class="up-task-status" style="background:${statusColor}18;color:${statusColor}">${escapeHtml(task.status)}</span>
                     </div>
                 </div>`;
         }).join('');
 
         if (openTasks.length > 8) {
-            container.innerHTML += `<p class="dp-task-more">+${openTasks.length - 8} more &mdash; <a href="task-manager.html">view all</a></p>`;
+            container.innerHTML += `<p class="up-task-more">+${openTasks.length - 8} more &mdash; <a href="task-manager.html">view all</a></p>`;
         }
     }
 
@@ -262,7 +260,7 @@
         } catch (error) {
             console.error('Error loading tasks:', error);
             const container = $('profileTasksList');
-            if (container) container.innerHTML = '<p class="empty-state" style="padding: 1rem; margin: 0; color: #dc2626;">Error loading tasks</p>';
+            if (container) container.innerHTML = '<p class="up-empty" style="color: #dc2626;">Error loading tasks</p>';
         }
     }
 
@@ -302,7 +300,7 @@
     async function postCompose() {
         const textarea = $('dpComposeText');
         const postBtn = $('dpComposePost');
-        const card = textarea.closest('.dp-compose-card');
+        const card = textarea.closest('.up-compose');
         const text = textarea.value.trim();
         if (!text) return;
 

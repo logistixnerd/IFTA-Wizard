@@ -1533,20 +1533,78 @@
         });
     }
 
-    // ── FMCSA Company Lookup (MC or DOT) ──────────────────
-    // Calls go to /api/mclookup and /api/carrierlookup (same-origin via Firebase Hosting rewrites)
-    async function fmcsaApiFetch(endpoint, body) {
-        const user = firebase.auth().currentUser;
-        if (!user) throw new Error('You must be signed in');
-        const token = await user.getIdToken();
-        const resp = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-            body: JSON.stringify(body),
-        });
-        const json = await resp.json();
-        if (!resp.ok) throw new Error(json.error || 'Request failed');
-        return json;
+    // ── FMCSA Company Lookup (MC or DOT) — direct browser calls ──────
+    async function fmcsaFetchMc(mc) {
+        const url = `${FMCSA_CONFIG.baseUrl}/carriers/docket-number/${encodeURIComponent(mc)}?webKey=${encodeURIComponent(FMCSA_CONFIG.webKey)}`;
+        const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (resp.status === 404) throw new Error(`No carrier found for MC number ${mc}`);
+        if (!resp.ok) throw new Error('FMCSA API error. Try again later.');
+        const body = await resp.json();
+        const c = body?.content?.carrier;
+        if (!c) throw new Error(`No carrier data returned for MC number ${mc}`);
+        const address = [c.phyStreet, c.phyCityName, c.phyStateAbbr, c.phyZipcode].filter(Boolean).join(', ');
+        const prefix = c.censusTypeId === 'MX' ? 'MX' : 'MC';
+        return {
+            companyName: c.legalName || null,
+            dbaName: c.dbaName || null,
+            dotNumber: c.dotNumber ? String(c.dotNumber) : null,
+            mcNumber: c.censusNum ? `${prefix}-${c.censusNum}` : `MC-${mc}`,
+            status: c.allowedToOperate === 'Y' ? 'Authorized' : 'Not Authorized',
+            safetyRating: c.safetyRating || null,
+            address: address || null,
+            phone: c.telephone ? c.telephone.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3') : null,
+            operationType: c.carrierOperationDesc || null,
+            entityType: c.entityTypeDesc || null,
+            insuranceOnFile: c.bipdInsuranceOnFile === '1',
+        };
+    }
+
+    async function fmcsaFetchDot(dot) {
+        const url = `${FMCSA_CONFIG.baseUrl}/carriers/${encodeURIComponent(dot)}?webKey=${encodeURIComponent(FMCSA_CONFIG.webKey)}`;
+        const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+        if (resp.status === 404) throw new Error(`No carrier found for DOT number ${dot}`);
+        if (!resp.ok) throw new Error('FMCSA API error. Try again later.');
+        const body = await resp.json();
+        const c = body?.content?.carrier;
+        if (!c) throw new Error(`No carrier data returned for DOT number ${dot}`);
+        const fmt = (v) => (v != null && v !== '' ? String(v) : null);
+        const fmtP = (v) => { if (!v) return null; const d = String(v).replace(/\D/g, ''); return d.length === 10 ? d.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3') : String(v); };
+        const yn = (v) => (v === 'Y' || v === '1' || v === true);
+        return {
+            legalName: fmt(c.legalName), dbaName: fmt(c.dbaName), dotNumber: fmt(c.dotNumber),
+            mcNumber: c.censusNum ? `MC-${c.censusNum}` : null,
+            einNumber: fmt(c.einNumber), dunsNumber: fmt(c.dunsNumber), statusCode: fmt(c.statusCode),
+            allowedToOperate: yn(c.allowedToOperate) ? 'Authorized' : 'Not Authorized',
+            operationType: fmt(c.carrierOperationDesc), entityType: fmt(c.entityTypeDesc),
+            phyStreet: fmt(c.phyStreet), phyCity: fmt(c.phyCityName || c.phyCity),
+            phyState: fmt(c.phyStateAbbr || c.phyState), phyZip: fmt(c.phyZipcode), phyCountry: fmt(c.phyCountry),
+            maiStreet: fmt(c.maiStreet), maiCity: fmt(c.maiCityName || c.maiCity),
+            maiState: fmt(c.maiStateAbbr || c.maiState), maiZip: fmt(c.maiZipcode), maiCountry: fmt(c.maiCountry),
+            telephone: fmtP(c.telephone), fax: fmtP(c.fax), email: fmt(c.emailAddress),
+            totalDrivers: c.totalDrivers != null ? Number(c.totalDrivers) : null,
+            totalPowerUnits: c.totalPowerUnits != null ? Number(c.totalPowerUnits) : null,
+            mcs150Mileage: c.mcs150Mileage != null ? Number(c.mcs150Mileage) : null,
+            mcs150MileageYear: fmt(c.mcs150MileageYear), mcs150FormDate: fmt(c.mcs150FormDate),
+            safetyRating: fmt(c.safetyRating), safetyRatingDate: fmt(c.safetyRatingDate),
+            reviewDate: fmt(c.reviewDate), reviewType: fmt(c.reviewType),
+            crashTotal: c.crashTotal != null ? Number(c.crashTotal) : null,
+            fatalCrash: c.fatalCrash != null ? Number(c.fatalCrash) : null,
+            injCrash: c.injCrash != null ? Number(c.injCrash) : null,
+            towCrash: c.towCrash != null ? Number(c.towCrash) : null,
+            inspectionTotal: c.inspectionTotal != null ? Number(c.inspectionTotal) : null,
+            driverInsp: c.driverInsp != null ? Number(c.driverInsp) : null,
+            vehicleInsp: c.vehicleInsp != null ? Number(c.vehicleInsp) : null,
+            hazmatInsp: c.hazmatInsp != null ? Number(c.hazmatInsp) : null,
+            driverOOS: c.driverOOS != null ? Number(c.driverOOS) : null,
+            vehicleOOS: c.vehicleOOS != null ? Number(c.vehicleOOS) : null,
+            hazmatOOS: c.hazmatOOS != null ? Number(c.hazmatOOS) : null,
+            driverOOSRate: c.driverOOSRate != null ? Number(c.driverOOSRate) : null,
+            vehicleOOSRate: c.vehicleOOSRate != null ? Number(c.vehicleOOSRate) : null,
+            bipdInsuranceRequired: fmt(c.bipdInsuranceRequired), bipdInsuranceOnFile: fmt(c.bipdInsuranceOnFile),
+            cargoInsuranceRequired: fmt(c.cargoInsuranceRequired), cargoInsuranceOnFile: fmt(c.cargoInsuranceOnFile),
+            bondInsuranceRequired: fmt(c.bondInsuranceRequired), bondInsuranceOnFile: fmt(c.bondInsuranceOnFile),
+            oicState: fmt(c.oicState), fetchedAt: new Date().toISOString(),
+        };
     }
 
     let pendingFmcsaData = null;
@@ -1592,12 +1650,10 @@
 
         try {
             if (type === 'mc') {
-                const mcResult = await fmcsaApiFetch('/api/mclookup', { mc: raw });
-                const mcData = mcResult.data;
+                const mcData = await fmcsaFetchMc(raw);
                 if (mcData.dotNumber) {
                     try {
-                        const dotResult = await fmcsaApiFetch('/api/carrierlookup', { dot: mcData.dotNumber });
-                        pendingFmcsaData = dotResult.data;
+                        pendingFmcsaData = await fmcsaFetchDot(mcData.dotNumber);
                     } catch (_) {
                         pendingFmcsaData = mcData;
                     }
@@ -1605,8 +1661,7 @@
                     pendingFmcsaData = mcData;
                 }
             } else {
-                const dotResult = await fmcsaApiFetch('/api/carrierlookup', { dot: raw });
-                pendingFmcsaData = dotResult.data;
+                pendingFmcsaData = await fmcsaFetchDot(raw);
             }
 
             renderVerifyCard(pendingFmcsaData);
@@ -1717,9 +1772,7 @@
         btn.textContent = 'Fetching\u2026';
 
         try {
-            const { carrierLookupFn } = getFmcsaFns();
-            const result = await carrierLookupFn({ dot });
-            const data = result?.data?.data;
+            const data = await fmcsaFetchDot(dot);
             if (!data) throw new Error('Lookup failed');
 
             state.fmcsaSnapshot = data;

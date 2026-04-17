@@ -7,181 +7,167 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="unit-profile.css?v=4">
+    <link rel="stylesheet" href="unit-profile.css?v=5">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 </head>
 <body>
-    <div class="unit-page">
-        <header class="unit-topbar">
-            <a class="unit-back-link" href="dashboard.html">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M19 12H5"></path><path d="M12 19l-7-7 7-7"></path></svg>
-                Back to Dashboard
+    <div class="up-page">
+        <header class="up-topbar">
+            <a class="up-back" href="dashboard.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                Dashboard
             </a>
-            <span class="unit-user-email" id="unitUserEmail"></span>
+            <span class="up-email" id="unitUserEmail"></span>
         </header>
 
-        <main class="unit-shell">
-            <section class="unit-hero card">
-                <div class="unit-hero-copy">
-                    <p class="eyebrow">Driver profile</p>
-                    <h1 id="unitTitle">Loading driver...</h1>
-                    <p class="unit-subtitle" id="unitSubtitle">Pulling driver details and history.</p>
-                    <div class="unit-chip-row">
-                        <span class="unit-chip" id="unitStatusChip">Status</span>
-                        <span class="unit-chip unit-chip-muted" id="unitCdlChip">CDL</span>
-                        <span class="unit-chip unit-chip-muted" id="unitTruckChip">Assigned truck</span>
+        <main class="up-main">
+            <!-- ── Hero ── -->
+            <section class="up-hero">
+                <div class="up-hero-left">
+                    <span class="up-label">Driver profile</span>
+                    <h1 class="up-hero-name" id="unitTitle">Loading driver…</h1>
+                    <p class="up-hero-sub" id="unitSubtitle">Pulling driver details and history.</p>
+                    <div class="up-chips">
+                        <span class="up-chip up-chip--accent" id="unitStatusChip">Status</span>
+                        <span class="up-chip" id="unitCdlChip">CDL</span>
+                        <span class="up-chip" id="unitTruckChip">Assigned truck</span>
                     </div>
                 </div>
-                <div class="unit-hero-stats">
-                    <div class="hero-stat">
-                        <span class="hero-stat-label">History entries</span>
+                <div class="up-hero-kpis">
+                    <div class="up-kpi">
+                        <span class="up-kpi-label">Notes</span>
                         <strong id="historyCount">0</strong>
                     </div>
-                    <div class="hero-stat">
-                        <span class="hero-stat-label">Photos</span>
+                    <div class="up-kpi">
+                        <span class="up-kpi-label">Documents</span>
                         <strong id="photoCount">0</strong>
                     </div>
                 </div>
             </section>
 
-            <section class="unit-alert hidden" id="unitAlert"></section>
+            <section class="up-alert hidden" id="unitAlert"></section>
 
-            <section class="unit-grid">
-                <!-- ── Report / Task Composer (first for quick access) ── -->
-                <article class="card unit-card unit-card-wide dp-compose-card">
-                    <div class="dp-compose-header">
-                        <div class="dp-compose-avatar" id="dpComposeAvatar">U</div>
-                        <textarea id="dpComposeText" class="dp-compose-input" placeholder="Report an issue, log a note, or create a task for this driver…" rows="1"></textarea>
+            <!-- ── Content Grid ── -->
+            <section class="up-grid">
+
+                <!-- Compose -->
+                <div class="up-card up-card--wide up-compose" id="dpComposeCard">
+                    <div class="up-compose-top">
+                        <div class="up-compose-avatar" id="dpComposeAvatar">U</div>
+                        <textarea id="dpComposeText" class="up-compose-input" placeholder="Log a note, report an issue, or create a task…" rows="1"></textarea>
                     </div>
-                    <div class="dp-compose-bar">
-                        <div class="dp-compose-fields">
-                            <div class="dp-compose-field">
-                                <label class="dp-compose-label">Type</label>
-                                <select id="dpComposeType" class="dp-compose-select">
-                                    <option value="general">General</option>
-                                    <option value="incident">Incident</option>
-                                    <option value="safety">Safety</option>
-                                    <option value="maintenance">Maintenance</option>
-                                    <option value="training">Training</option>
-                                    <option value="inspection">Inspection</option>
-                                </select>
-                            </div>
-                            <div class="dp-compose-field">
-                                <label class="dp-compose-label">Priority</label>
-                                <select id="dpComposePriority" class="dp-compose-select">
-                                    <option value="normal">Normal</option>
-                                    <option value="high">High</option>
-                                    <option value="urgent">Urgent</option>
-                                </select>
-                            </div>
-                            <div class="dp-compose-field">
-                                <label class="dp-compose-label">Assign to</label>
-                                <select id="dpComposeAssign" class="dp-compose-select dp-compose-select-wide">
-                                    <option value="">Unassigned</option>
-                                    <option value="Safety">Safety dept</option>
-                                    <option value="Dispatch">Dispatch</option>
-                                    <option value="Maintenance">Maintenance</option>
-                                    <option value="Accounting">Accounting</option>
-                                    <option value="Hiring">Hiring / HR</option>
-                                    <option value="Operations">Operations</option>
-                                </select>
-                            </div>
+                    <div class="up-compose-toolbar">
+                        <div class="up-compose-selects">
+                            <select id="dpComposeType" class="up-select">
+                                <option value="general">General</option>
+                                <option value="incident">Incident</option>
+                                <option value="safety">Safety</option>
+                                <option value="maintenance">Maintenance</option>
+                                <option value="training">Training</option>
+                                <option value="inspection">Inspection</option>
+                            </select>
+                            <select id="dpComposePriority" class="up-select">
+                                <option value="normal">Normal</option>
+                                <option value="high">High</option>
+                                <option value="urgent">Urgent</option>
+                            </select>
+                            <select id="dpComposeAssign" class="up-select up-select--wide">
+                                <option value="">Unassigned</option>
+                                <option value="Safety">Safety</option>
+                                <option value="Dispatch">Dispatch</option>
+                                <option value="Maintenance">Maintenance</option>
+                                <option value="Accounting">Accounting</option>
+                                <option value="Hiring">HR</option>
+                                <option value="Operations">Operations</option>
+                            </select>
                         </div>
-                        <button type="button" class="dp-compose-post" id="dpComposePost" disabled>
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        <button type="button" class="up-compose-btn" id="dpComposePost" disabled>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                             Post
                         </button>
                     </div>
-                </article>
+                </div>
 
-                <!-- ── Activity Feed (notes posted from compose card) ── -->
-                <article class="card unit-card unit-card-wide dp-activity-card">
-                    <div class="card-header card-header-stacked">
-                        <div style="display:flex;align-items:center;gap:0.5rem">
-                            <div>
-                                <p class="eyebrow">Activity</p>
-                                <h2>Notes &amp; History <span class="dp-note-count" id="noteCountBadge"></span></h2>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dp-notes-feed" id="dpNotesFeed">
-                        <p class="empty-state" style="padding:1.25rem;margin:0;">No activity yet. Use the compose card above to log notes, incidents, or tasks.</p>
-                    </div>
-                </article>
-
-                <!-- ── Tasks (open items) ── -->
-                <article class="card unit-card unit-card-wide dp-tasks-card">
-                    <div class="card-header card-header-stacked">
-                        <div style="display:flex;align-items:center;gap:0.5rem">
-                            <div>
-                                <p class="eyebrow">Tasks &amp; Issues</p>
-                                <h2>Open items <span class="dp-task-count" id="taskCountBadge"></span></h2>
-                            </div>
-                        </div>
-                        <a href="task-manager.html" class="btn btn-sm btn-primary">View all tasks</a>
-                    </div>
-                    <div class="profile-tasks-list" id="profileTasksList">
-                        <!-- Populated by JavaScript -->
-                    </div>
-                </article>
-
-                <!-- ── Driver Details (collapsible, starts collapsed) ── -->
-                <article class="card unit-card dp-collapsible collapsed" id="driverDetailsCard">
-                    <button class="card-header dp-collapse-toggle" id="driverDetailsToggle" type="button" aria-expanded="false">
+                <!-- Activity Feed -->
+                <div class="up-card up-card--wide">
+                    <div class="up-card-head">
                         <div>
-                            <p class="eyebrow">Driver details</p>
-                            <h2>Personal summary</h2>
+                            <span class="up-label">Activity</span>
+                            <h2 class="up-card-title">Notes &amp; History <span class="up-badge up-badge--blue" id="noteCountBadge"></span></h2>
                         </div>
-                        <svg class="dp-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                    <div class="up-feed" id="dpNotesFeed">
+                        <p class="up-empty">No activity yet. Use the compose card above to log notes, incidents, or tasks.</p>
+                    </div>
+                </div>
+
+                <!-- Tasks -->
+                <div class="up-card up-card--wide">
+                    <div class="up-card-head">
+                        <div>
+                            <span class="up-label">Tasks &amp; Issues</span>
+                            <h2 class="up-card-title">Open items <span class="up-badge up-badge--red" id="taskCountBadge"></span></h2>
+                        </div>
+                        <a href="task-manager.html" class="up-link-btn">View all tasks</a>
+                    </div>
+                    <div class="up-tasks" id="profileTasksList"></div>
+                </div>
+
+                <!-- Driver Details (collapsible) -->
+                <div class="up-card up-card--wide up-section-collapse collapsed" id="driverDetailsCard">
+                    <button class="up-collapse-head" id="driverDetailsToggle" type="button" aria-expanded="false">
+                        <div>
+                            <span class="up-label">Driver details</span>
+                            <h2 class="up-card-title">Personal summary</h2>
+                        </div>
+                        <svg class="up-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="6 9 12 15 18 9"/></svg>
                     </button>
-                    <dl class="unit-details-list dp-collapse-body" id="driverDetailsBody">
-                        <div><dt>Full name</dt><dd id="detailName">-</dd></div>
-                        <div><dt>Phone</dt><dd id="detailPhone">-</dd></div>
-                        <div><dt>Email</dt><dd id="detailEmail">-</dd></div>
-                        <div><dt>CDL number</dt><dd id="detailCdl">-</dd></div>
-                        <div><dt>CDL class</dt><dd id="detailCdlClass">-</dd></div>
-                        <div><dt>CDL state</dt><dd id="detailCdlState">-</dd></div>
-                        <div><dt>CDL expiration</dt><dd id="detailCdlExp">-</dd></div>
-                        <div><dt>Medical card exp.</dt><dd id="detailMedExp">-</dd></div>
-                        <div><dt>MVR expiry</dt><dd id="detailMvrExp">-</dd></div>
-                        <div><dt>Last drug test</dt><dd id="detailDrugTestDate">-</dd></div>
-                        <div><dt>TWIC card exp.</dt><dd id="detailTwicExp">-</dd></div>
-                        <div><dt>Restrictions</dt><dd id="detailRestrictions">-</dd></div>
-                        <div><dt>Assigned truck</dt><dd id="detailTruck">-</dd></div>
+                    <dl class="up-detail-grid up-collapse-body" id="driverDetailsBody">
+                        <div class="up-detail-cell"><dt>Full name</dt><dd id="detailName">-</dd></div>
+                        <div class="up-detail-cell"><dt>Phone</dt><dd id="detailPhone">-</dd></div>
+                        <div class="up-detail-cell"><dt>Email</dt><dd id="detailEmail">-</dd></div>
+                        <div class="up-detail-cell"><dt>CDL number</dt><dd id="detailCdl">-</dd></div>
+                        <div class="up-detail-cell"><dt>CDL class</dt><dd id="detailCdlClass">-</dd></div>
+                        <div class="up-detail-cell"><dt>CDL state</dt><dd id="detailCdlState">-</dd></div>
+                        <div class="up-detail-cell"><dt>CDL expiration</dt><dd id="detailCdlExp">-</dd></div>
+                        <div class="up-detail-cell"><dt>Medical card exp.</dt><dd id="detailMedExp">-</dd></div>
+                        <div class="up-detail-cell"><dt>MVR expiry</dt><dd id="detailMvrExp">-</dd></div>
+                        <div class="up-detail-cell"><dt>Last drug test</dt><dd id="detailDrugTestDate">-</dd></div>
+                        <div class="up-detail-cell"><dt>TWIC card exp.</dt><dd id="detailTwicExp">-</dd></div>
+                        <div class="up-detail-cell"><dt>Restrictions</dt><dd id="detailRestrictions">-</dd></div>
+                        <div class="up-detail-cell"><dt>Assigned truck</dt><dd id="detailTruck">-</dd></div>
                     </dl>
-                </article>
+                </div>
 
-                <!-- ── Documents ── -->
-                <article class="card unit-card">
-                    <div class="card-header card-header-stacked">
+                <!-- Documents -->
+                <div class="up-card">
+                    <div class="up-card-head up-card-head--stack">
                         <div>
-                            <p class="eyebrow">Documents &amp; photos</p>
-                            <h2>Driver documents</h2>
+                            <span class="up-label">Documents &amp; photos</span>
+                            <h2 class="up-card-title">Driver documents</h2>
                         </div>
-                        <form class="photo-form" id="photoForm">
-                            <div class="form-field">
-                                <label for="photoUpload">Upload photo / document</label>
-                                <input type="file" id="photoUpload" accept="image/*" required>
-                            </div>
-                            <div class="form-field">
-                                <label for="photoCaption">Caption</label>
-                                <input type="text" id="photoCaption" maxlength="120" placeholder="CDL front, medical card, training certificate...">
-                            </div>
-                            <div class="form-actions">
-                                <button type="submit" class="btn btn-primary">Add document</button>
+                        <form class="up-doc-form" id="photoForm">
+                            <div class="up-doc-form-row">
+                                <label class="up-file-label">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    Choose file
+                                    <input type="file" id="photoUpload" accept="image/*" required hidden>
+                                </label>
+                                <input type="text" id="photoCaption" class="up-input" maxlength="120" placeholder="Caption…">
+                                <button type="submit" class="up-compose-btn">Add</button>
                             </div>
                         </form>
                     </div>
-                    <div class="photo-grid" id="photoGrid"></div>
-                </article>
+                    <div class="up-photos" id="photoGrid"></div>
+                </div>
             </section>
         </main>
     </div>
 
     <script src="firebase-config.js"></script>
-    <script src="driver-profile.js?v=4"></script>
+    <script src="driver-profile.js?v=5"></script>
 </body>
 </html>

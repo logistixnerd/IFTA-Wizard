@@ -12,6 +12,12 @@ const firebaseConfig = {
     measurementId: "G-D42MQDKFP2"
 };
 
+// FMCSA QCMobile API (free public key)
+const FMCSA_CONFIG = {
+    baseUrl: 'https://mobile.fmcsa.dot.gov/qc/services',
+    webKey: '76969b3c7d50d2d32324e7601514d5c4b5ff0f96'
+};
+
 // Initialize Firebase
 let app, auth, db, storage;
 
