@@ -4603,16 +4603,37 @@
 
     async function smartImportTrucks(file) {
         if (!file) return;
-        showMsg('Reading file\u2026');
+        showMsg('Reading file…');
         try {
             let rows = await parseFileToRows(file, 'truck');
             if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
             const config = SHEET_CONFIGS.truck;
-            const colMap = buildSmartColumnMap(rows[0], config.csvAliases);
+            const aliases = config.csvAliases || {};
+
+            // Find actual header row (may not be row 0)
+            let headerIdx = 0;
+            const truckHeaderPat = /^(unit|unitnumber|vin|make|model|year|plate|truck|vehicle|equipment|fuel|status)$/i;
+            for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                const cleaned = rows[i].map(c => (c || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
+                if (cleaned.filter(h => truckHeaderPat.test(h)).length >= 2) { headerIdx = i; break; }
+            }
+            const header = rows[headerIdx];
+            const dataRows = rows.slice(headerIdx + 1);
+            console.log('[Import] Truck header row:', headerIdx, 'Headers:', JSON.stringify(header));
+
+            const colMap = buildSmartColumnMap(header, aliases);
+            console.log('[Import] Truck header-based map:', JSON.stringify(colMap));
+
+            // Content-based detection for unmapped columns
+            const truckFields = ['unit', 'year', 'make', 'model', 'vin', 'plate', 'plateState', 'fuel', 'status'];
+            detectColumnsByContent(dataRows, header, colMap, truckFields);
+            console.log('[Import] Truck final map:', JSON.stringify(colMap));
+
             if (colMap.unit === undefined) { showMsg('Could not find a Unit # column.', true); return; }
+
             const parsed = [];
-            for (let i = 1; i < rows.length; i++) {
-                const row = rows[i];
+            for (let i = 0; i < dataRows.length; i++) {
+                const row = dataRows[i];
                 if (!row || row.every(c => !c || !c.toString().trim())) continue;
                 const data = {};
                 let hasValue = false;
@@ -4621,6 +4642,8 @@
                     if (colMap[key] !== undefined) {
                         let val = (row[colMap[key]] || '').toString().trim();
                         if (key === 'plateState') val = val.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+                        if (key === 'vin') val = val.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        if (key === 'year') { const yr = parseInt(val); val = (yr >= 1900 && yr <= 2099) ? yr.toString() : ''; }
                         if (['annualInspDate', 'registrationExp', 'insuranceExp'].includes(key) && val) val = normalizeDate(val);
                         if (key === 'status' && val) {
                             const col = config.cols.find(c => c.key === 'status');
@@ -4657,16 +4680,37 @@
     // ── Smart Import for Trailers ──
     async function smartImportTrailers(file) {
         if (!file) return;
-        showMsg('Reading file\u2026');
+        showMsg('Reading file…');
         try {
             let rows = await parseFileToRows(file, 'trailer');
             if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
             const config = SHEET_CONFIGS.trailer;
-            const colMap = buildSmartColumnMap(rows[0], config.csvAliases);
+            const aliases = config.csvAliases || {};
+
+            // Find actual header row
+            let headerIdx = 0;
+            const trailerHeaderPat = /^(unit|unitnumber|vin|make|model|year|plate|trailer|type|vehicle|equipment|status)$/i;
+            for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                const cleaned = rows[i].map(c => (c || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
+                if (cleaned.filter(h => trailerHeaderPat.test(h)).length >= 2) { headerIdx = i; break; }
+            }
+            const header = rows[headerIdx];
+            const dataRows = rows.slice(headerIdx + 1);
+            console.log('[Import] Trailer header row:', headerIdx, 'Headers:', JSON.stringify(header));
+
+            const colMap = buildSmartColumnMap(header, aliases);
+            console.log('[Import] Trailer header-based map:', JSON.stringify(colMap));
+
+            // Content-based detection for unmapped columns
+            const trailerFields = ['unit', 'year', 'make', 'vin', 'plate', 'plateState', 'type', 'status'];
+            detectColumnsByContent(dataRows, header, colMap, trailerFields);
+            console.log('[Import] Trailer final map:', JSON.stringify(colMap));
+
             if (colMap.unit === undefined) { showMsg('Could not find a Unit # column.', true); return; }
+
             const parsed = [];
-            for (let i = 1; i < rows.length; i++) {
-                const row = rows[i];
+            for (let i = 0; i < dataRows.length; i++) {
+                const row = dataRows[i];
                 if (!row || row.every(c => !c || !c.toString().trim())) continue;
                 const data = {};
                 let hasValue = false;
@@ -4675,6 +4719,8 @@
                     if (colMap[key] !== undefined) {
                         let val = (row[colMap[key]] || '').toString().trim();
                         if (key === 'plateState') val = val.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
+                        if (key === 'vin') val = val.toUpperCase().replace(/[^A-Z0-9]/g, '');
+                        if (key === 'year') { const yr = parseInt(val); val = (yr >= 1900 && yr <= 2099) ? yr.toString() : ''; }
                         if (['annualInspDate', 'registrationExp', 'insuranceExp'].includes(key) && val) val = normalizeDate(val);
                         if (key === 'status' && val) {
                             const col = config.cols.find(c => c.key === 'status');
@@ -5140,6 +5186,51 @@
                 const hits = vals.filter(v => /^\d{3}[\s\-]?\d{2}[\s\-]?\d{4}$/.test(v.trim()));
                 return hits.length / vals.length;
             },
+            // Truck/trailer fields
+            unit: vals => {
+                const hits = vals.filter(v => /^[A-Z0-9\-]{1,15}$/i.test(v.trim()) && v.trim().length <= 15);
+                return hits.length / vals.length * 0.3; // low confidence — too generic on its own
+            },
+            vin: vals => {
+                const hits = vals.filter(v => /^[A-HJ-NPR-Z0-9]{17}$/i.test(v.replace(/[^A-Z0-9]/gi, '')));
+                return hits.length / vals.length;
+            },
+            year: vals => {
+                const hits = vals.filter(v => { const yr = parseInt(v); return yr >= 1980 && yr <= 2099 && /^\d{4}$/.test(v.trim()); });
+                return hits.length / vals.length;
+            },
+            make: vals => {
+                const makes = ['freightliner', 'peterbilt', 'kenworth', 'volvo', 'international', 'mack', 'western star',
+                               'navistar', 'hino', 'isuzu', 'ford', 'chevrolet', 'gmc', 'ram', 'dodge', 'toyota',
+                               'utility', 'great dane', 'wabash', 'hyundai', 'stoughton', 'vanguard', 'fontaine', 'wilson'];
+                const hits = vals.filter(v => makes.some(m => v.toLowerCase().includes(m)));
+                return hits.length / vals.length;
+            },
+            model: vals => {
+                const models = ['cascadia', 'prostar', 'vnl', 'lonestar', '579', '389', 't680', 't880', 'w900', 'anthem',
+                                'lt', 'granite', 'pinnacle', '4300', '4400', 'lf', 'fe', 'npr'];
+                const hits = vals.filter(v => models.some(m => v.toLowerCase().includes(m)));
+                return hits.length / vals.length;
+            },
+            plate: vals => {
+                const hits = vals.filter(v => /^[A-Z0-9\-\s]{3,10}$/i.test(v.trim()) && /[A-Z]/i.test(v) && /\d/.test(v));
+                return hits.length / vals.length;
+            },
+            plateState: vals => {
+                const states = 'AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC'.split(' ');
+                const hits = vals.filter(v => states.includes(v.toUpperCase().trim()));
+                return hits.length / vals.length;
+            },
+            fuel: vals => {
+                const fuels = ['diesel', 'gasoline', 'gas', 'cng', 'lng', 'electric', 'hybrid', 'propane'];
+                const hits = vals.filter(v => fuels.includes(v.toLowerCase().trim()));
+                return hits.length / vals.length;
+            },
+            type: vals => {
+                const types = ['dry van', 'dryvan', 'dry-van', 'reefer', 'flatbed', 'step deck', 'step-deck', 'tanker', 'lowboy', 'container', 'box', 'refrigerated'];
+                const hits = vals.filter(v => types.some(t => v.toLowerCase().includes(t)));
+                return hits.length / vals.length;
+            },
             // Generic date detector for expiration/hire dates
             _date: vals => {
                 const hits = vals.filter(v => {
@@ -5179,14 +5270,27 @@
                 }
                 // Also check header hint (even partial/misspelled)
                 const hdr = (headerRow[col] || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (hdr && field === 'phone' && /ph|tel|cell|mob|contact/.test(hdr)) score += 0.3;
-                if (hdr && field === 'email' && /mail|email/.test(hdr)) score += 0.3;
-                if (hdr && field === 'cdl' && /cdl|lic|dl/.test(hdr)) score += 0.3;
-                if (hdr && field === 'cdlState' && /state/.test(hdr)) score += 0.3;
-                if (hdr && field === 'dob' && /dob|birth|bday/.test(hdr)) score += 0.3;
-                if (hdr && field === 'status' && /status|active/.test(hdr)) score += 0.3;
-                if (hdr && (field === 'firstName' || field === 'fullName') && /name|first|driver/.test(hdr)) score += 0.3;
-                if (hdr && field === 'lastName' && /last|sur|family/.test(hdr)) score += 0.3;
+                if (hdr) {
+                    // Driver fields
+                    if (field === 'phone' && /ph|tel|cell|mob|contact/.test(hdr)) score += 0.3;
+                    if (field === 'email' && /mail|email/.test(hdr)) score += 0.3;
+                    if (field === 'cdl' && /cdl|lic|dl/.test(hdr)) score += 0.3;
+                    if (field === 'cdlState' && /state/.test(hdr)) score += 0.3;
+                    if (field === 'dob' && /dob|birth|bday/.test(hdr)) score += 0.3;
+                    if (field === 'status' && /status|active/.test(hdr)) score += 0.3;
+                    if ((field === 'firstName' || field === 'fullName') && /name|first|driver/.test(hdr)) score += 0.3;
+                    if (field === 'lastName' && /last|sur|family/.test(hdr)) score += 0.3;
+                    // Truck/trailer fields
+                    if (field === 'unit' && /unit|truck|equip|no|number/.test(hdr)) score += 0.3;
+                    if (field === 'vin' && /vin|vehicleid/.test(hdr)) score += 0.3;
+                    if (field === 'year' && /year|yr|model/.test(hdr)) score += 0.3;
+                    if (field === 'make' && /make|manuf|brand/.test(hdr)) score += 0.3;
+                    if (field === 'model' && /model/.test(hdr)) score += 0.3;
+                    if (field === 'plate' && /plate|tag|license/.test(hdr)) score += 0.3;
+                    if (field === 'plateState' && /state|platestate|tagstate/.test(hdr)) score += 0.3;
+                    if (field === 'fuel' && /fuel|gas|diesel/.test(hdr)) score += 0.3;
+                    if (field === 'type' && /type|trailer/.test(hdr)) score += 0.3;
+                }
 
                 if (score >= 0.5) scores.push({ field, col, score });
             }
