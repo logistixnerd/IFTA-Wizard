@@ -2339,15 +2339,15 @@
         if (dndBadge) dndBadge.classList.toggle('hidden', isCreate || !d.doNotDispatch);
         const dndBtn = $('dpActionDND');
         if (dndBtn) {
-            // Only show quick action button when driver IS on DND (for removal)
-            dndBtn.classList.toggle('hidden', isCreate || !d.doNotDispatch || !canToggleDND());
+            // Show DND quick action for safety roles (toggles on/off)
+            dndBtn.classList.toggle('hidden', isCreate || !canToggleDND());
             if (!isCreate) updateDNDVisuals(d);
         }
-        // DND toggle in driver info section (for applying DND)
+        // DND toggle in driver info — only visible when DND is active
         const dndField = $('dpDNDField');
         const dndToggle = $('dpDNDToggle');
         if (dndField && dndToggle) {
-            dndField.classList.toggle('hidden', isCreate || !canToggleDND());
+            dndField.classList.toggle('hidden', isCreate || !d.doNotDispatch || !canToggleDND());
             dndToggle.checked = !!d.doNotDispatch;
             $('dpDNDLabel').textContent = d.doNotDispatch ? 'Active' : 'Off';
         }
@@ -2989,12 +2989,11 @@
             d.dndSetBy = state.user.email || '';
             d.dndSetAt = new Date().toISOString();
             updateDNDVisuals(d);
-            // Show/hide the quick action button based on new state
-            const dndBtn = $('dpActionDND');
-            if (dndBtn) dndBtn.classList.toggle('hidden', !newDnd);
-            // Update toggle switch
+            // Update toggle switch + field visibility
             const toggle = $('dpDNDToggle');
             if (toggle) toggle.checked = newDnd;
+            const dndField = $('dpDNDField');
+            if (dndField) dndField.classList.toggle('hidden', !newDnd);
             $('dpDNDLabel').textContent = newDnd ? 'Active' : 'Off';
             renderDrivers();
             renderPanelSummary();
