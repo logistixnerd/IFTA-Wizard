@@ -2339,8 +2339,8 @@
         if (dndBadge) dndBadge.classList.toggle('hidden', isCreate || !d.doNotDispatch);
         const dndBtn = $('dpActionDND');
         if (dndBtn) {
-            // Show DND quick action for safety roles (toggles on/off)
-            dndBtn.classList.toggle('hidden', isCreate || !canToggleDND());
+            // Only show DND quick action button when driver IS on DND
+            dndBtn.classList.toggle('hidden', isCreate || !d.doNotDispatch || !canToggleDND());
             if (!isCreate) updateDNDVisuals(d);
         }
         // DND toggle in driver info — only visible when DND is active
