@@ -2594,7 +2594,8 @@
         dropdown.innerHTML = cols.map(c => {
             const checked = vis.has(c.key) ? 'checked' : '';
             const disabled = c.required ? 'disabled' : '';
-            return `<label class="usheet-col-opt"><input type="checkbox" value="${c.key}" ${checked} ${disabled}><span>${escapeHtml(c.label)}</span></label>`;
+            const lockedClass = c.required ? ' usheet-toggle-locked' : '';
+            return `<label class="usheet-col-opt${lockedClass}"><input type="checkbox" value="${c.key}" ${checked} ${disabled}><span class="usheet-toggle"></span><span class="usheet-col-label">${escapeHtml(c.label)}</span></label>`;
         }).join('');
     }
 

@@ -5377,8 +5377,8 @@ input[type="date"].ss-input {
 .usheet-col-opt {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 5px 8px;
+    gap: 8px;
+    padding: 5px 10px;
     border-radius: 5px;
     cursor: pointer;
     font-size: 0.6875rem;
@@ -5393,16 +5393,67 @@ input[type="date"].ss-input {
     background: #f3f4f6;
 }
 
-.usheet-col-opt input[type="checkbox"] {
-    width: 14px;
-    height: 14px;
-    accent-color: #6366f1;
-    margin: 0;
-    flex-shrink: 0;
+.usheet-col-opt.usheet-toggle-locked {
+    opacity: 0.55;
+    cursor: default;
 }
 
-.usheet-col-opt input:disabled + span {
-    color: #9ca3af;
+/* Hide the real checkbox */
+.usheet-col-opt input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+/* Toggle track */
+.usheet-toggle {
+    position: relative;
+    display: inline-block;
+    width: 28px;
+    height: 16px;
+    background: #d1d5db;
+    border-radius: 8px;
+    flex-shrink: 0;
+    transition: background 0.2s;
+}
+
+/* Toggle knob */
+.usheet-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.12);
+}
+
+/* Checked state */
+.usheet-col-opt input:checked + .usheet-toggle {
+    background: #6366f1;
+}
+
+.usheet-col-opt input:checked + .usheet-toggle::after {
+    transform: translateX(12px);
+}
+
+/* Disabled locked toggle */
+.usheet-col-opt input:disabled + .usheet-toggle {
+    background: #a5b4fc;
+    cursor: default;
+}
+
+.usheet-col-opt input:disabled + .usheet-toggle::after {
+    transform: translateX(12px);
+}
+
+.usheet-col-label {
+    line-height: 1;
 }
 
 /* ── Body / Table ── */
