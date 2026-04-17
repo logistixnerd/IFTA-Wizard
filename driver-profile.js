@@ -111,6 +111,14 @@
         $('detailTruck').textContent = d.truck || '-';
 
         document.title = fullName + ' - Driver Profile - IFTA Wizard';
+
+        // Auto-collapse details once filled so user sees compose area
+        const card = document.getElementById('driverDetailsCard');
+        const toggle = document.getElementById('driverDetailsToggle');
+        if (card && toggle) {
+            card.classList.add('collapsed');
+            toggle.setAttribute('aria-expanded', 'false');
+        }
     }
 
     function renderHistory() {
@@ -233,6 +241,16 @@
 
     // ── Compose → Task Manager ────────────────
     function bindCompose() {
+        // ── Collapsible driver details ──
+        const detailsCard = document.getElementById('driverDetailsCard');
+        const detailsToggle = document.getElementById('driverDetailsToggle');
+        if (detailsToggle && detailsCard) {
+            detailsToggle.addEventListener('click', () => {
+                const collapsed = detailsCard.classList.toggle('collapsed');
+                detailsToggle.setAttribute('aria-expanded', String(!collapsed));
+            });
+        }
+
         const textarea = $('dpComposeText');
         const postBtn = $('dpComposePost');
         if (!textarea || !postBtn) return;
