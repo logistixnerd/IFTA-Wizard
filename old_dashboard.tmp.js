@@ -1,20 +1,23 @@
-/* ==========================================
-   CARRIER DASHBOARD – JavaScript
+﻿/* ==========================================
+   CARRIER DASHBOARD ΓÇô JavaScript
    ========================================== */
 
 (function () {
     'use strict';
 
-    // ── State ──────────────────────────────
+    // ΓöÇΓöÇ State ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const state = {
         user: null,
         trucks: [],
         trailers: [],
         drivers: [],
+        driverColumns: null,
         profile: {},
-        fmcsaSnapshot: null,
         dropdownOptions: {},
-        companyDashboard: null
+        companyDashboard: null,
+        fmcsaSnapshot: null,
+        notes: [],
+        noteFilter: 'all'
     };
 
     const COMPANY_TOOL_LABELS = {
@@ -178,7 +181,7 @@
         }
     }
 
-    // ── Editable Dropdown Definitions ──
+    // ΓöÇΓöÇ Editable Dropdown Definitions ΓöÇΓöÇ
     const DROPDOWN_DEFS = {
         truckFuel: {
             label: 'Truck Fuel Types',
@@ -234,7 +237,11 @@
             defaults: [
                 { value: 'active', label: 'Active' },
                 { value: 'inactive', label: 'Inactive' },
-                { value: 'on-leave', label: 'On Leave' }
+                { value: 'on-leave', label: 'Home Time' },
+                { value: 'suspended', label: 'Suspended' },
+                { value: 'terminated', label: 'Terminated' },
+                { value: 'pending', label: 'Pending' },
+                { value: 'training', label: 'Training' }
             ],
             formIds: ['driverStatus'],
             filterIds: ['driverStatusFilter'],
@@ -312,7 +319,7 @@
         }
     }
 
-    // ── US / CA jurisdictions for Base State dropdown ──
+    // ΓöÇΓöÇ US / CA jurisdictions for Base State dropdown ΓöÇΓöÇ
     const JURISDICTIONS = [
         { code: 'AL', name: 'Alabama' }, { code: 'AZ', name: 'Arizona' }, { code: 'AR', name: 'Arkansas' },
         { code: 'CA', name: 'California' }, { code: 'CO', name: 'Colorado' }, { code: 'CT', name: 'Connecticut' },
@@ -336,7 +343,7 @@
         { code: 'SK', name: 'Saskatchewan' }
     ];
 
-    // ── Helpers ────────────────────────────
+    // ΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     function $(id) { return document.getElementById(id); }
     function uid() { return state.user ? state.user.uid : null; }
     function col(name) { return db.collection('users').doc(uid()).collection(name); }
@@ -347,7 +354,7 @@
         return div.innerHTML;
     }
 
-    // ── Make / Model Suggestions for Autocomplete ──
+    // ΓöÇΓöÇ Make / Model Suggestions for Autocomplete ΓöÇΓöÇ
     const TRUCK_MAKES = [
         'Freightliner', 'Kenworth', 'Peterbilt', 'Volvo', 'International',
         'Mack', 'Western Star', 'Hino', 'Isuzu', 'Ford', 'Chevrolet',
@@ -372,7 +379,7 @@
         return [];
     }
 
-    // ── Autocomplete Utility ──────────────
+    // ΓöÇΓöÇ Autocomplete Utility ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     let activeAutocomplete = null;
 
     function attachAutocomplete(inputEl, suggestions) {
@@ -484,7 +491,7 @@
         activeAutocomplete = null;
     }
 
-    // ── VIN Decode (NHTSA vPIC API) ───────
+    // ΓöÇΓöÇ VIN Decode (NHTSA vPIC API) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     const vinDecodeCache = {};
     async function decodeVIN(vin) {
         vin = (vin || '').trim().toUpperCase();
@@ -524,7 +531,7 @@
         if (status === 'loading') {
             wrapper.classList.add('vin-loading');
             indicator.innerHTML = '<span class="vin-spinner"></span>';
-            indicator.title = 'Decoding VIN…';
+            indicator.title = 'Decoding VINΓÇª';
         } else if (status === 'valid') {
             wrapper.classList.add('vin-valid');
             indicator.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" width="16" height="16"><path d="M20 6L9 17l-5-5"/></svg>';
@@ -576,7 +583,7 @@
         });
     }
 
-    // ── Auth Guard ─────────────────────────
+    // ΓöÇΓöÇ Auth Guard ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     function initAuth() {
         firebase.auth().onAuthStateChanged(async (user) => {
             if (!user) {
@@ -671,7 +678,7 @@
         }
     }
 
-    // ── Navigation ────────────────────────
+    // ΓöÇΓöÇ Navigation ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     function initNav() {
         const HOVER_OPEN_DELAY_MS = 280;
         const HOVER_CLOSE_DELAY_MS = 180;
@@ -683,20 +690,20 @@
             });
         });
         
-        // Handle nav group trigger clicks (navigate to dept page + toggle expand/collapse)
+        // Handle nav group trigger clicks (toggle expand/collapse)
         document.querySelectorAll('.dash-nav-group-trigger').forEach(trigger => {
             trigger.addEventListener('click', () => {
                 const group = trigger.closest('.dash-nav-group');
-                if (!group) return;
-                const isAlreadyOpen = group.classList.contains('open');
-                if (isAlreadyOpen) {
-                    // Second click collapses the group (stays on current section)
-                    group.classList.remove('open');
-                    trigger.classList.remove('active');
-                } else {
-                    // First click: navigate to dept landing page (which opens this group)
-                    const deptSection = trigger.dataset.section;
-                    if (deptSection) navigateToSection(deptSection);
+                if (group) {
+                    // Close other groups when opening this one
+                    document.querySelectorAll('.dash-nav-group').forEach(g => {
+                        if (g !== group) g.classList.remove('open');
+                    });
+                    document.querySelectorAll('.dash-nav-group-trigger').forEach(t => {
+                        if (t !== trigger) t.classList.remove('active');
+                    });
+                    group.classList.toggle('open');
+                    trigger.classList.toggle('active', group.classList.contains('open'));
                 }
             });
         });
@@ -761,17 +768,18 @@
         }
     }
 
-    // ── Load All Data ─────────────────────
+    // ΓöÇΓöÇ Load All Data ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     async function loadAll() {
-        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers()]);
+        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers(), loadDriverColumnPrefs(), loadNotes()]);
+        applyDerivedValidation();
         renderTrucks();
         renderTrailers();
         renderDrivers();
+        populateNoteTagSelect();
         updateOverview();
-        initFmcsaTab();
     }
 
-    // ── PROFILE ───────────────────────────
+    // ΓöÇΓöÇ PROFILE ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     async function loadProfile() {
         try {
             const doc = await db.collection('users').doc(uid()).get();
@@ -1509,35 +1517,11 @@
         });
     }
 
-    function resizeImage(file, maxSize) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = maxSize;
-                    canvas.height = maxSize;
-                    const ctx = canvas.getContext('2d');
-                    const min = Math.min(img.width, img.height);
-                    const sx = (img.width - min) / 2;
-                    const sy = (img.height - min) / 2;
-                    ctx.drawImage(img, sx, sy, min, min, 0, 0, maxSize, maxSize);
-                    resolve(canvas.toDataURL('image/jpeg', 0.8));
-                };
-                img.onerror = reject;
-                img.src = e.target.result;
-            };
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
-    }
+    // ΓöÇΓöÇ FMCSA Company Lookup (MC or DOT) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    const MC_LOOKUP_URL = 'https://us-central1-ifta-wizard-a9061.cloudfunctions.net/mcLookup';
+    const CARRIER_LOOKUP_URL = 'https://us-central1-ifta-wizard-a9061.cloudfunctions.net/carrierLookup';
 
-    // ── FMCSA Company Lookup (MC or DOT) ──────────────────
-    const MC_LOOKUP_URL = 'https://mclookup-4mcawot2kq-uc.a.run.app';
-    const CARRIER_LOOKUP_URL = 'https://carrierlookup-4mcawot2kq-uc.a.run.app';
-
-    let pendingFmcsaData = null;
+    let pendingFmcsaData = null; // holds full carrier data until user confirms
 
     function initFmcsaLookup() {
         const typeSelect = $('fmcsaLookupType');
@@ -1549,6 +1533,7 @@
 
         if (!typeSelect || !input || !lookupBtn) return;
 
+        // Toggle placeholder based on type
         typeSelect.addEventListener('change', () => {
             input.placeholder = typeSelect.value === 'mc' ? 'e.g. 123456' : 'e.g. 1234567';
             input.value = '';
@@ -1556,13 +1541,16 @@
             pendingFmcsaData = null;
         });
 
+        // Look Up button
         lookupBtn.addEventListener('click', () => performFmcsaLookup());
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') { e.preventDefault(); performFmcsaLookup(); }
         });
 
+        // Confirm
         confirmBtn.addEventListener('click', () => confirmFmcsaLookup());
 
+        // Cancel
         cancelBtn.addEventListener('click', () => {
             verifyCard.classList.add('hidden');
             pendingFmcsaData = null;
@@ -1587,6 +1575,7 @@
                 json = await res.json();
                 if (!json.success) throw new Error(json.error || 'MC lookup failed');
 
+                // MC lookup returns a simpler shape ΓÇö also fetch full carrier data by DOT if available
                 const mcData = json.data;
                 if (mcData.dotNumber) {
                     const dotRes = await fetch(`${CARRIER_LOOKUP_URL}?dot=${encodeURIComponent(mcData.dotNumber)}`).catch(() => null);
@@ -1628,13 +1617,16 @@
         const statusEl = $('fmcsaVerifyStatus');
         const bodyEl = $('fmcsaVerifyBody');
 
+        // Status badge
         const authorized = d.allowedToOperate === 'Authorized' || d.status === 'Authorized';
         statusEl.className = 'fmcsa-verify-status ' + (authorized ? 'fmcsa-status-ok' : 'fmcsa-status-bad');
         statusEl.textContent = authorized ? 'Authorized' : (d.allowedToOperate || d.status || 'Unknown');
 
-        const address = d.address || [d.phyStreet, d.phyCity, d.phyState, d.phyZip].filter(Boolean).join(', ') || '\u2014';
+        // Build address string
+        const address = d.address || [d.phyStreet, d.phyCity, d.phyState, d.phyZip].filter(Boolean).join(', ') || 'ΓÇö';
 
-        const row = (label, val) => `<div class="fmcsa-verify-row"><span class="fmcsa-verify-label">${escapeHtml(label)}</span><span class="fmcsa-verify-value">${escapeHtml(val || '\u2014')}</span></div>`;
+        // Build verify body rows
+        const row = (label, val) => `<div class="fmcsa-verify-row"><span class="fmcsa-verify-label">${escapeHtml(label)}</span><span class="fmcsa-verify-value">${escapeHtml(val || 'ΓÇö')}</span></div>`;
 
         bodyEl.innerHTML =
             row('Legal Name', d.legalName || d.companyName)
@@ -1655,17 +1647,22 @@
         const d = pendingFmcsaData;
         if (!d) return;
 
-        $('dashCompany').value = d.legalName || d.companyName || '';
+        // Auto-fill company form fields
+        const name = d.legalName || d.companyName || '';
+        $('dashCompany').value = name;
         $('dashDotNumber').value = d.dotNumber || '';
         $('dashMcNumber').value = d.mcNumber || '';
         $('dashEin').value = d.einNumber || '';
 
+        // Address
         const address = d.address || [d.phyStreet, d.phyCity, d.phyState, d.phyZip].filter(Boolean).join(', ') || '';
         $('dashAddress').value = address;
 
+        // Base state
         const baseState = d.phyState || '';
         if (baseState) $('dashBaseState').value = baseState;
 
+        // Fleet size mapping
         const units = d.totalPowerUnits;
         if (units != null) {
             if (units <= 5) $('dashFleetSize').value = '1-5';
@@ -1675,10 +1672,12 @@
             else $('dashFleetSize').value = '100+';
         }
 
+        // Hide verify card and lookup bar
         $('fmcsaVerifyCard').classList.add('hidden');
         $('fmcsaLookupBar').classList.add('fmcsa-lookup-done');
         pendingFmcsaData = null;
 
+        // Build save payload from form
         const officeAddress = $('dashAddress').value.trim();
         const payload = {
             company: $('dashCompany').value.trim(),
@@ -1692,6 +1691,7 @@
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
+        // Also store the full FMCSA snapshot
         if (d.fetchedAt) {
             state.fmcsaSnapshot = d;
             payload.fmcsaSnapshot = d;
@@ -1700,13 +1700,14 @@
         try {
             await db.collection('users').doc(uid()).set(payload, { merge: true });
             showMsg('Company profile created from FMCSA');
+            // Re-render FMCSA tab if snapshot was saved
             if (state.fmcsaSnapshot) {
                 renderFmcsaSnapshot(state.fmcsaSnapshot);
                 renderComplianceReminders(state.fmcsaSnapshot);
             }
         } catch (err) {
             console.error('Save company from FMCSA error:', err);
-            showMsg('Fields auto-filled \u2014 click Save to store', false);
+            showMsg('Fields auto-filled ΓÇö click Save to store', false);
         }
     }
 
@@ -1716,7 +1717,7 @@
 
         const btn = $('fmcsaFetchBtn');
         btn.disabled = true;
-        btn.textContent = 'Fetching\u2026';
+        btn.textContent = 'FetchingΓÇª';
 
         try {
             const res = await fetch(`${CARRIER_LOOKUP_URL}?dot=${encodeURIComponent(dot)}`);
@@ -1724,6 +1725,7 @@
             if (!json.success) throw new Error(json.error || 'Lookup failed');
 
             state.fmcsaSnapshot = json.data;
+            // Persist the snapshot to Firestore
             await db.collection('users').doc(uid()).set({
                 fmcsaSnapshot: json.data,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1742,7 +1744,7 @@
     }
 
     function fmcsaRow(label, value) {
-        const v = value != null && value !== '' ? String(value) : '\u2014';
+        const v = value != null && value !== '' ? String(value) : 'ΓÇö';
         return `<div class="fmcsa-row"><span class="fmcsa-row-label">${escapeHtml(label)}</span><span class="fmcsa-row-value">${escapeHtml(v)}</span></div>`;
     }
 
@@ -1750,12 +1752,14 @@
         $('fmcsaHint').style.display = 'none';
         $('fmcsaSnapshot').style.display = '';
 
+        // Status bar
         const authorised = d.allowedToOperate === 'Authorized';
         $('fmcsaStatusBar').className = 'fmcsa-status-bar ' + (authorised ? 'fmcsa-status-ok' : 'fmcsa-status-bad');
         $('fmcsaStatusBar').innerHTML = '<span class="fmcsa-status-dot"></span><strong>'
             + escapeHtml(d.allowedToOperate || 'Unknown') + '</strong>'
             + (d.operationType ? ' &mdash; ' + escapeHtml(d.operationType) : '');
 
+        // Identity
         $('fmcsaIdentity').innerHTML =
             fmcsaRow('Legal Name', d.legalName)
             + fmcsaRow('DBA Name', d.dbaName)
@@ -1767,6 +1771,7 @@
             + fmcsaRow('Email', d.email)
             + fmcsaRow('Address', [d.phyStreet, d.phyCity, d.phyState, d.phyZip].filter(Boolean).join(', '));
 
+        // Fleet & Mileage
         const mileageLabel = d.mcs150MileageYear ? `Miles (${d.mcs150MileageYear})` : 'Miles';
         $('fmcsaFleet').innerHTML =
             fmcsaRow('Power Units', d.totalPowerUnits)
@@ -1774,16 +1779,18 @@
             + fmcsaRow(mileageLabel, d.mcs150Mileage != null ? Number(d.mcs150Mileage).toLocaleString() : null)
             + fmcsaRow('MCS-150 Date', d.mcs150FormDate);
 
+        // Safety
         $('fmcsaSafety').innerHTML =
             fmcsaRow('Safety Rating', d.safetyRating)
             + fmcsaRow('Rating Date', d.safetyRatingDate)
             + fmcsaRow('Last Review', d.reviewDate)
             + fmcsaRow('Review Type', d.reviewType);
 
+        // Insurance
         const ins = (req, onFile) => {
-            if (!req && !onFile) return '\u2014';
-            const r = req ? '$' + Number(req).toLocaleString() : '\u2014';
-            const f = onFile ? '$' + Number(onFile).toLocaleString() : '\u2014';
+            if (!req && !onFile) return 'ΓÇö';
+            const r = req ? '$' + Number(req).toLocaleString() : 'ΓÇö';
+            const f = onFile ? '$' + Number(onFile).toLocaleString() : 'ΓÇö';
             return `Req: ${r} / On file: ${f}`;
         };
         $('fmcsaInsurance').innerHTML =
@@ -1792,6 +1799,7 @@
             + fmcsaRow('Bond/Surety', ins(d.bondInsuranceRequired, d.bondInsuranceOnFile))
             + fmcsaRow('Insurance State', d.oicState);
 
+        // Inspections
         $('fmcsaInspections').innerHTML =
             fmcsaRow('Total', d.inspectionTotal)
             + fmcsaRow('Driver', d.driverInsp)
@@ -1800,28 +1808,33 @@
             + fmcsaRow('Driver OOS Rate', d.driverOOSRate != null ? d.driverOOSRate + '%' : null)
             + fmcsaRow('Vehicle OOS Rate', d.vehicleOOSRate != null ? d.vehicleOOSRate + '%' : null);
 
+        // Crashes
         $('fmcsaCrashes').innerHTML =
             fmcsaRow('Total', d.crashTotal)
             + fmcsaRow('Fatal', d.fatalCrash)
             + fmcsaRow('Injury', d.injCrash)
             + fmcsaRow('Tow', d.towCrash);
 
+        // Fetched timestamp
         if (d.fetchedAt) {
             $('fmcsaFetchedAt').textContent = 'Last fetched: ' + new Date(d.fetchedAt).toLocaleString();
         }
     }
 
+    // ΓöÇΓöÇ Compliance Reminders (MCS-150 & IFTA) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     function renderComplianceReminders(fmcsaData) {
         const container = $('fmcsaReminders');
         if (!container) return;
         const reminders = [];
         const today = new Date();
 
+        // ΓöÇΓöÇ IFTA quarterly filing deadlines ΓöÇΓöÇ
+        // Q1 Jan-Mar ΓåÆ Apr 30, Q2 Apr-Jun ΓåÆ Jul 31, Q3 Jul-Sep ΓåÆ Oct 31, Q4 Oct-Dec ΓåÆ Jan 31 next year
         const iftaDeadlines = [
-            { q: 'Q1', month: 3, day: 30, label: 'Q1 (Jan\u2013Mar)' },
-            { q: 'Q2', month: 6, day: 31, label: 'Q2 (Apr\u2013Jun)' },
-            { q: 'Q3', month: 9, day: 31, label: 'Q3 (Jul\u2013Sep)' },
-            { q: 'Q4', month: 0, day: 31, label: 'Q4 (Oct\u2013Dec)', nextYear: true }
+            { q: 'Q1', month: 3, day: 30, label: 'Q1 (JanΓÇôMar)' },
+            { q: 'Q2', month: 6, day: 31, label: 'Q2 (AprΓÇôJun)' },
+            { q: 'Q3', month: 9, day: 31, label: 'Q3 (JulΓÇôSep)' },
+            { q: 'Q4', month: 0, day: 31, label: 'Q4 (OctΓÇôDec)', nextYear: true }
         ];
 
         iftaDeadlines.forEach(dl => {
@@ -1833,11 +1846,13 @@
                 const type = daysUntil <= 7 ? 'danger' : daysUntil <= 30 ? 'warning' : 'info';
                 reminders.push({
                     type, icon: 'calendar',
-                    text: `IFTA ${dl.label} filing due ${deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} \u2014 ${daysUntil} day${daysUntil !== 1 ? 's' : ''} left`
+                    text: `IFTA ${dl.label} filing due ${deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ΓÇö ${daysUntil} day${daysUntil !== 1 ? 's' : ''} left`
                 });
             }
         });
 
+        // ΓöÇΓöÇ MCS-150 biennial update ΓöÇΓöÇ
+        // Due every 2 years. Last filing date comes from FMCSA data.
         if (fmcsaData && fmcsaData.mcs150FormDate) {
             const lastFiled = new Date(fmcsaData.mcs150FormDate);
             if (!isNaN(lastFiled.getTime())) {
@@ -1848,24 +1863,24 @@
                 if (daysUntilMcs < 0) {
                     reminders.push({
                         type: 'danger', icon: 'alert',
-                        text: `MCS-150 biennial update is OVERDUE \u2014 last filed ${lastFiled.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. File immediately at FMCSA.`
+                        text: `MCS-150 biennial update is OVERDUE ΓÇö last filed ${lastFiled.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. File immediately at FMCSA.`
                     });
                 } else if (daysUntilMcs <= 90) {
                     reminders.push({
                         type: daysUntilMcs <= 30 ? 'danger' : 'warning', icon: 'calendar',
-                        text: `MCS-150 biennial update due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} \u2014 ${daysUntilMcs} day${daysUntilMcs !== 1 ? 's' : ''} left`
+                        text: `MCS-150 biennial update due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} ΓÇö ${daysUntilMcs} day${daysUntilMcs !== 1 ? 's' : ''} left`
                     });
                 } else {
                     reminders.push({
                         type: 'info', icon: 'check',
-                        text: `MCS-150 up to date \u2014 next due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                        text: `MCS-150 up to date ΓÇö next due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
                     });
                 }
             }
         } else {
             reminders.push({
                 type: 'warning', icon: 'alert',
-                text: 'MCS-150 filing date unknown \u2014 fetch FMCSA data or verify your biennial update is filed'
+                text: 'MCS-150 filing date unknown ΓÇö fetch FMCSA data or verify your biennial update is filed'
             });
         }
 
@@ -1890,6 +1905,7 @@
         const btn = $('fmcsaFetchBtn');
         if (btn) btn.addEventListener('click', fetchFmcsaSnapshot);
 
+        // If we have a cached snapshot from Firestore, render it
         if (state.fmcsaSnapshot) {
             renderFmcsaSnapshot(state.fmcsaSnapshot);
             renderComplianceReminders(state.fmcsaSnapshot);
@@ -1898,11 +1914,242 @@
         }
     }
 
-    // ── TRUCKS ────────────────────────────
+    // ΓöÇΓöÇ NOTES / FEED ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    async function loadNotes() {
+        try {
+            const snap = await col('notes').orderBy('createdAt', 'desc').limit(100).get();
+            state.notes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            renderNotes();
+        } catch (err) { console.error('loadNotes:', err); }
+    }
+
+    function populateNoteTagSelect() {
+        const sel = $('noteTag');
+        if (!sel) return;
+        const current = sel.value;
+        let html = '<option value="">No one</option>';
+        state.drivers.forEach(d => {
+            const name = [d.firstName, d.lastName].filter(Boolean).join(' ');
+            if (name) html += `<option value="${escapeHtml(d.id)}">${escapeHtml(name)}</option>`;
+        });
+        sel.innerHTML = html;
+        sel.value = current;
+    }
+
+    function renderNotes() {
+        const feed = $('noteFeed');
+        if (!feed) return;
+        const filtered = state.noteFilter === 'all'
+            ? state.notes
+            : state.notes.filter(n => n.type === state.noteFilter);
+        if (!filtered.length) {
+            feed.innerHTML = `<div class="note-empty">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                </svg>
+                <p>${state.noteFilter === 'all' ? 'No notes yet' : 'No ' + state.noteFilter + 's'}</p>
+                <span>Post a note, issue, or reminder to get started</span>
+            </div>`;
+            return;
+        }
+        feed.innerHTML = filtered.map(n => {
+            const typeClass = 'note-type-' + (n.type || 'note');
+            const priorityClass = n.priority === 'urgent' ? 'note-priority-urgent' : n.priority === 'high' ? 'note-priority-high' : '';
+            const tagName = n.tagName || '';
+            const dept = n.department || '';
+            const ts = n.createdAt ? formatRelativeTime(n.createdAt) : '';
+            const authorName = n.authorName || n.authorEmail || '';
+            const authorInitial = authorName ? authorName.charAt(0).toUpperCase() : 'U';
+            return `<article class="note-item ${typeClass} ${priorityClass}" data-note-id="${n.id}">
+                <div class="note-item-avatar">${authorInitial}</div>
+                <div class="note-item-body">
+                    <div class="note-item-meta">
+                        <span class="note-item-author">${escapeHtml(authorName)}</span>
+                        <span class="note-type-badge ${typeClass}">${escapeHtml(n.type || 'note')}</span>
+                        ${dept ? `<span class="note-dept-badge">${escapeHtml(dept)}</span>` : ''}
+                        ${tagName ? `<span class="note-tag-badge">@${escapeHtml(tagName)}</span>` : ''}
+                        ${n.taskCreated ? '<span class="note-task-badge">Task</span>' : ''}
+                        <span class="note-item-time">${ts}</span>
+                    </div>
+                    <p class="note-item-text">${escapeHtml(n.text || '')}</p>
+                </div>
+                <button type="button" class="note-delete-btn" data-note-id="${n.id}" title="Delete">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </article>`;
+        }).join('');
+    }
+
+    function formatRelativeTime(ts) {
+        if (!ts) return '';
+        const date = ts.toDate ? ts.toDate() : new Date(ts);
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000);
+        if (diff < 60) return 'just now';
+        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+        if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+        if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    async function postNote() {
+        const text = $('noteText').value.trim();
+        if (!text) return;
+        const type = $('noteType').value;
+        const dept = $('noteDept').value;
+        const tagId = $('noteTag').value;
+        const priority = $('notePriority').value;
+        const createTask = $('noteCreateTask').checked;
+
+        const tagDriver = tagId ? state.drivers.find(d => d.id === tagId) : null;
+        const tagName = tagDriver ? [tagDriver.firstName, tagDriver.lastName].filter(Boolean).join(' ') : '';
+
+        const user = state.user;
+        const authorEmail = user ? user.email : '';
+        const authorName = state.profile.name || authorEmail.split('@')[0] || '';
+
+        const noteData = {
+            text,
+            type,
+            department: dept,
+            tagId: tagId || null,
+            tagName,
+            priority,
+            taskCreated: createTask,
+            authorEmail,
+            authorName,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdAtIso: new Date().toISOString()
+        };
+
+        try {
+            $('notePostBtn').disabled = true;
+            const docRef = await col('notes').add(noteData);
+
+            // Optionally create a task in the task manager
+            if (createTask && typeof FirebaseDB !== 'undefined') {
+                const taskData = {
+                    text: '[' + type.toUpperCase() + '] ' + text,
+                    type: type,
+                    status: 'Open',
+                    assignedTo: tagId ? [tagName] : [],
+                    dueDate: null,
+                    createdBy: authorEmail,
+                    noteId: docRef.id,
+                    department: dept,
+                    priority: priority
+                };
+                // Create under a general "notes" entity in drivers collection (company-wide)
+                const companyTaskDoc = 'company-notes';
+                await FirebaseDB.createTask(uid(), 'drivers', companyTaskDoc, taskData);
+            }
+
+            // Reset form
+            $('noteText').value = '';
+            $('noteText').style.height = 'auto';
+            $('noteType').value = 'note';
+            $('noteDept').value = '';
+            $('noteTag').value = '';
+            $('notePriority').value = 'normal';
+            $('noteCreateTask').checked = false;
+            $('notePostBtn').disabled = true;
+
+            showMsg('Note posted');
+            await loadNotes();
+        } catch (err) {
+            console.error('postNote:', err);
+            showMsg('Failed to post note', true);
+        } finally {
+            $('notePostBtn').disabled = false;
+        }
+    }
+
+    async function deleteNote(noteId) {
+        try {
+            await col('notes').doc(noteId).delete();
+            state.notes = state.notes.filter(n => n.id !== noteId);
+            renderNotes();
+            showMsg('Note deleted');
+        } catch (err) {
+            console.error('deleteNote:', err);
+            showMsg('Failed to delete note', true);
+        }
+    }
+
+    function initNotes() {
+        const textarea = $('noteText');
+        const postBtn = $('notePostBtn');
+        const form = $('noteForm');
+        const feed = $('noteFeed');
+        const filters = $('noteFilters');
+
+        if (!textarea || !form) return;
+
+        // Auto-resize textarea
+        textarea.addEventListener('input', () => {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+            postBtn.disabled = !textarea.value.trim();
+        });
+
+        // Submit
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            postNote();
+        });
+
+        // Filter chips
+        if (filters) {
+            filters.addEventListener('click', (e) => {
+                const chip = e.target.closest('.note-filter-chip');
+                if (!chip) return;
+                filters.querySelectorAll('.note-filter-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                state.noteFilter = chip.dataset.filter;
+                renderNotes();
+            });
+        }
+
+        // Delete via delegation
+        if (feed) {
+            feed.addEventListener('click', (e) => {
+                const btn = e.target.closest('.note-delete-btn');
+                if (!btn) return;
+                deleteNote(btn.dataset.noteId);
+            });
+        }
+    }
+
+    function resizeImage(file, maxSize) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = maxSize;
+                    canvas.height = maxSize;
+                    const ctx = canvas.getContext('2d');
+                    const min = Math.min(img.width, img.height);
+                    const sx = (img.width - min) / 2;
+                    const sy = (img.height - min) / 2;
+                    ctx.drawImage(img, sx, sy, min, min, 0, 0, maxSize, maxSize);
+                    resolve(canvas.toDataURL('image/jpeg', 0.8));
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // ΓöÇΓöÇ TRUCKS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     async function loadTrucks() {
         try {
             const snap = await col('trucks').orderBy('unit').get();
             state.trucks = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            applyDerivedValidation();
             renderTrucks();
             updateCount('truckCount', state.trucks.length);
         } catch (e) { console.error('Load trucks error:', e); }
@@ -1953,7 +2200,7 @@
 
     function openDriverProfile(id) {
         if (!id) return;
-        window.location.href = 'driver-profile.html?driver=' + encodeURIComponent(id);
+        openDriverDetailPanel(id);
     }
 
     function openTruckModal(data) {
@@ -1981,7 +2228,7 @@
         $('closeTruckModal').addEventListener('click', () => $('truckModal').classList.add('hidden'));
         $('cancelTruck').addEventListener('click', () => $('truckModal').classList.add('hidden'));
 
-        // Import – trigger CSV file picker
+        // Import ΓÇô trigger CSV file picker
         const importBtn = $('importTrucksBtn');
         if (importBtn) {
             importBtn.addEventListener('click', () => {
@@ -2116,7 +2363,7 @@
         }
     }
 
-    // ── SHEET MODAL SYSTEM (Trucks, Trailers, Drivers) ──
+    // ΓöÇΓöÇ SHEET MODAL SYSTEM (Trucks, Trailers, Drivers) ΓöÇΓöÇ
     const SHEET_CONFIGS = {
         truck: {
             cols: [
@@ -2213,14 +2460,22 @@
             cols: [
                 { key: 'firstName', placeholder: 'e.g., John', type: 'text', required: true },
                 { key: 'lastName', placeholder: 'e.g., Smith', type: 'text' },
-                { key: 'phone', placeholder: '(555) 123-4567', type: 'text' },
-                { key: 'cdl', placeholder: 'CDL number', type: 'text' },
-                { key: 'cdlState', placeholder: 'TX', type: 'text', maxlength: 2, pattern: /^[A-Z]{2}$/, warnMsg: 'Invalid state code' },
+                { key: 'phone', placeholder: '(555) 123-4567', type: 'tel' },
+                { key: 'cdl', placeholder: 'CDL number', type: 'text', uppercase: true },
+                { key: 'cdlState', type: 'jurisdiction' },
+                { key: 'cdlExp', type: 'date' },
+                { key: 'medExp', type: 'date' },
                 { key: 'email', placeholder: 'john@example.com', type: 'text' },
+                { key: 'hireDate', type: 'date' },
+                { key: 'truck', placeholder: 'Truck unit #', type: 'text', autocomplete: 'truck' },
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Inactive' },
-                    { value: 'on-leave', label: 'On Leave' }
+                    { value: 'on-leave', label: 'Home Time' },
+                    { value: 'suspended', label: 'Suspended' },
+                    { value: 'terminated', label: 'Terminated' },
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'training', label: 'Training' }
                 ]}
             ],
             collection: 'drivers',
@@ -2242,7 +2497,11 @@
                 phone: ['phone', 'phonenumber', 'mobile', 'cell', 'telephone'],
                 cdl: ['cdl', 'cdlnumber', 'cdlno', 'licensenumber', 'license', 'dl'],
                 cdlState: ['cdlstate', 'licensestate', 'dlstate', 'state'],
+                cdlExp: ['cdlexp', 'cdlexpiration', 'cdlexpirationdate', 'licenseexp'],
+                medExp: ['medexp', 'medicalexp', 'medicalcard', 'medcardexp', 'medicalcardexp'],
                 email: ['email', 'emailaddress', 'mail'],
+                hireDate: ['hiredate', 'dateofhire', 'hired', 'startdate'],
+                truck: ['truck', 'unit', 'truckunit', 'assignedtruck', 'vehicle'],
                 status: ['status']
             }
         }
@@ -2264,21 +2523,28 @@
         let cells = `<td class="sheet-row-num">${index + 1}</td>`;
         cols.forEach(col => {
             const val = data[col.key] || '';
-            const displayText = col.type === 'select'
-                ? sheetSelectLabel(col, val)
+            const isJurisdiction = col.type === 'jurisdiction';
+            const isSelect = col.type === 'select';
+            const displayText = isSelect ? sheetSelectLabel(col, val)
+                : isJurisdiction ? (val || '')
                 : escapeHtml(val);
-            const isPlaceholder = !val && col.type !== 'select';
+            const isPlaceholder = !val && !isSelect && !isJurisdiction;
             const textClass = 'sheet-cell-text' + (isPlaceholder ? ' placeholder' : '');
             const placeholderText = isPlaceholder ? (col.placeholder || '') : displayText;
 
             cells += `<td><div class="sheet-cell" data-col-key="${col.key}">`;
             cells += `<span class="${textClass}">${isPlaceholder ? escapeHtml(placeholderText) : displayText}</span>`;
-            if (col.type === 'select') {
+            if (isSelect) {
                 cells += `<select data-key="${col.key}" tabindex="-1">` +
                     col.options.map(o => `<option value="${escapeHtml(o.value)}"${o.value === (val || col.options[0].value) ? ' selected' : ''}>${escapeHtml(o.label)}</option>`).join('') +
                     '</select>';
+            } else if (isJurisdiction) {
+                cells += `<select data-key="${col.key}" tabindex="-1"><option value="">SelectΓÇª</option>` +
+                    JURISDICTIONS.map(j => `<option value="${j.code}"${j.code === val ? ' selected' : ''}>${j.code} ΓÇô ${escapeHtml(j.name)}</option>`).join('') +
+                    '</select>';
             } else {
-                cells += `<input type="${col.type || 'text'}" data-key="${col.key}" value="${escapeHtml(val)}" placeholder="${col.placeholder || ''}"${col.maxlength ? ' maxlength="' + col.maxlength + '"' : ''}${col.min != null ? ' min="' + col.min + '"' : ''}${col.max != null ? ' max="' + col.max + '"' : ''} tabindex="-1">`;
+                const inputType = col.type === 'tel' ? 'text' : (col.type || 'text');
+                cells += `<input type="${inputType}" data-key="${col.key}" value="${escapeHtml(val)}" placeholder="${col.placeholder || ''}"${col.maxlength ? ' maxlength="' + col.maxlength + '"' : ''}${col.min != null ? ' min="' + col.min + '"' : ''}${col.max != null ? ' max="' + col.max + '"' : ''}${col.uppercase ? ' style="text-transform:uppercase"' : ''} tabindex="-1">`;
             }
             cells += '</div></td>';
         });
@@ -2301,6 +2567,12 @@
         const config = getSheetConfig(cell);
         const colKey = cell.dataset.colKey;
         const colDef = config ? config.cols.find(c => c.key === colKey) : null;
+
+        // Live formatting on commit
+        if (input && colDef) {
+            if (colDef.type === 'tel') { formatPhoneLive(input); }
+            if (colDef.uppercase) { input.value = input.value.toUpperCase(); }
+        }
 
         if (select) {
             textEl.textContent = select.options[select.selectedIndex].text;
@@ -2342,7 +2614,7 @@
                 cell.title = [result.year, result.make, result.model].filter(Boolean).join(' ');
                 setTimeout(() => cell.classList.remove('vin-sheet-valid'), 4000);
             }
-            // Autofill sibling cells — only if user hasn't manually edited them
+            // Autofill sibling cells ΓÇö only if user hasn't manually edited them
             const fillMap = { year: result.year, make: result.make, model: result.model };
             Object.entries(fillMap).forEach(([key, val]) => {
                 if (!val) return;
@@ -2378,13 +2650,24 @@
             if (input) input.select();
         }
 
-        // Attach autocomplete for make/model columns in sheet grid
         const colKey = cell.dataset.colKey;
+        const config = getSheetConfig(cell);
+        const colDef = config ? config.cols.find(c => c.key === colKey) : null;
+
+        // Attach autocomplete for make/model columns
         if (input && (colKey === 'make' || colKey === 'model')) {
-            const config = getSheetConfig(cell);
             const entityType = config ? config.label : 'truck';
             const suggestions = getSuggestionsFor(colKey, entityType);
             if (suggestions.length) attachAutocomplete(input, suggestions);
+        }
+
+        // Attach autocomplete for truck assignment column
+        if (input && colDef && colDef.autocomplete === 'truck') {
+            const truckUnits = state.trucks
+                .filter(t => t.status === 'active' || !t.status)
+                .map(t => t.unit)
+                .filter(Boolean);
+            if (truckUnits.length) attachAutocomplete(input, truckUnits);
         }
     }
 
@@ -2434,13 +2717,13 @@
         const colKey = cell.dataset.colKey;
         const colDef = config.cols.find(c => c.key === colKey);
         const input = cell.querySelector('input');
-        if (!input) return;
-        const val = input.value.trim();
+        const select = cell.querySelector('select');
+        const val = input ? input.value.trim() : (select ? select.value : '');
 
         // Required field check (only flag if row has other data)
         if (colKey === config.requiredKey && !val) {
             const tr = cell.closest('tr');
-            const hasOtherData = Array.from(tr.querySelectorAll('input[data-key]'))
+            const hasOtherData = Array.from(tr.querySelectorAll('[data-key]'))
                 .some(i => i.dataset.key !== config.requiredKey && i.value.trim());
             if (hasOtherData) {
                 cell.classList.add('cell-invalid');
@@ -2469,8 +2752,63 @@
             }
         }
 
+        if (!colDef) return;
+
+        // Driver-specific: flag missing CDL on rows that have a name
+        if (config.collection === 'drivers') {
+            const tr = cell.closest('tr');
+            const getVal = (k) => { const el = tr.querySelector('[data-key="' + k + '"]'); return el ? el.value.trim() : ''; };
+            const hasName = getVal('firstName');
+            if (hasName) {
+                if (colKey === 'cdl' && !val) {
+                    cell.classList.add('cell-warning');
+                    cell.title = 'CDL number is recommended';
+                    return;
+                }
+                if (colKey === 'cdlExp') {
+                    if (!val) {
+                        cell.classList.add('cell-warning');
+                        cell.title = 'CDL expiration is recommended';
+                        return;
+                    }
+                    const days = daysUntilExpiry(val);
+                    if (days !== null && days < 0) {
+                        cell.classList.add('cell-invalid');
+                        cell.title = 'CDL is expired';
+                        return;
+                    }
+                    if (days !== null && days <= 60) {
+                        cell.classList.add('cell-warning');
+                        cell.title = 'CDL expires in ' + days + ' days';
+                        return;
+                    }
+                }
+                if (colKey === 'medExp' && val) {
+                    const days = daysUntilExpiry(val);
+                    if (days !== null && days < 0) {
+                        cell.classList.add('cell-invalid');
+                        cell.title = 'Medical card is expired';
+                        return;
+                    }
+                    if (days !== null && days <= 60) {
+                        cell.classList.add('cell-warning');
+                        cell.title = 'Medical card expires in ' + days + ' days';
+                        return;
+                    }
+                }
+                if (colKey === 'phone' && val) {
+                    const digits = val.replace(/\D/g, '');
+                    if (digits.length !== 10 && digits.length !== 11) {
+                        cell.classList.add('cell-warning');
+                        cell.title = 'Phone number looks invalid';
+                        return;
+                    }
+                }
+            }
+        }
+
         // Column-specific validation (only if cell has a value)
-        if (!val || !colDef) return;
+        if (!val) return;
 
         // Exact length (e.g. VIN = 17)
         if (colDef.exactLength && val.length !== colDef.exactLength) {
@@ -2479,7 +2817,7 @@
             return;
         }
 
-        // Regex pattern (e.g. state code = /^[A-Z]{2}$/)
+        // Regex pattern
         if (colDef.pattern && !colDef.pattern.test(val.toUpperCase())) {
             cell.classList.add('cell-warning');
             cell.title = colDef.warnMsg || ('Invalid ' + colKey);
@@ -2733,21 +3071,30 @@
                         const select = cell.querySelector('select');
                         const textEl = cell.querySelector('.sheet-cell-text');
 
-                        if (select && colDef && colDef.type === 'select') {
-                            const match = colDef.options.find(o =>
-                                o.value.toLowerCase() === val.toLowerCase() ||
-                                o.label.toLowerCase() === val.toLowerCase()
-                            );
-                            if (match) {
-                                select.value = match.value;
-                                textEl.textContent = match.label;
-                            } else if (val) {
-                                select.value = colDef.options[0].value;
-                                textEl.textContent = colDef.options[0].label;
+                        if (select && colDef && (colDef.type === 'select' || colDef.type === 'jurisdiction')) {
+                            if (colDef.type === 'jurisdiction') {
+                                const code = val.toUpperCase().replace(/[^A-Z]/g, '');
+                                const jMatch = JURISDICTIONS.find(j => j.code === code || j.name.toLowerCase() === val.toLowerCase());
+                                select.value = jMatch ? jMatch.code : '';
+                                textEl.textContent = jMatch ? jMatch.code : val;
+                            } else {
+                                const match = colDef.options.find(o =>
+                                    o.value.toLowerCase() === val.toLowerCase() ||
+                                    o.label.toLowerCase() === val.toLowerCase()
+                                );
+                                if (match) {
+                                    select.value = match.value;
+                                    textEl.textContent = match.label;
+                                } else if (val) {
+                                    select.value = colDef.options[0].value;
+                                    textEl.textContent = colDef.options[0].label;
+                                }
                             }
                             textEl.classList.remove('placeholder');
                         } else if (input) {
-                            if (colDef && (colDef.key === 'plateState' || colDef.key === 'cdlState')) val = val.toUpperCase();
+                            if (colDef && colDef.key === 'plateState') val = val.toUpperCase();
+                            if (colDef && colDef.uppercase) val = val.toUpperCase();
+                            if (colDef && colDef.type === 'tel') val = formatPhone(val);
                             input.value = val;
                             if (val) {
                                 textEl.textContent = val;
@@ -2791,7 +3138,7 @@
                 });
                 if (!data[config.requiredKey]) continue;
 
-                // Collect validation issues — store as warnings, never block
+                // Collect validation issues ΓÇö store as warnings, never block
                 const issues = [];
                 tr.querySelectorAll('.cell-invalid, .cell-duplicate, .cell-warning').forEach(c => {
                     if (c.title) issues.push(c.title);
@@ -2809,9 +3156,12 @@
                         if (!data[k]) data[k] = v;
                     });
                 }
-                // Uppercase state fields
+                // Clean field values
                 if (data.plateState) data.plateState = data.plateState.toUpperCase();
                 if (data.cdlState) data.cdlState = data.cdlState.toUpperCase();
+                if (data.cdl) data.cdl = data.cdl.toUpperCase();
+                if (data.phone) data.phone = stripPhone(data.phone);
+                if (data.emergencyPhone) data.emergencyPhone = stripPhone(data.emergencyPhone);
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
                 const doc = col(config.collection).doc();
@@ -2835,11 +3185,12 @@
         }
     }
 
-    // ── TRAILERS ──────────────────────────
+    // ΓöÇΓöÇ TRAILERS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     async function loadTrailers() {
         try {
             const snap = await col('trailers').orderBy('unit').get();
             state.trailers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            applyDerivedValidation();
             renderTrailers();
             updateCount('trailerCount', state.trailers.length);
         } catch (e) { console.error('Load trailers error:', e); }
@@ -2949,39 +3300,288 @@
         });
     }
 
-    // ── DRIVERS ───────────────────────────
+    // ΓöÇΓöÇ DRIVERS ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     async function loadDrivers() {
         try {
             const snap = await col('drivers').orderBy('lastName').get();
             state.drivers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            applyDerivedValidation();
             renderDrivers();
             updateCount('driverCount', state.drivers.length);
         } catch (e) { console.error('Load drivers error:', e); }
     }
 
+    // Helper to format date for display
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        try {
+            const d = new Date(dateStr + 'T00:00:00');
+            return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } catch { return escapeHtml(dateStr); }
+    }
+
+    // Helper to calculate days until expiry
+    function daysUntilExpiry(dateStr) {
+        if (!dateStr) return null;
+        const exp = new Date(dateStr + 'T23:59:59');
+        const now = new Date();
+        return Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+    }
+
+    // Helper to get CSS class for expiry status
+    function expiryClass(dateStr) {
+        const days = daysUntilExpiry(dateStr);
+        if (days === null) return '';
+        if (days < 0) return 'cell-expired';
+        if (days <= 60) return 'cell-expiring-soon';
+        return 'cell-valid';
+    }
+
+    function formatPhone(raw) {
+        if (!raw) return '';
+        const digits = raw.replace(/\D/g, '');
+        if (digits.length === 10) return '(' + digits.slice(0, 3) + ') ' + digits.slice(3, 6) + '-' + digits.slice(6);
+        if (digits.length === 11 && digits[0] === '1') return '+1 (' + digits.slice(1, 4) + ') ' + digits.slice(4, 7) + '-' + digits.slice(7);
+        return raw;
+    }
+
+    function formatPhoneLive(input) {
+        const raw = input.value.replace(/\D/g, '');
+        let formatted = '';
+        if (raw.length === 0) { formatted = ''; }
+        else if (raw.length <= 3) { formatted = '(' + raw; }
+        else if (raw.length <= 6) { formatted = '(' + raw.slice(0, 3) + ') ' + raw.slice(3); }
+        else { formatted = '(' + raw.slice(0, 3) + ') ' + raw.slice(3, 6) + '-' + raw.slice(6, 10); }
+        input.value = formatted;
+    }
+
+    function stripPhone(val) {
+        return val.replace(/\D/g, '');
+    }
+
+    const ALL_DRIVER_COLUMNS = [
+        {
+            key: 'name',
+            label: 'Name',
+            defaultVisible: true,
+            locked: true,
+            render: (d) => {
+                const name = [d.firstName, d.lastName].filter(Boolean).map(s => escapeHtml(s)).join(' ');
+                return name ? `<strong>${name}</strong>` : '<span class="cell-missing">No name</span>';
+            }
+        },
+        {
+            key: 'cdl-info',
+            label: 'CDL # / State',
+            defaultVisible: true,
+            locked: false,
+            render: (d) => {
+                const cdl = escapeHtml(d.cdl || '');
+                const st = escapeHtml(d.cdlState || '');
+                if (!cdl) return '<span class="cell-missing" title="CDL number is missing">Missing</span>';
+                return `${cdl}${st ? ' <span class="cell-muted">(' + st + ')</span>' : ''}`;
+            }
+        },
+        {
+            key: 'cdlExp',
+            label: 'CDL Exp',
+            defaultVisible: true,
+            locked: false,
+            render: (d) => {
+                if (!d.cdlExp) return '<span class="cell-missing" title="CDL expiration date is missing">Missing</span>';
+                const cls = expiryClass(d.cdlExp);
+                const text = formatDate(d.cdlExp);
+                const days = daysUntilExpiry(d.cdlExp);
+                let tag = '';
+                if (days !== null && days < 0) tag = ' <span class="cell-exp-tag expired">Expired</span>';
+                else if (days !== null && days <= 60) tag = ` <span class="cell-exp-tag expiring">${days}d</span>`;
+                else if (days !== null) tag = ' <span class="cell-exp-tag valid">Valid</span>';
+                return `<span class="${cls}">${text}</span>${tag}`;
+            }
+        },
+        {
+            key: 'medExp',
+            label: 'Med Card Exp',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => {
+                if (!d.medExp) return '<span class="cell-missing" title="Medical card expiration is missing">Missing</span>';
+                const cls = expiryClass(d.medExp);
+                const text = formatDate(d.medExp);
+                const days = daysUntilExpiry(d.medExp);
+                let tag = '';
+                if (days !== null && days < 0) tag = ' <span class="cell-exp-tag expired">Expired</span>';
+                else if (days !== null && days <= 60) tag = ` <span class="cell-exp-tag expiring">${days}d</span>`;
+                else if (days !== null) tag = ' <span class="cell-exp-tag valid">Valid</span>';
+                return `<span class="${cls}">${text}</span>${tag}`;
+            }
+        },
+        {
+            key: 'phone',
+            label: 'Phone',
+            defaultVisible: true,
+            locked: false,
+            render: (d) => d.phone ? escapeHtml(formatPhone(d.phone)) : '<span class="cell-missing" title="Phone number is missing">Missing</span>'
+        },
+        {
+            key: 'email',
+            label: 'Email',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => d.email ? escapeHtml(d.email) : '<span class="cell-muted">ΓÇô</span>'
+        },
+        {
+            key: 'truck',
+            label: 'Assigned Truck',
+            defaultVisible: true,
+            locked: false,
+            render: (d) => {
+                const label = truckLabel(d.truck);
+                if (!d.truck && d.status === 'active') return '<span class="cell-missing" title="Active driver has no truck assigned">Unassigned</span>';
+                return d.truck ? escapeHtml(label) : '<span class="cell-muted">ΓÇô</span>';
+            }
+        },
+        {
+            key: 'docs',
+            label: 'Docs',
+            defaultVisible: true,
+            locked: false,
+            render: (d) => {
+                const types = Array.isArray(d.docTypes) ? d.docTypes : [];
+                const count = d.docCount || 0;
+                const KEY_DOCS = ['cdl', 'medical'];
+                if (count === 0) {
+                    return '<span class="doc-status doc-status-none" title="No documents uploaded"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> <span class="doc-status-label">None</span></span>';
+                }
+                const missing = KEY_DOCS.filter(k => !types.includes(k));
+                let cls = 'doc-status-ok';
+                let tip = count + ' doc' + (count !== 1 ? 's' : '') + ' uploaded';
+                if (missing.length > 0) {
+                    cls = missing.length === KEY_DOCS.length ? 'doc-status-warn' : 'doc-status-partial';
+                    tip += ' \u2022 Missing: ' + missing.map(k => DOC_TYPE_LABELS[k] || k).join(', ');
+                }
+                return `<span class="doc-status ${cls}" title="${escapeHtml(tip)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg> <span class="doc-status-label">${count}</span></span>`;
+            }
+        },
+        {
+            key: 'status',
+            label: 'Status',
+            defaultVisible: true,
+            locked: true,
+            render: (d) => statusSelect(d.status, d.id, 'drivers', 'driver')
+        },
+        {
+            key: 'hireDate',
+            label: 'Date of Hire',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => d.hireDate ? formatDate(d.hireDate) : '<span class="cell-muted">ΓÇô</span>'
+        },
+        {
+            key: 'dob',
+            label: 'Date of Birth',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => d.dob ? formatDate(d.dob) : '<span class="cell-muted">ΓÇô</span>'
+        },
+        {
+            key: 'address',
+            label: 'Home Address',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => d.address ? `<span title="${escapeHtml(d.address)}">${escapeHtml(d.address.substring(0, 30))}</span>` : '<span class="cell-muted">ΓÇô</span>'
+        },
+        {
+            key: 'emergency',
+            label: 'Emergency Contact',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => {
+                const name = d.emergencyName ? escapeHtml(d.emergencyName) : '';
+                const phone = d.emergencyPhone ? escapeHtml(d.emergencyPhone) : '';
+                if (!name && !phone) return '<span class="cell-missing" title="Emergency contact is missing">Missing</span>';
+                return `${name}${name && phone ? '<br>' : ''}${phone}`;
+            }
+        },
+        {
+            key: 'endorsements',
+            label: 'Endorsements',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => {
+                if (!d.endorsements) return '<span class="cell-muted">None</span>';
+                const tags = d.endorsements.split(',').map(e => e.trim()).filter(Boolean);
+                if (tags.length === 0) return '<span class="cell-muted">None</span>';
+                return tags.map(t => `<span class="endorsement-tag">${escapeHtml(t)}</span>`).join('');
+            }
+        },
+        {
+            key: 'mvrDate',
+            label: 'MVR Review',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => {
+                if (!d.mvrDate) return '<span class="cell-missing" title="MVR review date is missing">Missing</span>';
+                const days = daysUntilExpiry(d.mvrDate);
+                if (days !== null && days < -365) return `<span class="cell-expired" title="MVR is over 1 year old">${formatDate(d.mvrDate)} <span class="cell-exp-tag expired">Overdue</span></span>`;
+                return formatDate(d.mvrDate);
+            }
+        },
+        {
+            key: 'bgCheck',
+            label: 'Background Check',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => {
+                if (!d.bgCheck) return '<span class="cell-missing" title="Background check date is missing">Missing</span>';
+                return formatDate(d.bgCheck);
+            }
+        },
+        {
+            key: 'notes',
+            label: 'Notes',
+            defaultVisible: false,
+            locked: false,
+            render: (d) => d.notes ? `<span title="${escapeHtml(d.notes)}" class="cell-notes">${escapeHtml(d.notes.substring(0, 25))}</span>` : '<span class="cell-muted">ΓÇô</span>'
+        }
+    ];
+
     function renderDrivers() {
+        updateDriverChipCounts();
         const tbody = $('driversTableBody');
         const table = $('driversTable');
         const empty = $('driversEmpty');
+        const trigger = $('driverAddTrigger');
+        const sheetPanel = $('driverSheetPanel');
         if (state.drivers.length === 0) {
             table.style.display = 'none';
             empty.style.display = '';
+            if (trigger) trigger.style.display = 'none';
             return;
         }
         empty.style.display = 'none';
         table.style.display = '';
+        if (trigger && (!sheetPanel || sheetPanel.style.display === 'none')) trigger.style.display = '';
+        
+        // Render header with visible columns
+        renderDriversHeader();
+        
         const filtered = state.drivers.filter(d => matchesFilter(d, 'driver'));
-        tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}" class="${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
-            ${validationIndicator(d)}
-            <td><div class="cell cell-primary" title="Open driver profile for ${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong></div></td>
-            <td><div class="cell">${escapeHtml(d.cdl)}</div></td>
-            <td><div class="cell">${escapeHtml(d.cdlState)}</div></td>
-            <td><div class="cell">${escapeHtml(d.cdlExp)}</div></td>
-            <td><div class="cell">${escapeHtml(d.phone)}</div></td>
-            <td><div class="cell">${escapeHtml(d.email)}</div></td>
-            <td><div class="cell">${escapeHtml(truckLabel(d.truck))}</div></td>
-            <td><div class="cell">${statusSelect(d.status, d.id, 'drivers', 'driver')}</div></td>
-            <td class="row-actions"><div class="cell">
+        const visibleCols = (state.driverColumns || ALL_DRIVER_COLUMNS.map((col, idx) => ({ ...col, visible: col.defaultVisible, order: idx }))).filter(c => c.visible);
+        
+        tbody.innerHTML = filtered.map(d => {
+            const valClass = d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : '';
+            const statusClass = d.status ? 'row-status-' + escapeHtml(d.status) : '';
+            let row = `<tr data-id="${d.id}" class="${valClass} ${statusClass}">
+                ${validationIndicator(d)}`;
+            
+            visibleCols.forEach(col => {
+                const cellContent = col.render(d);
+                const tdClass = col.key === 'status' ? ' class="col-status"' : '';
+                row += `<td${tdClass}><div class="cell">${cellContent}</div></td>`;
+            });
+            
+            row += `<td class="row-actions"><div class="cell">
                 <button title="Edit" onclick="Dashboard.editDriver('${d.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
@@ -2989,7 +3589,468 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </div></td>
-        </tr>`).join('');
+            </tr>`;
+            return row;
+        }).join('');
+    }
+
+    // ΓöÇΓöÇ Inline Sheet Add (Google Sheets style) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    const DRIVER_SHEET_COLS = [
+        { key: 'firstName', label: 'First Name', type: 'text', placeholder: 'First name', required: true },
+        { key: 'lastName', label: 'Last Name', type: 'text', placeholder: 'Last name' },
+        { key: 'phone', label: 'Phone', type: 'tel', placeholder: '(555) 123-4567' },
+        { key: 'cdl', label: 'CDL #', type: 'text', placeholder: 'CDL number', uppercase: true },
+        { key: 'cdlState', label: 'CDL State', type: 'jurisdiction' },
+        { key: 'cdlExp', label: 'CDL Exp', type: 'date' },
+        { key: 'medExp', label: 'Med Card Exp', type: 'date' },
+        { key: 'email', label: 'Email', type: 'text', placeholder: 'email@example.com' },
+        { key: 'truck', label: 'Truck', type: 'text', placeholder: 'Unit #' },
+        { key: 'status', label: 'Status', type: 'select', options: 'driverStatus' },
+        { key: 'hireDate', label: 'Hire Date', type: 'date' },
+        { key: 'dob', label: 'DOB', type: 'date' },
+        { key: 'address', label: 'Address', type: 'text', placeholder: 'Home address' },
+        { key: 'emergencyName', label: 'Emergency Name', type: 'text', placeholder: 'Contact name' },
+        { key: 'emergencyPhone', label: 'Emergency Phone', type: 'tel', placeholder: 'Contact phone' },
+        { key: 'endorsements', label: 'Endorsements', type: 'text', placeholder: 'H,N,T,X...' },
+        { key: 'mvrDate', label: 'MVR Review', type: 'date' },
+        { key: 'bgCheck', label: 'Background Check', type: 'date' },
+        { key: 'notes', label: 'Notes', type: 'text', placeholder: 'Notes' }
+    ];
+
+    function buildDriverSheetRow(rowIdx) {
+        const tr = document.createElement('tr');
+        tr.dataset.sheetRow = rowIdx;
+        const numTd = document.createElement('td');
+        numTd.className = 'ds-row-num';
+        numTd.textContent = rowIdx + 1;
+        tr.appendChild(numTd);
+
+        DRIVER_SHEET_COLS.forEach((col, colIdx) => {
+            const td = document.createElement('td');
+            td.className = 'ds-cell';
+            td.dataset.col = col.key;
+            td.dataset.colIdx = colIdx;
+            let input;
+            if (col.type === 'select') {
+                input = document.createElement('select');
+                const opts = getDropdownOptions(col.options);
+                opts.forEach(o => {
+                    const opt = document.createElement('option');
+                    opt.value = o.value;
+                    opt.textContent = o.label;
+                    if (o.value === 'active') opt.selected = true;
+                    input.appendChild(opt);
+                });
+            } else if (col.type === 'jurisdiction') {
+                input = document.createElement('select');
+                const blank = document.createElement('option');
+                blank.value = ''; blank.textContent = 'SelectΓÇª';
+                input.appendChild(blank);
+                JURISDICTIONS.forEach(j => {
+                    const opt = document.createElement('option');
+                    opt.value = j.code;
+                    opt.textContent = j.code + ' ΓÇô ' + j.name;
+                    input.appendChild(opt);
+                });
+            } else {
+                input = document.createElement('input');
+                input.type = col.type === 'tel' ? 'text' : col.type;
+                if (col.placeholder) input.placeholder = col.placeholder;
+                if (col.maxlength) input.maxLength = col.maxlength;
+                if (col.uppercase) input.style.textTransform = 'uppercase';
+            }
+            input.dataset.key = col.key;
+            input.className = 'ds-input';
+            td.appendChild(input);
+            tr.appendChild(td);
+        });
+
+        const delTd = document.createElement('td');
+        delTd.className = 'ds-row-del';
+        delTd.innerHTML = '<button class="ds-del-btn" title="Remove row">&times;</button>';
+        delTd.querySelector('button').addEventListener('click', () => {
+            tr.remove();
+            renumberDriverSheetRows();
+            updateDriverSheetCount();
+        });
+        tr.appendChild(delTd);
+        return tr;
+    }
+
+    function renumberDriverSheetRows() {
+        const tbody = $('driverSheetBody');
+        if (!tbody) return;
+        tbody.querySelectorAll('tr').forEach((tr, i) => {
+            tr.dataset.sheetRow = i;
+            const num = tr.querySelector('.ds-row-num');
+            if (num) num.textContent = i + 1;
+        });
+    }
+
+    function updateDriverSheetCount() {
+        const countEl = $('driverSheetCount');
+        const saveBtn = $('driverSheetSave');
+        const tbody = $('driverSheetBody');
+        if (!tbody || !countEl) return;
+        const rows = tbody.querySelectorAll('tr');
+        const filled = Array.from(rows).filter(tr => {
+            const fn = tr.querySelector('[data-key="firstName"]');
+            return fn && fn.value.trim();
+        }).length;
+        countEl.textContent = `${filled} of ${rows.length} row${rows.length !== 1 ? 's' : ''}`;
+        if (saveBtn) saveBtn.disabled = filled === 0;
+    }
+
+    function openDriverSheet() {
+        const panel = $('driverSheetPanel');
+        const trigger = $('driverAddTrigger');
+        const table = $('driversTable');
+        const empty = $('driversEmpty');
+        if (!panel) return;
+
+        if (table) table.style.display = '';
+        if (empty) empty.style.display = 'none';
+        if (state.drivers.length === 0) renderDriversHeader();
+
+        // Build column headers
+        const thead = panel.querySelector('.driver-sheet-table thead tr');
+        if (thead) {
+            let hHtml = '<th class="ds-row-num">#</th>';
+            DRIVER_SHEET_COLS.forEach(col => {
+                hHtml += `<th${col.required ? ' class="ds-req"' : ''}>${escapeHtml(col.label)}${col.required ? ' *' : ''}</th>`;
+            });
+            hHtml += '<th class="ds-row-del"></th>';
+            thead.innerHTML = hHtml;
+        }
+
+        const tbody = $('driverSheetBody');
+        tbody.innerHTML = '';
+        for (let i = 0; i < 3; i++) tbody.appendChild(buildDriverSheetRow(i));
+
+        panel.style.display = '';
+        if (trigger) trigger.style.display = 'none';
+        updateDriverSheetCount();
+
+        const first = tbody.querySelector('.ds-input');
+        if (first) setTimeout(() => first.focus(), 50);
+    }
+
+    function closeDriverSheet() {
+        const panel = $('driverSheetPanel');
+        const trigger = $('driverAddTrigger');
+        if (panel) panel.style.display = 'none';
+        if (trigger) trigger.style.display = '';
+    }
+
+    function addDriverSheetRow() {
+        const tbody = $('driverSheetBody');
+        if (!tbody) return;
+        const idx = tbody.querySelectorAll('tr').length;
+        const tr = buildDriverSheetRow(idx);
+        tbody.appendChild(tr);
+        updateDriverSheetCount();
+        const first = tr.querySelector('.ds-input');
+        if (first) first.focus();
+        tr.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    async function saveDriverSheet() {
+        const tbody = $('driverSheetBody');
+        if (!tbody) return;
+        const payloads = [];
+
+        tbody.querySelectorAll('tr').forEach(tr => {
+            const data = {};
+            tr.querySelectorAll('.ds-input').forEach(input => {
+                let val = input.value.trim();
+                const key = input.dataset.key;
+                if (key === 'cdlState') val = val.toUpperCase();
+                if (key === 'cdl') val = val.toUpperCase();
+                if (key === 'phone' || key === 'emergencyPhone') val = stripPhone(val);
+                if (val) data[key] = val;
+            });
+            if (data.firstName) {
+                data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                if (!data.status) data.status = 'active';
+                payloads.push(data);
+            }
+        });
+
+        if (payloads.length === 0) {
+            showMsg('At least one driver needs a first name', true);
+            return;
+        }
+
+        try {
+            const batch = firebase.firestore().batch();
+            payloads.forEach(p => {
+                const ref = col('drivers').doc();
+                batch.set(ref, p);
+            });
+            await batch.commit();
+            showMsg(`${payloads.length} driver${payloads.length > 1 ? 's' : ''} added`);
+            closeDriverSheet();
+            await loadDrivers();
+            updateOverview();
+        } catch (err) {
+            console.error('Save driver sheet error:', err);
+            showMsg('Error saving drivers', true);
+        }
+    }
+
+    function handleDriverSheetPaste(e) {
+        const clipText = (e.clipboardData || window.clipboardData).getData('text');
+        if (!clipText || !clipText.includes('\t')) return;
+        e.preventDefault();
+
+        const target = e.target;
+        if (!target.classList.contains('ds-input')) return;
+        const td = target.closest('td');
+        const tr = target.closest('tr');
+        const tbody = $('driverSheetBody');
+        if (!td || !tr || !tbody) return;
+
+        const startColIdx = parseInt(td.dataset.colIdx) || 0;
+        const rows = clipText.split(/\r?\n/).filter(r => r.trim());
+        const allRows = Array.from(tbody.querySelectorAll('tr'));
+        const startRowIdx = allRows.indexOf(tr);
+
+        rows.forEach((rowText, rOffset) => {
+            const cells = rowText.split('\t');
+            const rowIdx = startRowIdx + rOffset;
+            while (rowIdx >= tbody.querySelectorAll('tr').length) {
+                const newIdx = tbody.querySelectorAll('tr').length;
+                tbody.appendChild(buildDriverSheetRow(newIdx));
+            }
+            const targetRow = tbody.querySelectorAll('tr')[rowIdx];
+            const inputs = Array.from(targetRow.querySelectorAll('.ds-input'));
+            cells.forEach((val, cOffset) => {
+                const colIdx = startColIdx + cOffset;
+                if (colIdx < inputs.length) {
+                    const input = inputs[colIdx];
+                    const key = input.dataset.key;
+                    const clean = val.trim();
+                    if (input.type === 'date' && clean) {
+                        input.value = parseFlexDate(clean);
+                    } else if (key === 'cdl') {
+                        input.value = clean.toUpperCase();
+                    } else if (key === 'cdlState' && input.tagName === 'SELECT') {
+                        const code = clean.toUpperCase().replace(/[^A-Z]/g, '');
+                        const match = JURISDICTIONS.find(j => j.code === code || j.name.toLowerCase() === clean.toLowerCase());
+                        input.value = match ? match.code : '';
+                    } else if (key === 'phone' || key === 'emergencyPhone') {
+                        input.value = formatPhone(clean);
+                    } else if (key === 'status' && input.tagName === 'SELECT') {
+                        const lc = clean.toLowerCase().replace(/\s+/g, '-');
+                        const opt = Array.from(input.options).find(o => o.value === lc || o.textContent.toLowerCase() === clean.toLowerCase());
+                        input.value = opt ? opt.value : 'active';
+                    } else {
+                        input.value = clean;
+                    }
+                }
+            });
+        });
+        updateDriverSheetCount();
+    }
+
+    function parseFlexDate(str) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+        const mdy = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+        if (mdy) return `${mdy[3]}-${mdy[1].padStart(2,'0')}-${mdy[2].padStart(2,'0')}`;
+        const mdy2 = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+        if (mdy2) {
+            const y = parseInt(mdy2[3]) > 50 ? '19' + mdy2[3] : '20' + mdy2[3];
+            return `${y}-${mdy2[1].padStart(2,'0')}-${mdy2[2].padStart(2,'0')}`;
+        }
+        return '';
+    }
+
+    function initDriverSheetEvents() {
+        const tbody = $('driverSheetBody');
+        if (!tbody) return;
+
+        tbody.addEventListener('input', (e) => {
+            updateDriverSheetCount();
+            const inp = e.target;
+            if (!inp.classList.contains('ds-input')) return;
+            const key = inp.dataset.key;
+            if (key === 'phone' || key === 'emergencyPhone') formatPhoneLive(inp);
+            if (key === 'cdl') inp.value = inp.value.toUpperCase();
+        });
+        tbody.addEventListener('paste', handleDriverSheetPaste);
+
+        tbody.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { e.preventDefault(); closeDriverSheet(); }
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const input = e.target;
+                if (!input.classList.contains('ds-input')) return;
+                const td = input.closest('td');
+                const tr = input.closest('tr');
+                if (!td || !tr) return;
+                const colIdx = td.dataset.colIdx;
+                const nextRow = tr.nextElementSibling;
+                if (nextRow) {
+                    const next = nextRow.querySelector(`td[data-col-idx="${colIdx}"] .ds-input`);
+                    if (next) next.focus();
+                } else {
+                    addDriverSheetRow();
+                }
+            }
+        });
+
+        $('driverSheetAddRow').addEventListener('click', () => addDriverSheetRow());
+        $('driverSheetSave').addEventListener('click', () => saveDriverSheet());
+        $('driverSheetCancel').addEventListener('click', () => closeDriverSheet());
+    }
+
+    async function loadDriverColumnPrefs() {
+        if (!state.user) return;
+        try {
+            const prefDoc = await col('users').doc(state.user.uid).collection('preferences').doc('drivers').get();
+            if (prefDoc.exists) {
+                const savedCols = prefDoc.data().columns || [];
+                state.driverColumns = ALL_DRIVER_COLUMNS.map(col => {
+                    const saved = savedCols.find(s => s.key === col.key);
+                    return {
+                        ...col,
+                        visible: saved !== undefined ? saved.visible : col.defaultVisible,
+                        order: saved !== undefined ? saved.order : ALL_DRIVER_COLUMNS.indexOf(col)
+                    };
+                }).sort((a, b) => a.order - b.order);
+            } else {
+                state.driverColumns = ALL_DRIVER_COLUMNS.map((col, idx) => ({ ...col, visible: col.defaultVisible, order: idx }));
+                await saveDriverColumnPrefs();
+            }
+        } catch (e) {
+            console.error('Load driver column prefs error:', e);
+            state.driverColumns = ALL_DRIVER_COLUMNS.map((col, idx) => ({ ...col, visible: col.defaultVisible, order: idx }));
+        }
+    }
+
+    async function saveDriverColumnPrefs() {
+        if (!state.user || !state.driverColumns) return;
+        try {
+            const columns = state.driverColumns.map((col, idx) => ({
+                key: col.key,
+                label: col.label,
+                visible: col.visible,
+                order: idx
+            }));
+            await col('users').doc(state.user.uid).collection('preferences').doc('drivers').set({ columns });
+        } catch (e) {
+            console.error('Save driver column prefs error:', e);
+        }
+    }
+
+    function renderDriversHeader() {
+        const thead = $('driversTable')?.querySelector('thead tr');
+        if (!thead || !state.driverColumns) return;
+        const visibleCols = state.driverColumns.filter(c => c.visible);
+        const colsIconSvg = `<svg width="13" height="13" viewBox="0 0 16 16" fill="none" style="display:inline;vertical-align:-2px"><rect x="1" y="2" width="4" height="12" rx="1" fill="currentColor" opacity=".55"/><rect x="6" y="2" width="4" height="12" rx="1" fill="currentColor" opacity=".75"/><rect x="11" y="2" width="4" height="12" rx="1" fill="currentColor"/></svg>`;
+        const headerHtml = `
+            <th class="col-validation"></th>
+            ${visibleCols.map((col) => `
+                <th class="col-header ${col.locked ? 'locked' : ''}" data-col-key="${col.key}" data-col-label="${escapeHtml(col.label)}" style="position: relative;">
+                    ${col.locked ? '' : '<span class="col-drag-handle" title="Drag to reorder">Γï«Γï«</span>'}
+                    ${escapeHtml(col.label)}
+                </th>
+            `).join('')}
+            <th class="col-actions"></th>
+            <th class="col-picker-header"><button id="driverColPickerBtn" class="col-picker-btn" title="Manage columns">${colsIconSvg} Columns</button></th>
+        `;
+        thead.innerHTML = headerHtml;
+        initDriverColDrag();
+        const panel = $('driverColPickerPanel');
+        if (panel && panel.classList.contains('is-open')) {
+            renderDriverColPickerList();
+        }
+    }
+
+    function reorderDriverColumns(dragKey, targetKey) {
+        if (!state.driverColumns || !dragKey || !targetKey || dragKey === targetKey) return;
+        const fromIndex = state.driverColumns.findIndex((c) => c.key === dragKey);
+        const targetIndex = state.driverColumns.findIndex((c) => c.key === targetKey);
+        if (fromIndex < 0 || targetIndex < 0) return;
+        const draggedCol = state.driverColumns[fromIndex];
+        if (draggedCol.locked) return;
+
+        const cols = state.driverColumns.slice();
+        const [moved] = cols.splice(fromIndex, 1);
+        cols.splice(targetIndex, 0, moved);
+        state.driverColumns = cols.map((c, idx) => ({ ...c, order: idx }));
+        saveDriverColumnPrefs();
+        renderDrivers();
+    }
+
+    function initDriverColDrag() {
+        const row = $('driversTable')?.querySelector('thead tr');
+        if (!row) return;
+
+        let dragKey = null;
+        let dragSourceTh = null;
+        let ghost = null;
+
+        function clearDragState() {
+            if (dragSourceTh) dragSourceTh.classList.remove('is-dragging');
+            row.querySelectorAll('th.col-header').forEach(h => h.classList.remove('drag-over'));
+            if (ghost) { ghost.remove(); ghost = null; }
+            dragKey = null;
+            dragSourceTh = null;
+        }
+
+        function getTargetTh(x, y) {
+            const els = document.elementsFromPoint(x, y);
+            for (const el of els) {
+                const th = el.closest?.('th.col-header');
+                if (th && th !== dragSourceTh) return th;
+            }
+            return null;
+        }
+
+        row.querySelectorAll('th.col-header:not(.locked)').forEach((th) => {
+            const handle = th.querySelector('.col-drag-handle');
+            if (!handle) return;
+
+            handle.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                dragKey = th.dataset.colKey;
+                dragSourceTh = th;
+                th.classList.add('is-dragging');
+
+                ghost = document.createElement('div');
+                ghost.className = 'col-drag-ghost';
+                ghost.textContent = th.dataset.colLabel || th.textContent.replace(/Γï«/g, '').trim();
+                ghost.style.left = `${e.clientX}px`;
+                ghost.style.top = `${e.clientY}px`;
+                document.body.appendChild(ghost);
+
+                function onMove(e) {
+                    if (!ghost) return;
+                    ghost.style.left = `${e.clientX}px`;
+                    ghost.style.top = `${e.clientY}px`;
+                    row.querySelectorAll('th.col-header').forEach(h => h.classList.remove('drag-over'));
+                    const target = getTargetTh(e.clientX, e.clientY);
+                    if (target) target.classList.add('drag-over');
+                }
+
+                function onUp(e) {
+                    document.removeEventListener('pointermove', onMove);
+                    document.removeEventListener('pointerup', onUp);
+                    const target = getTargetTh(e.clientX, e.clientY);
+                    const targetKey = target?.dataset.colKey || null;
+                    const fromKey = dragKey;
+                    clearDragState();
+                    if (fromKey && targetKey && fromKey !== targetKey) {
+                        reorderDriverColumns(fromKey, targetKey);
+                    }
+                }
+
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onUp);
+            });
+        });
     }
 
     function openDriverModal(data) {
@@ -3003,20 +4064,65 @@
         $('driverMedExp').value = data ? data.medExp || '' : '';
         $('driverPhone').value = data ? data.phone || '' : '';
         $('driverEmail').value = data ? data.email || '' : '';
+        $('driverHireDate').value = data ? data.hireDate || '' : '';
+        $('driverDob').value = data ? data.dob || '' : '';
+        $('driverAddress').value = data ? data.address || '' : '';
+        $('driverEmergencyName').value = data ? data.emergencyName || '' : '';
+        $('driverEmergencyPhone').value = data ? data.emergencyPhone || '' : '';
+        $('driverMvrDate').value = data ? data.mvrDate || '' : '';
+        $('driverBgCheck').value = data ? data.bgCheck || '' : '';
+        $('driverNotes').value = data ? data.notes || '' : '';
         $('driverTruck').value = data ? data.truck || '' : '';
         $('driverStatus').value = data ? data.status || 'active' : 'active';
+        
+        // Set endorsement checkboxes
+        const endorsements = data && data.endorsements ? data.endorsements.split(',').map(e => e.trim()) : [];
+        ['H', 'N', 'T', 'X', 'P', 'S'].forEach(e => {
+            const checkbox = document.querySelector(`#endorsement-${e}`);
+            if (checkbox) checkbox.checked = endorsements.includes(e);
+        });
+        
         populateTruckDropdown();
         const modal = $('driverModal');
-        const shouldExpand = data && hasAdvancedData([data.cdlState, data.cdlExp, data.medExp, data.email, data.truck]);
+        const shouldExpand = data && hasAdvancedData([data.cdlState, data.cdlExp, data.medExp, data.email, data.truck, data.hireDate, data.dob, data.address, data.emergencyName, data.emergencyPhone, data.mvrDate, data.bgCheck, data.notes]);
         setExpandState(modal, shouldExpand);
+
+        // Documents section ΓÇö only show when editing an existing driver
+        const docsSection = $('driverDocsSection');
+        const docsList = $('driverDocsList');
+        if (docsSection) {
+            if (data && data.id) {
+                docsSection.style.display = '';
+                if (docsList) docsList.innerHTML = '<p class="doc-empty">LoadingΓÇª</p>';
+                loadDriverDocs(data.id).then(docs => renderDriverDocs(docs, data.id));
+            } else {
+                docsSection.style.display = 'none';
+                if (docsList) docsList.innerHTML = '';
+            }
+        }
+
         modal.classList.remove('hidden');
     }
 
     function initDriverForm() {
-        $('addDriverBtn').addEventListener('click', () => openSheetModal('driver'));
-        $('addFirstDriver').addEventListener('click', () => openSheetModal('driver'));
+        $('addDriverBtn').addEventListener('click', () => openDriverDetailPanel(null));
+        $('addFirstDriver').addEventListener('click', () => openDriverDetailPanel(null));
+        $('driverInlineAddBtn').addEventListener('click', () => openDriverDetailPanel(null));
+        initDriverSheetEvents();
         $('closeDriverModal').addEventListener('click', () => $('driverModal').classList.add('hidden'));
         $('cancelDriver').addEventListener('click', () => $('driverModal').classList.add('hidden'));
+
+        // Live phone formatting on edit modal
+        const phoneEl = $('driverPhone');
+        if (phoneEl) phoneEl.addEventListener('input', () => formatPhoneLive(phoneEl));
+        const ePhoneEl = $('driverEmergencyPhone');
+        if (ePhoneEl) ePhoneEl.addEventListener('input', () => formatPhoneLive(ePhoneEl));
+        // Uppercase CDL in edit modal
+        const cdlEl = $('driverCdl');
+        if (cdlEl) cdlEl.addEventListener('input', () => { cdlEl.value = cdlEl.value.toUpperCase(); });
+
+        initDriverDocEvents();
+        initDriverDetailPanel();
 
         const importDriverBtn = $('importDriversBtn');
         if (importDriverBtn) {
@@ -3031,14 +4137,26 @@
 
         $('driverForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            const endorsements = ['H', 'N', 'T', 'X', 'P', 'S']
+                .filter(e => document.querySelector(`#endorsement-${e}`)?.checked)
+                .join(',');
             const payload = {
                 firstName: $('driverFirstName').value.trim(),
                 lastName: $('driverLastName').value.trim(),
-                cdl: $('driverCdl').value.trim(),
-                cdlState: $('driverCdlState').value.trim().toUpperCase(),
+                cdl: $('driverCdl').value.trim().toUpperCase(),
+                cdlState: $('driverCdlState').value,
                 cdlExp: $('driverCdlExp').value,
                 medExp: $('driverMedExp').value,
-                phone: $('driverPhone').value.trim(),
+                hireDate: $('driverHireDate').value,
+                dob: $('driverDob').value,
+                address: $('driverAddress').value.trim(),
+                emergencyName: $('driverEmergencyName').value.trim(),
+                emergencyPhone: stripPhone($('driverEmergencyPhone').value),
+                endorsements: endorsements,
+                mvrDate: $('driverMvrDate').value,
+                bgCheck: $('driverBgCheck').value,
+                notes: $('driverNotes').value.trim(),
+                phone: stripPhone($('driverPhone').value),
                 email: $('driverEmail').value.trim(),
                 truck: $('driverTruck').value,
                 status: $('driverStatus').value,
@@ -3063,7 +4181,544 @@
         });
     }
 
-    // ── Shared Helpers ────────────────────
+    // ΓöÇΓöÇ Driver Document Upload (Firebase Storage) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    const DOC_TYPE_LABELS = {
+        cdl: 'CDL', medical: 'Medical Card', contract: 'Contract',
+        mvr: 'MVR Report', psp: 'PSP Report', photo: 'Photo', other: 'Other'
+    };
+    const MAX_DOC_SIZE = 10 * 1024 * 1024; // 10 MB
+
+    function driverStoragePath(driverId, fileName) {
+        return `users/${uid()}/drivers/${driverId}/docs/${Date.now()}_${fileName}`;
+    }
+
+    async function uploadDriverDoc(driverId, file, docType) {
+        if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return null; }
+        const path = driverStoragePath(driverId, file.name);
+        const ref = storage.ref(path);
+        const uploading = $('driverDocsUploading');
+        const bar = uploading ? uploading.querySelector('.doc-upload-progress > span') : null;
+        if (uploading) uploading.classList.remove('hidden');
+        const task = ref.put(file);
+        task.on('state_changed', (snap) => {
+            const pct = (snap.bytesTransferred / snap.totalBytes) * 100;
+            if (bar) bar.style.width = pct + '%';
+        });
+        try {
+            await task;
+            const url = await ref.getDownloadURL();
+            const docEntry = {
+                name: file.name,
+                type: docType,
+                storagePath: path,
+                url: url,
+                size: file.size,
+                contentType: file.type,
+                uploadedAt: new Date().toISOString()
+            };
+            // Save to Firestore driver subcollection
+            await col('drivers').doc(driverId).collection('documents').add(docEntry);
+            // Sync doc summary on driver record for table indicators
+            await syncDriverDocSummary(driverId);
+            if (uploading) uploading.classList.add('hidden');
+            if (bar) bar.style.width = '0%';
+            showMsg('Document uploaded');
+            return docEntry;
+        } catch (err) {
+            console.error('Upload error:', err);
+            if (uploading) uploading.classList.add('hidden');
+            if (bar) bar.style.width = '0%';
+            showMsg('Upload failed: ' + (err.message || err), true);
+            return null;
+        }
+    }
+
+    async function deleteDriverDoc(driverId, docId, storagePath) {
+        try {
+            await storage.ref(storagePath).delete();
+        } catch (err) {
+            if (err.code !== 'storage/object-not-found') console.warn('Storage delete warning:', err);
+        }
+        await col('drivers').doc(driverId).collection('documents').doc(docId).delete();
+        await syncDriverDocSummary(driverId);
+        showMsg('Document removed');
+    }
+
+    async function syncDriverDocSummary(driverId) {
+        const docs = await loadDriverDocs(driverId);
+        const types = [...new Set(docs.map(d => d.type).filter(Boolean))];
+        await col('drivers').doc(driverId).update({
+            docTypes: types,
+            docCount: docs.length,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        // Update local state
+        const driver = state.drivers.find(d => d.id === driverId);
+        if (driver) { driver.docTypes = types; driver.docCount = docs.length; }
+    }
+
+    async function loadDriverDocs(driverId) {
+        const snap = await col('drivers').doc(driverId).collection('documents').orderBy('uploadedAt', 'desc').get();
+        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    function renderDriverDocs(docs, driverId) {
+        const list = $('driverDocsList');
+        if (!list) return;
+        if (!docs.length) { list.innerHTML = '<p class="doc-empty">No documents uploaded</p>'; return; }
+        list.innerHTML = docs.map(doc => {
+            const icon = doc.contentType && doc.contentType.startsWith('image/') ? '≡ƒû╝∩╕Å' : '≡ƒôä';
+            const size = doc.size ? (doc.size < 1024 ? doc.size + ' B' : (doc.size / 1024).toFixed(0) + ' KB') : '';
+            const label = DOC_TYPE_LABELS[doc.type] || doc.type || 'Other';
+            return `<div class="driver-doc-item" data-doc-id="${doc.id}">
+                <span class="doc-icon">${icon}</span>
+                <div class="doc-info">
+                    <span class="doc-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</span>
+                    <span class="doc-meta">${escapeHtml(label)}${size ? ' ┬╖ ' + size : ''}</span>
+                </div>
+                <a href="${escapeHtml(doc.url)}" target="_blank" rel="noopener" class="doc-action" title="Download">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </a>
+                <button type="button" class="doc-action doc-delete" title="Delete" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}" data-driver="${driverId}">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </div>`;
+        }).join('');
+    }
+
+    function initDriverDocEvents() {
+        // Upload trigger
+        const fileInput = $('driverDocFile');
+        if (fileInput) {
+            fileInput.addEventListener('change', async () => {
+                const file = fileInput.files[0];
+                if (!file) return;
+                const driverId = $('driverEditId').value;
+                if (!driverId) { showMsg('Save driver first before uploading documents', true); fileInput.value = ''; return; }
+                const docType = $('driverDocType').value;
+                const result = await uploadDriverDoc(driverId, file, docType);
+                fileInput.value = '';
+                if (result) {
+                    const docs = await loadDriverDocs(driverId);
+                    renderDriverDocs(docs, driverId);
+                }
+            });
+        }
+
+        // Delete via delegation
+        const list = $('driverDocsList');
+        if (list) {
+            list.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.doc-delete');
+                if (!btn) return;
+                const docId = btn.dataset.docId;
+                const path = btn.dataset.path;
+                const driverId = btn.dataset.driver;
+                if (!confirm('Delete this document?')) return;
+                await deleteDriverDoc(driverId, docId, path);
+                const docs = await loadDriverDocs(driverId);
+                renderDriverDocs(docs, driverId);
+            });
+        }
+    }
+
+    // ΓöÇΓöÇ Driver Detail Panel (slide-out) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    const DETAIL_DOC_TYPES = ['cdl', 'medical', 'contract', 'mvr', 'psp', 'photo', 'other'];
+    let detailPanelDriverId = null;   // null = create mode, string = edit mode
+    let detailPanelOpen = false;
+
+    function populateDetailDropdowns() {
+        // CDL State
+        const stSel = $('dpCdlState');
+        if (stSel && stSel.options.length <= 1) {
+            JURISDICTIONS.forEach(j => {
+                const o = document.createElement('option');
+                o.value = j.code;
+                o.textContent = j.code + ' ΓÇö ' + j.name;
+                stSel.appendChild(o);
+            });
+        }
+        // Truck
+        const trSel = $('dpTruck');
+        if (trSel) {
+            const cur = trSel.value;
+            trSel.innerHTML = '<option value="">Unassigned</option>';
+            state.trucks.filter(t => t.status === 'active').forEach(t => {
+                const o = document.createElement('option');
+                o.value = t.id;
+                o.textContent = 'Unit ' + t.unit + (t.make ? ' ΓÇö ' + t.make + ' ' + (t.model || '') : '');
+                trSel.appendChild(o);
+            });
+            trSel.value = cur;
+        }
+        // Status
+        const stsSel = $('dpStatus');
+        if (stsSel && stsSel.options.length === 0) {
+            getDropdownOptions('driverStatus').forEach(o => {
+                const opt = document.createElement('option');
+                opt.value = o.value;
+                opt.textContent = o.label;
+                stsSel.appendChild(opt);
+            });
+        }
+    }
+
+    function openDriverDetailPanel(id) {
+        const isCreate = !id;
+        const d = isCreate ? {} : state.drivers.find(x => x.id === id);
+        if (!isCreate && !d) return;
+        detailPanelDriverId = id || null;
+
+        populateDetailDropdowns();
+
+        // Header
+        const name = isCreate ? 'New Driver' : ([d.firstName, d.lastName].filter(Boolean).join(' ') || 'Unnamed Driver');
+        $('detailDriverName').textContent = name;
+        const statusEl = $('detailDriverStatus');
+        if (isCreate) {
+            statusEl.style.display = 'none';
+        } else {
+            statusEl.style.display = '';
+            statusEl.className = 'status-badge ' + (d.status || 'active');
+            statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(d.status || 'active');
+        }
+
+        // Populate fields
+        $('dpFirstName').value = d.firstName || '';
+        $('dpLastName').value = d.lastName || '';
+        $('dpPhone').value = d.phone ? formatPhone(d.phone) : '';
+        $('dpEmail').value = d.email || '';
+        $('dpCdl').value = d.cdl ? d.cdl.toUpperCase() : '';
+        $('dpCdlClass').value = d.cdlClass || '';
+        $('dpCdlState').value = d.cdlState || '';
+        $('dpCdlExp').value = d.cdlExp || '';
+        $('dpMedExp').value = d.medExp || '';
+        $('dpMvrExp').value = d.mvrExp || '';
+        $('dpDrugTestDate').value = d.drugTestDate || '';
+        $('dpTwicExp').value = d.twicExp || '';
+        $('dpRestrictions').value = d.restrictions || '';
+        $('dpTruck').value = d.truck || '';
+        $('dpStatus').value = d.status || 'active';
+        $('dpHireDate').value = d.hireDate || '';
+        $('dpTerminationDate').value = d.terminationDate || '';
+        $('dpDob').value = d.dob || '';
+        $('dpEmergencyName').value = d.emergencyName || '';
+        $('dpEmergencyPhone').value = d.emergencyPhone ? formatPhone(d.emergencyPhone) : '';
+        $('dpAddress').value = d.address || '';
+        $('dpNotes').value = d.notes || '';
+
+        // Endorsement checkboxes
+        const endorsements = d.endorsements ? d.endorsements.split(',').map(e => e.trim()) : [];
+        document.querySelectorAll('#detailDriverInfo .dp-endorse-chip input').forEach(cb => {
+            cb.checked = endorsements.includes(cb.value);
+        });
+
+        // Mark fields with values as "has-value" for styling
+        document.querySelectorAll('#detailDriverInfo .detail-field-input').forEach(inp => {
+            inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
+        });
+
+        // Documents section ΓÇö always visible
+        const docsSection = $('detailDocsSection');
+        if (docsSection) {
+            docsSection.style.display = '';
+            if (!isCreate && id) {
+                renderDetailDocGrid([], id);
+                loadDriverDocs(id).then(docs => renderDetailDocGrid(docs, id));
+            } else {
+                // Create mode: show empty upload slots (driver will be auto-saved on upload)
+                renderDetailDocGrid([], '__new__');
+            }
+        }
+
+        // Panel mode class
+        const panel = $('driverDetailPanel');
+        panel.classList.toggle('is-create', isCreate);
+
+        // Show panel
+        $('driverDetailBackdrop').classList.remove('hidden');
+        panel.classList.remove('hidden');
+        detailPanelOpen = true;
+
+        // Highlight active row
+        document.querySelectorAll('#driversTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
+        if (id) {
+            const activeRow = document.querySelector(`#driversTableBody tr[data-id="${id}"]`);
+            if (activeRow) activeRow.classList.add('detail-active');
+        }
+
+        // Focus first field in create mode
+        if (isCreate) setTimeout(() => $('dpFirstName').focus(), 100);
+    }
+
+    function closeDriverDetailPanel() {
+        $('driverDetailBackdrop').classList.add('hidden');
+        $('driverDetailPanel').classList.add('hidden');
+        detailPanelDriverId = null;
+        detailPanelOpen = false;
+        document.querySelectorAll('#driversTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
+    }
+
+    function getDetailPanelPayload() {
+        const endorsements = [];
+        document.querySelectorAll('#detailDriverInfo .dp-endorse-chip input:checked').forEach(cb => {
+            endorsements.push(cb.value);
+        });
+        return {
+            firstName: $('dpFirstName').value.trim(),
+            lastName: $('dpLastName').value.trim(),
+            phone: stripPhone($('dpPhone').value),
+            email: $('dpEmail').value.trim(),
+            cdl: $('dpCdl').value.trim().toUpperCase(),
+            cdlClass: $('dpCdlClass').value,
+            cdlState: $('dpCdlState').value,
+            cdlExp: $('dpCdlExp').value,
+            medExp: $('dpMedExp').value,
+            mvrExp: $('dpMvrExp').value,
+            drugTestDate: $('dpDrugTestDate').value,
+            twicExp: $('dpTwicExp').value,
+            restrictions: $('dpRestrictions').value.trim(),
+            truck: $('dpTruck').value,
+            status: $('dpStatus').value || 'active',
+            hireDate: $('dpHireDate').value,
+            terminationDate: $('dpTerminationDate').value,
+            dob: $('dpDob').value,
+            endorsements: endorsements.join(','),
+            emergencyName: $('dpEmergencyName').value.trim(),
+            emergencyPhone: stripPhone($('dpEmergencyPhone').value),
+            address: $('dpAddress').value.trim(),
+            notes: $('dpNotes').value.trim(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+    }
+
+    async function saveDriverFromPanel() {
+        const payload = getDetailPanelPayload();
+        if (!payload.firstName) {
+            showMsg('First name is required', true);
+            $('dpFirstName').focus();
+            return;
+        }
+        try {
+            if (detailPanelDriverId) {
+                // Update existing
+                await col('drivers').doc(detailPanelDriverId).update(payload);
+                showMsg('Driver updated');
+            } else {
+                // Create new
+                payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                const ref = await col('drivers').add(payload);
+                detailPanelDriverId = ref.id;
+                showMsg('Driver added');
+                // Switch to edit mode ΓÇö update header and re-render doc grid with real ID
+                $('detailDriverName').textContent = [payload.firstName, payload.lastName].filter(Boolean).join(' ');
+                $('driverDetailPanel').classList.remove('is-create');
+                const statusEl = $('detailDriverStatus');
+                statusEl.style.display = '';
+                statusEl.className = 'status-badge ' + payload.status;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
+                renderDetailDocGrid([], detailPanelDriverId);
+            }
+            await loadDrivers();
+            updateOverview();
+            renderDrivers();
+        } catch (err) {
+            console.error('Save driver panel error:', err);
+            showMsg('Error saving driver', true);
+        }
+    }
+
+    async function autoSaveDetailField(key) {
+        if (!detailPanelDriverId) return; // Don't auto-save in create mode
+        const payload = getDetailPanelPayload();
+        try {
+            await col('drivers').doc(detailPanelDriverId).update(payload);
+            // Update local state
+            const d = state.drivers.find(x => x.id === detailPanelDriverId);
+            if (d) Object.assign(d, payload, { id: detailPanelDriverId });
+            // Update header name if name fields changed
+            if (key === 'firstName' || key === 'lastName') {
+                const name = [payload.firstName, payload.lastName].filter(Boolean).join(' ') || 'Unnamed Driver';
+                $('detailDriverName').textContent = name;
+            }
+            if (key === 'status') {
+                const statusEl = $('detailDriverStatus');
+                statusEl.className = 'status-badge ' + payload.status;
+                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
+            }
+            renderDrivers();
+        } catch (err) {
+            console.error('Auto-save field error:', err);
+        }
+    }
+
+    function renderDetailDocGrid(docs, driverId) {
+        const grid = $('detailDocGrid');
+        if (!grid) return;
+        const docsByType = {};
+        docs.forEach(doc => {
+            if (!docsByType[doc.type]) docsByType[doc.type] = [];
+            docsByType[doc.type].push(doc);
+        });
+
+        grid.innerHTML = DETAIL_DOC_TYPES.map(type => {
+            const label = DOC_TYPE_LABELS[type] || type;
+            const typeDocs = docsByType[type] || [];
+            const hasDoc = typeDocs.length > 0;
+            const statusBadgeHtml = hasDoc
+                ? '<span class="detail-doc-slot-status uploaded">Uploaded</span>'
+                : '<span class="detail-doc-slot-status missing">Missing</span>';
+
+            let bodyHtml;
+            if (hasDoc) {
+                bodyHtml = typeDocs.map(doc => {
+                    const isImage = doc.contentType && doc.contentType.startsWith('image/');
+                    const sizeStr = doc.size ? (doc.size < 1024 ? doc.size + ' B' : (doc.size / 1024).toFixed(0) + ' KB') : '';
+                    const thumb = isImage ? `<img src="${escapeHtml(doc.url)}" alt="" class="detail-doc-thumb" loading="lazy">` : '';
+                    return `<div class="detail-doc-file">
+                        ${thumb}
+                        <div class="detail-doc-file-info">
+                            <span class="detail-doc-file-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</span>
+                            <span class="detail-doc-file-meta">${sizeStr}</span>
+                        </div>
+                        <div class="detail-doc-file-actions">
+                            <a href="${escapeHtml(doc.url)}" target="_blank" rel="noopener" title="View / Download">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </a>
+                            <label class="doc-slot-replace" title="Replace" tabindex="0">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-driver="${driverId}" data-type="${type}" data-replace-doc="${doc.id}" data-replace-path="${escapeHtml(doc.storagePath)}" hidden>
+                            </label>
+                            <button type="button" class="doc-slot-delete" title="Delete" data-driver="${driverId}" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                            </button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } else {
+                bodyHtml = `<label class="detail-doc-upload-prompt" tabindex="0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                    Upload ${escapeHtml(label)}
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-driver="${driverId}" data-type="${type}" hidden>
+                </label>`;
+            }
+
+            return `<div class="detail-doc-slot" data-doc-type="${type}">
+                <div class="detail-doc-slot-header">
+                    <span class="detail-doc-slot-label">${escapeHtml(label)}</span>
+                    ${statusBadgeHtml}
+                </div>
+                <div class="detail-doc-slot-body">${bodyHtml}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function initDriverDetailPanel() {
+        $('detailCloseBtn').addEventListener('click', closeDriverDetailPanel);
+        $('driverDetailBackdrop').addEventListener('click', closeDriverDetailPanel);
+        $('detailSaveBtn').addEventListener('click', saveDriverFromPanel);
+
+        // Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && detailPanelOpen) closeDriverDetailPanel();
+        });
+
+        // Auto-save on blur for existing drivers
+        document.querySelectorAll('#detailDriverInfo .detail-field-input').forEach(inp => {
+            let timer;
+            inp.addEventListener('blur', () => {
+                const key = inp.closest('.detail-field')?.dataset.key;
+                if (key) {
+                    inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
+                    autoSaveDetailField(key);
+                }
+            });
+            // Live formatting
+            if (inp.id === 'dpPhone' || inp.id === 'dpEmergencyPhone') {
+                inp.addEventListener('input', () => formatPhoneLive(inp));
+            }
+            if (inp.id === 'dpCdl') {
+                inp.addEventListener('input', () => { inp.value = inp.value.toUpperCase(); });
+            }
+        });
+
+        // Endorsement checkbox auto-save
+        document.querySelectorAll('#detailDriverInfo .dp-endorse-chip input').forEach(cb => {
+            cb.addEventListener('change', () => autoSaveDetailField('endorsements'));
+        });
+
+        // Delegated upload + replace + delete on doc grid
+        const grid = $('detailDocGrid');
+        if (grid) {
+            grid.addEventListener('change', async (e) => {
+                const input = e.target.closest('input[type="file"]');
+                if (!input || !input.files[0]) return;
+                let driverId = input.dataset.driver;
+                const docType = input.dataset.type;
+                const file = input.files[0];
+
+                // If in create mode, auto-save the driver first
+                if (!detailPanelDriverId || driverId === '__new__') {
+                    const payload = getDetailPanelPayload();
+                    if (!payload.firstName) {
+                        showMsg('Enter at least a first name before uploading', true);
+                        $('dpFirstName').focus();
+                        input.value = '';
+                        return;
+                    }
+                    try {
+                        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                        const ref = await col('drivers').add(payload);
+                        detailPanelDriverId = ref.id;
+                        driverId = ref.id;
+                        // Switch to edit mode visuals
+                        $('detailDriverName').textContent = [payload.firstName, payload.lastName].filter(Boolean).join(' ');
+                        $('driverDetailPanel').classList.remove('is-create');
+                        const statusEl = $('detailDriverStatus');
+                        statusEl.style.display = '';
+                        statusEl.className = 'status-badge ' + payload.status;
+                        statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
+                        await loadDrivers();
+                        updateOverview();
+                        renderDrivers();
+                        showMsg('Driver saved ΓÇö uploading documentΓÇª');
+                    } catch (err) {
+                        console.error('Auto-save before upload error:', err);
+                        showMsg('Error saving driver', true);
+                        input.value = '';
+                        return;
+                    }
+                }
+
+                const replaceDocId = input.dataset.replaceDoc;
+                const replacePath = input.dataset.replacePath;
+                if (replaceDocId && replacePath) {
+                    await deleteDriverDoc(driverId, replaceDocId, replacePath);
+                }
+
+                await uploadDriverDoc(driverId, file, docType);
+                input.value = '';
+                const docs = await loadDriverDocs(driverId);
+                renderDetailDocGrid(docs, driverId);
+                renderDrivers();
+            });
+
+            grid.addEventListener('click', async (e) => {
+                const btn = e.target.closest('.doc-slot-delete');
+                if (!btn) return;
+                if (!confirm('Delete this document?')) return;
+                const driverId = btn.dataset.driver;
+                const docId = btn.dataset.docId;
+                const path = btn.dataset.path;
+                await deleteDriverDoc(driverId, docId, path);
+                const docs = await loadDriverDocs(driverId);
+                renderDetailDocGrid(docs, driverId);
+                renderDrivers();
+            });
+        }
+    }
+
+    // ΓöÇΓöÇ Shared Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     function statusLabel(val) {
         for (const key of ['truckStatus', 'trailerStatus', 'driverStatus']) {
             const opts = getDropdownOptions(key);
@@ -3088,47 +4743,127 @@
 
     function vehicleLabel(year, make, model) {
         const parts = [year, make, model].filter(Boolean).map(v => escapeHtml(String(v)));
-        return parts.length ? parts.join(' ') : '—';
+        return parts.length ? parts.join(' ') : 'ΓÇö';
     }
 
     function shortenVin(vin) {
-        if (!vin) return '—';
+        if (!vin) return 'ΓÇö';
         const v = String(vin);
-        return v.length > 10 ? '…' + escapeHtml(v.slice(-8)) : escapeHtml(v);
+        return v.length > 10 ? 'ΓÇª' + escapeHtml(v.slice(-8)) : escapeHtml(v);
     }
 
     function fuelLabel(val) {
         const opts = getDropdownOptions('truckFuel');
         const match = opts.find(o => o.value === val);
-        return match ? match.label : escapeHtml(val || '—');
+        return match ? match.label : escapeHtml(val || 'ΓÇö');
     }
 
     function trailerTypeLabel(val) {
         const opts = getDropdownOptions('trailerType');
         const match = opts.find(o => o.value === val);
-        return match ? match.label : escapeHtml(val || '—');
+        return match ? match.label : escapeHtml(val || 'ΓÇö');
     }
 
     function truckLabel(truckId) {
-        if (!truckId) return '—';
+        if (!truckId) return 'ΓÇö';
         const t = state.trucks.find(tr => tr.id === truckId);
-        return t ? ('Unit ' + t.unit) : '—';
+        return t ? t.unit : 'ΓÇö';
     }
 
-    // ── Validation Indicator Helpers ───────
+    function appendUniqueIssue(issues, msg) {
+        if (!msg) return;
+        if (!issues.some((i) => String(i).toLowerCase() === String(msg).toLowerCase())) {
+            issues.push(msg);
+        }
+    }
+
+    function assignedDriverByTruckId(truckId) {
+        if (!truckId) return null;
+        return state.drivers.find((d) => d.truck === truckId && (d.status || 'active') === 'active') || null;
+    }
+
+    function withDerivedValidation(item, collection) {
+        const baseIssues = Array.isArray(item.validationIssues)
+            ? item.validationIssues.filter(Boolean).map((i) => String(i))
+            : [];
+        const issues = baseIssues.slice();
+        let hasError = item.validationStatus === 'error';
+        const status = String(item.status || '').trim();
+        const statusReason = String(item.statusReason || '').trim();
+
+        function addWarning(msg) { appendUniqueIssue(issues, msg); }
+        function addError(msg) { appendUniqueIssue(issues, msg); hasError = true; }
+
+        if (!status) addError('Status is required');
+        if (status && status !== 'active' && !statusReason) {
+            addWarning('Provide reason why this is not on the road');
+        }
+
+        if (collection === 'drivers') {
+            if (!item.cdl) addError('CDL number is missing');
+            if (!item.cdlExp) addError('CDL expiration date is missing');
+            if (!item.medExp) addWarning('Medical card expiration is missing');
+            if (!item.phone) addWarning('Phone number is missing');
+            if (!item.emergencyName && !item.emergencyPhone) addWarning('Emergency contact is missing');
+            if (status === 'active' && !item.truck) addWarning('Active driver is not assigned to a truck');
+            const cdlDays = daysUntilExpiry(item.cdlExp);
+            const medDays = daysUntilExpiry(item.medExp);
+            if (cdlDays !== null && cdlDays < 0) addError('CDL is expired');
+            else if (cdlDays !== null && cdlDays <= 60) addWarning('CDL expires within ' + cdlDays + ' days');
+            if (medDays !== null && medDays < 0) addError('Medical card is expired');
+            else if (medDays !== null && medDays <= 60) addWarning('Medical card expires within ' + medDays + ' days');
+        }
+
+        if (collection === 'trucks') {
+            const assignedDriver = assignedDriverByTruckId(item.id);
+            if (status === 'active' && !assignedDriver) {
+                addWarning('Active truck has no assigned active driver');
+            }
+        }
+
+        if (collection === 'trailers') {
+            const trailerTruckId = String(item.truck || item.assignedTruck || '').trim();
+            if (status === 'active' && !trailerTruckId) {
+                addWarning('Active trailer has no assigned truck');
+            }
+        }
+
+        return {
+            ...item,
+            validationStatus: issues.length ? (hasError ? 'error' : 'warning') : 'valid',
+            validationIssues: issues
+        };
+    }
+
+    function applyDerivedValidation() {
+        state.drivers = state.drivers.map((d) => withDerivedValidation(d, 'drivers'));
+        state.trucks = state.trucks.map((t) => withDerivedValidation(t, 'trucks'));
+        state.trailers = state.trailers.map((t) => withDerivedValidation(t, 'trailers'));
+    }
+
+    // ΓöÇΓöÇ Validation Indicator Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     function validationIndicator(item) {
-        if (!item.validationStatus || item.validationStatus === 'valid') return '<td class="col-validation"></td>';
-        const isError = item.validationStatus === 'error';
+        const st = item.validationStatus || 'valid';
         const issues = item.validationIssues || [];
+        if (st === 'valid') {
+            return `<td class="col-validation">
+                <span class="validation-indicator vi-valid" aria-label="Healthy" role="img">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span class="vi-tooltip"><strong>Healthy</strong><br>No issues found</span>
+                </span>
+            </td>`;
+        }
+        const isError = st === 'error';
         const cls = isError ? 'error' : 'warning';
-        const label = isError ? 'Error' : 'Warning';
+        const label = isError ? 'Needs Attention' : 'Warning';
+        const count = issues.length;
         return `<td class="col-validation">
             <span class="validation-indicator vi-${cls}" aria-label="${label}" role="img">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
-                <span class="vi-tooltip"><strong>${label}</strong>${issues.map(i => '<br>• ' + escapeHtml(i)).join('')}</span>
+                <span class="vi-tooltip"><strong>${label}</strong> (${count} issue${count !== 1 ? 's' : ''})${issues.map(i => '<br>ΓÇó ' + escapeHtml(i)).join('')}</span>
             </span>
         </td>`;
     }
@@ -3149,10 +4884,10 @@
         </tr>`;
     }
 
-    // ── Inline Editing Engine ──────────────
+    // ΓöÇΓöÇ Inline Editing Engine ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     function initInlineEditing() {
         document.addEventListener('click', (e) => {
-            // Row → profile navigation (skip buttons, selects, inputs)
+            // Row ΓåÆ profile navigation (skip buttons, selects, inputs)
             if (!e.target.closest('button, select, input')) {
                 const row = e.target.closest('tr[data-id]');
                 if (row) {
@@ -3219,7 +4954,7 @@
             }, 50);
         }
 
-        // ── SELECT dropdown for controlled fields ──
+        // ΓöÇΓöÇ SELECT dropdown for controlled fields ΓöÇΓöÇ
         if (isSelect) {
             const options = getDropdownOptions(selectFields[field].key);
             const select = document.createElement('select');
@@ -3264,7 +4999,7 @@
             return;
         }
 
-        // ── TEXT input (optionally with autocomplete) ──
+        // ΓöÇΓöÇ TEXT input (optionally with autocomplete) ΓöÇΓöÇ
         const inputType = field === 'cdlExp' ? 'date' : 'text';
         const input = document.createElement('input');
         input.type = inputType;
@@ -3359,6 +5094,7 @@
             const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : state.drivers;
             const item = stateArr.find(x => x.id === id);
             if (item) item.status = newStatus;
+            applyDerivedValidation();
 
             // Re-render
             if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
@@ -3372,7 +5108,55 @@
         }
     }
 
-    // ── Search / Filter ──────────────────
+    // ΓöÇΓöÇ Search / Filter ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    // ΓöÇΓöÇ Driver filter chip helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+    function getActiveDriverChip() {
+        const bar = $('driverFilterBar');
+        if (!bar) return 'all';
+        const active = bar.querySelector('.filter-chip.active');
+        return active ? active.dataset.filter : 'all';
+    }
+
+    function matchesDriverChip(driver, chip) {
+        if (chip === 'all') return true;
+        if (chip === 'active') return driver.status === 'active';
+        if (chip === 'expired') {
+            const cdlDays = daysUntilExpiry(driver.cdlExp);
+            const medDays = daysUntilExpiry(driver.medExp);
+            return (cdlDays !== null && cdlDays < 0) || (medDays !== null && medDays < 0);
+        }
+        if (chip === 'expiring') {
+            const cdlDays = daysUntilExpiry(driver.cdlExp);
+            const medDays = daysUntilExpiry(driver.medExp);
+            return (cdlDays !== null && cdlDays > 0 && cdlDays <= 60) || (medDays !== null && medDays > 0 && medDays <= 60);
+        }
+        if (chip === 'unassigned') return driver.status === 'active' && !driver.truck;
+        return true;
+    }
+
+    function updateDriverChipCounts() {
+        const bar = $('driverFilterBar');
+        if (!bar) return;
+        const drivers = state.drivers;
+        const counts = {
+            all: drivers.length,
+            active: drivers.filter(d => d.status === 'active').length,
+            expiring: drivers.filter(d => matchesDriverChip(d, 'expiring')).length,
+            expired: drivers.filter(d => matchesDriverChip(d, 'expired')).length,
+            unassigned: drivers.filter(d => d.status === 'active' && !d.truck).length
+        };
+        bar.querySelectorAll('.filter-chip').forEach(btn => {
+            const key = btn.dataset.filter;
+            let countEl = btn.querySelector('.chip-count');
+            if (!countEl) {
+                countEl = document.createElement('span');
+                countEl.className = 'chip-count';
+                btn.appendChild(countEl);
+            }
+            countEl.textContent = counts[key] || 0;
+        });
+    }
+
     function matchesFilter(item, type) {
         const searchEl = $(type + 'Search');
         const filterEl = $(type + 'StatusFilter');
@@ -3386,6 +5170,12 @@
             const fuelEl = $('truckFuelFilter');
             const fuelVal = fuelEl ? fuelEl.value : '';
             if (fuelVal && item.fuel !== fuelVal) return false;
+        }
+
+        // Driver chip filter
+        if (type === 'driver') {
+            const chip = getActiveDriverChip();
+            if (!matchesDriverChip(item, chip)) return false;
         }
 
         if (!q) return true;
@@ -3415,13 +5205,153 @@
             const el = $(id);
             if (el) el.addEventListener('input', renderDrivers);
         });
+
+        // Driver filter chip bar
+        const driverFilterBar = $('driverFilterBar');
+        if (driverFilterBar) {
+            driverFilterBar.addEventListener('click', (e) => {
+                const chip = e.target.closest('.filter-chip');
+                if (!chip) return;
+                driverFilterBar.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+                chip.classList.add('active');
+                // Sync status dropdown: reset when chip is active/all, or set matching value
+                const filterEl = $('driverStatusFilter');
+                if (filterEl) filterEl.value = '';
+                renderDrivers();
+            });
+        }
+
+        initDriverColPicker();
     }
 
-    // ── Operational Alerts ────────────────
+    function initDriverColPicker() {
+        const panel = $('driverColPickerPanel');
+        const close = $('driverColPickerClose');
+        if (!panel || !close) return;
+
+        // Keep the picker outside scroll/clip containers so it stays visible.
+        if (panel.parentElement !== document.body) {
+            document.body.appendChild(panel);
+        }
+
+        function positionPanel(btn) {
+            // Temporarily make visible (not open) so we can measure dimensions.
+            panel.style.visibility = 'hidden';
+            panel.style.display = 'block';
+            const panelW = panel.offsetWidth || 278;
+            const panelH = panel.offsetHeight || 340;
+            panel.style.display = '';
+            panel.style.visibility = '';
+
+            const rect = btn.getBoundingClientRect();
+            const pad = 10;
+            let left = rect.right - panelW;
+            let top = rect.bottom + 6;
+
+            if (left < pad) left = pad;
+            if (left + panelW > window.innerWidth - pad) left = window.innerWidth - panelW - pad;
+            if (top + panelH > window.innerHeight - pad) top = rect.top - panelH - 6;
+            if (top < pad) top = pad;
+
+            panel.style.left = `${left}px`;
+            panel.style.top = `${top}px`;
+        }
+
+        function openPanel(btn) {
+            if (!btn) return;
+            renderDriverColPickerList();
+            positionPanel(btn);
+            panel.classList.add('is-open');
+            const searchEl = $('driverColPickerSearch');
+            if (searchEl) { searchEl.value = ''; filterPickerList(''); searchEl.focus(); }
+        }
+
+        function closePanel() {
+            panel.classList.remove('is-open');
+        }
+
+        close.addEventListener('click', closePanel);
+
+        document.addEventListener('click', (e) => {
+            const btn = $('driverColPickerBtn');
+            if (btn && btn.contains(e.target)) {
+                e.stopPropagation();
+                if (panel.classList.contains('is-open')) {
+                    closePanel();
+                } else {
+                    openPanel(btn);
+                }
+                return;
+            }
+            if (panel.classList.contains('is-open') && !panel.contains(e.target)) {
+                closePanel();
+            }
+        });
+
+        // Search / filter inside panel
+        document.addEventListener('input', (e) => {
+            if (e.target && e.target.id === 'driverColPickerSearch') {
+                filterPickerList(e.target.value.trim().toLowerCase());
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            if (panel.classList.contains('is-open')) {
+                const btn = $('driverColPickerBtn');
+                if (btn) positionPanel(btn);
+            }
+        });
+    }
+
+    function filterPickerList(q) {
+        const listEl = $('driverColPickerList');
+        if (!listEl) return;
+        listEl.querySelectorAll('.col-picker-item').forEach((item) => {
+            const label = (item.querySelector('.col-picker-label-text')?.textContent || '').toLowerCase();
+            item.classList.toggle('is-hidden', q !== '' && !label.includes(q));
+        });
+    }
+
+    function renderDriverColPickerList() {
+        const listEl = $('driverColPickerList');
+        if (!listEl || !state.driverColumns) return;
+        listEl.innerHTML = state.driverColumns.map((col) => `
+            <label class="col-picker-item ${col.locked ? 'col-picker-locked' : ''}">
+                <span class="col-picker-toggle">
+                    <input type="checkbox" ${col.visible ? 'checked' : ''} ${col.locked ? 'disabled' : ''}
+                        data-col-key="${col.key}" onchange="Dashboard.toggleDriverColumn('${col.key}')">
+                    <span class="col-picker-toggle-slider"></span>
+                </span>
+                <span class="col-picker-label-text">${escapeHtml(col.label)}</span>
+                ${col.locked ? '<svg class="col-picker-lock-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><rect x="3" y="7" width="10" height="8" rx="2" fill="currentColor"/><path d="M5 7V5a3 3 0 0 1 6 0v2" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>' : ''}
+            </label>
+        `).join('');
+        // Re-apply active search filter
+        const searchEl = $('driverColPickerSearch');
+        if (searchEl && searchEl.value.trim()) filterPickerList(searchEl.value.trim().toLowerCase());
+    }
+
+    function toggleDriverColumn(key) {
+        if (!state.driverColumns) return;
+        const col = state.driverColumns.find(c => c.key === key);
+        if (col && !col.locked) {
+            col.visible = !col.visible;
+            saveDriverColumnPrefs();
+            renderDrivers();
+        }
+    }
+
+    // ΓöÇΓöÇ Operational Alerts ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     function updateAlerts() {
         const alerts = [];
         const today = new Date().toISOString().split('T')[0];
         const soon = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+
+        // Expired CDLs
+        const expiredCdl = state.drivers.filter(d => d.cdlExp && d.cdlExp < today);
+        if (expiredCdl.length) {
+            alerts.push({ type: 'danger', icon: 'alert', text: expiredCdl.length + ' driver' + (expiredCdl.length > 1 ? 's' : '') + ' with expired CDL' });
+        }
 
         // Drivers with expiring CDL (within 30 days)
         const expiringCdl = state.drivers.filter(d => d.cdlExp && d.cdlExp >= today && d.cdlExp <= soon);
@@ -3429,10 +5359,28 @@
             alerts.push({ type: 'warning', icon: 'clock', text: expiringCdl.length + ' driver' + (expiringCdl.length > 1 ? 's' : '') + ' with CDL expiring within 30 days' });
         }
 
-        // Expired CDLs
-        const expiredCdl = state.drivers.filter(d => d.cdlExp && d.cdlExp < today);
-        if (expiredCdl.length) {
-            alerts.push({ type: 'danger', icon: 'alert', text: expiredCdl.length + ' driver' + (expiredCdl.length > 1 ? 's' : '') + ' with expired CDL' });
+        // Expired medical cards
+        const expiredMed = state.drivers.filter(d => d.medExp && d.medExp < today);
+        if (expiredMed.length) {
+            alerts.push({ type: 'danger', icon: 'alert', text: expiredMed.length + ' driver' + (expiredMed.length > 1 ? 's' : '') + ' with expired medical card' });
+        }
+
+        // Drivers with expiring medical card (within 30 days)
+        const expiringMed = state.drivers.filter(d => d.medExp && d.medExp >= today && d.medExp <= soon);
+        if (expiringMed.length) {
+            alerts.push({ type: 'warning', icon: 'clock', text: expiringMed.length + ' driver' + (expiringMed.length > 1 ? 's' : '') + ' with medical card expiring within 30 days' });
+        }
+
+        // Missing CDL info
+        const missingCdl = state.drivers.filter(d => d.status === 'active' && !d.cdl);
+        if (missingCdl.length) {
+            alerts.push({ type: 'warning', icon: 'alert', text: missingCdl.length + ' active driver' + (missingCdl.length > 1 ? 's' : '') + ' missing CDL number' });
+        }
+
+        // Missing phone
+        const missingPhone = state.drivers.filter(d => d.status === 'active' && !d.phone);
+        if (missingPhone.length) {
+            alerts.push({ type: 'info', icon: 'alert', text: missingPhone.length + ' active driver' + (missingPhone.length > 1 ? 's' : '') + ' missing phone number' });
         }
 
         // Trucks in maintenance
@@ -3441,29 +5389,58 @@
             alerts.push({ type: 'warning', icon: 'wrench', text: maint.length + ' truck' + (maint.length > 1 ? 's' : '') + ' in maintenance' });
         }
 
+        const truckValidationIssues = state.trucks.filter((t) => Array.isArray(t.validationIssues) && t.validationIssues.length);
+        if (truckValidationIssues.length) {
+            alerts.push({
+                type: 'warning',
+                icon: 'alert',
+                text: truckValidationIssues.length + ' truck' + (truckValidationIssues.length > 1 ? 's' : '') + ' missing required status/assignment details'
+            });
+        }
+
+        const trailerValidationIssues = state.trailers.filter((t) => Array.isArray(t.validationIssues) && t.validationIssues.length);
+        if (trailerValidationIssues.length) {
+            alerts.push({
+                type: 'warning',
+                icon: 'alert',
+                text: trailerValidationIssues.length + ' trailer' + (trailerValidationIssues.length > 1 ? 's' : '') + ' missing required status/assignment details'
+            });
+        }
+
         // Unassigned active drivers
         const unassigned = state.drivers.filter(d => d.status === 'active' && !d.truck);
         if (unassigned.length) {
+            const activeAssignedTruckIds = new Set(
+                state.drivers
+                    .filter((d) => d.truck && (d.status || 'active') === 'active')
+                    .map((d) => d.truck)
+            );
+            const openTrucks = state.trucks.filter((t) => t.status === 'active' && !activeAssignedTruckIds.has(t.id));
             alerts.push({
                 type: 'info',
                 icon: 'user',
                 kind: 'unassigned-drivers',
                 text: unassigned.length + ' active driver' + (unassigned.length > 1 ? 's' : '') + ' unassigned to a truck',
                 drivers: unassigned.map((d) => ({
+                    id: d.id,
                     name: [d.firstName, d.lastName].filter(Boolean).join(' ').trim() || 'Unnamed driver',
                     phone: (d.phone || '').trim(),
-                    cdl: (d.cdl || '').trim()
+                    cdl: (d.cdl || '').trim(),
+                    openTrucks: openTrucks.map((t) => ({
+                        id: t.id,
+                        label: 'Unit ' + (t.unit || t.id)
+                    }))
                 }))
             });
         }
 
-        // IFTA quarterly filing deadlines
+        // ΓöÇΓöÇ IFTA quarterly filing deadline alerts ΓöÇΓöÇ
         const nowDate = new Date();
         const iftaAlertDeadlines = [
-            { q: 'Q1', month: 3, day: 30, label: 'Q1 (Jan\u2013Mar)' },
-            { q: 'Q2', month: 6, day: 31, label: 'Q2 (Apr\u2013Jun)' },
-            { q: 'Q3', month: 9, day: 31, label: 'Q3 (Jul\u2013Sep)' },
-            { q: 'Q4', month: 0, day: 31, label: 'Q4 (Oct\u2013Dec)', nextYear: true }
+            { q: 'Q1', month: 3, day: 30, label: 'Q1 (JanΓÇôMar)' },
+            { q: 'Q2', month: 6, day: 31, label: 'Q2 (AprΓÇôJun)' },
+            { q: 'Q3', month: 9, day: 31, label: 'Q3 (JulΓÇôSep)' },
+            { q: 'Q4', month: 0, day: 31, label: 'Q4 (OctΓÇôDec)', nextYear: true }
         ];
         iftaAlertDeadlines.forEach(dl => {
             const yr = dl.nextYear && nowDate.getMonth() >= 10 ? nowDate.getFullYear() + 1 : nowDate.getFullYear();
@@ -3478,7 +5455,7 @@
             }
         });
 
-        // MCS-150 biennial update alert
+        // ΓöÇΓöÇ MCS-150 biennial update alert ΓöÇΓöÇ
         if (state.fmcsaSnapshot && state.fmcsaSnapshot.mcs150FormDate) {
             const lastFiled = new Date(state.fmcsaSnapshot.mcs150FormDate);
             if (!isNaN(lastFiled.getTime())) {
@@ -3486,7 +5463,7 @@
                 nextDue.setFullYear(nextDue.getFullYear() + 2);
                 const daysMcs = Math.ceil((nextDue - nowDate) / 86400000);
                 if (daysMcs < 0) {
-                    alerts.push({ type: 'danger', icon: 'alert', text: 'MCS-150 biennial update is OVERDUE \u2014 file immediately' });
+                    alerts.push({ type: 'danger', icon: 'alert', text: 'MCS-150 biennial update is OVERDUE ΓÇö file immediately' });
                 } else if (daysMcs <= 60) {
                     alerts.push({ type: daysMcs <= 30 ? 'danger' : 'warning', icon: 'clock', text: 'MCS-150 biennial update due in ' + daysMcs + ' day' + (daysMcs !== 1 ? 's' : '') });
                 }
@@ -3515,7 +5492,17 @@
                     const subtitle = [driver.phone, driver.cdl ? ('CDL: ' + driver.cdl) : '']
                         .filter(Boolean)
                         .join(' | ');
-                    return `<li class="alert-dropdown-item"><span class="alert-dropdown-name">${escapeHtml(driver.name)}</span>${subtitle ? `<span class="alert-dropdown-meta">${escapeHtml(subtitle)}</span>` : ''}</li>`;
+                    const truckOptions = (driver.openTrucks || []).length
+                        ? driver.openTrucks.map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.label)}</option>`).join('')
+                        : '<option value="">No open trucks</option>';
+                    return `<li class="alert-dropdown-item">`
+                        + `<button type="button" class="alert-driver-link" data-driver-id="${escapeHtml(driver.id)}">${escapeHtml(driver.name)}</button>`
+                        + `${subtitle ? `<span class="alert-dropdown-meta">${escapeHtml(subtitle)}</span>` : ''}`
+                        + `<div class="alert-driver-actions">`
+                        + `<select class="alert-assign-select" data-driver-id="${escapeHtml(driver.id)}" ${(driver.openTrucks || []).length ? '' : 'disabled'}>${truckOptions}</select>`
+                        + `<button type="button" class="btn btn-sm btn-primary alert-assign-btn" data-driver-id="${escapeHtml(driver.id)}" ${(driver.openTrucks || []).length ? '' : 'disabled'}>Assign</button>`
+                        + `</div>`
+                        + `</li>`;
                 }).join('');
                 return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned" data-alert-kind="unassigned-drivers">`
                     + `<button type="button" class="alert-dropdown-trigger" aria-expanded="false" aria-controls="${detailId}">`
@@ -3541,6 +5528,43 @@
                 alertEl.classList.toggle('expanded', !expanded);
             });
         });
+
+        container.querySelectorAll('.alert-driver-link').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const driverId = btn.dataset.driverId;
+                if (driverId) openDriverProfile(driverId);
+            });
+        });
+
+        container.querySelectorAll('.alert-assign-btn').forEach((btn) => {
+            btn.addEventListener('click', async () => {
+                const driverId = btn.dataset.driverId;
+                const select = container.querySelector('.alert-assign-select[data-driver-id="' + driverId + '"]');
+                if (!driverId || !select || !select.value) return;
+                btn.disabled = true;
+                await assignDriverToTruck(driverId, select.value);
+            });
+        });
+    }
+
+    async function assignDriverToTruck(driverId, truckId) {
+        if (!driverId || !truckId) return;
+        try {
+            await col('drivers').doc(driverId).update({
+                truck: truckId,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            const driver = state.drivers.find((d) => d.id === driverId);
+            if (driver) driver.truck = truckId;
+            applyDerivedValidation();
+            renderDrivers();
+            renderTrucks();
+            updateOverview();
+            showMsg('Driver assigned to truck');
+        } catch (err) {
+            console.error('Driver assignment error:', err);
+            showMsg('Error assigning driver', true);
+        }
     }
 
     function populateTruckDropdown() {
@@ -3550,7 +5574,7 @@
         state.trucks.filter(t => t.status === 'active').forEach(t => {
             const opt = document.createElement('option');
             opt.value = t.id;
-            opt.textContent = 'Unit ' + t.unit + (t.make ? ' – ' + t.make + ' ' + (t.model || '') : '');
+            opt.textContent = 'Unit ' + t.unit + (t.make ? ' ΓÇô ' + t.make + ' ' + (t.model || '') : '');
             sel.appendChild(opt);
         });
         sel.value = current;
@@ -3608,7 +5632,7 @@
         }, 2200);
     }
 
-    // ── Delete confirms ───────────────────
+    // ΓöÇΓöÇ Delete confirms ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     async function deleteTruck(id) {
         if (!confirm('Delete this truck?')) return;
         try {
@@ -3640,7 +5664,7 @@
         } catch (err) { console.error(err); showMsg('Error deleting driver', true); }
     }
 
-    // ── Edit helpers (called from inline onclick) ──
+    // ΓöÇΓöÇ Edit helpers (called from inline onclick) ΓöÇΓöÇ
     function editTruck(id) {
         const t = state.trucks.find(x => x.id === id);
         if (t) openTruckModal(t);
@@ -3650,11 +5674,10 @@
         if (t) openTrailerModal(t);
     }
     function editDriver(id) {
-        const d = state.drivers.find(x => x.id === id);
-        if (d) openDriverModal(d);
+        if (id) openDriverDetailPanel(id);
     }
 
-    // ── Close modals on backdrop click ────
+    // ΓöÇΓöÇ Close modals on backdrop click ΓöÇΓöÇΓöÇΓöÇ
     function initModalBackdrops() {
         ['truckModal', 'trailerModal', 'driverModal'].forEach(id => {
             $(id).addEventListener('click', (e) => {
@@ -3663,17 +5686,11 @@
         });
     }
 
-    // ── Overview card click → navigate ─────
+    // ΓöÇΓöÇ Overview card click ΓåÆ navigate ΓöÇΓöÇΓöÇΓöÇΓöÇ
     function initOverviewCards() {
         document.querySelectorAll('.overview-card[data-nav]').forEach(card => {
             card.addEventListener('click', () => {
                 navigateToSection(card.dataset.nav);
-            });
-        });
-        // Dept landing page nav cards
-        document.querySelectorAll('.dept-nav-card[data-navigate]').forEach(card => {
-            card.addEventListener('click', () => {
-                navigateToSection(card.dataset.navigate);
             });
         });
     }
@@ -3812,7 +5829,7 @@
         });
     }
 
-    // ── Expandable form sections ──────────
+    // ΓöÇΓöÇ Expandable form sections ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     function initExpandToggles() {
         document.querySelectorAll('.form-expand-toggle').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -3847,7 +5864,7 @@
         return fields.some(v => v && v.toString().trim() !== '' && v !== 'diesel' && v !== 'dry-van');
     }
 
-    // ── Dropdown Options Editor ───────────
+    // ΓöÇΓöÇ Dropdown Options Editor ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     let currentDropdownKey = null;
     let currentDropdownEdits = [];
 
@@ -3961,7 +5978,7 @@
         });
     }
 
-    // ── Init ──────────────────────────────
+    // ΓöÇΓöÇ Init ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
     function init() {
         initNav();
         initOverviewCards();
@@ -3971,6 +5988,8 @@
         initCompanyTabs();
         initCompanyDashboard();
         initFmcsaLookup();
+        initFmcsaTab();
+        initNotes();
         initTruckForm();
         initSheetModals();
         initTrailerForm();
@@ -3979,7 +5998,39 @@
         initModalBackdrops();
         initSearchFilters();
         initInlineEditing();
+        initValidationTooltip();
         initAuth();
+    }
+
+    function initValidationTooltip() {
+        const tip = document.createElement('div');
+        tip.id = 'vi-global-tip';
+        tip.className = 'vi-global-tip';
+        document.body.appendChild(tip);
+
+        document.addEventListener('mouseenter', function (e) {
+            const indicator = e.target.closest && e.target.closest('.validation-indicator');
+            if (!indicator) return;
+            const inner = indicator.querySelector('.vi-tooltip');
+            if (!inner) return;
+            tip.innerHTML = inner.innerHTML;
+            tip.classList.add('visible');
+            const rect = indicator.getBoundingClientRect();
+            const tipRect = tip.getBoundingClientRect();
+            let left = rect.right + 8;
+            let top = rect.top + rect.height / 2 - tipRect.height / 2;
+            if (left + tipRect.width > window.innerWidth - 8) left = rect.left - tipRect.width - 8;
+            if (top < 8) top = 8;
+            if (top + tipRect.height > window.innerHeight - 8) top = window.innerHeight - tipRect.height - 8;
+            tip.style.left = left + 'px';
+            tip.style.top = top + 'px';
+        }, true);
+
+        document.addEventListener('mouseleave', function (e) {
+            if (e.target.closest && e.target.closest('.validation-indicator')) {
+                tip.classList.remove('visible');
+            }
+        }, true);
     }
 
     // Expose edit/delete/inline methods for inline onclick
@@ -3987,7 +6038,12 @@
         editTruck, editTrailer, editDriver,
         deleteTruck, deleteTrailer, deleteDriver,
         inlineStatus,
-        openTruckProfile, openTrailerProfile, openDriverProfile
+        openTruckProfile, openTrailerProfile, openDriverProfile,
+        openDriverDetailPanel, closeDriverDetailPanel,
+        toggleDriverColumn,
+        addTruck: () => openSheetModal('truck'),
+        addTrailer: () => openSheetModal('trailer'),
+        addDriver: () => openDriverDetailPanel(null)
     };
 
     // Start when DOM is ready

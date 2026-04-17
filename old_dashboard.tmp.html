@@ -12,6 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 </head>
 <body>
     <div class="dash-layout">
@@ -389,6 +390,13 @@
                     </div>
                 </div>
 
+                <button class="dash-nav-item dash-nav-item-notes" data-section="notes">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <span>Notes</span>
+                </button>
+
                 <button class="dash-nav-item dash-nav-item-company" data-section="company">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -431,6 +439,31 @@
 
             <!-- Overview Section -->
             <section class="dash-section active" id="section-overview">
+                <div class="dash-card">
+                    <div class="dash-card-header">
+                        <h2>Overview Workspace</h2>
+                    </div>
+                    <div class="dash-card-body">
+                        <div class="overview-workspace-grid">
+                            <div class="overview-workspace-tile">
+                                <h3>Widgets</h3>
+                                <p>Build custom KPI widgets for your operation.</p>
+                            </div>
+                            <div class="overview-workspace-tile">
+                                <h3>Charts</h3>
+                                <p>Add trend charts and performance visualizations.</p>
+                            </div>
+                            <div class="overview-workspace-tile">
+                                <h3>Data Panels</h3>
+                                <p>Surface cross-department data in one place.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Safety Dashboard Section -->
+            <section class="dash-section" id="section-safety">
                 <div class="overview-grid">
                     <div class="overview-card" data-nav="trucks">
                         <div class="overview-card-icon trucks">
@@ -500,76 +533,6 @@
                                     <span class="overview-row-label">Out of Service</span>
                                     <span class="overview-row-value" id="overviewOutOfService">0</span>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Safety Department Landing Page -->
-            <section class="dash-section" id="section-safety">
-                <div class="dept-header">
-                    <h2>Safety</h2>
-                    <p class="dept-subtitle">Fleet compliance, driver records, and violation tracking</p>
-                </div>
-                <div class="dept-grid">
-                    <div class="dash-card dept-nav-card" data-navigate="drivers">
-                        <div class="dash-card-header"><h3>Drivers</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                <span class="dept-nav-card-count" id="safetyDriverCount">0</span>
-                                <span class="dept-nav-card-label">Active Drivers</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="trucks">
-                        <div class="dash-card-header"><h3>Trucks</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                                <span class="dept-nav-card-count" id="safetyTruckCount">0</span>
-                                <span class="dept-nav-card-label">Active Trucks</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="trailers">
-                        <div class="dash-card-header"><h3>Trailers</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><rect x="1" y="6" width="18" height="12" rx="1"/><circle cx="7" cy="18" r="2"/><circle cx="15" cy="18" r="2"/><path d="M19 12h4"/></svg>
-                                <span class="dept-nav-card-count" id="safetyTrailerCount">0</span>
-                                <span class="dept-nav-card-label">Active Trailers</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="violations">
-                        <div class="dash-card-header"><h3>Violations</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                                <span class="dept-nav-card-count">—</span>
-                                <span class="dept-nav-card-label">Violations Log</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card">
-                        <div class="dash-card-header"><h3>Expiration Alerts</h3></div>
-                        <div class="dash-card-body">
-                            <div class="placeholder-content">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                <p>Expiration tracking coming soon</p>
-                                <span class="placeholder-hint">CDL, medical cards, annual inspections</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card">
-                        <div class="dash-card-header"><h3>Compliance Score</h3></div>
-                        <div class="dash-card-body">
-                            <div class="placeholder-content">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-                                <p>Compliance scoring coming soon</p>
-                                <span class="placeholder-hint">Visual fleet compliance overview</span>
                             </div>
                         </div>
                     </div>
@@ -843,17 +806,37 @@
                                 <p class="fmcsa-hint" id="fmcsaHint">Enter your DOT number in the Information tab, then click <strong>Fetch from FMCSA</strong> to pull your carrier record.</p>
                                 <div class="fmcsa-snapshot" id="fmcsaSnapshot" style="display:none">
                                     <div class="fmcsa-status-bar" id="fmcsaStatusBar"></div>
+
                                     <div class="fmcsa-grid">
-                                        <div class="fmcsa-card"><h4>Identity</h4><div class="fmcsa-rows" id="fmcsaIdentity"></div></div>
-                                        <div class="fmcsa-card"><h4>Fleet &amp; Mileage</h4><div class="fmcsa-rows" id="fmcsaFleet"></div></div>
-                                        <div class="fmcsa-card"><h4>Safety Record</h4><div class="fmcsa-rows" id="fmcsaSafety"></div></div>
-                                        <div class="fmcsa-card"><h4>Insurance</h4><div class="fmcsa-rows" id="fmcsaInsurance"></div></div>
-                                        <div class="fmcsa-card"><h4>Inspections</h4><div class="fmcsa-rows" id="fmcsaInspections"></div></div>
-                                        <div class="fmcsa-card"><h4>Crashes</h4><div class="fmcsa-rows" id="fmcsaCrashes"></div></div>
+                                        <div class="fmcsa-card">
+                                            <h4>Identity</h4>
+                                            <div class="fmcsa-rows" id="fmcsaIdentity"></div>
+                                        </div>
+                                        <div class="fmcsa-card">
+                                            <h4>Fleet &amp; Mileage</h4>
+                                            <div class="fmcsa-rows" id="fmcsaFleet"></div>
+                                        </div>
+                                        <div class="fmcsa-card">
+                                            <h4>Safety Record</h4>
+                                            <div class="fmcsa-rows" id="fmcsaSafety"></div>
+                                        </div>
+                                        <div class="fmcsa-card">
+                                            <h4>Insurance</h4>
+                                            <div class="fmcsa-rows" id="fmcsaInsurance"></div>
+                                        </div>
+                                        <div class="fmcsa-card">
+                                            <h4>Inspections</h4>
+                                            <div class="fmcsa-rows" id="fmcsaInspections"></div>
+                                        </div>
+                                        <div class="fmcsa-card">
+                                            <h4>Crashes</h4>
+                                            <div class="fmcsa-rows" id="fmcsaCrashes"></div>
+                                        </div>
                                     </div>
                                     <p class="fmcsa-fetched-at" id="fmcsaFetchedAt"></p>
                                 </div>
                             </div>
+
                             <div class="company-block">
                                 <div class="company-block-head">
                                     <h3>Compliance Reminders</h3>
@@ -1056,11 +1039,11 @@
                         <div class="dash-card-header-actions">
                             <button class="btn btn-primary btn-sm dash-toolbar-add" id="addDriverBtn">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                Add Driver(s)
+                                Add Driver
                             </button>
                             <button class="btn btn-sm dash-toolbar-secondary" id="importDriversBtn" title="Import drivers from file">
                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                Import
+                                Bulk Import
                             </button>
                         </div>
                     </div>
@@ -1074,8 +1057,19 @@
                                 <option value="">All Status</option>
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
-                                <option value="on-leave">On Leave</option>
+                                <option value="on-leave">Home Time</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="terminated">Terminated</option>
+                                <option value="pending">Pending</option>
+                                <option value="training">Training</option>
                             </select>
+                        </div>
+                        <div class="filter-chip-bar" id="driverFilterBar">
+                            <button class="filter-chip active" data-filter="all">All</button>
+                            <button class="filter-chip" data-filter="active">Active</button>
+                            <button class="filter-chip" data-filter="expiring">Expiring Soon</button>
+                            <button class="filter-chip" data-filter="expired">Expired</button>
+                            <button class="filter-chip" data-filter="unassigned">Unassigned</button>
                         </div>
                         <div class="dash-empty" id="driversEmpty">
                             <p>No drivers added yet</p>
@@ -1095,10 +1089,53 @@
                                         <th style="width:13%">Truck</th>
                                         <th style="width:10%">Status</th>
                                         <th style="width:10%"></th>
+                                        <th class="col-picker-header"><button id="driverColPickerBtn" class="col-picker-btn" title="Add/customize columns">+</button></th>
                                     </tr>
                                 </thead>
                                 <tbody id="driversTableBody"></tbody>
                             </table>
+                            <!-- Inline Sheet Panel (Google Sheets style) -->
+                            <div id="driverSheetPanel" class="driver-sheet-panel" style="display:none;">
+                                <div class="driver-sheet-toolbar">
+                                    <span class="driver-sheet-title">Add Drivers</span>
+                                    <span class="driver-sheet-count" id="driverSheetCount">0 of 3 rows</span>
+                                    <span class="driver-sheet-hint">Tab between cells &middot; Paste from Excel / Sheets &middot; Enter &#8595; next row &middot; Esc to close</span>
+                                    <div class="driver-sheet-actions">
+                                        <button class="ds-cancel-btn" id="driverSheetCancel">Cancel</button>
+                                        <button class="ds-save-btn" id="driverSheetSave" disabled>Save All</button>
+                                    </div>
+                                </div>
+                                <div class="driver-sheet-scroll">
+                                    <table class="driver-sheet-table">
+                                        <thead><tr><!-- built by JS --></tr></thead>
+                                        <tbody id="driverSheetBody"></tbody>
+                                    </table>
+                                </div>
+                                <button class="ds-add-row-btn" id="driverSheetAddRow">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                    Add row
+                                </button>
+                            </div>
+                            <div class="inline-add-trigger" id="driverAddTrigger">
+                                <button class="inline-add-btn" id="driverInlineAddBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                    Add driver
+                                </button>
+                            </div>
+                            <!-- Column Picker Panel -->
+                            <div id="driverColPickerPanel" class="col-picker-panel">
+                                <div class="col-picker-header-bar">
+                                    <span class="col-picker-title">Manage Columns</span>
+                                    <button id="driverColPickerClose" class="col-picker-close" title="Close">&#10005;</button>
+                                </div>
+                                <div class="col-picker-search">
+                                    <svg class="col-picker-search-icon" width="13" height="13" viewBox="0 0 16 16" fill="none"><circle cx="6.5" cy="6.5" r="5" stroke="#9ca3af" stroke-width="1.5"/><line x1="10.5" y1="10.5" x2="14" y2="14" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round"/></svg>
+                                    <input id="driverColPickerSearch" type="text" placeholder="Search columnsâ€¦" autocomplete="off">
+                                </div>
+                                <div id="driverColPickerList" class="col-picker-list">
+                                    <!-- Dynamically populated -->
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1137,40 +1174,55 @@
             <!-- FLEET MAINTENANCE DEPARTMENT SECTIONS      -->
             <!-- ========================================== -->
 
-            <!-- Fleet Maintenance Landing Page -->
+            <!-- Maintenance Dashboard Section -->
             <section class="dash-section" id="section-maintenance">
                 <div class="dept-header">
-                    <h2>Fleet Maintenance</h2>
-                    <p class="dept-subtitle">Work orders, preventive maintenance schedules, and parts inventory</p>
+                    <h2>Fleet Maintenance Dashboard</h2>
+                    <p class="dept-subtitle">Overview of work orders, PM schedules, and parts inventory</p>
                 </div>
                 <div class="dept-grid">
-                    <div class="dash-card dept-nav-card" data-navigate="work-orders">
-                        <div class="dash-card-header"><h3>Work Orders</h3></div>
+                    <div class="dash-card">
+                        <div class="dash-card-header">
+                            <h3>Open Work Orders</h3>
+                        </div>
                         <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
-                                <span class="dept-nav-card-count">—</span>
-                                <span class="dept-nav-card-label">Open Work Orders</span>
+                            <div class="placeholder-content">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                </svg>
+                                <p>Work order summary coming soon</p>
+                                <span class="placeholder-hint">Quick view of pending and in-progress repairs</span>
                             </div>
                         </div>
                     </div>
-                    <div class="dash-card dept-nav-card" data-navigate="pm-schedules">
-                        <div class="dash-card-header"><h3>PM Schedules</h3></div>
+                    <div class="dash-card">
+                        <div class="dash-card-header">
+                            <h3>PM Due</h3>
+                        </div>
                         <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                                <span class="dept-nav-card-count">—</span>
-                                <span class="dept-nav-card-label">Upcoming PM</span>
+                            <div class="placeholder-content">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                                    <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                                    <line x1="3" y1="10" x2="21" y2="10"/>
+                                </svg>
+                                <p>PM tracking coming soon</p>
+                                <span class="placeholder-hint">Units due for preventive maintenance</span>
                             </div>
                         </div>
                     </div>
-                    <div class="dash-card dept-nav-card" data-navigate="parts-inventory">
-                        <div class="dash-card-header"><h3>Parts Inventory</h3></div>
+                    <div class="dash-card">
+                        <div class="dash-card-header">
+                            <h3>Low Stock Alerts</h3>
+                        </div>
                         <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                                <span class="dept-nav-card-count">—</span>
-                                <span class="dept-nav-card-label">Parts in Stock</span>
+                            <div class="placeholder-content">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                                </svg>
+                                <p>Inventory alerts coming soon</p>
+                                <span class="placeholder-hint">Parts below reorder threshold</span>
                             </div>
                         </div>
                     </div>
@@ -1257,46 +1309,6 @@
             <!-- DISPATCH DEPARTMENT SECTIONS               -->
             <!-- ========================================== -->
 
-            <!-- Dispatch Landing Page -->
-            <section class="dash-section" id="section-dispatch">
-                <div class="dept-header">
-                    <h2>Dispatch</h2>
-                    <p class="dept-subtitle">Load board, active loads, and driver assignments</p>
-                </div>
-                <div class="dept-grid">
-                    <div class="dash-card dept-nav-card" data-navigate="dispatch-board">
-                        <div class="dash-card-header"><h3>Load Board</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Open Loads</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="active-loads">
-                        <div class="dash-card-header"><h3>Active Loads</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">In Transit</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="driver-assignments">
-                        <div class="dash-card-header"><h3>Driver Assignments</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Assigned Drivers</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             <!-- Load Board Section -->
             <section class="dash-section" id="section-dispatch-board">
                 <div class="dash-card">
@@ -1364,46 +1376,6 @@
             <!-- TRACK & TRACE DEPARTMENT SECTIONS          -->
             <!-- ========================================== -->
 
-            <!-- Track & Trace Landing Page -->
-            <section class="dash-section" id="section-tracking">
-                <div class="dept-header">
-                    <h2>Track &amp; Trace</h2>
-                    <p class="dept-subtitle">Live map, load status updates, and ETA tracking</p>
-                </div>
-                <div class="dept-grid">
-                    <div class="dash-card dept-nav-card" data-navigate="live-map">
-                        <div class="dash-card-header"><h3>Live Map</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Fleet on Map</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="load-status">
-                        <div class="dash-card-header"><h3>Load Status</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Status Updates</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="eta-tracking">
-                        <div class="dash-card-header"><h3>ETA Tracking</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">ETAs Active</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             <!-- Live Map Section -->
             <section class="dash-section" id="section-live-map">
                 <div class="dash-card dash-card-fullheight">
@@ -1436,7 +1408,7 @@
                                 <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
                             </svg>
                             <p>Load status pipeline coming soon</p>
-                            <span class="placeholder-hint">Pickup → In Transit → Delivered status tracking</span>
+                            <span class="placeholder-hint">Pickup â†’ In Transit â†’ Delivered status tracking</span>
                         </div>
                     </div>
                 </div>
@@ -1463,56 +1435,6 @@
             <!-- ========================================== -->
             <!-- ACCOUNTING DEPARTMENT SECTIONS             -->
             <!-- ========================================== -->
-
-            <!-- Accounting Landing Page -->
-            <section class="dash-section" id="section-accounting">
-                <div class="dept-header">
-                    <h2>Accounting</h2>
-                    <p class="dept-subtitle">Invoices, driver settlements, expenses, and payroll</p>
-                </div>
-                <div class="dept-grid">
-                    <div class="dash-card dept-nav-card" data-navigate="invoices">
-                        <div class="dash-card-header"><h3>Invoices</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Open Invoices</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="settlements">
-                        <div class="dash-card-header"><h3>Settlements</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Pending Settlements</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="expenses">
-                        <div class="dash-card-header"><h3>Expenses</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Expenses</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="payroll">
-                        <div class="dash-card-header"><h3>Payroll</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Payroll</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
 
             <!-- Invoices Section -->
             <section class="dash-section" id="section-invoices">
@@ -1606,46 +1528,6 @@
             <!-- HIRING DEPARTMENT SECTIONS                 -->
             <!-- ========================================== -->
 
-            <!-- Hiring Landing Page -->
-            <section class="dash-section" id="section-hiring">
-                <div class="dept-header">
-                    <h2>Hiring</h2>
-                    <p class="dept-subtitle">Driver applications, hiring pipeline, and onboarding</p>
-                </div>
-                <div class="dept-grid">
-                    <div class="dash-card dept-nav-card" data-navigate="applications">
-                        <div class="dash-card-header"><h3>Applications</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">New Applications</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="hiring-pipeline">
-                        <div class="dash-card-header"><h3>Pipeline</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">In Pipeline</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="onboarding">
-                        <div class="dash-card-header"><h3>Onboarding</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Onboarding</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             <!-- Applications Section -->
             <section class="dash-section" id="section-applications">
                 <div class="dash-card">
@@ -1705,46 +1587,6 @@
             <!-- ========================================== -->
             <!-- CLAIMS DEPARTMENT SECTIONS                 -->
             <!-- ========================================== -->
-
-            <!-- Claims Landing Page -->
-            <section class="dash-section" id="section-claims">
-                <div class="dept-header">
-                    <h2>Claims</h2>
-                    <p class="dept-subtitle">Accident reports, cargo claims, and insurance management</p>
-                </div>
-                <div class="dept-grid">
-                    <div class="dash-card dept-nav-card" data-navigate="accidents">
-                        <div class="dash-card-header"><h3>Accidents</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Accident Reports</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="cargo-claims">
-                        <div class="dash-card-header"><h3>Cargo Claims</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Open Claims</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="insurance">
-                        <div class="dash-card-header"><h3>Insurance</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Active Policies</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
 
             <!-- Accidents Section -->
             <section class="dash-section" id="section-accidents">
@@ -1819,46 +1661,6 @@
             <!-- AFTERHOURS DEPARTMENT SECTIONS             -->
             <!-- ========================================== -->
 
-            <!-- Afterhours Landing Page -->
-            <section class="dash-section" id="section-afterhours">
-                <div class="dept-header">
-                    <h2>Afterhours</h2>
-                    <p class="dept-subtitle">On-call schedules, emergency contacts, and driver support</p>
-                </div>
-                <div class="dept-grid">
-                    <div class="dash-card dept-nav-card" data-navigate="on-call">
-                        <div class="dash-card-header"><h3>On-Call Schedule</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">On-Call Schedule</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="emergency-contacts">
-                        <div class="dash-card-header"><h3>Emergency Contacts</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.21 12 19.79 19.79 0 0 1 1.13 3.4 2 2 0 0 1 3.11 1.22h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Emergency Contacts</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="driver-support">
-                        <div class="dash-card-header"><h3>Driver Support</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Driver Support</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
             <!-- On-Call Schedule Section -->
             <section class="dash-section" id="section-on-call">
                 <div class="dash-card">
@@ -1924,46 +1726,6 @@
             <!-- ========================================== -->
             <!-- OPERATIONS DEPARTMENT SECTIONS             -->
             <!-- ========================================== -->
-
-            <!-- Operations Landing Page -->
-            <section class="dash-section" id="section-operations">
-                <div class="dept-header">
-                    <h2>Operations</h2>
-                    <p class="dept-subtitle">Command center, cross-department alerts, and reports</p>
-                </div>
-                <div class="dept-grid">
-                    <div class="dash-card dept-nav-card" data-navigate="command-center">
-                        <div class="dash-card-header"><h3>Command Center</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Command Center</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="cross-dept-alerts">
-                        <div class="dash-card-header"><h3>System Alerts</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Active Alerts</span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="reports">
-                        <div class="dash-card-header"><h3>Reports</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Reports</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
 
             <!-- Command Center Section -->
             <section class="dash-section" id="section-command-center">
@@ -2061,6 +1823,91 @@
                         </div>
                     </div>
                 </div>
+            </section>
+
+            <!-- ═══ Notes / Feed ═══ -->
+            <section class="dash-section" id="section-notes">
+                <div class="notes-layout">
+                    <!-- Compose -->
+                    <div class="note-compose-card">
+                        <form id="noteForm" autocomplete="off">
+                            <div class="note-compose-top">
+                                <div class="note-avatar" id="noteAvatar">U</div>
+                                <textarea id="noteText" class="note-compose-input" placeholder="Write a quick note or report an issue…" rows="1"></textarea>
+                            </div>
+                            <div class="note-compose-bar">
+                                <div class="note-compose-options">
+                                    <div class="note-field-group">
+                                        <label class="note-field-label">Type</label>
+                                        <select id="noteType" class="note-select">
+                                            <option value="note">Note</option>
+                                            <option value="issue">Issue</option>
+                                            <option value="reminder">Reminder</option>
+                                            <option value="update">Update</option>
+                                        </select>
+                                    </div>
+                                    <div class="note-field-group">
+                                        <label class="note-field-label">Department</label>
+                                        <select id="noteDept" class="note-select">
+                                            <option value="">None</option>
+                                            <option value="Safety">Safety</option>
+                                            <option value="Dispatch">Dispatch</option>
+                                            <option value="Maintenance">Maintenance</option>
+                                            <option value="Accounting">Accounting</option>
+                                            <option value="Hiring">Hiring</option>
+                                            <option value="Claims">Claims</option>
+                                            <option value="Operations">Operations</option>
+                                        </select>
+                                    </div>
+                                    <div class="note-field-group">
+                                        <label class="note-field-label">Tag</label>
+                                        <select id="noteTag" class="note-select">
+                                            <option value="">No one</option>
+                                        </select>
+                                    </div>
+                                    <div class="note-field-group">
+                                        <label class="note-field-label">Priority</label>
+                                        <select id="notePriority" class="note-select">
+                                            <option value="normal">Normal</option>
+                                            <option value="high">High</option>
+                                            <option value="urgent">Urgent</option>
+                                        </select>
+                                    </div>
+                                    <label class="note-task-toggle">
+                                        <input type="checkbox" id="noteCreateTask">
+                                        <span>Create task</span>
+                                    </label>
+                                </div>
+                                <button type="submit" class="note-post-btn" id="notePostBtn" disabled>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                    Post
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Filters -->
+                    <div class="note-filters" id="noteFilters">
+                        <button class="note-filter-chip active" data-filter="all">All</button>
+                        <button class="note-filter-chip" data-filter="note">Notes</button>
+                        <button class="note-filter-chip" data-filter="issue">Issues</button>
+                        <button class="note-filter-chip" data-filter="reminder">Reminders</button>
+                        <button class="note-filter-chip" data-filter="update">Updates</button>
+                    </div>
+
+                    <!-- Feed -->
+                    <div class="note-feed" id="noteFeed">
+                        <div class="note-empty">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            <p>No notes yet</p>
+                            <span>Post a note, issue, or reminder to get started</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
         </main>
     </div>
 
@@ -2212,6 +2059,147 @@
         </div>
     </div>
 
+    <!-- Driver Detail Panel (slide-out) -->
+    <div id="driverDetailBackdrop" class="detail-backdrop hidden"></div>
+    <aside id="driverDetailPanel" class="detail-panel hidden">
+        <div class="detail-panel-header">
+            <div class="detail-panel-title">
+                <h2 id="detailDriverName">New Driver</h2>
+                <span id="detailDriverStatus" class="status-badge active"></span>
+            </div>
+            <div class="detail-panel-actions">
+                <button class="detail-action-btn detail-save-btn" id="detailSaveBtn" title="Save">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                <button class="detail-action-btn" id="detailCloseBtn" title="Close">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="detail-panel-body">
+            <!-- Editable Info Section -->
+            <div class="detail-section">
+                <h3 class="detail-section-title">Driver Information</h3>
+                <div class="detail-info-grid" id="detailDriverInfo">
+                    <div class="detail-field" data-key="firstName">
+                        <label class="detail-field-label">First Name <span class="req">*</span></label>
+                        <input type="text" class="detail-field-input" id="dpFirstName" placeholder="First name">
+                    </div>
+                    <div class="detail-field" data-key="lastName">
+                        <label class="detail-field-label">Last Name</label>
+                        <input type="text" class="detail-field-input" id="dpLastName" placeholder="Last name">
+                    </div>
+                    <div class="detail-field" data-key="phone">
+                        <label class="detail-field-label">Phone</label>
+                        <input type="tel" class="detail-field-input" id="dpPhone" placeholder="(555) 123-4567">
+                    </div>
+                    <div class="detail-field" data-key="email">
+                        <label class="detail-field-label">Email</label>
+                        <input type="email" class="detail-field-input" id="dpEmail" placeholder="email@example.com">
+                    </div>
+                    <div class="detail-field" data-key="cdl">
+                        <label class="detail-field-label">CDL Number</label>
+                        <input type="text" class="detail-field-input" id="dpCdl" placeholder="CDL number">
+                    </div>
+                    <div class="detail-field" data-key="cdlClass">
+                        <label class="detail-field-label">CDL Class</label>
+                        <select class="detail-field-input" id="dpCdlClass">
+                            <option value="">Select…</option>
+                            <option value="A">Class A</option>
+                            <option value="B">Class B</option>
+                            <option value="C">Class C</option>
+                        </select>
+                    </div>
+                    <div class="detail-field" data-key="cdlState">
+                        <label class="detail-field-label">CDL State</label>
+                        <select class="detail-field-input" id="dpCdlState">
+                            <option value="">Select state</option>
+                        </select>
+                    </div>
+                    <div class="detail-field" data-key="cdlExp">
+                        <label class="detail-field-label">CDL Expiration</label>
+                        <input type="date" class="detail-field-input" id="dpCdlExp">
+                    </div>
+                    <div class="detail-field" data-key="medExp">
+                        <label class="detail-field-label">Medical Card Exp</label>
+                        <input type="date" class="detail-field-input" id="dpMedExp">
+                    </div>
+                    <div class="detail-field" data-key="mvrExp">
+                        <label class="detail-field-label">MVR Expiry</label>
+                        <input type="date" class="detail-field-input" id="dpMvrExp">
+                    </div>
+                    <div class="detail-field" data-key="drugTestDate">
+                        <label class="detail-field-label">Last Drug Test</label>
+                        <input type="date" class="detail-field-input" id="dpDrugTestDate">
+                    </div>
+                    <div class="detail-field" data-key="twicExp">
+                        <label class="detail-field-label">TWIC Card Exp</label>
+                        <input type="date" class="detail-field-input" id="dpTwicExp">
+                    </div>
+                    <div class="detail-field" data-key="restrictions">
+                        <label class="detail-field-label">Restrictions</label>
+                        <input type="text" class="detail-field-input" id="dpRestrictions" placeholder="e.g., Corrective lenses">
+                    </div>
+                    <div class="detail-field" data-key="truck">
+                        <label class="detail-field-label">Assigned Truck</label>
+                        <select class="detail-field-input" id="dpTruck">
+                            <option value="">Unassigned</option>
+                        </select>
+                    </div>
+                    <div class="detail-field" data-key="status">
+                        <label class="detail-field-label">Status</label>
+                        <select class="detail-field-input" id="dpStatus">
+                        </select>
+                    </div>
+                    <div class="detail-field" data-key="hireDate">
+                        <label class="detail-field-label">Date of Hire</label>
+                        <input type="date" class="detail-field-input" id="dpHireDate">
+                    </div>
+                    <div class="detail-field" data-key="terminationDate">
+                        <label class="detail-field-label">Termination Date</label>
+                        <input type="date" class="detail-field-input" id="dpTerminationDate">
+                    </div>
+                    <div class="detail-field" data-key="dob">
+                        <label class="detail-field-label">Date of Birth</label>
+                        <input type="date" class="detail-field-input" id="dpDob">
+                    </div>
+                    <div class="detail-field" data-key="endorsements">
+                        <label class="detail-field-label">Endorsements</label>
+                        <div class="detail-endorsement-row">
+                            <label class="dp-endorse-chip"><input type="checkbox" value="H"><span>H</span></label>
+                            <label class="dp-endorse-chip"><input type="checkbox" value="N"><span>N</span></label>
+                            <label class="dp-endorse-chip"><input type="checkbox" value="T"><span>T</span></label>
+                            <label class="dp-endorse-chip"><input type="checkbox" value="X"><span>X</span></label>
+                            <label class="dp-endorse-chip"><input type="checkbox" value="P"><span>P</span></label>
+                            <label class="dp-endorse-chip"><input type="checkbox" value="S"><span>S</span></label>
+                        </div>
+                    </div>
+                    <div class="detail-field" data-key="emergencyName">
+                        <label class="detail-field-label">Emergency Contact</label>
+                        <input type="text" class="detail-field-input" id="dpEmergencyName" placeholder="Contact name">
+                    </div>
+                    <div class="detail-field" data-key="emergencyPhone">
+                        <label class="detail-field-label">Emergency Phone</label>
+                        <input type="tel" class="detail-field-input" id="dpEmergencyPhone" placeholder="(555) 123-4567">
+                    </div>
+                    <div class="detail-field full-width" data-key="address">
+                        <label class="detail-field-label">Address</label>
+                        <input type="text" class="detail-field-input" id="dpAddress" placeholder="Home address">
+                    </div>
+                    <div class="detail-field full-width" data-key="notes">
+                        <label class="detail-field-label">Notes</label>
+                        <textarea class="detail-field-input" id="dpNotes" rows="2" placeholder="Notes"></textarea>
+                    </div>
+                </div>
+            </div>
+            <!-- Documents Section -->
+            <div class="detail-section" id="detailDocsSection">
+                <h3 class="detail-section-title">Documents</h3>
+                <div class="detail-doc-grid" id="detailDocGrid"></div>
+            </div>
+        </div>
+    </aside>
+
     <!-- Add/Edit Driver Modal -->
     <div id="driverModal" class="modal hidden">
         <div class="modal-content">
@@ -2242,7 +2230,11 @@
                             <select id="driverStatus">
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
-                                <option value="on-leave">On Leave</option>
+                                <option value="on-leave">Home Time</option>
+                                <option value="suspended">Suspended</option>
+                                <option value="terminated">Terminated</option>
+                                <option value="pending">Pending</option>
+                                <option value="training">Training</option>
                             </select>
                         </div>
                     </div>
@@ -2258,7 +2250,29 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="driverCdlState">CDL State</label>
-                                <input type="text" id="driverCdlState" maxlength="2" placeholder="e.g., TX">
+                                <select id="driverCdlState">
+                                    <option value="">Select…</option>
+                                    <option value="AL">AL – Alabama</option><option value="AZ">AZ – Arizona</option><option value="AR">AR – Arkansas</option>
+                                    <option value="CA">CA – California</option><option value="CO">CO – Colorado</option><option value="CT">CT – Connecticut</option>
+                                    <option value="DE">DE – Delaware</option><option value="FL">FL – Florida</option><option value="GA">GA – Georgia</option>
+                                    <option value="ID">ID – Idaho</option><option value="IL">IL – Illinois</option><option value="IN">IN – Indiana</option>
+                                    <option value="IA">IA – Iowa</option><option value="KS">KS – Kansas</option><option value="KY">KY – Kentucky</option>
+                                    <option value="LA">LA – Louisiana</option><option value="ME">ME – Maine</option><option value="MD">MD – Maryland</option>
+                                    <option value="MA">MA – Massachusetts</option><option value="MI">MI – Michigan</option><option value="MN">MN – Minnesota</option>
+                                    <option value="MS">MS – Mississippi</option><option value="MO">MO – Missouri</option><option value="MT">MT – Montana</option>
+                                    <option value="NE">NE – Nebraska</option><option value="NV">NV – Nevada</option><option value="NH">NH – New Hampshire</option>
+                                    <option value="NJ">NJ – New Jersey</option><option value="NM">NM – New Mexico</option><option value="NY">NY – New York</option>
+                                    <option value="NC">NC – North Carolina</option><option value="ND">ND – North Dakota</option><option value="OH">OH – Ohio</option>
+                                    <option value="OK">OK – Oklahoma</option><option value="OR">OR – Oregon</option><option value="PA">PA – Pennsylvania</option>
+                                    <option value="RI">RI – Rhode Island</option><option value="SC">SC – South Carolina</option><option value="SD">SD – South Dakota</option>
+                                    <option value="TN">TN – Tennessee</option><option value="TX">TX – Texas</option><option value="UT">UT – Utah</option>
+                                    <option value="VT">VT – Vermont</option><option value="VA">VA – Virginia</option><option value="WA">WA – Washington</option>
+                                    <option value="WV">WV – West Virginia</option><option value="WI">WI – Wisconsin</option><option value="WY">WY – Wyoming</option>
+                                    <option value="AB">AB – Alberta</option><option value="BC">BC – British Columbia</option><option value="MB">MB – Manitoba</option>
+                                    <option value="NB">NB – New Brunswick</option><option value="NL">NL – Newfoundland</option><option value="NS">NS – Nova Scotia</option>
+                                    <option value="ON">ON – Ontario</option><option value="PE">PE – Prince Edward Island</option><option value="QC">QC – Quebec</option>
+                                    <option value="SK">SK – Saskatchewan</option>
+                                </select>
                             </div>
                             <div class="form-group">
                                 <label for="driverCdlExp">CDL Expiration</label>
@@ -2275,11 +2289,85 @@
                                 <input type="email" id="driverEmail">
                             </div>
                         </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="driverHireDate">Date of Hire</label>
+                                <input type="date" id="driverHireDate">
+                            </div>
+                            <div class="form-group">
+                                <label for="driverDob">Date of Birth</label>
+                                <input type="date" id="driverDob">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="driverMvrDate">MVR Review Date</label>
+                                <input type="date" id="driverMvrDate">
+                            </div>
+                            <div class="form-group">
+                                <label for="driverBgCheck">Background Check Date</label>
+                                <input type="date" id="driverBgCheck">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="driverAddress">Home Address</label>
+                            <input type="text" id="driverAddress" placeholder="Street address">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="driverEmergencyName">Emergency Contact Name</label>
+                                <input type="text" id="driverEmergencyName" placeholder="Full name">
+                            </div>
+                            <div class="form-group">
+                                <label for="driverEmergencyPhone">Emergency Contact Phone</label>
+                                <input type="tel" id="driverEmergencyPhone" placeholder="(555) 123-4567">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>CDL Endorsements</label>
+                            <div class="endorsement-checkboxes">
+                                <label><input type="checkbox" id="endorsement-H" value="H"> <span>H (Hazmat)</span></label>
+                                <label><input type="checkbox" id="endorsement-N" value="N"> <span>N (Tank)</span></label>
+                                <label><input type="checkbox" id="endorsement-T" value="T"> <span>T (Double/Triple)</span></label>
+                                <label><input type="checkbox" id="endorsement-X" value="X"> <span>X (Hazmat + Tank)</span></label>
+                                <label><input type="checkbox" id="endorsement-P" value="P"> <span>P (Passenger)</span></label>
+                                <label><input type="checkbox" id="endorsement-S" value="S"> <span>S (School Bus)</span></label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="driverNotes">Notes</label>
+                            <textarea id="driverNotes" rows="3" placeholder="Any additional notes or comments"></textarea>
+                        </div>
                         <div class="form-group">
                             <label for="driverTruck">Assigned Truck</label>
                             <select id="driverTruck">
                                 <option value="">Unassigned</option>
                             </select>
+                        </div>
+                        <!-- Driver Documents -->
+                        <div class="driver-docs-section" id="driverDocsSection" style="display:none">
+                            <label>Documents</label>
+                            <div class="driver-docs-upload">
+                                <select id="driverDocType">
+                                    <option value="cdl">CDL</option>
+                                    <option value="medical">Medical Card</option>
+                                    <option value="contract">Contract</option>
+                                    <option value="mvr">MVR Report</option>
+                                    <option value="psp">PSP Report</option>
+                                    <option value="photo">Photo</option>
+                                    <option value="other">Other</option>
+                                </select>
+                                <label class="driver-doc-upload-btn" tabindex="0">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    Upload
+                                    <input type="file" id="driverDocFile" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" hidden>
+                                </label>
+                            </div>
+                            <div class="driver-docs-list" id="driverDocsList"></div>
+                            <div class="driver-docs-uploading hidden" id="driverDocsUploading">
+                                <div class="doc-upload-progress"><span></span></div>
+                                <span>Uploading…</span>
+                            </div>
                         </div>
                     </div>
                     <div class="form-actions">
@@ -2418,7 +2506,11 @@
                                 <th style="min-width:110px">Phone</th>
                                 <th style="min-width:110px">CDL #</th>
                                 <th style="min-width:70px">CDL State</th>
+                                <th style="min-width:100px">CDL Exp</th>
+                                <th style="min-width:100px">Med Exp</th>
                                 <th style="min-width:140px">Email</th>
+                                <th style="min-width:100px">Hire Date</th>
+                                <th style="min-width:90px">Truck</th>
                                 <th style="min-width:100px">Status</th>
                                 <th class="row-action-col"></th>
                             </tr>
@@ -2430,7 +2522,7 @@
             <div class="sheet-footer">
                 <div class="sheet-footer-info">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-                    <span>Click any cell to edit. Tab to move between cells. Only rows with a First Name will be saved.</span>
+                    <span>Paste from Excel/Sheets with Ctrl+V. Tab between cells. Only rows with a First Name will be saved.</span>
                 </div>
                 <div class="sheet-footer-actions">
                     <button type="button" class="btn btn-secondary" id="cancelMultiDriver">Cancel</button>

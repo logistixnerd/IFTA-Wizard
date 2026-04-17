@@ -78,6 +78,11 @@ service cloud.firestore {
       match /drivers/{driverId}/{document=**} {
         allow read, create, update, delete: if isOwner(userId);
       }
+
+      // User preferences (column visibility, UI settings, etc.)
+      match /preferences/{prefId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
     }
     
     // ==========================================
