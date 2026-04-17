@@ -15,9 +15,7 @@
         profile: {},
         dropdownOptions: {},
         companyDashboard: null,
-        fmcsaSnapshot: null,
-        notes: [],
-        noteFilter: 'all'
+        fmcsaSnapshot: null
     };
 
     const COMPANY_TOOL_LABELS = {
@@ -770,12 +768,11 @@
 
     // ── Load All Data ─────────────────────
     async function loadAll() {
-        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers(), loadDriverColumnPrefs(), loadNotes()]);
+        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers(), loadDriverColumnPrefs()]);
         applyDerivedValidation();
         renderTrucks();
         renderTrailers();
         renderDrivers();
-        populateNoteTagSelect();
         updateOverview();
     }
 
@@ -1911,212 +1908,6 @@
             renderComplianceReminders(state.fmcsaSnapshot);
         } else {
             renderComplianceReminders(null);
-        }
-    }
-
-    // ── NOTES / FEED ──────────────────────
-    async function loadNotes() {
-        try {
-            const snap = await col('notes').orderBy('createdAt', 'desc').limit(100).get();
-            state.notes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            renderNotes();
-        } catch (err) { console.error('loadNotes:', err); }
-    }
-
-    function populateNoteTagSelect() {
-        const sel = $('noteTag');
-        if (!sel) return;
-        const current = sel.value;
-        let html = '<option value="">No one</option>';
-        state.drivers.forEach(d => {
-            const name = [d.firstName, d.lastName].filter(Boolean).join(' ');
-            if (name) html += `<option value="${escapeHtml(d.id)}">${escapeHtml(name)}</option>`;
-        });
-        sel.innerHTML = html;
-        sel.value = current;
-    }
-
-    function renderNotes() {
-        const feed = $('noteFeed');
-        if (!feed) return;
-        const filtered = state.noteFilter === 'all'
-            ? state.notes
-            : state.notes.filter(n => n.type === state.noteFilter);
-        if (!filtered.length) {
-            feed.innerHTML = `<div class="note-empty">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                </svg>
-                <p>${state.noteFilter === 'all' ? 'No notes yet' : 'No ' + state.noteFilter + 's'}</p>
-                <span>Post a note, issue, or reminder to get started</span>
-            </div>`;
-            return;
-        }
-        feed.innerHTML = filtered.map(n => {
-            const typeClass = 'note-type-' + (n.type || 'note');
-            const priorityClass = n.priority === 'urgent' ? 'note-priority-urgent' : n.priority === 'high' ? 'note-priority-high' : '';
-            const tagName = n.tagName || '';
-            const dept = n.department || '';
-            const ts = n.createdAt ? formatRelativeTime(n.createdAt) : '';
-            const authorName = n.authorName || n.authorEmail || '';
-            const authorInitial = authorName ? authorName.charAt(0).toUpperCase() : 'U';
-            return `<article class="note-item ${typeClass} ${priorityClass}" data-note-id="${n.id}">
-                <div class="note-item-avatar">${authorInitial}</div>
-                <div class="note-item-body">
-                    <div class="note-item-meta">
-                        <span class="note-item-author">${escapeHtml(authorName)}</span>
-                        <span class="note-type-badge ${typeClass}">${escapeHtml(n.type || 'note')}</span>
-                        ${dept ? `<span class="note-dept-badge">${escapeHtml(dept)}</span>` : ''}
-                        ${tagName ? `<span class="note-tag-badge">@${escapeHtml(tagName)}</span>` : ''}
-                        ${n.taskCreated ? '<span class="note-task-badge">Task</span>' : ''}
-                        <span class="note-item-time">${ts}</span>
-                    </div>
-                    <p class="note-item-text">${escapeHtml(n.text || '')}</p>
-                </div>
-                <button type="button" class="note-delete-btn" data-note-id="${n.id}" title="Delete">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-            </article>`;
-        }).join('');
-    }
-
-    function formatRelativeTime(ts) {
-        if (!ts) return '';
-        const date = ts.toDate ? ts.toDate() : new Date(ts);
-        const now = new Date();
-        const diff = Math.floor((now - date) / 1000);
-        if (diff < 60) return 'just now';
-        if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-        if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-        if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
-        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-
-    async function postNote() {
-        const text = $('noteText').value.trim();
-        if (!text) return;
-        const type = $('noteType').value;
-        const dept = $('noteDept').value;
-        const tagId = $('noteTag').value;
-        const priority = $('notePriority').value;
-        const createTask = $('noteCreateTask').checked;
-
-        const tagDriver = tagId ? state.drivers.find(d => d.id === tagId) : null;
-        const tagName = tagDriver ? [tagDriver.firstName, tagDriver.lastName].filter(Boolean).join(' ') : '';
-
-        const user = state.user;
-        const authorEmail = user ? user.email : '';
-        const authorName = state.profile.name || authorEmail.split('@')[0] || '';
-
-        const noteData = {
-            text,
-            type,
-            department: dept,
-            tagId: tagId || null,
-            tagName,
-            priority,
-            taskCreated: createTask,
-            authorEmail,
-            authorName,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            createdAtIso: new Date().toISOString()
-        };
-
-        try {
-            $('notePostBtn').disabled = true;
-            const docRef = await col('notes').add(noteData);
-
-            // Optionally create a task in the task manager
-            if (createTask && typeof FirebaseDB !== 'undefined') {
-                const taskData = {
-                    text: '[' + type.toUpperCase() + '] ' + text,
-                    type: type,
-                    status: 'Open',
-                    assignedTo: tagId ? [tagName] : [],
-                    dueDate: null,
-                    createdBy: authorEmail,
-                    noteId: docRef.id,
-                    department: dept,
-                    priority: priority
-                };
-                // Create under a general "notes" entity in drivers collection (company-wide)
-                const companyTaskDoc = 'company-notes';
-                await FirebaseDB.createTask(uid(), 'drivers', companyTaskDoc, taskData);
-            }
-
-            // Reset form
-            $('noteText').value = '';
-            $('noteText').style.height = 'auto';
-            $('noteType').value = 'note';
-            $('noteDept').value = '';
-            $('noteTag').value = '';
-            $('notePriority').value = 'normal';
-            $('noteCreateTask').checked = false;
-            $('notePostBtn').disabled = true;
-
-            showMsg('Note posted');
-            await loadNotes();
-        } catch (err) {
-            console.error('postNote:', err);
-            showMsg('Failed to post note', true);
-        } finally {
-            $('notePostBtn').disabled = false;
-        }
-    }
-
-    async function deleteNote(noteId) {
-        try {
-            await col('notes').doc(noteId).delete();
-            state.notes = state.notes.filter(n => n.id !== noteId);
-            renderNotes();
-            showMsg('Note deleted');
-        } catch (err) {
-            console.error('deleteNote:', err);
-            showMsg('Failed to delete note', true);
-        }
-    }
-
-    function initNotes() {
-        const textarea = $('noteText');
-        const postBtn = $('notePostBtn');
-        const form = $('noteForm');
-        const feed = $('noteFeed');
-        const filters = $('noteFilters');
-
-        if (!textarea || !form) return;
-
-        // Auto-resize textarea
-        textarea.addEventListener('input', () => {
-            textarea.style.height = 'auto';
-            textarea.style.height = textarea.scrollHeight + 'px';
-            postBtn.disabled = !textarea.value.trim();
-        });
-
-        // Submit
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            postNote();
-        });
-
-        // Filter chips
-        if (filters) {
-            filters.addEventListener('click', (e) => {
-                const chip = e.target.closest('.note-filter-chip');
-                if (!chip) return;
-                filters.querySelectorAll('.note-filter-chip').forEach(c => c.classList.remove('active'));
-                chip.classList.add('active');
-                state.noteFilter = chip.dataset.filter;
-                renderNotes();
-            });
-        }
-
-        // Delete via delegation
-        if (feed) {
-            feed.addEventListener('click', (e) => {
-                const btn = e.target.closest('.note-delete-btn');
-                if (!btn) return;
-                deleteNote(btn.dataset.noteId);
-            });
         }
     }
 
@@ -5989,7 +5780,6 @@
         initCompanyDashboard();
         initFmcsaLookup();
         initFmcsaTab();
-        initNotes();
         initTruckForm();
         initSheetModals();
         initTrailerForm();

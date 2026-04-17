@@ -390,13 +390,6 @@
                     </div>
                 </div>
 
-                <button class="dash-nav-item dash-nav-item-notes" data-section="notes">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                    </svg>
-                    <span>Notes</span>
-                </button>
-
                 <button class="dash-nav-item dash-nav-item-company" data-section="company">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
@@ -1820,89 +1813,6 @@
                             </svg>
                             <p>Custom reports coming soon</p>
                             <span class="placeholder-hint">Generate and schedule operational reports</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- ═══ Notes / Feed ═══ -->
-            <section class="dash-section" id="section-notes">
-                <div class="notes-layout">
-                    <!-- Compose -->
-                    <div class="note-compose-card">
-                        <form id="noteForm" autocomplete="off">
-                            <div class="note-compose-top">
-                                <div class="note-avatar" id="noteAvatar">U</div>
-                                <textarea id="noteText" class="note-compose-input" placeholder="Write a quick note or report an issue…" rows="1"></textarea>
-                            </div>
-                            <div class="note-compose-bar">
-                                <div class="note-compose-options">
-                                    <div class="note-field-group">
-                                        <label class="note-field-label">Type</label>
-                                        <select id="noteType" class="note-select">
-                                            <option value="note">Note</option>
-                                            <option value="issue">Issue</option>
-                                            <option value="reminder">Reminder</option>
-                                            <option value="update">Update</option>
-                                        </select>
-                                    </div>
-                                    <div class="note-field-group">
-                                        <label class="note-field-label">Department</label>
-                                        <select id="noteDept" class="note-select">
-                                            <option value="">None</option>
-                                            <option value="Safety">Safety</option>
-                                            <option value="Dispatch">Dispatch</option>
-                                            <option value="Maintenance">Maintenance</option>
-                                            <option value="Accounting">Accounting</option>
-                                            <option value="Hiring">Hiring</option>
-                                            <option value="Claims">Claims</option>
-                                            <option value="Operations">Operations</option>
-                                        </select>
-                                    </div>
-                                    <div class="note-field-group">
-                                        <label class="note-field-label">Tag</label>
-                                        <select id="noteTag" class="note-select">
-                                            <option value="">No one</option>
-                                        </select>
-                                    </div>
-                                    <div class="note-field-group">
-                                        <label class="note-field-label">Priority</label>
-                                        <select id="notePriority" class="note-select">
-                                            <option value="normal">Normal</option>
-                                            <option value="high">High</option>
-                                            <option value="urgent">Urgent</option>
-                                        </select>
-                                    </div>
-                                    <label class="note-task-toggle">
-                                        <input type="checkbox" id="noteCreateTask">
-                                        <span>Create task</span>
-                                    </label>
-                                </div>
-                                <button type="submit" class="note-post-btn" id="notePostBtn" disabled>
-                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                                    Post
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-
-                    <!-- Filters -->
-                    <div class="note-filters" id="noteFilters">
-                        <button class="note-filter-chip active" data-filter="all">All</button>
-                        <button class="note-filter-chip" data-filter="note">Notes</button>
-                        <button class="note-filter-chip" data-filter="issue">Issues</button>
-                        <button class="note-filter-chip" data-filter="reminder">Reminders</button>
-                        <button class="note-filter-chip" data-filter="update">Updates</button>
-                    </div>
-
-                    <!-- Feed -->
-                    <div class="note-feed" id="noteFeed">
-                        <div class="note-empty">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40">
-                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                            </svg>
-                            <p>No notes yet</p>
-                            <span>Post a note, issue, or reminder to get started</span>
                         </div>
                     </div>
                 </div>

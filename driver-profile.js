@@ -6,7 +6,7 @@
         driverId: '',
         driver: null,
         history: [],
-        photos: []
+        photos: [],
     };
 
     function $(id) {
