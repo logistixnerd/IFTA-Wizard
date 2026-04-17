@@ -4893,12 +4893,12 @@
             // Build column mapping with fuzzy matching
             const colMap = buildSmartColumnMap(header, aliases);
 
-            // Check for fullName → split into first/last
+            // Resolve name columns: merge firstName+lastName into name, or use fullName
             const hasFullName = colMap.fullName !== undefined;
             const hasFirstName = colMap.firstName !== undefined;
+            const hasLastName = colMap.lastName !== undefined;
 
             if (!hasFirstName && !hasFullName) {
-                // Try harder — look for any column that could be a name
                 const nameIdx = header.findIndex(h => /^(name|driver|employee|person)$/i.test(h.replace(/[^a-z]/gi, '')));
                 if (nameIdx !== -1) colMap.fullName = nameIdx;
             }
@@ -4951,21 +4951,29 @@
                     }
                 });
 
-                // Handle fullName splitting
-                if (hasFullName && !data.firstName) {
+                // Build combined name
+                let combinedName = '';
+                if (hasFullName) {
                     const full = (row[colMap.fullName] || '').toString().trim();
                     if (full) {
-                        const parts = full.replace(/,\s*/g, ' ').split(/\s+/).filter(Boolean);
                         if (full.includes(',')) {
-                            // "Last, First" format
-                            data.lastName = parts[0] || '';
-                            data.firstName = parts.slice(1).join(' ') || '';
+                            const parts = full.split(',').map(p => p.trim()).filter(Boolean);
+                            combinedName = (parts[1] || '') + ' ' + (parts[0] || '');
                         } else {
-                            data.firstName = parts[0] || '';
-                            data.lastName = parts.slice(1).join(' ') || '';
+                            combinedName = full;
                         }
-                        hasValue = true;
                     }
+                }
+                if (!combinedName && (hasFirstName || hasLastName)) {
+                    const first = hasFirstName ? (row[colMap.firstName] || '').toString().trim() : '';
+                    const last = hasLastName ? (row[colMap.lastName] || '').toString().trim() : '';
+                    combinedName = [first, last].filter(Boolean).join(' ');
+                }
+                if (combinedName) {
+                    data.name = combinedName.trim();
+                    delete data.firstName;
+                    delete data.lastName;
+                    hasValue = true;
                 }
 
                 // Try to match truck by unit number
@@ -4975,7 +4983,7 @@
                     data.truck = match ? match.id : '';
                 }
 
-                if (hasValue && (data.firstName || data.lastName)) {
+                if (hasValue && data.name) {
                     parsed.push(data);
                 }
             }
@@ -5352,8 +5360,7 @@
         },
         driver: {
             cols: [
-                { key: 'firstName', placeholder: 'e.g., John', type: 'text', required: true },
-                { key: 'lastName', placeholder: 'e.g., Smith', type: 'text' },
+                { key: 'name', placeholder: 'e.g., John Smith', type: 'text', required: true },
                 { key: 'phone', placeholder: '(555) 123-4567', type: 'text' },
                 { key: 'cdl', placeholder: 'CDL number', type: 'text' },
                 { key: 'cdlState', placeholder: 'TX', type: 'text', maxlength: 2, pattern: /^[A-Z]{2}$/, warnMsg: 'Invalid state code' },
@@ -5366,7 +5373,7 @@
             ],
             collection: 'drivers',
             label: 'driver',
-            requiredKey: 'firstName',
+            requiredKey: 'name',
             duplicateKey: null,
             modalId: 'multiDriverModal',
             tbodyId: 'multiDriverBody',
@@ -5978,6 +5985,13 @@
                     Object.entries(config.defaults).forEach(([k, v]) => {
                         if (!data[k]) data[k] = v;
                     });
+                }
+                // For drivers: split name into firstName + lastName for Firestore
+                if (type === 'driver' && data.name && !data.firstName) {
+                    const parts = data.name.trim().split(/\s+/);
+                    data.firstName = parts[0] || '';
+                    data.lastName = parts.slice(1).join(' ') || '';
+                    delete data.name;
                 }
                 // Uppercase state fields
                 if (data.plateState) data.plateState = data.plateState.toUpperCase();
