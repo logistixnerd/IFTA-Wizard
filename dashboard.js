@@ -2107,7 +2107,7 @@
             if (daysUntil >= 0 && daysUntil <= 60) {
                 const type = daysUntil <= 7 ? 'danger' : daysUntil <= 30 ? 'warning' : 'info';
                 reminders.push({
-                    type, icon: 'calendar',
+                    type, icon: 'calendar', link: '/',
                     text: `IFTA ${dl.label} filing due ${deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} \u2014 ${daysUntil} day${daysUntil !== 1 ? 's' : ''} left`
                 });
             }
@@ -8420,7 +8420,7 @@
             if (daysLeft >= 0 && daysLeft <= 30) {
                 alerts.push({
                     type: daysLeft <= 7 ? 'danger' : 'warning',
-                    icon: 'clock',
+                    icon: 'clock', link: '/',
                     text: 'IFTA ' + dl.label + ' filing due in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '')
                 });
             }
@@ -8473,6 +8473,10 @@
                     + `</button>`
                     + `<div class="alert-dropdown-panel" id="${detailId}" hidden><ul class="alert-dropdown-list">${rows}</ul></div>`
                     + `</div>`;
+            }
+            if (a.link) {
+                return `<a href="${escapeHtml(a.link)}" class="alert-item alert-${escapeHtml(a.type)} alert-link">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
+                    + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="alert-link-arrow"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>`;
             }
             return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
         }).join('');

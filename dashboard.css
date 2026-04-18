@@ -597,6 +597,25 @@
     border: 1px solid rgba(239, 68, 68, 0.18);
     color: #dc2626;
 }
+a.fmcsa-reminder-link {
+    text-decoration: none;
+    cursor: pointer;
+    transition: filter 0.15s, box-shadow 0.15s;
+}
+a.fmcsa-reminder-link:hover {
+    filter: brightness(0.95);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.fmcsa-reminder-arrow {
+    margin-left: auto;
+    flex-shrink: 0;
+    opacity: 0.5;
+    transition: opacity 0.15s, transform 0.15s;
+}
+a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
+    opacity: 1;
+    transform: translateX(2px);
+}
 .fmcsa-no-reminders {
     font-size: 0.82rem;
     color: var(--gray-400);
@@ -2524,6 +2543,29 @@
 
 .alert-item:last-child {
     margin-bottom: 0;
+}
+a.alert-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    color: inherit;
+    cursor: pointer;
+    transition: filter 0.15s, box-shadow 0.15s;
+}
+a.alert-link:hover {
+    filter: brightness(0.95);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.alert-link-arrow {
+    margin-left: auto;
+    flex-shrink: 0;
+    opacity: 0.5;
+    transition: opacity 0.15s, transform 0.15s;
+}
+a.alert-link:hover .alert-link-arrow {
+    opacity: 1;
+    transform: translateX(2px);
 }
 
 .alert-item svg {
