@@ -2625,7 +2625,7 @@
             ]},
             { key: 'deliveryDate', label: 'DEL Date', type: 'date', width: '110px', default: true },
             { key: 'driver', label: 'Driver', type: 'driver-select', width: '120px', default: true },
-            { key: 'dispatcher', label: 'Dispatcher', type: 'text', width: '110px', placeholder: 'Dispatcher', default: true },
+            { key: 'dispatcher', label: 'Dispatcher', type: 'dispatcher-select', width: '130px', default: true },
             { key: 'loadDate', label: 'Load Date', type: 'date', width: '110px', default: false },
             { key: 'comments', label: 'Comments', type: 'text', width: '160px', placeholder: 'Notes...', default: false }
         ]
@@ -3005,6 +3005,12 @@
                     `<option value="${escapeHtml(d.firstName + ' ' + d.lastName)}"${(d.firstName + ' ' + d.lastName) === val ? ' selected' : ''}>${escapeHtml(d.firstName + ' ' + d.lastName)}</option>`
                 ).join('');
                 html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Driver</option>${opts}</select></td>`;
+            } else if (c.type === 'dispatcher-select') {
+                const dispatchers = (state.companyDashboard && state.companyDashboard.users || []).filter(u => u.role === 'Dispatcher');
+                const opts = dispatchers.map(u =>
+                    `<option value="${escapeHtml(u.name)}"${u.name === val ? ' selected' : ''}>${escapeHtml(u.name)}</option>`
+                ).join('');
+                html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Dispatcher</option>${opts}</select></td>`;
             } else if (c.type === 'date') {
                 html += `<td class="usheet-cell" data-key="${c.key}"><input type="date" data-key="${c.key}" value="${escapeHtml(val)}"${!val ? ' class="usheet-empty"' : ''}></td>`;
             } else {
@@ -7400,7 +7406,7 @@
                 ]},
                 { key: 'deliveryDate', type: 'date' },
                 { key: 'driver', type: 'driver-select' },
-                { key: 'dispatcher', placeholder: 'Dispatcher', type: 'text' }
+                { key: 'dispatcher', type: 'dispatcher-select' }
             ],
             collection: 'loads',
             label: 'load',
@@ -8789,8 +8795,16 @@
         $('loadStatus').value = data ? data.status || 'booked' : 'booked';
         $('loadDeliveryDate').value = data ? data.deliveryDate || '' : '';
         $('loadDriver').value = data ? data.driver || '' : '';
-        $('loadDispatcher').value = data ? data.dispatcher || '' : '';
         $('loadComments').value = data ? data.comments || '' : '';
+        // Populate dispatcher dropdown with users who have Dispatcher role
+        const dispatcherSel = $('loadDispatcher');
+        if (dispatcherSel && dispatcherSel.tagName === 'SELECT') {
+            const currentDisp = data ? data.dispatcher || '' : '';
+            const dispatchers = (state.companyDashboard && state.companyDashboard.users || []).filter(u => u.role === 'Dispatcher');
+            const dOpts = '<option value="">—</option>' + dispatchers.map(u => `<option value="${escapeHtml(u.name)}" ${u.name === currentDisp ? 'selected' : ''}>${escapeHtml(u.name)}</option>`).join('');
+            dispatcherSel.innerHTML = dOpts;
+            if (currentDisp) dispatcherSel.value = currentDisp;
+        }
         // Populate unit dropdown with active trucks
         const unitSel = $('loadUnit');
         if (unitSel) {
@@ -8852,7 +8866,7 @@
                 status: $('loadStatus').value,
                 deliveryDate: $('loadDeliveryDate').value.trim(),
                 driver: $('loadDriver').value,
-                dispatcher: $('loadDispatcher').value.trim(),
+                dispatcher: $('loadDispatcher').value,
                 comments: $('loadComments').value.trim(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
