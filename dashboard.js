@@ -2608,6 +2608,7 @@
             ]}
         ],
         load: [
+            { key: 'loadNumber', label: 'Load #', type: 'computed', width: '70px', default: true },
             { key: 'unit', label: 'Unit', type: 'truck-select', width: '90px', default: true },
             { key: 'origin', label: 'Origin', type: 'text', width: '130px', placeholder: 'Zip or City, ST', default: true },
             { key: 'destination', label: 'Destination', type: 'text', width: '130px', placeholder: 'Zip or City, ST', default: true },
@@ -3020,6 +3021,7 @@
                 // Read-only computed cell (e.g. RPM)
                 let computed = '';
                 if (c.key === 'rpm' && data) computed = calcRPM(data.rate, data.mileage);
+                if (c.key === 'loadNumber' && data) computed = data.loadNumber || '';
                 html += `<td class="usheet-cell usheet-computed" data-key="${c.key}"><span data-key="${c.key}">${escapeHtml(computed)}</span></td>`;
             } else {
                 html += `<td class="usheet-cell" data-key="${c.key}"><input type="${c.type === 'number' ? 'number' : 'text'}" data-key="${c.key}" value="${escapeHtml(val)}" placeholder="${c.placeholder || ''}"${c.maxlength ? ' maxlength="' + c.maxlength + '"' : ''}></td>`;
@@ -8837,7 +8839,7 @@
         const bulkEditBtn = $('bulkEditLoadsBtn');
         if (bulkEditBtn) bulkEditBtn.style.display = bulkSelection.loads.size > 0 ? '' : 'none';
 
-        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="loadSelectAll" title="Select all"></th><th style="width:3%">#</th><th style="width:5%">Unit</th><th style="width:11%">From</th><th style="width:11%">To</th><th style="width:7%">Broker</th><th style="width:6%">Rate</th><th style="width:5%">Mileage</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bonus</th><th style="width:7%">Status</th><th style="width:7%">DEL Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:7%">Dispatcher</th><th style="width:6%">Comments</th><th style="width:4%"></th>`;
+        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="loadSelectAll" title="Select all"></th><th style="width:5%">Load #</th><th style="width:5%">Unit</th><th style="width:11%">From</th><th style="width:11%">To</th><th style="width:7%">Broker</th><th style="width:6%">Rate</th><th style="width:5%">Mileage</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bonus</th><th style="width:7%">Status</th><th style="width:7%">DEL Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:7%">Dispatcher</th><th style="width:5%">Comments</th><th style="width:4%"></th>`;
         const selAll = thead?.querySelector('#loadSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('loads', selAll);
         tbody.innerHTML = sorted.map((l, i) => {
@@ -8851,7 +8853,7 @@
                 : '<button class="load-doc-btn" data-doc="pod" data-id="' + l.id + '" title="Upload Proof of Delivery"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>';
             return `<tr data-id="${l.id}" class="${bulkSelection.loads.has(l.id) ? 'row-selected' : ''}">
             <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${l.id}" ${bulkSelection.loads.has(l.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('loads','${l.id}',this)"></td>
-            <td><div class="cell cell-muted">${i + 1}</div></td>
+            <td><div class="cell cell-muted">${escapeHtml(l.loadNumber || '')}</div></td>
             <td><div class="cell">${escapeHtml(l.unit || '')}</div></td>
             <td><div class="cell load-cell-with-doc"><span>${escapeHtml(l.origin || '')}</span>${rcIcon}</div></td>
             <td><div class="cell load-cell-with-doc"><span>${escapeHtml(l.destination || '')}</span>${podIcon}</div></td>
