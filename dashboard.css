@@ -5352,13 +5352,12 @@ input[type="date"].ss-input {
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 10px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    padding: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    padding: 6px;
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    max-width: 380px;
-    min-width: 200px;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 170px;
     max-height: 320px;
     overflow-y: auto;
     scrollbar-width: thin;
@@ -5376,60 +5375,61 @@ input[type="date"].ss-input {
 
 /* Mini card */
 .usheet-card {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    padding: 5px 12px;
-    border-radius: 20px;
+    padding: 6px 12px;
+    border-radius: 6px;
     font-size: 0.6875rem;
-    font-weight: 600;
+    font-weight: 500;
     font-family: inherit;
-    border: 1.5px solid #e5e7eb;
-    background: #fff;
+    border: 1px solid transparent;
+    background: #f9fafb;
     color: #6b7280;
     cursor: pointer;
-    transition: all 0.18s ease;
+    transition: all 0.15s ease;
     white-space: nowrap;
     user-select: none;
     line-height: 1.2;
+    width: 100%;
+    text-align: left;
 }
 
 .usheet-card:hover {
-    border-color: #c7d2fe;
-    color: #4f46e5;
-    background: #f5f3ff;
+    background: #eef2ff;
+    color: #6366f1;
 }
 
-/* Active card — filled pill */
+/* Active card */
 .usheet-card.active {
-    background: #6366f1;
-    color: #fff;
-    border-color: #6366f1;
-    box-shadow: 0 1px 4px rgba(99,102,241,0.25);
+    background: #eef2ff;
+    color: #4f46e5;
+    border-color: #c7d2fe;
+    font-weight: 600;
 }
 
 .usheet-card.active:hover {
-    background: #4f46e5;
-    border-color: #4f46e5;
+    background: #e0e7ff;
+    border-color: #a5b4fc;
 }
 
-/* Locked card — always active, can't toggle */
+/* Locked card */
 .usheet-card.locked {
-    background: #eef2ff;
-    color: #818cf8;
-    border-color: #c7d2fe;
+    background: #f5f3ff;
+    color: #a5b4fc;
+    border-color: #e0e7ff;
     cursor: default;
-    opacity: 0.7;
+    opacity: 0.65;
 }
 
 /* Vanish animation */
 @keyframes usheet-vanish {
     0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(0.6); opacity: 0; }
+    50% { transform: scaleY(0.3); opacity: 0; }
     100% { transform: scale(1); opacity: 1; }
 }
 
 .usheet-card-vanish {
-    animation: usheet-vanish 0.3s ease;
+    animation: usheet-vanish 0.25s ease;
     pointer-events: none;
 }
 
