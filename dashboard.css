@@ -575,11 +575,17 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.55rem 0.85rem;
+    padding: 0.4rem 0.75rem;
     border-radius: 8px;
     font-size: 0.78rem;
     font-weight: 500;
-    line-height: 1.4;
+    line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.fmcsa-reminder span {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 .fmcsa-reminder svg { flex-shrink: 0; }
 .fmcsa-reminder-info {
@@ -2529,16 +2535,24 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 }
 
 .alert-item {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     width: 100%;
     box-sizing: border-box;
-    padding: 0.625rem 0.875rem;
+    padding: 0.4rem 0.75rem;
     font-size: 0.8125rem;
     border-radius: 12px;
     margin-bottom: 0.5rem;
     border: 1px solid transparent;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    white-space: nowrap;
+    overflow: hidden;
+}
+.alert-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .alert-item:last-child {
