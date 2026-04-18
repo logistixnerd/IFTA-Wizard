@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=61">
+    <link rel="stylesheet" href="dashboard.css?v=62">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -1574,6 +1574,59 @@
 
             <!-- Load Board Section -->
             <section class="dash-section" id="section-dispatch-board">
+                <!-- Dispatch Overview Stats -->
+                <div class="dispatch-overview">
+                    <div class="dispatch-stat-cards">
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispTotalLoads">0</span>
+                            <span class="dispatch-stat-label">Loads</span>
+                        </div>
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispTotalMiles">0</span>
+                            <span class="dispatch-stat-label">Total Miles</span>
+                        </div>
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispAvgMiles">0</span>
+                            <span class="dispatch-stat-label">Avg Miles / Load</span>
+                        </div>
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispGrossRevenue">$0</span>
+                            <span class="dispatch-stat-label">Gross Revenue</span>
+                        </div>
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispAvgRate">$0</span>
+                            <span class="dispatch-stat-label">Avg Rate</span>
+                        </div>
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispAvgRPM">$0</span>
+                            <span class="dispatch-stat-label">Avg RPM</span>
+                        </div>
+                    </div>
+                    <div class="dispatch-breakdown">
+                        <div class="dispatch-breakdown-tabs">
+                            <button class="dispatch-tab active" data-tab="driver">By Driver</button>
+                            <button class="dispatch-tab" data-tab="broker">By Broker</button>
+                            <button class="dispatch-tab" data-tab="dispatcher">By Dispatcher</button>
+                            <button class="dispatch-tab" data-tab="unit">By Unit</button>
+                        </div>
+                        <div class="dispatch-breakdown-body" id="dispatchBreakdownBody">
+                            <table class="dispatch-breakdown-table">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Loads</th>
+                                        <th>Miles</th>
+                                        <th>Avg Miles</th>
+                                        <th>Gross</th>
+                                        <th>Avg Rate</th>
+                                        <th>Avg RPM</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dispatchBreakdownTbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
                 <div class="dash-card">
                     <div class="dash-card-header">
                         <h2>Load Board</h2>
@@ -3671,6 +3724,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=61"></script>
+    <script src="dashboard.js?v=62"></script>
 </body>
 </html>

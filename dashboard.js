@@ -7413,7 +7413,7 @@
             requiredKey: 'loadNumber',
             duplicateKey: 'loadNumber',
             defaults: { status: 'booked' },
-            afterSave: async () => { await loadLoads(); updateOverview(); },
+            afterSave: async () => { await loadLoads(); updateOverview(); updateDispatchOverview(); },
             extraFields: ['loadDate', 'comments'],
             csvAliases: {
                 loadNumber: ['loadnumber', 'load', 'loadnum', 'loadid', 'loadno', 'number', 'no', 'id', 'order', 'ordernumber', 'orderno', 'orderid', 'pro', 'pronumber', 'prono', 'ref', 'reference', 'refnumber', 'refno', 'bol', 'bolnumber'],
@@ -8778,6 +8778,7 @@
             </div></td>
         </tr>`;
         }).join('');
+        updateDispatchOverview();
     }
 
     function openLoadModal(data) {
@@ -9172,6 +9173,88 @@
         document.querySelectorAll('[data-dtt-count="drivers"]').forEach(el => el.textContent = state.drivers.length);
         populateOverviewDropdowns();
         updateAlerts();
+    }
+
+    /* ── Dispatch Overview aggregation ── */
+    let _dispatchTab = 'driver';
+
+    function updateDispatchOverview() {
+        const loads = state.loads.filter(l => l.status !== 'canceled');
+        const totalLoads = loads.length;
+        let totalMiles = 0, totalGross = 0, rpmCount = 0, rpmSum = 0;
+        loads.forEach(l => {
+            const m = parseFloat(l.mileage) || 0;
+            const r = parseFloat(l.rate) || 0;
+            const d = parseFloat(l.detention) || 0;
+            totalMiles += m;
+            totalGross += r + d;
+            if (m > 0 && r > 0) { rpmSum += r / m; rpmCount++; }
+        });
+        const avgMiles = totalLoads ? Math.round(totalMiles / totalLoads) : 0;
+        const avgRate = totalLoads ? totalGross / totalLoads : 0;
+        const avgRPM = rpmCount ? rpmSum / rpmCount : 0;
+        const el = id => $(id);
+        el('dispTotalLoads').textContent = totalLoads;
+        el('dispTotalMiles').textContent = totalMiles.toLocaleString();
+        el('dispAvgMiles').textContent = avgMiles.toLocaleString();
+        el('dispGrossRevenue').textContent = '$' + totalGross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        el('dispAvgRate').textContent = '$' + avgRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        el('dispAvgRPM').textContent = '$' + avgRPM.toFixed(2);
+        renderDispatchBreakdown(_dispatchTab);
+    }
+
+    function aggregateLoadsBy(key) {
+        const map = {};
+        state.loads.filter(l => l.status !== 'canceled').forEach(l => {
+            const name = (l[key] || '').trim() || 'Unassigned';
+            if (!map[name]) map[name] = { loads: 0, miles: 0, gross: 0, rpmSum: 0, rpmCount: 0 };
+            const e = map[name];
+            const m = parseFloat(l.mileage) || 0;
+            const r = parseFloat(l.rate) || 0;
+            const d = parseFloat(l.detention) || 0;
+            e.loads++;
+            e.miles += m;
+            e.gross += r + d;
+            if (m > 0 && r > 0) { e.rpmSum += r / m; e.rpmCount++; }
+        });
+        return Object.entries(map).map(([name, e]) => ({
+            name,
+            loads: e.loads,
+            miles: e.miles,
+            avgMiles: e.loads ? Math.round(e.miles / e.loads) : 0,
+            gross: e.gross,
+            avgRate: e.loads ? e.gross / e.loads : 0,
+            avgRPM: e.rpmCount ? e.rpmSum / e.rpmCount : 0
+        })).sort((a, b) => b.gross - a.gross);
+    }
+
+    function renderDispatchBreakdown(tab) {
+        _dispatchTab = tab;
+        const keyMap = { driver: 'driver', broker: 'broker', dispatcher: 'dispatcher', unit: 'unit' };
+        const rows = aggregateLoadsBy(keyMap[tab] || 'driver');
+        const tbody = $('dispatchBreakdownTbody');
+        if (!tbody) return;
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:1rem">No data</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(r => `<tr>
+            <td>${escapeHtml(r.name)}</td>
+            <td>${r.loads}</td>
+            <td>${r.miles.toLocaleString()}</td>
+            <td>${r.avgMiles.toLocaleString()}</td>
+            <td>$${r.gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td>$${r.avgRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td>$${r.avgRPM.toFixed(2)}</td>
+        </tr>`).join('');
+        // Update tab active state
+        document.querySelectorAll('.dispatch-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+    }
+
+    function initDispatchOverview() {
+        document.querySelectorAll('.dispatch-tab').forEach(btn => {
+            btn.addEventListener('click', () => renderDispatchBreakdown(btn.dataset.tab));
+        });
     }
 
     function showMsg(text, isError) {
@@ -9811,6 +9894,7 @@
         initDriverForm();
         initLoadForm();
         initLoadDocUpload();
+        initDispatchOverview();
         initUnifiedSheet();
         initTruckDetailPanel();
         initTrailerDetailPanel();
