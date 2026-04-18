@@ -8450,12 +8450,7 @@
         }
 
         const container = $('overviewAlerts');
-        if (!container) return;
-
-        if (alerts.length === 0) {
-            container.innerHTML = '';
-            return;
-        }
+        const safetyContainer = $('safetyAlerts');
 
         const iconMap = {
             clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
@@ -8464,96 +8459,88 @@
             user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
         };
 
-        container.innerHTML = alerts.map((a, idx) => {
-            if (a.kind === 'unassigned-drivers') {
-                const activeTrucks = state.trucks.filter(t => t.status === 'active');
-                const truckBtns = activeTrucks.map(t =>
-                    '<button type="button" class="alert-assign-option" data-truck-id="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit) + '</button>'
-                ).join('') || '<div style="padding:0.4rem 0.5rem;font-size:0.62rem;color:var(--gray-400)">No active trucks</div>';
-                const rows = (a.drivers || []).map((driver) => {
-                    const meta = [driver.cdl ? ('CDL: ' + driver.cdl) : '', driver.phone].filter(Boolean).join(' \u00b7 ');
-                    return `<li class="alert-unassigned-row">`
-                        + `<span class="alert-unassigned-name" data-driver-id="${escapeHtml(driver.id)}">${escapeHtml(driver.name)}</span>`
-                        + (meta ? `<span class="alert-unassigned-meta">${escapeHtml(meta)}</span>` : '')
-                        + `<div class="alert-assign-wrap" data-driver-id="${escapeHtml(driver.id)}">`
-                        + `<button type="button" class="alert-assign-btn" title="Assign truck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></button>`
-                        + `<div class="alert-assign-popup">${truckBtns}</div>`
+        // Split: unassigned drivers + IFTA → safety, rest → overview
+        const safetyAlerts = alerts.filter(a => a.kind === 'unassigned-drivers' || a.link);
+        const overviewAlerts = alerts.filter(a => a.kind !== 'unassigned-drivers' && !a.link);
+
+        function renderAlertsTo(target, list) {
+            if (!target) return;
+            if (list.length === 0) { target.innerHTML = ''; return; }
+            target.innerHTML = list.map((a) => {
+                if (a.kind === 'unassigned-drivers') {
+                    const activeTrucks = state.trucks.filter(t => t.status === 'active');
+                    const truckBtns = activeTrucks.map(t =>
+                        '<button type="button" class="alert-assign-option" data-truck-id="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit) + '</button>'
+                    ).join('') || '<div style="padding:0.4rem 0.5rem;font-size:0.62rem;color:var(--gray-400)">No active trucks</div>';
+                    const rows = (a.drivers || []).map((driver) => {
+                        const meta = [driver.cdl ? ('CDL: ' + driver.cdl) : '', driver.phone].filter(Boolean).join(' \u00b7 ');
+                        return `<li class="alert-unassigned-row">`
+                            + `<span class="alert-unassigned-name" data-driver-id="${escapeHtml(driver.id)}">${escapeHtml(driver.name)}</span>`
+                            + (meta ? `<span class="alert-unassigned-meta">${escapeHtml(meta)}</span>` : '')
+                            + `<div class="alert-assign-wrap" data-driver-id="${escapeHtml(driver.id)}">`
+                            + `<button type="button" class="alert-assign-btn" title="Assign truck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></button>`
+                            + `<div class="alert-assign-popup">${truckBtns}</div>`
+                            + `</div>`
+                            + `</li>`;
+                    }).join('');
+                    return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned">`
+                        + `<div class="alert-unassigned-header">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
+                        + `<svg class="alert-unassigned-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`
                         + `</div>`
-                        + `</li>`;
-                }).join('');
-                return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned">`
-                    + `<div class="alert-unassigned-header">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
-                    + `<svg class="alert-unassigned-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`
-                    + `</div>`
-                    + `<ul class="alert-unassigned-list">${rows}</ul>`
-                    + `</div>`;
-            }
-            if (a.link) {
-                return `<a href="${escapeHtml(a.link)}" onclick="sessionStorage.setItem('fromDashboard','true')" class="alert-item alert-${escapeHtml(a.type)} alert-link" title="Go to IFTA Wizard">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
-                    + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="alert-link-arrow"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>`;
-            }
-            return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
-        }).join('');
+                        + `<ul class="alert-unassigned-list">${rows}</ul>`
+                        + `</div>`;
+                }
+                if (a.link) {
+                    return `<a href="${escapeHtml(a.link)}" onclick="sessionStorage.setItem('fromDashboard','true')" class="alert-item alert-${escapeHtml(a.type)} alert-link" title="Go to IFTA Wizard">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
+                        + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="alert-link-arrow"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>`;
+                }
+                return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
+            }).join('');
+            wireAlertHandlers(target);
+        }
 
-        // Toggle unassigned list on header click + hover
-        container.querySelectorAll('.alert-unassigned').forEach((card) => {
-            let openTimer = null, closeTimer = null;
-            const hdr = card.querySelector('.alert-unassigned-header');
-            if (hdr) {
-                hdr.style.cursor = 'pointer';
-                hdr.addEventListener('click', () => card.classList.toggle('open'));
-            }
-            card.addEventListener('mouseenter', () => {
-                clearTimeout(closeTimer);
-                openTimer = setTimeout(() => card.classList.add('open'), 300);
+        function wireAlertHandlers(target) {
+            target.querySelectorAll('.alert-unassigned').forEach((card) => {
+                let openTimer = null, closeTimer = null;
+                const hdr = card.querySelector('.alert-unassigned-header');
+                if (hdr) { hdr.style.cursor = 'pointer'; hdr.addEventListener('click', () => card.classList.toggle('open')); }
+                card.addEventListener('mouseenter', () => { clearTimeout(closeTimer); openTimer = setTimeout(() => card.classList.add('open'), 300); });
+                card.addEventListener('mouseleave', () => { clearTimeout(openTimer); closeTimer = setTimeout(() => card.classList.remove('open'), 400); });
             });
-            card.addEventListener('mouseleave', () => {
-                clearTimeout(openTimer);
-                closeTimer = setTimeout(() => card.classList.remove('open'), 400);
+            target.querySelectorAll('.alert-unassigned-name[data-driver-id]').forEach((el) => {
+                el.addEventListener('click', () => openDriverProfile(el.dataset.driverId));
             });
-        });
-
-        container.querySelectorAll('.alert-unassigned-name[data-driver-id]').forEach((el) => {
-            el.addEventListener('click', () => openDriverProfile(el.dataset.driverId));
-        });
-
-        // Truck assign button → toggle popup
-        container.querySelectorAll('.alert-assign-btn').forEach((btn) => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const wrap = btn.closest('.alert-assign-wrap');
-                const wasOpen = wrap.classList.contains('open');
-                container.querySelectorAll('.alert-assign-wrap.open').forEach(w => w.classList.remove('open'));
-                if (!wasOpen) wrap.classList.add('open');
+            target.querySelectorAll('.alert-assign-btn').forEach((btn) => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const wrap = btn.closest('.alert-assign-wrap');
+                    const wasOpen = wrap.classList.contains('open');
+                    target.querySelectorAll('.alert-assign-wrap.open').forEach(w => w.classList.remove('open'));
+                    if (!wasOpen) wrap.classList.add('open');
+                });
             });
-        });
-
-        // Truck option click → assign
-        container.querySelectorAll('.alert-assign-option').forEach((opt) => {
-            opt.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const wrap = opt.closest('.alert-assign-wrap');
-                const driverId = wrap.dataset.driverId;
-                const truckId = opt.dataset.truckId;
-                wrap.classList.remove('open');
-                try {
-                    await col('drivers').doc(driverId).update({ truck: truckId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                    const d = state.drivers.find(x => x.id === driverId);
-                    if (d) d.truck = truckId;
-                    const truck = state.trucks.find(t => t.id === truckId);
-                    showMsg('Assigned to ' + (truck ? truck.unit : 'truck'));
-                    renderDrivers();
-                    updateOverview();
-                } catch (err) { console.error(err); showMsg('Error assigning truck', true); }
+            target.querySelectorAll('.alert-assign-option').forEach((opt) => {
+                opt.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const wrap = opt.closest('.alert-assign-wrap');
+                    const driverId = wrap.dataset.driverId;
+                    const truckId = opt.dataset.truckId;
+                    wrap.classList.remove('open');
+                    try {
+                        await col('drivers').doc(driverId).update({ truck: truckId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                        const d = state.drivers.find(x => x.id === driverId);
+                        if (d) d.truck = truckId;
+                        const truck = state.trucks.find(t => t.id === truckId);
+                        showMsg('Assigned to ' + (truck ? truck.unit : 'truck'));
+                        renderDrivers();
+                        updateOverview();
+                    } catch (err) { console.error(err); showMsg('Error assigning truck', true); }
+                });
             });
-        });
+        }
 
-        // Close popups on outside click
-        document.addEventListener('click', function closeAssignPopups(e) {
-            if (!e.target.closest('.alert-assign-wrap')) {
-                container.querySelectorAll('.alert-assign-wrap.open').forEach(w => w.classList.remove('open'));
-            }
-        }, { once: false });
+        renderAlertsTo(container, overviewAlerts);
+        renderAlertsTo(safetyContainer, safetyAlerts);
     }
 
     function populateTruckDropdown() {
