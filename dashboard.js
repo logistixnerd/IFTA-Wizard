@@ -2654,16 +2654,17 @@
             let val = data ? (data[c.key] || '') : '';
             if (c.type === 'select') {
                 const opts = c.options.map(o =>
-                    `<option value="${escapeHtml(o.value)}"${o.value === (val || c.options[0].value) ? ' selected' : ''}>${escapeHtml(o.label)}</option>`
+                    `<option value="${escapeHtml(o.value)}"${o.value === val ? ' selected' : ''}>${escapeHtml(o.label)}</option>`
                 ).join('');
-                html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}">${opts}</select></td>`;
+                const placeholder = c.placeholder || 'Select';
+                html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>${placeholder}</option>${opts}</select></td>`;
             } else if (c.type === 'truck-select') {
-                const opts = '<option value="">”</option>' + state.trucks.map(t =>
+                const opts = state.trucks.map(t =>
                     `<option value="${escapeHtml(t.unit)}"${t.unit === val ? ' selected' : ''}>${escapeHtml(t.unit)}</option>`
                 ).join('');
-                html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}">${opts}</select></td>`;
+                html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Truck</option>${opts}</select></td>`;
             } else if (c.type === 'date') {
-                html += `<td class="usheet-cell" data-key="${c.key}"><input type="date" data-key="${c.key}" value="${escapeHtml(val)}"></td>`;
+                html += `<td class="usheet-cell" data-key="${c.key}"><input type="date" data-key="${c.key}" value="${escapeHtml(val)}"${!val ? ' class="usheet-empty"' : ''}></td>`;
             } else {
                 html += `<td class="usheet-cell" data-key="${c.key}"><input type="${c.type === 'number' ? 'number' : 'text'}" data-key="${c.key}" value="${escapeHtml(val)}" placeholder="${c.placeholder || ''}"${c.maxlength ? ' maxlength="' + c.maxlength + '"' : ''}></td>`;
             }
@@ -3037,6 +3038,10 @@
         tbody.addEventListener('change', (e) => {
             const tr = e.target.closest('tr');
             if (tr) uMarkDirty(tr);
+            // Remove empty placeholder styling when value selected
+            if (e.target.tagName === 'SELECT' || e.target.type === 'date') {
+                e.target.classList.toggle('usheet-empty', !e.target.value);
+            }
         });
 
         // Keyboard: Tab/Enter/Escape navigation

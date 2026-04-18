@@ -5580,8 +5580,30 @@ input[type="date"].ss-input {
 }
 
 .usheet-cell input::placeholder {
-    color: #d1d5db;
+    color: #c6cbd2;
     font-weight: 400;
+    font-style: normal;
+    font-size: 0.75rem;
+}
+
+/* Empty select / date — match placeholder look */
+.usheet-cell select.usheet-empty {
+    color: #c6cbd2;
+    font-weight: 400;
+}
+
+.usheet-cell input[type="date"].usheet-empty {
+    color: #c6cbd2;
+    font-weight: 400;
+}
+
+.usheet-cell input[type="date"]::-webkit-datetime-edit-fields-wrapper {
+    font-size: 0.75rem;
+    font-weight: 400;
+}
+
+.usheet-cell input[type="date"].usheet-empty::-webkit-datetime-edit {
+    color: #c6cbd2;
 }
 
 /* Hover state — subtle cue that cell is editable */
