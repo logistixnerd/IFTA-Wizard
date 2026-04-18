@@ -3387,7 +3387,7 @@
                 const cfg = SHEET_CONFIGS[uSheetState.type];
                 const reqKey = cfg && cfg.requiredKey;
                 if (reqKey) {
-                    const reqInput = tr.querySelector('[data-key="' + reqKey + '"]');
+                    const reqInput = tr.querySelector('input[data-key="' + reqKey + '"], select[data-key="' + reqKey + '"]');
                     if (reqInput && reqInput.value.trim()) uAddRow();
                 }
             }
@@ -3433,9 +3433,9 @@
             // Auto-calc mileage + show route map
             const tr = input.closest('tr');
             if (!tr) return;
-            const originInput = tr.querySelector('[data-key="origin"]');
-            const destInput = tr.querySelector('[data-key="destination"]');
-            const mileInput = tr.querySelector('[data-key="mileage"]');
+            const originInput = tr.querySelector('input[data-key="origin"]');
+            const destInput = tr.querySelector('input[data-key="destination"]');
+            const mileInput = tr.querySelector('input[data-key="mileage"]');
             if (!originInput || !destInput || !mileInput) return;
             const o = originInput.value.trim();
             const d = destInput.value.trim();
@@ -3533,7 +3533,7 @@
             const model = get(28);
             const fillField = (key, val) => {
                 if (!val) return;
-                const input = tr.querySelector('[data-key="' + key + '"]');
+                const input = tr.querySelector('input[data-key="' + key + '"], select[data-key="' + key + '"]');
                 if (input && !input.value) input.value = val;
             };
             fillField('year', year);
