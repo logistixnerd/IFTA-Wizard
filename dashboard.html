@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=38">
+    <link rel="stylesheet" href="dashboard.css?v=39">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -82,13 +82,6 @@
                             </svg>
                             <span>Trailers</span>
                             <span class="dash-nav-count" id="trailerCount">0</span>
-                        </button>
-                        <button class="dash-nav-item" data-section="violations">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                            </svg>
-                            <span>Violations</span>
                         </button>
                         <button class="dash-nav-item" data-section="compliance">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -556,16 +549,6 @@
                 </div>
                 <div class="overview-alerts" id="safetyAlerts"></div>
                 <div class="dept-grid">
-                    <div class="dash-card dept-nav-card" data-navigate="violations">
-                        <div class="dash-card-header"><h3>Violations</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                                <span class="dept-nav-card-count">—</span>
-                                <span class="dept-nav-card-label">Violations Log</span>
-                            </div>
-                        </div>
-                    </div>
                     <div class="dash-card">
                         <div class="dash-card-header"><h3>Expiration Alerts</h3></div>
                         <div class="dash-card-body">
@@ -1190,31 +1173,6 @@
             <!-- ========================================== -->
             <!-- SAFETY DEPARTMENT SECTIONS                 -->
             <!-- ========================================== -->
-
-            <!-- Violations Section -->
-            <section class="dash-section" id="section-violations">
-                <div class="dash-card">
-                    <div class="dash-card-header">
-                        <h2>Violations</h2>
-                        <div class="dash-card-header-actions">
-                            <button class="btn btn-primary btn-sm" disabled>
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                Add Violation
-                            </button>
-                        </div>
-                    </div>
-                    <div class="dash-card-body">
-                        <div class="placeholder-content">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-                            </svg>
-                            <p>Violation tracking coming soon</p>
-                            <span class="placeholder-hint">Track roadside inspections, CSA violations, and DataQ filings</span>
-                        </div>
-                    </div>
-                </div>
-            </section>
 
             <!-- Compliance Section (FMCSA Carrier Snapshot) -->
             <section class="dash-section" id="section-compliance">
@@ -3596,6 +3554,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=45"></script>
+    <script src="dashboard.js?v=46"></script>
 </body>
 </html>
