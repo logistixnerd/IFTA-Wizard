@@ -2610,7 +2610,7 @@
             '<th class="usheet-action-col"></th>';
 
         // Build rows ” reuse existing tbody data if no new items
-        if (items !== null) {
+        if (items !== null || mode === 'add') {
             tbody.innerHTML = '';
             const rows = (items && items.length) ? items : [{}];
             rows.forEach((item, i) => {
