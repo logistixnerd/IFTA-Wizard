@@ -8407,7 +8407,6 @@
                 drivers: unassigned.map((d) => ({
                     id: d.id,
                     name: [d.firstName, d.lastName].filter(Boolean).join(' ').trim() || 'Unnamed driver',
-                    initials: ((d.firstName || '').charAt(0) + (d.lastName || '').charAt(0)).toUpperCase() || '?',
                     phone: (d.phone || '').trim(),
                     cdl: (d.cdl || '').trim()
                 }))
@@ -8467,29 +8466,21 @@
 
         container.innerHTML = alerts.map((a, idx) => {
             if (a.kind === 'unassigned-drivers') {
-                const detailId = `unassigned-driver-alert-${idx}`;
+                const activeTrucks = state.trucks.filter(t => t.status === 'active');
+                const truckOpts = '<option value="">Assign truck\u2026</option>' + activeTrucks.map(t =>
+                    '<option value="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit) + '</option>'
+                ).join('');
                 const rows = (a.drivers || []).map((driver) => {
-                    const subtitle = [driver.phone, driver.cdl ? ('CDL: ' + driver.cdl) : '']
-                        .filter(Boolean)
-                        .join(' \u00b7 ');
-                    const activeTrucks = state.trucks.filter(t => t.status === 'active');
-                    const truckOpts = '<option value="">Assign truck\u2026</option>' + activeTrucks.map(t =>
-                        '<option value="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit) + '</option>'
-                    ).join('');
-                    return `<li class="alert-dropdown-item" data-driver-id="${escapeHtml(driver.id)}">`
-                        + `<div class="alert-dropdown-item-avatar">${escapeHtml(driver.initials)}</div>`
-                        + `<div class="alert-dropdown-item-copy"><span class="alert-dropdown-name">${escapeHtml(driver.name)}</span>${subtitle ? `<span class="alert-dropdown-meta">${escapeHtml(subtitle)}</span>` : ''}</div>`
-                        + `<select class="alert-dropdown-truck-select" data-driver-id="${escapeHtml(driver.id)}">${truckOpts}</select>`
-                        + `<svg class="alert-dropdown-item-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`
+                    const meta = [driver.cdl ? ('CDL: ' + driver.cdl) : '', driver.phone].filter(Boolean).join(' \u00b7 ');
+                    return `<li class="alert-unassigned-row">`
+                        + `<span class="alert-unassigned-name" data-driver-id="${escapeHtml(driver.id)}">${escapeHtml(driver.name)}</span>`
+                        + (meta ? `<span class="alert-unassigned-meta">${escapeHtml(meta)}</span>` : '')
+                        + `<select class="alert-unassigned-truck" data-driver-id="${escapeHtml(driver.id)}">${truckOpts}</select>`
                         + `</li>`;
                 }).join('');
-                return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned" data-alert-kind="unassigned-drivers">`
-                    + `<button type="button" class="alert-dropdown-trigger" aria-expanded="false" aria-controls="${detailId}">`
-                    + `${iconMap[a.icon] || ''}`
-                    + `<span>${escapeHtml(a.text)}</span>`
-                    + `<svg class="alert-dropdown-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`
-                    + `</button>`
-                    + `<div class="alert-dropdown-panel" id="${detailId}" hidden><ul class="alert-dropdown-list">${rows}</ul></div>`
+                return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned">`
+                    + `<div class="alert-unassigned-header">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`
+                    + `<ul class="alert-unassigned-list">${rows}</ul>`
                     + `</div>`;
             }
             if (a.link) {
@@ -8499,31 +8490,11 @@
             return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
         }).join('');
 
-        container.querySelectorAll('.alert-dropdown-trigger').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const alertEl = btn.closest('.alert-unassigned');
-                if (!alertEl) return;
-                const panel = alertEl.querySelector('.alert-dropdown-panel');
-                if (!panel) return;
-                const expanded = btn.getAttribute('aria-expanded') === 'true';
-                btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
-                panel.hidden = expanded;
-                alertEl.classList.toggle('expanded', !expanded);
-            });
+        container.querySelectorAll('.alert-unassigned-name[data-driver-id]').forEach((el) => {
+            el.addEventListener('click', () => openDriverProfile(el.dataset.driverId));
         });
 
-        container.querySelectorAll('.alert-dropdown-item[data-driver-id]').forEach((item) => {
-            const avatar = item.querySelector('.alert-dropdown-item-avatar');
-            const copy = item.querySelector('.alert-dropdown-item-copy');
-            const arrow = item.querySelector('.alert-dropdown-item-arrow');
-            const driverId = item.dataset.driverId;
-            [avatar, copy, arrow].forEach(el => {
-                if (el) el.addEventListener('click', () => openDriverProfile(driverId));
-            });
-        });
-
-        container.querySelectorAll('.alert-dropdown-truck-select').forEach((sel) => {
-            sel.addEventListener('click', (e) => e.stopPropagation());
+        container.querySelectorAll('.alert-unassigned-truck').forEach((sel) => {
             sel.addEventListener('change', async () => {
                 const driverId = sel.dataset.driverId;
                 const truckId = sel.value;
