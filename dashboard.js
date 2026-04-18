@@ -8845,6 +8845,8 @@
         }
         if (empty) empty.style.display = 'none';
         if (table) table.style.display = '';
+        // Track existing row IDs before re-render
+        const existingIds = new Set(Array.from(tbody.querySelectorAll('tr[data-id]')).map(r => r.dataset.id));
         const filtered = state.loads.filter(l => matchesFilter(l, 'load'));
         const sorted = sortItems(filtered, sortState.loads, 'load');
         bulkSelection.loads = new Set([...bulkSelection.loads].filter(id => sorted.some(l => l.id === id)));
@@ -8892,6 +8894,17 @@
             </div></td>
         </tr>`;
         }).join('');
+        // Animate new rows sliding in
+        if (existingIds.size > 0) {
+            Array.from(tbody.querySelectorAll('tr[data-id]')).forEach(tr => {
+                if (!existingIds.has(tr.dataset.id)) {
+                    tr.classList.add('load-row-enter');
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => tr.classList.remove('load-row-enter'));
+                    });
+                }
+            });
+        }
         updateDispatchOverview();
     }
 

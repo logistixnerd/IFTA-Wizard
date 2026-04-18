@@ -5789,6 +5789,20 @@ input[type="date"].ss-input {
     font-weight: 600;
     color: #059669;
 }
+
+/* ── New row slide-in animation ── */
+.load-row-enter {
+    opacity: 0;
+    transform: translateY(-12px);
+    background: #ecfdf5;
+}
+.load-row-enter td {
+    transition: none;
+}
+#loadsTableBody tr {
+    transition: opacity 0.4s ease, transform 0.4s ease, background 0.6s ease;
+}
+
 /* ── Load Cell with Document Upload ── */
 .load-cell-with-doc {
     display: flex;
