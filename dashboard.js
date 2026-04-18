@@ -2610,8 +2610,8 @@
         load: [
             { key: 'loadNumber', label: 'Load #', type: 'text', width: '100px', placeholder: 'e.g., 176-1', required: true, default: true },
             { key: 'unit', label: 'Unit', type: 'truck-select', width: '90px', default: true },
-            { key: 'origin', label: 'Origin', type: 'text', width: '130px', placeholder: 'City, ST', default: true },
-            { key: 'destination', label: 'Destination', type: 'text', width: '130px', placeholder: 'City, ST', default: true },
+            { key: 'origin', label: 'Origin', type: 'text', width: '130px', placeholder: 'Zip or City, ST', default: true },
+            { key: 'destination', label: 'Destination', type: 'text', width: '130px', placeholder: 'Zip or City, ST', default: true },
             { key: 'broker', label: 'Broker', type: 'text', width: '120px', placeholder: 'Broker name', default: true },
             { key: 'rate', label: 'Rate', type: 'number', width: '90px', placeholder: '0.00', default: true },
             { key: 'mileage', label: 'Mileage', type: 'number', width: '80px', placeholder: '0', default: true },
@@ -3419,18 +3419,20 @@
             if (uSheetState.type !== 'load') return;
             const key = e.target.dataset && e.target.dataset.key;
             if (key !== 'origin' && key !== 'destination') return;
-            const val = e.target.value.trim();
-            if (/^\d{5}$/.test(val)) {
+            const input = e.target;
+            const val = input.value.trim();
+            // Resolve zip code to City, ST
+            if (/^\d{5}$/.test(val) && isGMaps()) {
                 const resolved = await resolveZipToCity(val);
                 if (resolved) {
-                    e.target.value = resolved;
-                    const tr = e.target.closest('tr');
+                    input.value = resolved;
+                    const tr = input.closest('tr');
                     if (tr) uMarkDirty(tr);
                 }
             }
             // Auto-calc mileage + show route map
-            const tr = e.target.closest('tr');
-            if (!tr || !isGMaps()) return;
+            const tr = input.closest('tr');
+            if (!tr) return;
             const originInput = tr.querySelector('[data-key="origin"]');
             const destInput = tr.querySelector('[data-key="destination"]');
             const mileInput = tr.querySelector('[data-key="mileage"]');
@@ -3438,6 +3440,7 @@
             const o = originInput.value.trim();
             const d = destInput.value.trim();
             if (!o || !d) { hideUsheetMap(); return; }
+            if (!isGMaps()) { console.warn('Google Maps not loaded'); return; }
             showUsheetRoute(o, d, mileInput, tr);
         });
 
@@ -8879,7 +8882,11 @@
     let _loadDirService = null;
     let _loadDirRenderer = null;
 
-    function isGMaps() { return !!(window.google && google.maps && google.maps.DirectionsService); }
+    function isGMaps() {
+        const ready = !!(window.google && google.maps && google.maps.DirectionsService);
+        if (!ready) console.warn('[LoadRoute] Google Maps API not available. Check API key and enabled APIs.');
+        return ready;
+    }
 
     function resolveZipToCity(zip) {
         return new Promise(resolve => {
@@ -9026,6 +9033,7 @@
                     infoEl.innerHTML = '<span>' + escapeHtml(leg.distance.text) + '</span><span>' + escapeHtml(leg.duration.text) + '</span>';
                 }
             } else {
+                console.warn('[LoadRoute] Directions failed:', status, 'from', origin, 'to', dest);
                 hideUsheetMap();
             }
         });
