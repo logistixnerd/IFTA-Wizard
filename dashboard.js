@@ -8467,19 +8467,24 @@
         container.innerHTML = alerts.map((a, idx) => {
             if (a.kind === 'unassigned-drivers') {
                 const activeTrucks = state.trucks.filter(t => t.status === 'active');
-                const truckOpts = '<option value="">Assign truck\u2026</option>' + activeTrucks.map(t =>
-                    '<option value="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit) + '</option>'
-                ).join('');
+                const truckBtns = activeTrucks.map(t =>
+                    '<button type="button" class="alert-assign-option" data-truck-id="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit) + '</button>'
+                ).join('') || '<div style="padding:0.4rem 0.5rem;font-size:0.62rem;color:var(--gray-400)">No active trucks</div>';
                 const rows = (a.drivers || []).map((driver) => {
                     const meta = [driver.cdl ? ('CDL: ' + driver.cdl) : '', driver.phone].filter(Boolean).join(' \u00b7 ');
                     return `<li class="alert-unassigned-row">`
                         + `<span class="alert-unassigned-name" data-driver-id="${escapeHtml(driver.id)}">${escapeHtml(driver.name)}</span>`
                         + (meta ? `<span class="alert-unassigned-meta">${escapeHtml(meta)}</span>` : '')
-                        + `<select class="alert-unassigned-truck" data-driver-id="${escapeHtml(driver.id)}">${truckOpts}</select>`
+                        + `<div class="alert-assign-wrap" data-driver-id="${escapeHtml(driver.id)}">`
+                        + `<button type="button" class="alert-assign-btn" title="Assign truck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></button>`
+                        + `<div class="alert-assign-popup">${truckBtns}</div>`
+                        + `</div>`
                         + `</li>`;
                 }).join('');
                 return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned">`
-                    + `<div class="alert-unassigned-header">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`
+                    + `<div class="alert-unassigned-header">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
+                    + `<svg class="alert-unassigned-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`
+                    + `</div>`
                     + `<ul class="alert-unassigned-list">${rows}</ul>`
                     + `</div>`;
             }
@@ -8490,15 +8495,37 @@
             return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
         }).join('');
 
+        // Toggle unassigned list on header click
+        container.querySelectorAll('.alert-unassigned-header').forEach((hdr) => {
+            hdr.style.cursor = 'pointer';
+            hdr.addEventListener('click', () => {
+                hdr.closest('.alert-unassigned').classList.toggle('open');
+            });
+        });
+
         container.querySelectorAll('.alert-unassigned-name[data-driver-id]').forEach((el) => {
             el.addEventListener('click', () => openDriverProfile(el.dataset.driverId));
         });
 
-        container.querySelectorAll('.alert-unassigned-truck').forEach((sel) => {
-            sel.addEventListener('change', async () => {
-                const driverId = sel.dataset.driverId;
-                const truckId = sel.value;
-                if (!truckId) return;
+        // Truck assign button → toggle popup
+        container.querySelectorAll('.alert-assign-btn').forEach((btn) => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const wrap = btn.closest('.alert-assign-wrap');
+                const wasOpen = wrap.classList.contains('open');
+                container.querySelectorAll('.alert-assign-wrap.open').forEach(w => w.classList.remove('open'));
+                if (!wasOpen) wrap.classList.add('open');
+            });
+        });
+
+        // Truck option click → assign
+        container.querySelectorAll('.alert-assign-option').forEach((opt) => {
+            opt.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const wrap = opt.closest('.alert-assign-wrap');
+                const driverId = wrap.dataset.driverId;
+                const truckId = opt.dataset.truckId;
+                wrap.classList.remove('open');
                 try {
                     await col('drivers').doc(driverId).update({ truck: truckId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
                     const d = state.drivers.find(x => x.id === driverId);
@@ -8510,6 +8537,13 @@
                 } catch (err) { console.error(err); showMsg('Error assigning truck', true); }
             });
         });
+
+        // Close popups on outside click
+        document.addEventListener('click', function closeAssignPopups(e) {
+            if (!e.target.closest('.alert-assign-wrap')) {
+                container.querySelectorAll('.alert-assign-wrap.open').forEach(w => w.classList.remove('open'));
+            }
+        }, { once: false });
     }
 
     function populateTruckDropdown() {
