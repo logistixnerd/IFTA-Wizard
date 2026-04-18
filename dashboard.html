@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=45">
+    <link rel="stylesheet" href="dashboard.css?v=46">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -1269,11 +1269,11 @@
                                 </div>
                                 <select class="dash-filter" id="inspectionTypeFilter">
                                     <option value="">All Types</option>
-                                    <option value="roadside">Roadside</option>
-                                    <option value="dot-audit">DOT Audit</option>
-                                    <option value="annual">Annual</option>
-                                    <option value="pre-trip">Pre-Trip</option>
-                                    <option value="post-trip">Post-Trip</option>
+                                    <option value="level-1">Level I – Full</option>
+                                    <option value="level-2">Level II – Walk-Around</option>
+                                    <option value="level-3">Level III – Driver</option>
+                                    <option value="level-4">Level IV – Special</option>
+                                    <option value="level-5">Level V – Vehicle</option>
                                     <option value="citation">Citation</option>
                                 </select>
                                 <select class="dash-filter" id="inspectionResultFilter">
@@ -3626,90 +3626,7 @@
         </div>
     </aside>
 
-    <!-- Add/Edit Inspection Modal -->
-    <div id="inspectionModal" class="modal hidden">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="inspectionModalTitle">Add Inspection</h2>
-                <button class="modal-close" id="closeInspectionModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <form id="inspectionForm">
-                    <input type="hidden" id="inspectionEditId">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="inspectionDate">Date</label>
-                            <input type="date" id="inspectionDate" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="inspectionType">Type</label>
-                            <select id="inspectionType" required>
-                                <option value="">Select...</option>
-                                <option value="roadside">Roadside</option>
-                                <option value="dot-audit">DOT Audit</option>
-                                <option value="annual">Annual</option>
-                                <option value="pre-trip">Pre-Trip</option>
-                                <option value="post-trip">Post-Trip</option>
-                                <option value="citation">Citation</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="inspectionReportNum">Report #</label>
-                            <input type="text" id="inspectionReportNum" placeholder="e.g., TX2026040100123">
-                        </div>
-                        <div class="form-group">
-                            <label for="inspectionResult">Result</label>
-                            <select id="inspectionResult" required>
-                                <option value="">Select...</option>
-                                <option value="pass">Pass</option>
-                                <option value="fail">Fail</option>
-                                <option value="warning">Warning</option>
-                                <option value="oos">Out of Service</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="inspectionDriver">Driver</label>
-                            <select id="inspectionDriver">
-                                <option value="">Select driver...</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="inspectionTruck">Truck</label>
-                            <select id="inspectionTruck">
-                                <option value="">Select truck...</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="inspectionLocation">Location</label>
-                        <input type="text" id="inspectionLocation" placeholder="e.g., Dallas, TX">
-                    </div>
-                    <div class="form-group">
-                        <label for="inspectionViolations">Violations</label>
-                        <input type="number" id="inspectionViolations" min="0" value="0" placeholder="0">
-                    </div>
-                    <div class="form-group">
-                        <label for="inspectionFineAmount">Fine Amount ($)</label>
-                        <input type="number" id="inspectionFineAmount" min="0" step="0.01" placeholder="0.00">
-                    </div>
-                    <div class="form-group">
-                        <label for="inspectionNotes">Notes</label>
-                        <textarea id="inspectionNotes" rows="2" placeholder="Inspection details, violation descriptions..."></textarea>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="cancelInspection">Cancel</button>
-                        <button type="submit" class="btn btn-primary">Save</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=49"></script>
+    <script src="dashboard.js?v=50"></script>
 </body>
 </html>

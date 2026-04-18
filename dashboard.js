@@ -2552,6 +2552,30 @@
             { key: 'mvrExp', label: 'MVR Exp', type: 'date', width: '100px', expiry: true, default: false },
             { key: 'hireDate', label: 'Hire Date', type: 'date', width: '100px', default: false },
             { key: 'truck', label: 'Truck', type: 'truck-select', width: '90px', default: false }
+        ],
+        inspection: [
+            { key: 'date', label: 'Date', type: 'date', width: '100px', required: true, default: true },
+            { key: 'type', label: 'Level', type: 'select', width: '110px', default: true, options: [
+                { value: 'level-1', label: 'Level I – Full' },
+                { value: 'level-2', label: 'Level II – Walk-Around' },
+                { value: 'level-3', label: 'Level III – Driver' },
+                { value: 'level-4', label: 'Level IV – Special' },
+                { value: 'level-5', label: 'Level V – Vehicle' },
+                { value: 'citation', label: 'Citation' }
+            ]},
+            { key: 'reportNum', label: 'Report #', type: 'text', width: '130px', placeholder: 'Report number', default: true },
+            { key: 'driverName', label: 'Driver', type: 'driver-select', width: '130px', default: true },
+            { key: 'truckUnit', label: 'Truck', type: 'truck-select', width: '90px', default: true },
+            { key: 'result', label: 'Result', type: 'select', width: '90px', default: true, options: [
+                { value: 'pass', label: 'Pass' },
+                { value: 'fail', label: 'Fail' },
+                { value: 'warning', label: 'Warning' },
+                { value: 'oos', label: 'Out of Service' }
+            ]},
+            { key: 'violations', label: 'Violations', type: 'number', width: '72px', placeholder: '0', default: true },
+            { key: 'location', label: 'Location', type: 'text', width: '120px', placeholder: 'City, ST', default: true },
+            { key: 'fineAmount', label: 'Fine $', type: 'number', width: '72px', placeholder: '0.00', default: false },
+            { key: 'notes', label: 'Notes', type: 'text', width: '160px', placeholder: 'Details...', default: false }
         ]
     };
 
@@ -2582,7 +2606,7 @@
         uSheetState.dirty = new Set();
 
         // Title
-        const titleMap = { truck: 'Trucks', trailer: 'Trailers', driver: 'Drivers' };
+        const titleMap = { truck: 'Trucks', trailer: 'Trailers', driver: 'Drivers', inspection: 'Inspections' };
         const titleEl = $('usheetTitle');
         if (mode === 'add') titleEl.textContent = 'Add ' + titleMap[type];
         else if (mode === 'import') titleEl.textContent = 'Import ' + titleMap[type];
@@ -2681,6 +2705,11 @@
                     `<option value="${escapeHtml(t.unit)}"${t.unit === val ? ' selected' : ''}>${escapeHtml(t.unit)}</option>`
                 ).join('');
                 html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Truck</option>${opts}</select></td>`;
+            } else if (c.type === 'driver-select') {
+                const opts = state.drivers.map(d =>
+                    `<option value="${escapeHtml(d.firstName + ' ' + d.lastName)}"${(d.firstName + ' ' + d.lastName) === val ? ' selected' : ''}>${escapeHtml(d.firstName + ' ' + d.lastName)}</option>`
+                ).join('');
+                html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Driver</option>${opts}</select></td>`;
             } else if (c.type === 'date') {
                 html += `<td class="usheet-cell" data-key="${c.key}"><input type="date" data-key="${c.key}" value="${escapeHtml(val)}"${!val ? ' class="usheet-empty"' : ''}></td>`;
             } else {
@@ -6939,6 +6968,27 @@
                 notes: ['notes', 'note', 'comments', 'comment', 'memo', 'remarks'],
                 truck: ['truck', 'truckno', 'trucknumber', 'assignedtruck', 'unit', 'unitnumber', 'vehicle', 'assignedunit', 'equipment']
             }
+        },
+        inspection: {
+            cols: [
+                { key: 'date', type: 'date', required: true },
+                { key: 'type', type: 'select', options: [
+                    { value: 'level-1', label: 'Level I' }, { value: 'level-2', label: 'Level II' },
+                    { value: 'level-3', label: 'Level III' }, { value: 'level-4', label: 'Level IV' },
+                    { value: 'level-5', label: 'Level V' }, { value: 'citation', label: 'Citation' }
+                ]},
+                { key: 'reportNum', placeholder: 'Report #', type: 'text' },
+                { key: 'result', type: 'select', options: [
+                    { value: 'pass', label: 'Pass' }, { value: 'fail', label: 'Fail' },
+                    { value: 'warning', label: 'Warning' }, { value: 'oos', label: 'Out of Service' }
+                ]}
+            ],
+            collection: 'inspections',
+            label: 'inspection',
+            requiredKey: 'date',
+            defaults: { violations: 0 },
+            afterSave: async () => { await loadInspections(); },
+            extraFields: ['driverName', 'truckUnit', 'location', 'violations', 'fineAmount', 'notes']
         }
     };
 
@@ -9312,7 +9362,7 @@
             return '<span class="insp-badge ' + cls + '">' + escapeHtml(label) + '</span>';
         };
         const typeFmt = (t) => {
-            const map = { 'roadside': 'Roadside', 'dot-audit': 'DOT Audit', 'annual': 'Annual', 'pre-trip': 'Pre-Trip', 'post-trip': 'Post-Trip', 'citation': 'Citation' };
+            const map = { 'level-1': 'Level I', 'level-2': 'Level II', 'level-3': 'Level III', 'level-4': 'Level IV', 'level-5': 'Level V', 'citation': 'Citation' };
             return map[t] || t || '—';
         };
         tbody.innerHTML = sorted.map(d => `<tr data-id="${d.id}">
@@ -9336,41 +9386,9 @@
         </tr>`).join('');
     }
 
-    function populateInspectionDropdowns() {
-        const driverSel = $('inspectionDriver');
-        const truckSel = $('inspectionTruck');
-        if (driverSel) {
-            driverSel.innerHTML = '<option value="">Select driver...</option>' +
-                state.drivers.map(d => '<option value="' + escapeHtml(d.id) + '">' + escapeHtml(d.firstName + ' ' + d.lastName) + '</option>').join('');
-        }
-        if (truckSel) {
-            truckSel.innerHTML = '<option value="">Select truck...</option>' +
-                state.trucks.map(t => '<option value="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit) + '</option>').join('');
-        }
-    }
-
-    function openInspectionModal(data) {
-        $('inspectionModalTitle').textContent = data ? 'Edit Inspection' : 'Add Inspection';
-        $('inspectionEditId').value = data ? data.id : '';
-        $('inspectionDate').value = data ? data.date || '' : new Date().toISOString().slice(0, 10);
-        $('inspectionType').value = data ? data.type || '' : '';
-        $('inspectionReportNum').value = data ? data.reportNum || '' : '';
-        $('inspectionResult').value = data ? data.result || '' : '';
-        $('inspectionDriver').value = data ? data.driverId || '' : '';
-        $('inspectionTruck').value = data ? data.truckId || '' : '';
-        $('inspectionLocation').value = data ? data.location || '' : '';
-        $('inspectionViolations').value = data ? (data.violations ?? 0) : 0;
-        $('inspectionFineAmount').value = data ? (data.fineAmount ?? '') : '';
-        $('inspectionNotes').value = data ? data.notes || '' : '';
-        populateInspectionDropdowns();
-        if (data && data.driverId) $('inspectionDriver').value = data.driverId;
-        if (data && data.truckId) $('inspectionTruck').value = data.truckId;
-        $('inspectionModal').classList.remove('hidden');
-    }
-
     function editInspection(id) {
         const d = state.inspections.find(x => x.id === id);
-        if (d) openInspectionModal(d);
+        if (d) openUnifiedSheet('inspection', [d], { mode: 'edit' });
     }
 
     async function deleteInspection(id) {
@@ -9385,49 +9403,10 @@
     function initInspections() {
         const addBtn = $('addInspectionBtn');
         const addFirst = $('addFirstInspection');
-        const closeBtn = $('closeInspectionModal');
-        const cancelBtn = $('cancelInspection');
-        const form = $('inspectionForm');
 
-        if (addBtn) addBtn.addEventListener('click', () => openInspectionModal(null));
-        if (addFirst) addFirst.addEventListener('click', () => openInspectionModal(null));
-        if (closeBtn) closeBtn.addEventListener('click', () => $('inspectionModal').classList.add('hidden'));
-        if (cancelBtn) cancelBtn.addEventListener('click', () => $('inspectionModal').classList.add('hidden'));
-
-        if (form) form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const editId = $('inspectionEditId').value;
-            const driverSel = $('inspectionDriver');
-            const truckSel = $('inspectionTruck');
-            const driverOpt = driverSel.options[driverSel.selectedIndex];
-            const truckOpt = truckSel.options[truckSel.selectedIndex];
-            const data = {
-                date: $('inspectionDate').value,
-                type: $('inspectionType').value,
-                reportNum: $('inspectionReportNum').value.trim(),
-                result: $('inspectionResult').value,
-                driverId: driverSel.value,
-                driverName: driverSel.value ? driverOpt.textContent : '',
-                truckId: truckSel.value,
-                truckUnit: truckSel.value ? truckOpt.textContent : '',
-                location: $('inspectionLocation').value.trim(),
-                violations: parseInt($('inspectionViolations').value) || 0,
-                fineAmount: parseFloat($('inspectionFineAmount').value) || 0,
-                notes: $('inspectionNotes').value.trim(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            try {
-                if (editId) {
-                    await col('inspections').doc(editId).update(data);
-                } else {
-                    data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    await col('inspections').add(data);
-                }
-                $('inspectionModal').classList.add('hidden');
-                await loadInspections();
-                showMsg(editId ? 'Inspection updated' : 'Inspection added');
-            } catch (err) { console.error(err); showMsg('Error saving inspection', true); }
-        });
+        const openAdd = () => openUnifiedSheet('inspection', null, { mode: 'add' });
+        if (addBtn) addBtn.addEventListener('click', openAdd);
+        if (addFirst) addFirst.addEventListener('click', openAdd);
 
         loadInspections();
     }
