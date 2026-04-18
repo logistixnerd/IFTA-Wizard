@@ -2316,7 +2316,7 @@
     }
 
     // ── Bulk Selection State ──
-    const bulkSelection = { trucks: new Set(), trailers: new Set(), drivers: new Set(), loads: new Set() };
+    const bulkSelection = { trucks: new Set(), trailers: new Set(), drivers: new Set(), loads: new Set(), inspections: new Set() };
 
     function toggleBulkSelect(collection, id, checkbox) {
         if (checkbox.checked) bulkSelection[collection].add(id);
@@ -2327,7 +2327,8 @@
     }
 
     function toggleSelectAll(collection, masterCheckbox) {
-        const tbody = collection === 'trucks' ? $('trucksTableBody') : collection === 'trailers' ? $('trailersTableBody') : $('driversTableBody');
+        const tbodyId = { trucks: 'trucksTableBody', trailers: 'trailersTableBody', drivers: 'driversTableBody', inspections: 'inspectionsTableBody' }[collection] || 'driversTableBody';
+        const tbody = $(tbodyId);
         const checkboxes = tbody.querySelectorAll('.bulk-cb');
         checkboxes.forEach(cb => {
             cb.checked = masterCheckbox.checked;
@@ -2342,7 +2343,7 @@
 
     function updateBulkBar(collection) {
         const count = bulkSelection[collection].size;
-        const barId = collection === 'trucks' ? 'truckBulkBar' : collection === 'trailers' ? 'trailerBulkBar' : 'driverBulkBar';
+        const barId = { trucks: 'truckBulkBar', trailers: 'trailerBulkBar', drivers: 'driverBulkBar', inspections: 'inspectionBulkBar' }[collection];
         const bar = $(barId);
         if (!bar) return;
         if (count > 0) {
@@ -2366,6 +2367,7 @@
             if (collection === 'trucks') { await loadTrucks(); populateTruckDropdown(); }
             else if (collection === 'trailers') await loadTrailers();
             else if (collection === 'loads') await loadLoads();
+            else if (collection === 'inspections') await loadInspections();
             else await loadDrivers();
             updateOverview();
             showMsg(ids.length + ' ' + label + (ids.length > 1 ? 's' : '') + ' deleted');
@@ -2387,7 +2389,7 @@
             const batch = firebase.firestore().batch();
             ids.forEach(id => batch.update(col(collection).doc(id), { status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }));
             await batch.commit();
-            const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : collection === 'loads' ? state.loads : state.drivers;
+            const stateArr = state[collection] || [];
             ids.forEach(id => { const item = stateArr.find(x => x.id === id); if (item) item.status = newStatus; });
             bulkSelection[collection].clear();
             if (collection === 'trucks') renderTrucks();
@@ -2402,7 +2404,7 @@
     function bulkExport(collection) {
         const ids = [...bulkSelection[collection]];
         if (!ids.length) return;
-        const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : collection === 'loads' ? state.loads : state.drivers;
+        const stateArr = state[collection] || [];
         const selected = stateArr.filter(x => ids.includes(x.id));
         if (!selected.length) return;
         const exclude = ['id', 'createdAt', 'updatedAt', 'validationStatus', 'validationIssues'];
@@ -3025,7 +3027,7 @@
         if (usheetImport) {
             usheetImport.addEventListener('click', () => {
                 const type = uSheetState.type;
-                const smartFn = { truck: smartImportTrucks, trailer: smartImportTrailers, driver: smartImportDrivers }[type];
+                const smartFn = { truck: smartImportTrucks, trailer: smartImportTrailers, driver: smartImportDrivers, inspection: smartImportInspections }[type];
                 if (!smartFn) return;
                 showImportDropdown(usheetImport, smartFn);
             });
@@ -3231,7 +3233,7 @@
     function bulkEdit(collection) {
         const ids = [...bulkSelection[collection]];
         if (!ids.length) return;
-        const type = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : 'driver';
+        const type = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : collection === 'inspections' ? 'inspection' : 'driver';
         const stateArr = state[collection];
         const items = stateArr.filter(x => ids.includes(x.id));
         openUnifiedSheet(type, items, { mode: 'edit' });
@@ -6261,6 +6263,83 @@
         }
     }
 
+    async function smartImportInspections(file) {
+        if (!file) return;
+        showMsg('Reading file…');
+        try {
+            let rows = await parseFileToRows(file, 'inspection');
+            if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
+            const config = SHEET_CONFIGS.inspection;
+            const aliases = config.csvAliases || {};
+
+            let headerIdx = 0;
+            const inspHeaderPat = /^(date|inspectiondate|type|level|report|reportnum|driver|truck|unit|result|violations|location|fine|notes|comment)$/i;
+            for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                const cleaned = rows[i].map(c => (c || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
+                if (cleaned.filter(h => inspHeaderPat.test(h)).length >= 2) { headerIdx = i; break; }
+            }
+            const header = rows[headerIdx];
+            const dataRows = rows.slice(headerIdx + 1);
+            console.log('[Import] Inspection header row:', headerIdx, 'Headers:', JSON.stringify(header));
+
+            const colMap = buildSmartColumnMap(header, aliases);
+            const inspFields = ['date', 'type', 'reportNum', 'driverName', 'truckUnit', 'result', 'violations', 'location', 'fineAmount', 'notes'];
+            detectColumnsByContent(dataRows, header, colMap, inspFields);
+            console.log('[Import] Inspection final map:', JSON.stringify(colMap));
+
+            if (colMap.date === undefined) {
+                showMsg('Could not find a Date column. Make sure your file has a column with inspection dates.', true);
+                return;
+            }
+
+            const parsed = [];
+            for (let i = 0; i < dataRows.length; i++) {
+                const row = dataRows[i];
+                if (!row || row.every(c => !c || !c.toString().trim())) continue;
+                const data = {};
+                let hasValue = false;
+                const allFields = [...config.cols.map(c => c.key), ...(config.extraFields || [])];
+                allFields.forEach(key => {
+                    if (colMap[key] !== undefined) {
+                        let val = (row[colMap[key]] || '').toString().trim();
+                        if (key === 'date' && val) val = normalizeDate(val);
+                        if (key === 'type' && val) {
+                            const lv = val.toLowerCase();
+                            if (/level\s*1|full|level\s*i(?!\w)/i.test(lv)) val = 'level-1';
+                            else if (/level\s*2|walk/i.test(lv)) val = 'level-2';
+                            else if (/level\s*3|driver/i.test(lv)) val = 'level-3';
+                            else if (/level\s*4|special/i.test(lv)) val = 'level-4';
+                            else if (/level\s*5|vehicle/i.test(lv)) val = 'level-5';
+                            else if (/citation|ticket/i.test(lv)) val = 'citation';
+                            else {
+                                const col = config.cols.find(c => c.key === 'type');
+                                if (col?.options) { const m = col.options.find(o => o.value === lv || o.label.toLowerCase() === lv); val = m ? m.value : 'level-1'; }
+                            }
+                        }
+                        if (key === 'result' && val) {
+                            const lv = val.toLowerCase();
+                            if (lv.includes('pass') || lv === 'clean' || lv === 'satisfactory') val = 'pass';
+                            else if (lv.includes('fail') || lv === 'unsatisfactory') val = 'fail';
+                            else if (lv.includes('warning')) val = 'warning';
+                            else if (lv.includes('oos') || lv.includes('out of service')) val = 'oos';
+                        }
+                        if (key === 'violations') { const n = parseInt(val); val = isNaN(n) ? '0' : String(n); }
+                        if (key === 'fineAmount') { val = val.replace(/[^0-9.]/g, ''); }
+                        if (val) { data[key] = val; hasValue = true; }
+                    }
+                });
+                if (hasValue && data.date) parsed.push(data);
+            }
+            if (parsed.length === 0) { showMsg('No valid inspection rows found in file', true); return; }
+
+            openUnifiedSheet('inspection', parsed, { mode: 'import' });
+            showMsg(parsed.length + ' inspection' + (parsed.length > 1 ? 's' : '') + ' imported for review');
+        } catch (err) {
+            console.error('Smart import error:', err);
+            showMsg('Error reading file: ' + (err.message || ''), true);
+        }
+    }
+
     // ── NHTSA VIN Decode (batch, up to 50 at a time) ──
     async function decodeVINBatch(vins) {
         const valid = [...new Set(vins.filter(v => v && v.length === 17))];
@@ -7022,7 +7101,19 @@
             requiredKey: 'date',
             defaults: { violations: 0 },
             afterSave: async () => { await loadInspections(); },
-            extraFields: ['driverName', 'truckUnit', 'location', 'violations', 'fineAmount', 'notes', 'inspStatus', 'paidStatus']
+            extraFields: ['driverName', 'truckUnit', 'location', 'violations', 'fineAmount', 'notes', 'inspStatus', 'paidStatus'],
+            csvAliases: {
+                date: ['date', 'inspectiondate', 'inspdate', 'dateofinspe', 'dateofinspection'],
+                type: ['type', 'level', 'inspectiontype', 'insplevel', 'insptype', 'category'],
+                reportNum: ['reportnum', 'reportnumber', 'report', 'reportno', 'inspectionreport', 'casenumber', 'caseno', 'case'],
+                driverName: ['driver', 'drivername', 'driverfullname', 'operator', 'employeename'],
+                truckUnit: ['truck', 'truckunit', 'unit', 'unitnumber', 'unitno', 'vehicle', 'vehicleno', 'equipment'],
+                result: ['result', 'outcome', 'inspectionresult', 'pass', 'passfail', 'verdict', 'status'],
+                violations: ['violations', 'violationcount', 'numviolations', 'viols', 'defects'],
+                location: ['location', 'city', 'state', 'place', 'inspectionlocation', 'site'],
+                fineAmount: ['fine', 'fineamount', 'penalty', 'amount', 'fee', 'cost'],
+                notes: ['notes', 'note', 'comments', 'comment', 'remarks', 'description', 'details']
+            }
         }
     };
 
@@ -8168,7 +8259,7 @@
                 status: newStatus,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : collection === 'loads' ? state.loads : state.drivers;
+            const stateArr = state[collection] || [];
             const item = stateArr.find(x => x.id === id);
             if (item) item.status = newStatus;
 
@@ -8176,6 +8267,7 @@
             if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
             else if (collection === 'trailers') renderTrailers();
             else if (collection === 'loads') renderLoads();
+            else if (collection === 'inspections') renderInspections();
             else renderDrivers();
             updateOverview();
             showMsg('Status updated');
@@ -9412,6 +9504,7 @@
                 ? (paid ? '<span class="insp-badge badge-green">Paid</span>' : '<span class="insp-badge badge-yellow">Unpaid</span>')
                 : '';
             return `<tr data-id="${d.id}" class="${resolved ? 'insp-resolved' : ''}">
+            <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${d.id}" ${bulkSelection.inspections.has(d.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('inspections','${d.id}',this)"></td>
             <td><div class="cell">${escapeHtml(d.date || '—')}</div></td>
             <td><div class="cell">${escapeHtml(typeFmt(d.type))}</div></td>
             <td><div class="cell">${escapeHtml(d.reportNum || '—')}</div></td>
@@ -9516,6 +9609,17 @@
         const openAdd = () => openUnifiedSheet('inspection', null, { mode: 'add' });
         if (addBtn) addBtn.addEventListener('click', openAdd);
         if (addFirst) addFirst.addEventListener('click', openAdd);
+
+        const importBtn = $('importInspectionsBtn');
+        if (importBtn) {
+            importBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showImportDropdown(importBtn, smartImportInspections);
+            });
+        }
+
+        const selectAll = $('inspectionSelectAll');
+        if (selectAll) selectAll.addEventListener('change', () => toggleSelectAll('inspections', selectAll));
 
         loadInspections();
     }

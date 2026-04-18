@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=51">
+    <link rel="stylesheet" href="dashboard.css?v=52">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -1262,10 +1262,16 @@
                 <div class="dash-card" style="margin-top:0.75rem;">
                     <div class="dash-card-header">
                         <h2>Inspections &amp; Citations</h2>
-                        <button class="btn btn-primary btn-sm dash-toolbar-add" id="addInspectionBtn">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                            Add
-                        </button>
+                        <div class="dash-card-header-actions">
+                            <button class="btn btn-primary btn-sm dash-toolbar-add" id="addInspectionBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                Add
+                            </button>
+                            <button class="btn btn-sm dash-toolbar-secondary" id="importInspectionsBtn" title="Import inspections from file">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Import
+                            </button>
+                        </div>
                     </div>
                     <div class="dash-card-body">
                         <div class="compliance-inspections-section">
@@ -1304,6 +1310,12 @@
                                     <option value="result">Result</option>
                                 </select>
                             </div>
+                            <div class="bulk-bar" id="inspectionBulkBar">
+                                <span class="bulk-count">0 selected</span>
+                                <button class="btn btn-sm bulk-btn bulk-btn-edit" onclick="Dashboard.bulkEdit('inspections')">Edit</button>
+                                <button class="btn btn-sm bulk-btn bulk-btn-export" onclick="Dashboard.bulkExport('inspections')">Export CSV</button>
+                                <button class="btn btn-sm bulk-btn bulk-btn-delete" onclick="Dashboard.bulkDelete('inspections')">Delete</button>
+                            </div>
                             <div class="dash-empty" id="inspectionsEmpty">
                                 <p>No inspections or citations recorded</p>
                                 <button class="btn btn-secondary btn-sm" id="addFirstInspection">Add your first inspection</button>
@@ -1312,6 +1324,7 @@
                                 <table class="dash-table" id="inspectionsTable" style="display:none;">
                                     <thead>
                                         <tr>
+                                            <th class="col-checkbox"><input type="checkbox" id="inspectionSelectAll" title="Select all"></th>
                                             <th style="width:9%">Date</th>
                                             <th style="width:9%">Type</th>
                                             <th style="width:10%">Report #</th>
@@ -3639,6 +3652,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=56"></script>
+    <script src="dashboard.js?v=57"></script>
 </body>
 </html>
