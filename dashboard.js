@@ -2423,7 +2423,7 @@
 
     // ── Sort State ──
     const sortState = { trucks: 'unit-az', trailers: 'unit-az', drivers: 'name-az', loads: 'date-desc', inspections: 'date-new' };
-    const sortState_history = 'date-desc';
+    let sortState_history = 'date-desc';
 
     // ── Load Board vs History Filter ──
     const ACTIVE_STATUSES = new Set(['booked', 'dispatched', 'loaded', 'in-transit', 'issue']);
