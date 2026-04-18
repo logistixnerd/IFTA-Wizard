@@ -3244,6 +3244,9 @@
             // Reload the collection
             if (cfg.afterSave) await cfg.afterSave();
             updateOverview();
+
+            // Close the sheet
+            uCloseAfterSave();
         } catch (err) {
             console.error('Save all error:', err);
             showMsg('Error saving: ' + (err.message || ''), true);
