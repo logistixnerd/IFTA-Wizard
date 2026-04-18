@@ -2155,10 +2155,16 @@
             check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
         };
 
-        container.innerHTML = reminders.map(r =>
-            `<div class="fmcsa-reminder fmcsa-reminder-${escapeHtml(r.type)}">`
-            + `${iconMap[r.icon] || ''}  <span>${escapeHtml(r.text)}</span></div>`
-        ).join('');
+        container.innerHTML = reminders.map(r => {
+            if (r.link) {
+                return `<a href="${escapeHtml(r.link)}" onclick="sessionStorage.setItem('fromDashboard','true')" class="fmcsa-reminder fmcsa-reminder-${escapeHtml(r.type)} fmcsa-reminder-link">`
+                    + `${iconMap[r.icon] || ''}  <span>${escapeHtml(r.text)}</span>`
+                    + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="fmcsa-reminder-arrow"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>`
+                    + `</a>`;
+            }
+            return `<div class="fmcsa-reminder fmcsa-reminder-${escapeHtml(r.type)}">`
+                + `${iconMap[r.icon] || ''}  <span>${escapeHtml(r.text)}</span></div>`;
+        }).join('');
         if (block) block.style.display = '';
     }
 
@@ -8475,7 +8481,7 @@
                     + `</div>`;
             }
             if (a.link) {
-                return `<a href="${escapeHtml(a.link)}" class="alert-item alert-${escapeHtml(a.type)} alert-link">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
+                return `<a href="${escapeHtml(a.link)}" onclick="sessionStorage.setItem('fromDashboard','true')" class="alert-item alert-${escapeHtml(a.type)} alert-link">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
                     + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="alert-link-arrow"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>`;
             }
             return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
