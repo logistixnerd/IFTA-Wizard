@@ -749,9 +749,6 @@ const IFTAAuth = {
                     if (decrypted) {
                         passwordInput.value = decrypted;
                     }
-                } else {
-                    // Fallback to base64 decode
-                    try { passwordInput.value = atob(savedPassword); } catch(e) {}
                 }
             }
             
@@ -773,14 +770,12 @@ const IFTAAuth = {
             
             // Save or clear password based on checkbox
             if (savePassword && password) {
-                // Use security module encryption if available
+                // Only store if security module with encryption is available
                 if (typeof IFTASecurity !== 'undefined' && IFTASecurity.encryptData) {
                     const encrypted = IFTASecurity.encryptData(password, 'ifta_pwd_key');
                     localStorage.setItem('ifta_saved_password', encrypted);
-                } else {
-                    // Fallback to basic encoding
-                    localStorage.setItem('ifta_saved_password', btoa(password));
                 }
+                // Otherwise rely on browser's built-in credential manager
             } else {
                 localStorage.removeItem('ifta_saved_password');
             }

@@ -1720,7 +1720,7 @@ const IFTAReports = {
         if (typeof appState !== 'undefined') {
             // Apply default fuel type
             if (prefs.defaultFuelType) {
-                const fuelSelect = document.getElementById('fuelTypeSelect');
+                const fuelSelect = document.getElementById('fuelType');
                 if (fuelSelect && fuelSelect.querySelector(`option[value="${prefs.defaultFuelType}"]`)) {
                     fuelSelect.value = prefs.defaultFuelType;
                 }
@@ -1749,7 +1749,7 @@ const IFTAReports = {
             
             // Apply default base jurisdiction
             if (prefs.defaultBaseJurisdiction) {
-                const baseSelect = document.getElementById('baseJurisdictionSelect');
+                const baseSelect = document.getElementById('baseJurisdiction');
                 if (baseSelect && baseSelect.querySelector(`option[value="${prefs.defaultBaseJurisdiction}"]`)) {
                     baseSelect.value = prefs.defaultBaseJurisdiction;
                     appState.baseJurisdiction = prefs.defaultBaseJurisdiction;

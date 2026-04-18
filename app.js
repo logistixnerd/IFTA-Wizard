@@ -11,7 +11,7 @@ const appState = {
     rows: [],
     unitNumber: '',           // Truck/unit number or empty for company-wide
     selectedFuelType: 'diesel',
-    selectedQuarter: 'Q4 2025',
+    selectedQuarter: (() => { const d = new Date(), q = Math.ceil((d.getMonth()+1)/3); return `Q${q} ${d.getFullYear()}`; })(),
     baseJurisdiction: '',  // Empty by default - user must select
     fleetMpg: 6.5,
     currentMpg: 0,  // Calculated from current data entry
@@ -1009,13 +1009,6 @@ function filterRatesTable() {
         
         row.style.display = matchesSearch && matchesCountry ? '' : 'none';
     });
-}
-
-// Background rate update check (rates are manually maintained)
-async function checkForRateUpdates() {
-    // Rates are manually updated in tax-rates.js
-    // Source: https://www.iftach.org/taxmatrix4/
-    updateRateStatus('verified', 'Current');
 }
 
 // Update rate status indicator

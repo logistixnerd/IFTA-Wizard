@@ -489,17 +489,17 @@
 /* ── Inspection Badges ─────────── */
 .insp-badge {
     display: inline-block;
-    padding: 0.15rem 0.45rem;
-    border-radius: 4px;
-    font-size: 0.65rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.625rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.03em;
     line-height: 1.2;
 }
-.badge-green { background: rgba(16,185,129,0.1); color: #059669; }
-.badge-red { background: rgba(239,68,68,0.1); color: #dc2626; }
-.badge-yellow { background: rgba(245,158,11,0.1); color: #b45309; }
+.badge-green { background: rgba(16,185,129,0.12); color: #059669; }
+.badge-red { background: rgba(239,68,68,0.12); color: #dc2626; }
+.badge-yellow { background: rgba(245,158,11,0.12); color: #b45309; }
 .badge-gray { background: rgba(107,114,128,0.1); color: #6b7280; }
 #inspectionsTable tbody tr { cursor: default; }
 #inspectionsTable tbody tr:hover { background: rgba(79, 70, 229, 0.025); }
@@ -508,14 +508,15 @@
 
 .insp-action-btn {
     background: none;
-    border: 1px solid rgba(0,0,0,0.12);
-    border-radius: 4px;
-    padding: 3px 5px;
+    border: 1px solid rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 3px 6px;
     cursor: pointer;
     color: #64748b;
-    transition: all 0.15s;
+    font-size: 0.625rem;
+    transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
 }
-.insp-action-btn:hover { background: rgba(0,0,0,0.05); }
+.insp-action-btn:hover { background: rgba(0,0,0,0.04); transform: translateY(-1px); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
 .insp-btn-resolve { color: #059669; border-color: rgba(5,150,105,0.3); }
 .insp-btn-resolve:hover { background: rgba(16,185,129,0.1); }
 .insp-btn-reopen { color: #6b7280; border-color: rgba(107,114,128,0.3); }
