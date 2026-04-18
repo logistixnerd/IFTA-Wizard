@@ -291,7 +291,7 @@
                 { value: 'issue', label: 'Issue' }
             ],
             formIds: ['loadStatus'],
-            filterIds: ['loadStatusFilter'],
+            filterIds: ['loadStatusFilter', 'historyStatusFilter'],
             sheetPath: { type: 'load', colKey: 'status' }
         }
     };
@@ -671,7 +671,7 @@
             // Fleet Maintenance
             'maintenance': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
             // Dispatch
-            'dispatch': 'dispatch', 'dispatch-board': 'dispatch', 'active-loads': 'dispatch', 'driver-assignments': 'dispatch',
+            'dispatch': 'dispatch', 'dispatch-board': 'dispatch', 'load-history': 'dispatch', 'driver-assignments': 'dispatch',
             // Track & Trace
             'tracking': 'tracking', 'live-map': 'tracking', 'load-status': 'tracking', 'eta-tracking': 'tracking',
             // Accounting
@@ -8803,6 +8803,16 @@
         if (driverSort) driverSort.addEventListener('change', () => { sortState.drivers = driverSort.value; renderDrivers(); });
         const loadSort = $('loadSort');
         if (loadSort) loadSort.addEventListener('change', () => { sortState.loads = loadSort.value; renderLoads(); });
+        // History search/filter/sort
+        ['historySearch', 'historyStatusFilter'].forEach(id => {
+            const el = $(id);
+            if (el) el.addEventListener('input', renderLoadHistory);
+        });
+        const historySort = $('historySort');
+        if (historySort) historySort.addEventListener('change', () => { sortState_history = historySort.value; renderLoadHistory(); });
+        // History export
+        const historyExport = $('historyExportBtn');
+        if (historyExport) historyExport.addEventListener('click', () => Dashboard.bulkExport('loads'));
         const inspSort = $('inspectionSort');
         if (inspSort) inspSort.addEventListener('change', () => { sortState.inspections = inspSort.value; renderInspections(); });
         // Select-all checkboxes
@@ -8846,6 +8856,23 @@
     }
 
     function loadStatusBadge(status) {
+
+    // Active statuses shown on load board (not yet delivered/completed)
+    const ACTIVE_STATUSES = new Set(['booked', 'dispatched', 'loaded', 'in-transit', 'issue']);
+
+    function isLoadBoardItem(l) {
+        // Active loads always show
+        if (ACTIVE_STATUSES.has(l.status)) return true;
+        // Closed loads: show if delivery date is today or yesterday
+        const d = l.deliveryDate ? new Date(l.deliveryDate + 'T00:00:00') : l.loadDate ? new Date(l.loadDate + 'T00:00:00') : null;
+        if (!d || isNaN(d.getTime())) return true; // no date = show on board
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+        return d >= yesterday;
+    }
+
+    function loadStatusBadge(status) {
         const map = {
             booked: 'load-badge-booked',
             dispatched: 'load-badge-dispatched',
@@ -8868,16 +8895,20 @@
         const empty = $('loadsEmpty');
         const thead = table?.querySelector('thead tr');
         if (!tbody) return;
-        if (state.loads.length === 0) {
+        const boardLoads = state.loads.filter(isLoadBoardItem);
+        if (boardLoads.length === 0) {
             if (table) table.style.display = 'none';
             if (empty) empty.style.display = '';
+            renderLoadHistory();
+            updateDispatchOverview();
+            updateAnalytics();
             return;
         }
         if (empty) empty.style.display = 'none';
         if (table) table.style.display = '';
         // Track existing row IDs before re-render
         const existingIds = new Set(Array.from(tbody.querySelectorAll('tr[data-id]')).map(r => r.dataset.id));
-        const filtered = state.loads.filter(l => matchesFilter(l, 'load'));
+        const filtered = state.loads.filter(l => isLoadBoardItem(l) && matchesFilter(l, 'load'));
         const sorted = sortItems(filtered, sortState.loads, 'load');
         bulkSelection.loads = new Set([...bulkSelection.loads].filter(id => sorted.some(l => l.id === id)));
         updateBulkBar('loads');
@@ -8937,6 +8968,61 @@
         }
         updateDispatchOverview();
         updateAnalytics();
+        renderLoadHistory();
+    }
+
+    /* ── Load History ── */
+    let sortState_history = 'date-desc';
+
+    function matchesHistoryFilter(l) {
+        const q = ($('historySearch') ? $('historySearch').value : '').toLowerCase().trim();
+        const f = $('historyStatusFilter') ? $('historyStatusFilter').value : '';
+        if (f && l.status !== f) return false;
+        if (!q) return true;
+        return [l.loadNumber, l.unit, l.origin, l.destination, l.broker, l.driver, l.dispatcher, l.comments].some(v => v && String(v).toLowerCase().includes(q));
+    }
+
+    function renderLoadHistory() {
+        const tbody = $('historyTableBody');
+        const table = $('historyTable');
+        const empty = $('historyEmpty');
+        const thead = table?.querySelector('thead tr');
+        if (!tbody) return;
+        const historyLoads = state.loads.filter(l => !isLoadBoardItem(l) && matchesHistoryFilter(l));
+        const sorted = sortItems(historyLoads, sortState_history, 'load');
+        if (sorted.length === 0) {
+            if (table) table.style.display = 'none';
+            if (empty) empty.style.display = '';
+            return;
+        }
+        if (empty) empty.style.display = 'none';
+        if (table) table.style.display = '';
+        if (thead) thead.innerHTML = `<th style="width:5%">Load #</th><th style="width:5%">Unit</th><th style="width:12%">From</th><th style="width:12%">To</th><th style="width:8%">Broker</th><th style="width:7%">Rate</th><th style="width:5%">Mileage</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bonus</th><th style="width:7%">Status</th><th style="width:7%">DEL Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:7%">Dispatcher</th><th style="width:4%"></th>`;
+        tbody.innerHTML = sorted.map(l => {
+            const rpm = calcRPM(l.rate, l.mileage);
+            const total = calcTotal(l.rate, l.detention);
+            return `<tr data-id="${l.id}">
+            <td><div class="cell cell-muted">${escapeHtml(l.loadNumber || '')}</div></td>
+            <td><div class="cell">${escapeHtml(l.unit || '')}</div></td>
+            <td><div class="cell">${escapeHtml(l.origin || '')}</div></td>
+            <td><div class="cell">${escapeHtml(l.destination || '')}</div></td>
+            <td><div class="cell">${escapeHtml(l.broker || '')}</div></td>
+            <td><div class="cell">${l.rate ? formatCurrency(l.rate) : ''}</div></td>
+            <td><div class="cell">${escapeHtml(l.mileage ? String(l.mileage) : '')}</div></td>
+            <td><div class="cell load-rpm">${escapeHtml(rpm)}</div></td>
+            <td><div class="cell">${l.detention ? formatCurrency(l.detention) : ''}</div></td>
+            <td><div class="cell">${loadStatusBadge(l.status)}</div></td>
+            <td><div class="cell">${escapeHtml(l.deliveryDate || '')}</div></td>
+            <td><div class="cell"><strong>${total ? formatCurrency(total) : ''}</strong></div></td>
+            <td><div class="cell">${escapeHtml(l.driver || '')}</div></td>
+            <td><div class="cell">${escapeHtml(l.dispatcher || '')}</div></td>
+            <td class="row-actions"><div class="cell">
+                <button title="Edit" onclick="Dashboard.editLoad('${l.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+            </div></td>
+        </tr>`;
+        }).join('');
     }
 
     function nextLoadNumber() {

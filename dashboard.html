@@ -161,11 +161,11 @@
                             <span>Load Board</span>
                             <span class="dash-nav-count" id="loadCount">0</span>
                         </button>
-                        <button class="dash-nav-item" data-section="active-loads">
+                        <button class="dash-nav-item" data-section="load-history">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                                <path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><polyline points="3 16 3 11 8 11"/>
                             </svg>
-                            <span>Active Loads</span>
+                            <span>Load History</span>
                         </button>
                         <button class="dash-nav-item" data-section="driver-assignments">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -1549,9 +1549,9 @@
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                         Load Board
                     </button>
-                    <button class="disp-nav-btn" data-navigate="active-loads">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                        Active Loads
+                    <button class="disp-nav-btn" data-navigate="load-history">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><polyline points="3 16 3 11 8 11"/></svg>
+                        Load History
                     </button>
                     <button class="disp-nav-btn" data-navigate="driver-assignments">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -1792,19 +1792,47 @@
                 <input type="file" id="loadDocUpload" accept="image/*,application/pdf,.doc,.docx" style="display:none">
             </section>
 
-            <!-- Active Loads Section -->
-            <section class="dash-section" id="section-active-loads">
+            <!-- Load History Section -->
+            <section class="dash-section" id="section-load-history">
                 <div class="dash-card">
                     <div class="dash-card-header">
-                        <h2>Active Loads</h2>
+                        <h2>Load History</h2>
+                        <div class="dash-card-header-actions">
+                            <button class="btn btn-sm btn-outline" id="historyExportBtn" title="Export all loads">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                Export CSV
+                            </button>
+                        </div>
+                    </div>
+                    <div class="dash-card-toolbar">
+                        <div class="toolbar-left">
+                            <input type="text" id="historySearch" class="dash-search" placeholder="Search history...">
+                            <select id="historyStatusFilter" class="dash-filter">
+                                <option value="">All Statuses</option>
+                            </select>
+                            <select id="historySort" class="dash-sort">
+                                <option value="date-desc">Newest First</option>
+                                <option value="date-asc">Oldest First</option>
+                                <option value="load-az">Load # A→Z</option>
+                                <option value="rate-high">Rate High→Low</option>
+                                <option value="rpm-high">RPM High→Low</option>
+                                <option value="broker-az">Broker A→Z</option>
+                                <option value="status">Status</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="dash-card-body">
-                        <div class="placeholder-content">
+                        <div class="table-scroll">
+                            <table class="dash-table" id="historyTable" style="display:none">
+                                <thead><tr></tr></thead>
+                                <tbody id="historyTableBody"></tbody>
+                            </table>
+                        </div>
+                        <div id="historyEmpty" class="empty-state">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-                                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                                <path d="M12 8v4l3 3"/><path d="M3.05 11a9 9 0 1 1 .5 4"/><polyline points="3 16 3 11 8 11"/>
                             </svg>
-                            <p>Active loads tracking coming soon</p>
-                            <span class="placeholder-hint">Monitor loads currently in transit</span>
+                            <p>No load history</p>
                         </div>
                     </div>
                 </div>
@@ -3836,6 +3864,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=82"></script>
+    <script src="dashboard.js?v=83"></script>
 </body>
 </html>
