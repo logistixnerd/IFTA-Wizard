@@ -4016,3 +4016,172 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     color: var(--gray-400);
     margin-left: 0.5rem;
 }
+
+/* ==========================================
+   EMBEDDED MODE (inside dashboard iframe)
+   ========================================== */
+.embedded body {
+    background: transparent;
+    font-size: 0.8125rem;
+}
+
+.embedded .app-container {
+    min-height: auto;
+}
+
+/* Hide header, footer, auth modals, toasts when embedded */
+.embedded .header,
+.embedded .footer,
+.embedded .auth-modal,
+.embedded #loadingOverlay {
+    display: none !important;
+}
+
+/* Main content — full width, no max-width cap */
+.embedded .main-content {
+    max-width: 100%;
+    padding: 1.25rem;
+}
+
+/* Cards — match dashboard glassmorphism */
+.embedded .card {
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02);
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    transition: box-shadow 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+
+.embedded .card:hover {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.06), 0 0 0 1px rgba(0,0,0,0.03);
+}
+
+.embedded .card h2 {
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    color: var(--gray-800);
+    margin-bottom: 0.875rem;
+    padding-bottom: 0.625rem;
+    border-bottom: 2px solid #f1f5f9;
+}
+
+/* Buttons — match dashboard style */
+.embedded .btn {
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.embedded .btn:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    transform: translateY(-1px);
+}
+
+.embedded .btn:active {
+    transform: translateY(0);
+}
+
+.embedded .btn-primary {
+    background: var(--primary);
+    border-color: var(--primary);
+    box-shadow: 0 1px 4px rgba(79,70,229,0.2);
+}
+
+.embedded .btn-primary:hover {
+    background: var(--primary-dark);
+    border-color: var(--primary-dark);
+    box-shadow: 0 2px 8px rgba(79,70,229,0.25);
+}
+
+/* Form controls — match dashboard rounded look */
+.embedded input,
+.embedded select {
+    border-radius: 8px;
+    border-color: rgba(0,0,0,0.07);
+    transition: all 0.2s cubic-bezier(0.4,0,0.2,1);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.embedded input:hover,
+.embedded select:hover {
+    border-color: rgba(79,70,229,0.25);
+    box-shadow: 0 2px 6px rgba(79,70,229,0.08);
+}
+
+.embedded input:focus,
+.embedded select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79,70,229,0.1), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+/* Config panel — match card style */
+.embedded .config-panel {
+    background: rgba(255,255,255,0.88);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.7);
+    border-radius: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.04);
+    padding: 1.25rem;
+}
+
+/* Tables — match dashboard table design */
+.embedded #dataTable,
+.embedded #ratesTable {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.06);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 16px rgba(0,0,0,0.03);
+}
+
+.embedded #dataTable th,
+.embedded #ratesTable th {
+    background: linear-gradient(180deg, #fafbfd 0%, #f6f8fa 100%);
+    font-weight: 600;
+    font-size: 0.6875rem;
+    color: #64748b;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    border-bottom: 2px solid #f1f5f9;
+    padding: 8px 10px;
+}
+
+.embedded #dataTable td,
+.embedded #ratesTable td {
+    border-bottom-color: #f1f5f9;
+    padding: 6px 8px;
+}
+
+.embedded #dataTable tbody tr:hover,
+.embedded #ratesTable tbody tr:hover {
+    background: #eef2ff;
+    box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.embedded #dataTable input,
+.embedded #dataTable select {
+    border-radius: 6px;
+    border-color: rgba(0,0,0,0.07);
+}
+
+/* Export section — match card look */
+.embedded .export-section {
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.88);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.04);
+}
+
+/* Totals row */
+.embedded .totals-row {
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+}
+
+.embedded .totals-row td {
+    font-weight: 700;
+}
