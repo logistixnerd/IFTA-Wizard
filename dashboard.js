@@ -3082,7 +3082,7 @@
 
         // For drivers, name is the required key
         if (type === 'driver' && !data.name) { showMsg('Name is required', true); return; }
-        if (type !== 'driver' && !data[reqKey]) { showMsg(cfg.cols[0].placeholder ? reqKey + ' is required' : 'Required field missing', true); return; }
+        if (type !== 'driver' && type !== 'load' && reqKey && !data[reqKey]) { showMsg(cfg.cols[0].placeholder ? reqKey + ' is required' : 'Required field missing', true); return; }
 
         // Prepare payload
         const payload = { ...data };
@@ -3149,7 +3149,10 @@
             for (const tr of rows) {
                 const data = uCollectRowData(tr);
                 const reqKey = type === 'driver' ? 'name' : cfg.requiredKey;
-                if (!data[reqKey]) continue;
+                // Skip empty rows: for loads check if origin or destination filled, otherwise check reqKey
+                if (type === 'load') {
+                    if (!data.origin && !data.destination && !data.broker) continue;
+                } else if (reqKey && !data[reqKey]) continue;
 
                 const payload = { ...data };
                 delete payload.id;
@@ -3162,6 +3165,14 @@
                 }
                 if (payload.plateState) payload.plateState = payload.plateState.toUpperCase();
                 if (payload.cdlState) payload.cdlState = payload.cdlState.toUpperCase();
+                // Load-specific normalization
+                if (type === 'load') {
+                    if (payload.rate) payload.rate = parseFloat(payload.rate) || 0;
+                    if (payload.mileage) payload.mileage = parseFloat(payload.mileage) || 0;
+                    if (payload.detention) payload.detention = parseFloat(payload.detention) || 0;
+                    if (!payload.loadDate) payload.loadDate = new Date().toISOString().split('T')[0];
+                    if (!payload.loadNumber) payload.loadNumber = nextLoadNumber();
+                }
                 normalizePayload(payload, type);
                 payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
 
@@ -9022,6 +9033,10 @@
                 mapEl.style.display = 'block';
                 google.maps.event.trigger(_usheetMap, 'resize');
                 _usheetDirRenderer.setDirections(result);
+                // Fit bounds tightly to the route
+                const bounds = new google.maps.LatLngBounds();
+                result.routes[0].overview_path.forEach(p => bounds.extend(p));
+                _usheetMap.fitBounds(bounds, { top: 10, right: 20, bottom: 10, left: 20 });
                 const leg = result.routes[0].legs[0];
                 const miles = Math.round(leg.distance.value * 0.000621371);
                 if (mileInput) {
