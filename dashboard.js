@@ -2423,6 +2423,22 @@
 
     // ── Sort State ──
     const sortState = { trucks: 'unit-az', trailers: 'unit-az', drivers: 'name-az', loads: 'date-desc', inspections: 'date-new' };
+    const sortState_history = 'date-desc';
+
+    // ── Load Board vs History Filter ──
+    const ACTIVE_STATUSES = new Set(['booked', 'dispatched', 'loaded', 'in-transit', 'issue']);
+
+    function isLoadBoardItem(l) {
+        // Active loads always show
+        if (ACTIVE_STATUSES.has(l.status)) return true;
+        // Closed loads: show if delivery date is today or yesterday
+        const d = l.deliveryDate ? new Date(l.deliveryDate + 'T00:00:00') : l.loadDate ? new Date(l.loadDate + 'T00:00:00') : null;
+        if (!d || isNaN(d.getTime())) return true; // no date = show on board
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+        return d >= yesterday;
+    }
 
     function sortItems(arr, sortKey, type) {
         const cmp = (a, b, field, dir) => {
@@ -8856,23 +8872,6 @@
     }
 
     function loadStatusBadge(status) {
-
-    // Active statuses shown on load board (not yet delivered/completed)
-    const ACTIVE_STATUSES = new Set(['booked', 'dispatched', 'loaded', 'in-transit', 'issue']);
-
-    function isLoadBoardItem(l) {
-        // Active loads always show
-        if (ACTIVE_STATUSES.has(l.status)) return true;
-        // Closed loads: show if delivery date is today or yesterday
-        const d = l.deliveryDate ? new Date(l.deliveryDate + 'T00:00:00') : l.loadDate ? new Date(l.loadDate + 'T00:00:00') : null;
-        if (!d || isNaN(d.getTime())) return true; // no date = show on board
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-        return d >= yesterday;
-    }
-
-    function loadStatusBadge(status) {
         const map = {
             booked: 'load-badge-booked',
             dispatched: 'load-badge-dispatched',
@@ -8970,9 +8969,6 @@
         updateAnalytics();
         renderLoadHistory();
     }
-
-    /* ── Load History ── */
-    let sortState_history = 'date-desc';
 
     function matchesHistoryFilter(l) {
         const q = ($('historySearch') ? $('historySearch').value : '').toLowerCase().trim();
