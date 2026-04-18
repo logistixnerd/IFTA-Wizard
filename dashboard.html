@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=72">
+    <link rel="stylesheet" href="dashboard.css?v=73">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -3045,14 +3045,14 @@
                 </div>
                 <div class="usheet-col-dropdown hidden" id="usheetColDropdown"></div>
             </div>
-            <div class="usheet-body">
+            <div class="usheet-body" id="usheetBody">
                 <div class="usheet-wrap">
                     <table class="usheet-table" id="usheetTable">
                         <thead><tr id="usheetThead"></tr></thead>
                         <tbody id="usheetTbody"></tbody>
                     </table>
                 </div>
-                <div id="usheetRouteCard" class="usheet-route-card" style="display:none">
+                <div id="usheetRouteCard" class="usheet-route-card">
                     <div class="usheet-route-header">
                         <button class="usheet-route-nav usheet-route-prev" id="usheetRoutePrev" title="Previous load">&lsaquo;</button>
                         <div class="usheet-route-load-num" id="usheetRouteLoadNum"></div>
@@ -3061,6 +3061,9 @@
                     <div id="usheetRouteMap" class="usheet-route-map"></div>
                     <div id="usheetRouteInfo" class="usheet-route-info"></div>
                 </div>
+                <button class="usheet-flip-btn" id="usheetFlipBtn" title="Show route map">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
             </div>
             <div class="usheet-footer">
                 <div class="usheet-footer-left">
@@ -3877,6 +3880,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=78"></script>
+    <script src="dashboard.js?v=79"></script>
 </body>
 </html>

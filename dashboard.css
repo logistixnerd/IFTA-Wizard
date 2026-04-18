@@ -5883,15 +5883,7 @@ tr:hover .load-doc-btn {
 }
 
 /* Unified sheet route map */
-/* ── Route Card ── */
-.usheet-route-card {
-    margin: 0.5rem 0.75rem;
-    border-radius: 10px;
-    border: 1.5px solid #e5e7eb;
-    background: #fff;
-    box-shadow: 0 2px 8px rgba(99,102,241,0.08);
-    overflow: hidden;
-}
+/* ── Route Card (positioning in usheet-body section) ── */
 .usheet-route-header {
     display: flex;
     align-items: center;
@@ -5940,7 +5932,8 @@ tr:hover .load-doc-btn {
 }
 .usheet-route-map {
     width: 100%;
-    height: 150px;
+    height: 100%;
+    min-height: 150px;
 }
 .usheet-route-info {
     display: flex;
@@ -6804,30 +6797,113 @@ tr:hover .load-doc-btn {
 .usheet-body {
     flex: 1;
     min-height: 0;
-    overflow: auto;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0,0,0,0.12) transparent;
-}
-
-.usheet-body::-webkit-scrollbar {
-    width: 7px;
-    height: 7px;
-}
-
-.usheet-body::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.usheet-body::-webkit-scrollbar-thumb {
-    background: rgba(0,0,0,0.12);
-    border-radius: 4px;
-}
-
-.usheet-body::-webkit-scrollbar-thumb:hover {
-    background: rgba(0,0,0,0.22);
+    position: relative;
+    overflow: hidden;
 }
 
 .usheet-wrap {
+    position: absolute;
+    inset: 0;
+    overflow: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0,0,0,0.12) transparent;
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s;
+    transform: translateX(0);
+    z-index: 1;
+}
+
+.usheet-wrap::-webkit-scrollbar { width: 7px; height: 7px; }
+.usheet-wrap::-webkit-scrollbar-track { background: transparent; }
+.usheet-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.12); border-radius: 4px; }
+.usheet-wrap::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.22); }
+
+/* Route card — same space, starts off-screen right */
+.usheet-route-card {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    background: #fafbff;
+    transform: translateX(100%);
+    transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.4s;
+    opacity: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.usheet-route-card .usheet-route-map {
+    flex: 1;
+    height: auto;
+    min-height: 200px;
+}
+.usheet-route-card .usheet-route-info {
+    flex-shrink: 0;
+}
+
+/* Flipped state — table slides out left, map slides in from right */
+.usheet-body.flipped .usheet-wrap {
+    transform: translateX(-40%);
+    opacity: 0;
+    pointer-events: none;
+}
+.usheet-body.flipped .usheet-route-card {
+    transform: translateX(0);
+    opacity: 1;
+}
+
+/* Flip button — edge tab */
+.usheet-flip-btn {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 10;
+    width: 28px;
+    height: 52px;
+    border: 1px solid #e5e7eb;
+    border-right: none;
+    border-radius: 8px 0 0 8px;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(8px);
+    color: #6366f1;
+    cursor: pointer;
+    box-shadow: -2px 0 8px rgba(99,102,241,0.08);
+    transition: all 0.2s;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.usheet-flip-btn:hover {
+    background: #eef2ff;
+    box-shadow: -3px 0 12px rgba(99,102,241,0.15);
+    width: 32px;
+}
+.usheet-flip-btn.visible {
+    display: flex;
+}
+.usheet-flip-btn svg {
+    transition: transform 0.3s;
+}
+.usheet-body.flipped .usheet-flip-btn {
+    left: 0;
+    right: auto;
+    border-radius: 0 8px 8px 0;
+    border: 1px solid #e5e7eb;
+    border-left: none;
+    box-shadow: 2px 0 8px rgba(99,102,241,0.08);
+}
+.usheet-body.flipped .usheet-flip-btn:hover {
+    box-shadow: 3px 0 12px rgba(99,102,241,0.15);
+}
+.usheet-body.flipped .usheet-flip-btn svg {
+    transform: rotate(180deg);
+}
+
+.usheet-table-inner {
     width: 100%;
     min-width: max-content;
 }

@@ -2917,6 +2917,11 @@
 
         // Hide route map for non-load types
         if (type !== 'load') hideUsheetMap();
+        // Reset flip state
+        const body = $('usheetBody');
+        if (body) body.classList.remove('flipped');
+        const flipBtn = $('usheetFlipBtn');
+        if (flipBtn) flipBtn.classList.remove('visible');
 
         $('unifiedSheetModal').classList.remove('hidden');
         document.body.style.overflow = 'hidden';
@@ -3359,6 +3364,28 @@
         const nextBtn = $('usheetRouteNext');
         if (prevBtn) prevBtn.addEventListener('click', () => uNavigateRoute(-1));
         if (nextBtn) nextBtn.addEventListener('click', () => uNavigateRoute(1));
+
+        // Flip button — toggle between table and map
+        const flipBtn = $('usheetFlipBtn');
+        if (flipBtn) flipBtn.addEventListener('click', () => {
+            const body = $('usheetBody');
+            if (!body) return;
+            body.classList.toggle('flipped');
+            // Trigger map resize after transition
+            if (body.classList.contains('flipped') && _usheetMap) {
+                setTimeout(() => {
+                    google.maps.event.trigger(_usheetMap, 'resize');
+                    if (_usheetDirRenderer && _usheetDirRenderer.getDirections()) {
+                        const route = _usheetDirRenderer.getDirections().routes[0];
+                        if (route) {
+                            const bounds = new google.maps.LatLngBounds();
+                            route.overview_path.forEach(p => bounds.extend(p));
+                            _usheetMap.fitBounds(bounds, { top: 10, right: 20, bottom: 10, left: 20 });
+                        }
+                    }
+                }, 520);
+            }
+        });
 
         // Import from file (inside unified sheet)
         const usheetImport = $('usheetImportFile');
@@ -9102,6 +9129,7 @@
         const card = $('usheetRouteCard');
         const infoEl = $('usheetRouteInfo');
         const loadNumEl = $('usheetRouteLoadNum');
+        const flipBtn = $('usheetFlipBtn');
         // Show engraved load number
         if (loadNumEl) {
             const ln = tr && tr.querySelector('span[data-key="loadNumber"]');
@@ -9115,12 +9143,20 @@
             travelMode: google.maps.TravelMode.DRIVING
         }, (result, status) => {
             if (status === 'OK' && result.routes[0]) {
-                if (card) card.style.display = '';
-                google.maps.event.trigger(_usheetMap, 'resize');
+                // Show the flip arrow
+                if (flipBtn) flipBtn.classList.add('visible');
+                // Auto-flip to map on first route
+                const body = $('usheetBody');
+                if (body && !body.classList.contains('flipped')) {
+                    body.classList.add('flipped');
+                    setTimeout(() => google.maps.event.trigger(_usheetMap, 'resize'), 520);
+                } else {
+                    google.maps.event.trigger(_usheetMap, 'resize');
+                }
                 _usheetDirRenderer.setDirections(result);
                 const bounds = new google.maps.LatLngBounds();
                 result.routes[0].overview_path.forEach(p => bounds.extend(p));
-                _usheetMap.fitBounds(bounds, { top: 10, right: 20, bottom: 10, left: 20 });
+                setTimeout(() => _usheetMap.fitBounds(bounds, { top: 10, right: 20, bottom: 10, left: 20 }), 550);
                 const leg = result.routes[0].legs[0];
                 const miles = Math.round(leg.distance.value * 0.000621371);
                 if (mileInput) {
@@ -9146,7 +9182,7 @@
                 console.warn('[LoadRoute] Directions failed:', status, 'from', origin, 'to', dest);
                 hideUsheetMap();
                 if (infoEl && card) {
-                    card.style.display = '';
+                    if (flipBtn) flipBtn.classList.add('visible');
                     infoEl.innerHTML = '<span class="usheet-route-error">Route error: ' + escapeHtml(status) + '</span>';
                 }
             }
@@ -9154,8 +9190,10 @@
     }
 
     function hideUsheetMap() {
-        const card = $('usheetRouteCard');
-        if (card) card.style.display = 'none';
+        const body = $('usheetBody');
+        const flipBtn = $('usheetFlipBtn');
+        if (body) body.classList.remove('flipped');
+        if (flipBtn) flipBtn.classList.remove('visible');
         _usheetActiveRow = null;
     }
 
