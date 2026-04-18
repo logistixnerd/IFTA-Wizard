@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=76">
+    <link rel="stylesheet" href="dashboard.css?v=77">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -1542,57 +1542,121 @@
                         <div class="overview-dropdown-panel dtt-panel" data-dtt="drivers"></div>
                     </div>
                 </div>
-                <div class="dept-grid">
-                    <div class="dash-card dept-nav-card" data-navigate="dispatch-board">
-                        <div class="dash-card-header"><h3>Load Board</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Open Loads</span>
-                            </div>
+
+                <!-- Quick Nav -->
+                <div class="disp-nav-strip">
+                    <button class="disp-nav-btn" data-navigate="dispatch-board">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                        Load Board
+                    </button>
+                    <button class="disp-nav-btn" data-navigate="active-loads">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                        Active Loads
+                    </button>
+                    <button class="disp-nav-btn" data-navigate="driver-assignments">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        Assignments
+                    </button>
+                </div>
+
+                <!-- KPI Cards -->
+                <div class="dispatch-overview">
+                    <div class="dispatch-stat-cards">
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispTotalLoads">0</span>
+                            <span class="dispatch-stat-label">Loads</span>
+                        </div>
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispTotalMiles">0</span>
+                            <span class="dispatch-stat-label">Total Miles</span>
+                        </div>
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispAvgMiles">0</span>
+                            <span class="dispatch-stat-label">Avg Miles / Load</span>
+                        </div>
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispGrossRevenue">$0</span>
+                            <span class="dispatch-stat-label">Gross Revenue</span>
+                        </div>
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispAvgRate">$0</span>
+                            <span class="dispatch-stat-label">Avg Rate</span>
+                        </div>
+                        <div class="dispatch-stat-card">
+                            <span class="dispatch-stat-value" id="dispAvgRPM">$0</span>
+                            <span class="dispatch-stat-label">Avg RPM</span>
                         </div>
                     </div>
-                    <div class="dash-card dept-nav-card" data-navigate="active-loads">
-                        <div class="dash-card-header"><h3>Active Loads</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">In Transit</span>
-                            </div>
+
+                    <!-- Period Tables + Pulse -->
+                    <div class="disp-pulse-row">
+                        <div class="disp-period-tables">
+                            <table class="disp-period-table">
+                                <thead><tr><th></th><th>Gross</th><th>Miles</th><th>RPM</th><th>Loads</th><th>Avg Rate</th></tr></thead>
+                                <tbody>
+                                    <tr><td class="disp-period-label">This Week</td><td id="dpWeekGross">-</td><td id="dpWeekMiles">-</td><td id="dpWeekRpm">-</td><td id="dpWeekLoads">-</td><td id="dpWeekRate">-</td></tr>
+                                    <tr><td class="disp-period-label">This Month</td><td id="dpMonthGross">-</td><td id="dpMonthMiles">-</td><td id="dpMonthRpm">-</td><td id="dpMonthLoads">-</td><td id="dpMonthRate">-</td></tr>
+                                    <tr><td class="disp-period-label">This Year</td><td id="dpYearGross">-</td><td id="dpYearMiles">-</td><td id="dpYearRpm">-</td><td id="dpYearLoads">-</td><td id="dpYearRate">-</td></tr>
+                                </tbody>
+                            </table>
+                            <table class="disp-period-table">
+                                <thead><tr><th></th><th>Gross</th><th>Miles</th><th>RPM</th><th>Loads</th><th>Avg Rate</th></tr></thead>
+                                <tbody>
+                                    <tr><td class="disp-period-label">Avg / Week</td><td id="dpAvgWeekGross">-</td><td id="dpAvgWeekMiles">-</td><td id="dpAvgWeekRpm">-</td><td id="dpAvgWeekLoads">-</td><td id="dpAvgWeekRate">-</td></tr>
+                                    <tr><td class="disp-period-label">Avg / Month</td><td id="dpAvgMonthGross">-</td><td id="dpAvgMonthMiles">-</td><td id="dpAvgMonthRpm">-</td><td id="dpAvgMonthLoads">-</td><td id="dpAvgMonthRate">-</td></tr>
+                                    <tr><td class="disp-period-label">Avg / Year</td><td id="dpAvgYearGross">-</td><td id="dpAvgYearMiles">-</td><td id="dpAvgYearRpm">-</td><td id="dpAvgYearLoads">-</td><td id="dpAvgYearRate">-</td></tr>
+                                </tbody>
+                            </table>
                         </div>
-                    </div>
-                    <div class="dash-card dept-nav-card" data-navigate="driver-assignments">
-                        <div class="dash-card-header"><h3>Driver Assignments</h3></div>
-                        <div class="dash-card-body">
-                            <div class="dept-nav-card-body">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                                <span class="dept-nav-card-count">&mdash;</span>
-                                <span class="dept-nav-card-label">Assigned Drivers</span>
+                        <div class="disp-pulse-card">
+                            <span class="disp-pulse-label">Revenue Pulse</span>
+                            <canvas id="dispPulseChart" height="80"></canvas>
+                            <div class="disp-pulse-footer">
+                                <span class="disp-pulse-delta" id="dispPulseDelta"></span>
+                                <span class="disp-pulse-range" id="dispPulseRange"></span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Analytics -->
-                <div class="an-kpis">
-                    <div class="an-kpi"><span class="an-kpi-label">Gross Revenue</span><strong id="anGross">$0</strong></div>
-                    <div class="an-kpi"><span class="an-kpi-label">Total Miles</span><strong id="anMiles">0</strong></div>
-                    <div class="an-kpi"><span class="an-kpi-label">Avg RPM</span><strong id="anRpm">$0</strong></div>
-                    <div class="an-kpi"><span class="an-kpi-label">Total Loads</span><strong id="anLoads">0</strong></div>
-                    <div class="an-kpi"><span class="an-kpi-label">Avg Rate</span><strong id="anAvgRate">$0</strong></div>
+                <!-- Section: Monthly Trends -->
+                <div class="disp-section-header">
+                    <h3>Monthly Trends</h3>
                 </div>
-
                 <div class="an-charts">
-                    <div class="an-chart-card"><h3 class="an-card-title">Monthly Earnings</h3><div class="an-chart-wrap"><canvas id="anEarningsChart"></canvas></div></div>
-                    <div class="an-chart-card"><h3 class="an-card-title">Monthly Mileage</h3><div class="an-chart-wrap"><canvas id="anMileageChart"></canvas></div></div>
-                </div>
-                <div class="an-charts">
-                    <div class="an-chart-card"><h3 class="an-card-title">RPM Trend</h3><div class="an-chart-wrap"><canvas id="anRpmChart"></canvas></div></div>
-                    <div class="an-chart-card"><h3 class="an-card-title">Loads per Month</h3><div class="an-chart-wrap"><canvas id="anLoadsChart"></canvas></div></div>
+                    <div class="an-chart-card"><h3 class="an-card-title">Earnings</h3><div class="an-chart-wrap"><canvas id="anEarningsChart"></canvas></div></div>
+                    <div class="an-chart-card"><h3 class="an-card-title">Mileage</h3><div class="an-chart-wrap"><canvas id="anMileageChart"></canvas></div></div>
+                    <div class="an-chart-card"><h3 class="an-card-title">RPM</h3><div class="an-chart-wrap"><canvas id="anRpmChart"></canvas></div></div>
+                    <div class="an-chart-card"><h3 class="an-card-title">Loads</h3><div class="an-chart-wrap"><canvas id="anLoadsChart"></canvas></div></div>
                 </div>
 
+                <!-- Section: Breakdown -->
+                <div class="disp-section-header">
+                    <h3>Breakdown</h3>
+                </div>
+                <div class="dispatch-breakdown">
+                    <div class="dispatch-breakdown-tabs">
+                        <button class="dispatch-tab active" data-tab="driver">By Driver</button>
+                        <button class="dispatch-tab" data-tab="broker">By Broker</button>
+                        <button class="dispatch-tab" data-tab="dispatcher">By Dispatcher</button>
+                        <button class="dispatch-tab" data-tab="unit">By Unit</button>
+                    </div>
+                    <div class="dispatch-breakdown-body" id="dispatchBreakdownBody">
+                        <table class="dispatch-breakdown-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th><th>Loads</th><th>Miles</th><th>Avg Miles</th><th>Gross</th><th>Avg Rate</th><th>Avg RPM</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dispatchBreakdownTbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Section: Leaderboards -->
+                <div class="disp-section-header">
+                    <h3>Leaderboards</h3>
+                </div>
                 <div class="an-boards">
                     <div class="an-board-card">
                         <div class="an-board-head">
@@ -1620,6 +1684,7 @@
                     </div>
                 </div>
 
+                <!-- Section: Dispatcher Teams -->
                 <div class="an-teams-section">
                     <div class="an-teams-head">
                         <h3 class="an-card-title">Dispatcher Teams</h3>
@@ -1653,89 +1718,6 @@
                                 <h4 id="anAssignTitle">Assign dispatchers to team</h4>
                                 <div class="an-dispatcher-pool" id="anDispatcherPool"></div>
                             </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Dispatch Overview Stats -->
-                <div class="dispatch-overview">
-                    <div class="dispatch-stat-cards">
-                        <div class="dispatch-stat-card">
-                            <span class="dispatch-stat-value" id="dispTotalLoads">0</span>
-                            <span class="dispatch-stat-label">Loads</span>
-                        </div>
-                        <div class="dispatch-stat-card">
-                            <span class="dispatch-stat-value" id="dispTotalMiles">0</span>
-                            <span class="dispatch-stat-label">Total Miles</span>
-                        </div>
-                        <div class="dispatch-stat-card">
-                            <span class="dispatch-stat-value" id="dispAvgMiles">0</span>
-                            <span class="dispatch-stat-label">Avg Miles / Load</span>
-                        </div>
-                        <div class="dispatch-stat-card">
-                            <span class="dispatch-stat-value" id="dispGrossRevenue">$0</span>
-                            <span class="dispatch-stat-label">Gross Revenue</span>
-                        </div>
-                        <div class="dispatch-stat-card">
-                            <span class="dispatch-stat-value" id="dispAvgRate">$0</span>
-                            <span class="dispatch-stat-label">Avg Rate</span>
-                        </div>
-                        <div class="dispatch-stat-card">
-                            <span class="dispatch-stat-value" id="dispAvgRPM">$0</span>
-                            <span class="dispatch-stat-label">Avg RPM</span>
-                        </div>
-                    </div>
-                    <!-- Period overview + pulse -->
-                    <div class="disp-pulse-row">
-                        <div class="disp-period-tables">
-                            <table class="disp-period-table">
-                                <thead><tr><th></th><th>Gross</th><th>Miles</th><th>RPM</th><th>Loads</th><th>Avg Rate</th></tr></thead>
-                                <tbody>
-                                    <tr><td class="disp-period-label">This Week</td><td id="dpWeekGross">-</td><td id="dpWeekMiles">-</td><td id="dpWeekRpm">-</td><td id="dpWeekLoads">-</td><td id="dpWeekRate">-</td></tr>
-                                    <tr><td class="disp-period-label">This Month</td><td id="dpMonthGross">-</td><td id="dpMonthMiles">-</td><td id="dpMonthRpm">-</td><td id="dpMonthLoads">-</td><td id="dpMonthRate">-</td></tr>
-                                    <tr><td class="disp-period-label">This Year</td><td id="dpYearGross">-</td><td id="dpYearMiles">-</td><td id="dpYearRpm">-</td><td id="dpYearLoads">-</td><td id="dpYearRate">-</td></tr>
-                                </tbody>
-                            </table>
-                            <table class="disp-period-table">
-                                <thead><tr><th></th><th>Gross</th><th>Miles</th><th>RPM</th><th>Loads</th><th>Avg Rate</th></tr></thead>
-                                <tbody>
-                                    <tr><td class="disp-period-label">Avg / Week</td><td id="dpAvgWeekGross">-</td><td id="dpAvgWeekMiles">-</td><td id="dpAvgWeekRpm">-</td><td id="dpAvgWeekLoads">-</td><td id="dpAvgWeekRate">-</td></tr>
-                                    <tr><td class="disp-period-label">Avg / Month</td><td id="dpAvgMonthGross">-</td><td id="dpAvgMonthMiles">-</td><td id="dpAvgMonthRpm">-</td><td id="dpAvgMonthLoads">-</td><td id="dpAvgMonthRate">-</td></tr>
-                                    <tr><td class="disp-period-label">Avg / Year</td><td id="dpAvgYearGross">-</td><td id="dpAvgYearMiles">-</td><td id="dpAvgYearRpm">-</td><td id="dpAvgYearLoads">-</td><td id="dpAvgYearRate">-</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="disp-pulse-card">
-                            <span class="disp-pulse-label">Revenue Pulse</span>
-                            <canvas id="dispPulseChart" height="80"></canvas>
-                            <div class="disp-pulse-footer">
-                                <span class="disp-pulse-delta" id="dispPulseDelta"></span>
-                                <span class="disp-pulse-range" id="dispPulseRange"></span>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="dispatch-breakdown">
-                        <div class="dispatch-breakdown-tabs">
-                            <button class="dispatch-tab active" data-tab="driver">By Driver</button>
-                            <button class="dispatch-tab" data-tab="broker">By Broker</button>
-                            <button class="dispatch-tab" data-tab="dispatcher">By Dispatcher</button>
-                            <button class="dispatch-tab" data-tab="unit">By Unit</button>
-                        </div>
-                        <div class="dispatch-breakdown-body" id="dispatchBreakdownBody">
-                            <table class="dispatch-breakdown-table">
-                                <thead>
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Loads</th>
-                                        <th>Miles</th>
-                                        <th>Avg Miles</th>
-                                        <th>Gross</th>
-                                        <th>Avg Rate</th>
-                                        <th>Avg RPM</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="dispatchBreakdownTbody"></tbody>
-                            </table>
                         </div>
                     </div>
                 </div>
@@ -3854,6 +3836,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=81"></script>
+    <script src="dashboard.js?v=82"></script>
 </body>
 </html>

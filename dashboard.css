@@ -6131,9 +6131,10 @@ tr:hover .load-doc-btn {
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid rgba(255,255,255,0.6);
-    border-radius: 10px;
+    border-radius: 12px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.04);
     overflow: hidden;
+    margin-bottom: 0.5rem;
 }
 .dispatch-breakdown-tabs {
     display: flex;
@@ -6196,79 +6197,101 @@ tr:hover .load-doc-btn {
 }
 
 /* ═══════════════════════════════════════════
-   ANALYTICS SECTION
+   DISPATCH LANDING PAGE
    ═══════════════════════════════════════════ */
 
-/* KPI row */
-.an-kpis {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 0.65rem;
-    margin-bottom: 1rem;
+/* Quick nav strip */
+.disp-nav-strip {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.1rem;
 }
-.an-kpi {
-    background: rgba(255,255,255,0.7);
-    backdrop-filter: blur(12px);
-    border: 1px solid rgba(99,102,241,0.1);
-    border-radius: 14px;
-    padding: 0.85rem 0.75rem;
-    text-align: center;
-    box-shadow: 0 1px 4px rgba(0,0,0,0.03);
-}
-.an-kpi-label {
-    display: block;
-    font-size: 0.58rem;
+.disp-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.72rem;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #9ca3af;
-    margin-bottom: 0.25rem;
+    color: #4f46e5;
+    background: rgba(99,102,241,0.06);
+    border: 1px solid rgba(99,102,241,0.15);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
 }
-.an-kpi strong {
-    font-size: 1.2rem;
+.disp-nav-btn:hover {
+    background: rgba(99,102,241,0.12);
+    border-color: rgba(99,102,241,0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(99,102,241,0.1);
+}
+.disp-nav-btn svg { opacity: 0.7; }
+
+/* Section dividers */
+.disp-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.5rem 0 0.75rem;
+}
+.disp-section-header h3 {
+    font-size: 0.7rem;
     font-weight: 800;
-    color: #1e1b4b;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #9ca3af;
+    margin: 0;
+    white-space: nowrap;
+}
+.disp-section-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(0,0,0,0.06), transparent);
 }
 
-/* Charts */
+/* Charts — 4 col grid */
 .an-charts {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.85rem;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.65rem;
     margin-bottom: 0.85rem;
 }
 .an-chart-card {
     background: rgba(255,255,255,0.75);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(0,0,0,0.06);
-    border-radius: 14px;
-    padding: 1rem;
+    border-radius: 12px;
+    padding: 0.75rem 0.75rem 0.6rem;
     box-shadow: 0 1px 4px rgba(0,0,0,0.03);
 }
 .an-chart-wrap {
     position: relative;
-    height: 220px;
+    height: 180px;
 }
 .an-card-title {
-    font-size: 0.78rem;
+    font-size: 0.65rem;
     font-weight: 700;
-    color: #374151;
-    margin: 0 0 0.65rem;
+    color: #6b7280;
+    margin: 0 0 0.45rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 /* Leaderboards */
 .an-boards {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0.85rem;
+    gap: 0.65rem;
     margin-bottom: 1rem;
 }
 .an-board-card {
     background: rgba(255,255,255,0.75);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(0,0,0,0.06);
-    border-radius: 14px;
-    padding: 1rem;
+    border-radius: 12px;
+    padding: 0.85rem;
     box-shadow: 0 1px 4px rgba(0,0,0,0.03);
 }
 .an-board-head {
@@ -6592,14 +6615,17 @@ tr:hover .load-doc-btn {
 }
 
 /* Responsive */
+@media (max-width: 1100px) {
+    .an-charts { grid-template-columns: repeat(2, 1fr); }
+}
 @media (max-width: 900px) {
-    .an-kpis { grid-template-columns: repeat(3, 1fr); }
     .an-charts { grid-template-columns: 1fr; }
     .an-boards { grid-template-columns: 1fr; }
     .an-teams-grid { grid-template-columns: 1fr; }
+    .disp-nav-strip { flex-wrap: wrap; }
 }
 @media (max-width: 600px) {
-    .an-kpis { grid-template-columns: repeat(2, 1fr); }
+    .an-charts { grid-template-columns: 1fr; }
 }
 /* Load modal wider */
 .modal-lg {

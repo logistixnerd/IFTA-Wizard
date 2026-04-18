@@ -9856,24 +9856,6 @@
         const loads = state.loads.filter(l => l.status !== 'canceled');
         if (!loads.length) return;
 
-        // ─── KPIs ───
-        let totalGross = 0, totalMiles = 0, rpmSum = 0, rpmN = 0;
-        loads.forEach(l => {
-            const r = parseFloat(l.rate) || 0, d = parseFloat(l.detention) || 0, m = parseFloat(l.mileage) || 0;
-            totalGross += r + d;
-            totalMiles += m;
-            if (m > 0 && r > 0) { rpmSum += r / m; rpmN++; }
-        });
-        const avgRpm = rpmN ? rpmSum / rpmN : 0;
-        const avgRate = loads.length ? totalGross / loads.length : 0;
-
-        const fmt$ = v => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        $('anGross').textContent = fmt$(totalGross);
-        $('anMiles').textContent = totalMiles.toLocaleString();
-        $('anRpm').textContent = fmt$(avgRpm);
-        $('anLoads').textContent = loads.length;
-        $('anAvgRate').textContent = fmt$(avgRate);
-
         // ─── Monthly aggregation ───
         const months = {};
         loads.forEach(l => {
@@ -10329,6 +10311,12 @@
         document.querySelectorAll('.dept-nav-card[data-navigate]').forEach(card => {
             card.addEventListener('click', () => {
                 navigateToSection(card.dataset.navigate);
+            });
+        });
+        // Dispatch nav strip buttons
+        document.querySelectorAll('.disp-nav-btn[data-navigate]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                navigateToSection(btn.dataset.navigate);
             });
         });
     }
