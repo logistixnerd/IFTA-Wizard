@@ -3380,8 +3380,11 @@
 
             // Auto-add row when typing in last row (add/import mode)
             if (uSheetState.mode !== 'edit' && tr === tbody.lastElementChild) {
-                const hasData = Array.from(tr.querySelectorAll('input')).some(i => i.value.trim());
-                if (hasData) uAddRow();
+                const cfg = SHEET_CONFIGS[uSheetState.type];
+                const reqKey = cfg && cfg.requiredKey;
+                const reqInput = reqKey ? tr.querySelector('[data-key="' + reqKey + '"]') : null;
+                const hasRequired = reqInput ? reqInput.value.trim() : Array.from(tr.querySelectorAll('input')).some(i => i.value.trim());
+                if (hasRequired) uAddRow();
             }
 
             // Live VIN decode
@@ -8866,14 +8869,11 @@
     }
 
     /* ── Load Route Map (Google Maps) ── */
-    let _gmapsReady = false;
     let _loadMap = null;
     let _loadDirService = null;
     let _loadDirRenderer = null;
 
-    window._gmapsReady = function() { _gmapsReady = true; };
-
-    function isGMaps() { return _gmapsReady && window.google && google.maps; }
+    function isGMaps() { return !!(window.google && google.maps && google.maps.DirectionsService); }
 
     function resolveZipToCity(zip) {
         return new Promise(resolve => {
@@ -8929,6 +8929,7 @@
         }
         if (!ensureLoadMap()) return;
         mapEl.style.display = 'block';
+        google.maps.event.trigger(_loadMap, 'resize');
         _loadDirService.route({
             origin: originVal.trim(),
             destination: destVal.trim(),
@@ -8969,11 +8970,11 @@
     }
 
     function initLoadForm() {
-        // New Load → open unified sheet in add mode
+        // New Load → open modal (with route map)
         const addBtn = $('addLoadBtn');
-        if (addBtn) addBtn.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
+        if (addBtn) addBtn.addEventListener('click', () => openLoadModal(null));
         const addFirst = $('addFirstLoad');
-        if (addFirst) addFirst.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
+        if (addFirst) addFirst.addEventListener('click', () => openLoadModal(null));
         // Import → open unified sheet in add mode (import button triggers file picker inside usheet)
         const importBtn = $('importLoadsBtn');
         if (importBtn) importBtn.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
