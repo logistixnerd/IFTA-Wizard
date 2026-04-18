@@ -8984,45 +8984,52 @@
 
     function renderLoadHistory() {
         const tbody = $('historyTableBody');
+        if (!tbody) return; // Exit early if history section not loaded yet
+        
         const table = $('historyTable');
         const empty = $('historyEmpty');
         const thead = table?.querySelector('thead tr');
-        if (!tbody) return;
-        const historyLoads = state.loads.filter(l => !isLoadBoardItem(l) && matchesHistoryFilter(l));
-        const sorted = sortItems(historyLoads, sortState_history, 'load');
-        if (sorted.length === 0) {
-            if (table) table.style.display = 'none';
+        
+        try {
+            const historyLoads = state.loads.filter(l => !isLoadBoardItem(l) && matchesHistoryFilter(l));
+            const sorted = sortItems(historyLoads, sortState_history, 'load');
+            if (sorted.length === 0) {
+                if (table) table.style.display = 'none';
+                if (empty) empty.style.display = '';
+                return;
+            }
+            if (empty) empty.style.display = 'none';
+            if (table) table.style.display = '';
+            if (thead) thead.innerHTML = `<th style="width:5%">Load #</th><th style="width:5%">Unit</th><th style="width:12%">From</th><th style="width:12%">To</th><th style="width:8%">Broker</th><th style="width:7%">Rate</th><th style="width:5%">Mileage</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bonus</th><th style="width:7%">Status</th><th style="width:7%">DEL Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:7%">Dispatcher</th><th style="width:4%"></th>`;
+            tbody.innerHTML = sorted.map(l => {
+                const rpm = calcRPM(l.rate, l.mileage);
+                const total = calcTotal(l.rate, l.detention);
+                return `<tr data-id="${l.id}">
+                <td><div class="cell cell-muted">${escapeHtml(l.loadNumber || '')}</div></td>
+                <td><div class="cell">${escapeHtml(l.unit || '')}</div></td>
+                <td><div class="cell">${escapeHtml(l.origin || '')}</div></td>
+                <td><div class="cell">${escapeHtml(l.destination || '')}</div></td>
+                <td><div class="cell">${escapeHtml(l.broker || '')}</div></td>
+                <td><div class="cell">${l.rate ? formatCurrency(l.rate) : ''}</div></td>
+                <td><div class="cell">${escapeHtml(l.mileage ? String(l.mileage) : '')}</div></td>
+                <td><div class="cell load-rpm">${escapeHtml(rpm)}</div></td>
+                <td><div class="cell">${l.detention ? formatCurrency(l.detention) : ''}</div></td>
+                <td><div class="cell">${loadStatusBadge(l.status)}</div></td>
+                <td><div class="cell">${escapeHtml(l.deliveryDate || '')}</div></td>
+                <td><div class="cell"><strong>${total ? formatCurrency(total) : ''}</strong></div></td>
+                <td><div class="cell">${escapeHtml(l.driver || '')}</div></td>
+                <td><div class="cell">${escapeHtml(l.dispatcher || '')}</div></td>
+                <td class="row-actions"><div class="cell">
+                    <button title="Edit" onclick="Dashboard.editLoad('${l.id}')">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                </div></td>
+            </tr>`;
+            }).join('');
+        } catch (e) {
+            console.error('Error rendering load history:', e);
             if (empty) empty.style.display = '';
-            return;
         }
-        if (empty) empty.style.display = 'none';
-        if (table) table.style.display = '';
-        if (thead) thead.innerHTML = `<th style="width:5%">Load #</th><th style="width:5%">Unit</th><th style="width:12%">From</th><th style="width:12%">To</th><th style="width:8%">Broker</th><th style="width:7%">Rate</th><th style="width:5%">Mileage</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bonus</th><th style="width:7%">Status</th><th style="width:7%">DEL Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:7%">Dispatcher</th><th style="width:4%"></th>`;
-        tbody.innerHTML = sorted.map(l => {
-            const rpm = calcRPM(l.rate, l.mileage);
-            const total = calcTotal(l.rate, l.detention);
-            return `<tr data-id="${l.id}">
-            <td><div class="cell cell-muted">${escapeHtml(l.loadNumber || '')}</div></td>
-            <td><div class="cell">${escapeHtml(l.unit || '')}</div></td>
-            <td><div class="cell">${escapeHtml(l.origin || '')}</div></td>
-            <td><div class="cell">${escapeHtml(l.destination || '')}</div></td>
-            <td><div class="cell">${escapeHtml(l.broker || '')}</div></td>
-            <td><div class="cell">${l.rate ? formatCurrency(l.rate) : ''}</div></td>
-            <td><div class="cell">${escapeHtml(l.mileage ? String(l.mileage) : '')}</div></td>
-            <td><div class="cell load-rpm">${escapeHtml(rpm)}</div></td>
-            <td><div class="cell">${l.detention ? formatCurrency(l.detention) : ''}</div></td>
-            <td><div class="cell">${loadStatusBadge(l.status)}</div></td>
-            <td><div class="cell">${escapeHtml(l.deliveryDate || '')}</div></td>
-            <td><div class="cell"><strong>${total ? formatCurrency(total) : ''}</strong></div></td>
-            <td><div class="cell">${escapeHtml(l.driver || '')}</div></td>
-            <td><div class="cell">${escapeHtml(l.dispatcher || '')}</div></td>
-            <td class="row-actions"><div class="cell">
-                <button title="Edit" onclick="Dashboard.editLoad('${l.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-            </div></td>
-        </tr>`;
-        }).join('');
     }
 
     function nextLoadNumber() {
