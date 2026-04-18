@@ -829,6 +829,21 @@
         renderComplianceReminders(state.fmcsaSnapshot);
         initComplianceSection();
         lockCompanyIfSet();
+
+        // ── TEMPORARY: Seed sample inspections (remove after testing) ──
+        try {
+            const seedFlag = localStorage.getItem('inspections_seeded');
+            if (!seedFlag) {
+                const seedFn = firebase.functions().httpsCallable('seedInspections');
+                const r = await seedFn();
+                if (r.data && r.data.success) {
+                    localStorage.setItem('inspections_seeded', '1');
+                    console.log('Seeded', r.data.count, 'sample inspections');
+                    await loadInspections();
+                }
+            }
+        } catch(e) { console.warn('Seed skipped:', e.message); }
+        // ── END TEMPORARY ──
     }
 
     // ── PROFILE ───────────────────────────

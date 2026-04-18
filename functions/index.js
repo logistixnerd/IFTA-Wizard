@@ -355,3 +355,30 @@ exports.samsaraDisconnect = functions
 
     return { success: true };
   });
+
+/**
+ * Callable: Seed sample inspections (temporary — remove after use)
+ */
+exports.seedInspections = functions
+  .runWith({ memory: '256MB', timeoutSeconds: 30 })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
+    }
+    const uid = context.auth.uid;
+    const col = admin.firestore().collection('users').doc(uid).collection('inspections');
+    const inspections = [
+      { date:'2026-04-15', type:'level-1', reportNum:'TX2026041500012', driverName:'John Smith', truckUnit:'101', location:'Dallas, TX', result:'pass', violations:0, fineAmount:'', notes:'Full Level I inspection at weigh station. All systems passed.', inspStatus:'resolved', paidStatus:'' },
+      { date:'2026-04-12', type:'level-2', reportNum:'OK2026041200087', driverName:'Mike Johnson', truckUnit:'204', location:'Oklahoma City, OK', result:'warning', violations:1, fineAmount:'', notes:'Walk-around found minor tire tread wear on steer axle. Warning issued.', inspStatus:'open', paidStatus:'' },
+      { date:'2026-04-10', type:'level-1', reportNum:'AR2026041000034', driverName:'Carlos Rivera', truckUnit:'307', location:'Little Rock, AR', result:'fail', violations:3, fineAmount:'1250.00', notes:'Brake adjustment out of spec, ELD malfunction, expired fire extinguisher.', inspStatus:'open', paidStatus:'unpaid' },
+      { date:'2026-04-08', type:'citation', reportNum:'NM2026040800156', driverName:'John Smith', truckUnit:'101', location:'Albuquerque, NM', result:'fail', violations:1, fineAmount:'375.00', notes:'Speeding citation — 72 in a 55 construction zone.', inspStatus:'open', paidStatus:'unpaid' },
+      { date:'2026-04-05', type:'level-3', reportNum:'TX2026040500201', driverName:'David Lee', truckUnit:'155', location:'El Paso, TX', result:'pass', violations:0, fineAmount:'', notes:'Driver-only inspection. CDL, medical card, logbook all compliant.', inspStatus:'resolved', paidStatus:'' },
+      { date:'2026-03-28', type:'level-2', reportNum:'LA2026032800044', driverName:'Mike Johnson', truckUnit:'204', location:'Shreveport, LA', result:'oos', violations:2, fineAmount:'2100.00', notes:'Out of service — cracked brake drum, leaking air lines. Towed to repair.', inspStatus:'open', paidStatus:'unpaid' },
+      { date:'2026-03-22', type:'level-5', reportNum:'TX2026032200089', driverName:'', truckUnit:'307', location:'Houston, TX', result:'pass', violations:0, fineAmount:'', notes:'Vehicle-only inspection at terminal. Annual DOT check passed.', inspStatus:'resolved', paidStatus:'' },
+      { date:'2026-03-15', type:'level-1', reportNum:'MS2026031500112', driverName:'Carlos Rivera', truckUnit:'307', location:'Jackson, MS', result:'warning', violations:1, fineAmount:'', notes:'Loose mudflap bracket noted. Verbal warning only.', inspStatus:'resolved', paidStatus:'' }
+    ];
+    const batch = admin.firestore().batch();
+    inspections.forEach(insp => batch.set(col.doc(), insp));
+    await batch.commit();
+    return { success: true, count: inspections.length };
+  });
