@@ -820,7 +820,7 @@
 
     // ── Load All Data ─────────────────────
     async function loadAll() {
-        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers(), loadLoads()]);
+        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers(), loadLoads(), loadInspections()]);
         renderTrucks();
         renderTrailers();
         renderDrivers();
