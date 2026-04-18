@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=55">
+    <link rel="stylesheet" href="dashboard.css?v=56">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -91,13 +91,7 @@
                             </svg>
                             <span>Compliance</span>
                         </button>
-                        <button class="dash-nav-item" onclick="sessionStorage.setItem('fromDashboard','true'); window.location.href='/';">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                                <path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>
-                            </svg>
-                            <span>IFTA Wizard</span>
-                        </button>
-                        <button class="dash-nav-item" onclick="sessionStorage.setItem('fromDashboard','true'); window.location.href='/';">
+                        <button class="dash-nav-item" data-section="ifta-wizard">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                                 <path d="M3 3h18v18H3z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>
                             </svg>
@@ -1359,6 +1353,13 @@
                         </div>
 
                     </div>
+                </div>
+            </section>
+
+            <!-- IFTA Wizard Section (embedded tool) -->
+            <section class="dash-section" id="section-ifta-wizard">
+                <div class="dash-card" style="padding:0;overflow:hidden;">
+                    <iframe id="iftaWizardFrame" src="index.html" style="width:100%;height:calc(100vh - 80px);border:none;display:block;"></iframe>
                 </div>
             </section>
 
@@ -3668,6 +3669,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=58"></script>
+    <script src="dashboard.js?v=59"></script>
 </body>
 </html>
