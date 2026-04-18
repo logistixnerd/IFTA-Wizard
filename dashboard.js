@@ -8495,11 +8495,21 @@
             return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
         }).join('');
 
-        // Toggle unassigned list on header click
-        container.querySelectorAll('.alert-unassigned-header').forEach((hdr) => {
-            hdr.style.cursor = 'pointer';
-            hdr.addEventListener('click', () => {
-                hdr.closest('.alert-unassigned').classList.toggle('open');
+        // Toggle unassigned list on header click + hover
+        container.querySelectorAll('.alert-unassigned').forEach((card) => {
+            let openTimer = null, closeTimer = null;
+            const hdr = card.querySelector('.alert-unassigned-header');
+            if (hdr) {
+                hdr.style.cursor = 'pointer';
+                hdr.addEventListener('click', () => card.classList.toggle('open'));
+            }
+            card.addEventListener('mouseenter', () => {
+                clearTimeout(closeTimer);
+                openTimer = setTimeout(() => card.classList.add('open'), 300);
+            });
+            card.addEventListener('mouseleave', () => {
+                clearTimeout(openTimer);
+                closeTimer = setTimeout(() => card.classList.remove('open'), 400);
             });
         });
 
@@ -8655,11 +8665,22 @@
     // ── Overview dropdown toggle ─────
     function initOverviewCards() {
         document.querySelectorAll('.overview-dropdown').forEach(dd => {
+            let openTimer = null, closeTimer = null;
             dd.querySelector('.overview-card').addEventListener('click', () => {
                 const wasOpen = dd.classList.contains('open');
-                // Close all
                 document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
                 if (!wasOpen) dd.classList.add('open');
+            });
+            dd.addEventListener('mouseenter', () => {
+                clearTimeout(closeTimer);
+                openTimer = setTimeout(() => {
+                    document.querySelectorAll('.overview-dropdown.open').forEach(d => { if (d !== dd) d.classList.remove('open'); });
+                    dd.classList.add('open');
+                }, 300);
+            });
+            dd.addEventListener('mouseleave', () => {
+                clearTimeout(openTimer);
+                closeTimer = setTimeout(() => dd.classList.remove('open'), 400);
             });
         });
         // Close dropdown when clicking outside
