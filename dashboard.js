@@ -2228,29 +2228,23 @@
         const sorted = sortItems(filtered, sortState.trucks, 'truck');
         bulkSelection.trucks = new Set([...bulkSelection.trucks].filter(id => sorted.some(t => t.id === id)));
         updateBulkBar('trucks');
-        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="truckSelectAll" title="Select all"></th><th class="col-validation"></th><th style="width:9%">Unit #</th><th style="width:7%">Year</th><th style="width:11%">Make</th><th style="width:11%">Model</th><th style="width:17%">VIN</th><th style="width:12%">Plate</th><th style="width:8%">Fuel</th><th style="width:10%">Status</th><th style="width:8%"></th>`;
+        const visCols = getVisibleTableCols('trucks');
+        const widths = computeTableColWidths('trucks');
+        if (thead) {
+            let h = '<th class="col-checkbox"><input type="checkbox" id="truckSelectAll" title="Select all"></th><th class="col-validation"></th>';
+            visCols.forEach(c => { h += '<th style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
+            h += '<th style="width:8%"></th>';
+            thead.innerHTML = h;
+        }
         const selAll = thead?.querySelector('#truckSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('trucks', selAll);
-        tbody.innerHTML = sorted.map(t => `<tr data-id="${t.id}" class="${bulkSelection.trucks.has(t.id) ? 'row-selected' : ''} ${t.doNotDispatch ? 'row-dnd' : ''} ${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
-            <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${t.id}" ${bulkSelection.trucks.has(t.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('trucks','${t.id}',this)"></td>
-            ${validationIndicator(t)}
-            <td class="col-unit"><div class="cell cell-primary" title="Open truck profile for ${escapeHtml(t.unit || t.id)}"><strong>${escapeHtml(t.unit || t.id)}</strong>${t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : ''}</div></td>
-            <td class="col-year"><div class="cell">${escapeHtml(t.year)}</div></td>
-            <td class="col-make"><div class="cell">${escapeHtml(t.make)}</div></td>
-            <td class="col-model"><div class="cell">${escapeHtml(t.model)}</div></td>
-            <td class="col-vin" data-col="vin"><div class="cell vin-cell" title="${escapeHtml(t.vin)}">${escapeHtml(t.vin)}</div></td>
-            <td class="col-plate"><div class="cell">${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</div></td>
-            <td class="col-fuel"><div class="cell">${fuelLabel(t.fuel)}</div></td>
-            <td class="col-status"><div class="cell">${statusSelect(t.status, t.id, 'trucks', 'truck')}</div></td>
-            <td class="col-actions row-actions"><div class="cell">
-                <button title="Edit" onclick="Dashboard.editTruck('${t.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTruck('${t.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-            </div></td>
-        </tr>`).join('');
+        tbody.innerHTML = sorted.map(t => {
+            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + t.id + '" ' + (bulkSelection.trucks.has(t.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'trucks\',\'' + t.id + '\',this)"></td>';
+            cells += validationIndicator(t);
+            visCols.forEach(c => { cells += truckCell(t, c.key); });
+            cells += '<td class="col-actions row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editTruck(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button title="Delete" class="btn-delete" onclick="Dashboard.deleteTruck(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>';
+            return '<tr data-id="' + t.id + '" class="' + (bulkSelection.trucks.has(t.id) ? 'row-selected' : '') + ' ' + (t.doNotDispatch ? 'row-dnd' : '') + ' ' + (t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : '') + '">' + cells + '</tr>';
+        }).join('');
     }
 
     function openTruckProfile(id) {
@@ -2624,10 +2618,252 @@
         dirty: new Set()    // row indices with unsaved changes
     };
 
-    // Initialize visible cols with defaults
+    // Initialize visible cols with defaults or from localStorage
     Object.keys(UNIFIED_COLS).forEach(type => {
-        uSheetState.visibleCols[type] = new Set(UNIFIED_COLS[type].filter(c => c.default).map(c => c.key));
+        const saved = localStorage.getItem('dash_sheet_cols_' + type);
+        if (saved) {
+            try { uSheetState.visibleCols[type] = new Set(JSON.parse(saved)); }
+            catch { uSheetState.visibleCols[type] = new Set(UNIFIED_COLS[type].filter(c => c.default).map(c => c.key)); }
+        } else {
+            uSheetState.visibleCols[type] = new Set(UNIFIED_COLS[type].filter(c => c.default).map(c => c.key));
+        }
     });
+
+    // ── Table Column Configuration (display tables) ──
+    const TABLE_COLS = {
+        trucks: [
+            { key: 'unit', label: 'Unit #', w: 9, req: true, def: true },
+            { key: 'year', label: 'Year', w: 7, def: true },
+            { key: 'make', label: 'Make', w: 11, def: true },
+            { key: 'model', label: 'Model', w: 11, def: true },
+            { key: 'vin', label: 'VIN', w: 17, def: true },
+            { key: 'plate', label: 'Plate', w: 12, def: true },
+            { key: 'fuel', label: 'Fuel', w: 8, def: true },
+            { key: 'color', label: 'Color', w: 8, def: false },
+            { key: 'annualInspDate', label: 'Insp Exp', w: 9, def: false },
+            { key: 'registrationExp', label: 'Reg Exp', w: 9, def: false },
+            { key: 'insuranceExp', label: 'Ins Exp', w: 9, def: false },
+            { key: 'status', label: 'Status', w: 10, def: true }
+        ],
+        trailers: [
+            { key: 'unit', label: 'Unit #', w: 11, req: true, def: true },
+            { key: 'year', label: 'Year', w: 9, def: true },
+            { key: 'make', label: 'Make', w: 12, def: true },
+            { key: 'type', label: 'Type', w: 12, def: true },
+            { key: 'model', label: 'Model', w: 10, def: false },
+            { key: 'vin', label: 'VIN', w: 18, def: true },
+            { key: 'plate', label: 'Plate', w: 12, def: true },
+            { key: 'annualInspDate', label: 'Insp Exp', w: 9, def: false },
+            { key: 'registrationExp', label: 'Reg Exp', w: 9, def: false },
+            { key: 'insuranceExp', label: 'Ins Exp', w: 9, def: false },
+            { key: 'status', label: 'Status', w: 10, def: true }
+        ],
+        drivers: [
+            { key: 'name', label: 'Name', w: 14, req: true, def: true },
+            { key: 'cdl', label: 'CDL #', w: 9, def: true },
+            { key: 'cdlState', label: 'State', w: 5, def: true },
+            { key: 'cdlExp', label: 'CDL Exp', w: 9, def: true },
+            { key: 'phone', label: 'Phone', w: 10, def: true },
+            { key: 'email', label: 'Email', w: 11, def: true },
+            { key: 'truck', label: 'Truck', w: 12, def: true },
+            { key: 'dob', label: 'DOB', w: 9, def: false },
+            { key: 'medExp', label: 'Med Exp', w: 9, def: false },
+            { key: 'mvrExp', label: 'MVR Exp', w: 9, def: false },
+            { key: 'hireDate', label: 'Hire Date', w: 9, def: false },
+            { key: 'status', label: 'Status', w: 10, def: true }
+        ],
+        inspections: [
+            { key: 'date', label: 'Date', w: 9, req: true, def: true },
+            { key: 'type', label: 'Level', w: 9, def: true },
+            { key: 'reportNum', label: 'Report #', w: 10, def: true },
+            { key: 'driverName', label: 'Driver', w: 11, def: true },
+            { key: 'truckUnit', label: 'Truck', w: 7, def: true },
+            { key: 'location', label: 'Location', w: 10, def: true },
+            { key: 'result', label: 'Result', w: 7, def: true },
+            { key: 'violations', label: 'Viol.', w: 6, def: true },
+            { key: 'fineAmount', label: 'Fine $', w: 7, def: false },
+            { key: 'notes', label: 'Notes', w: 12, def: false },
+            { key: 'status', label: 'Status', w: 13, def: true }
+        ]
+    };
+
+    // ── Table Column State (persisted in localStorage) ──
+    const tableColState = {};
+    Object.keys(TABLE_COLS).forEach(type => {
+        const saved = localStorage.getItem('dash_cols_' + type);
+        if (saved) {
+            try { tableColState[type] = new Set(JSON.parse(saved)); }
+            catch { tableColState[type] = new Set(TABLE_COLS[type].filter(c => c.def).map(c => c.key)); }
+        } else {
+            tableColState[type] = new Set(TABLE_COLS[type].filter(c => c.def).map(c => c.key));
+        }
+    });
+
+    function saveTableCols(type) {
+        localStorage.setItem('dash_cols_' + type, JSON.stringify([...tableColState[type]]));
+    }
+
+    function getVisibleTableCols(type) {
+        return TABLE_COLS[type].filter(c => tableColState[type].has(c.key) || c.req);
+    }
+
+    function computeTableColWidths(type) {
+        const vis = getVisibleTableCols(type);
+        const totalW = vis.reduce((s, c) => s + c.w, 0);
+        const fixedW = type === 'inspections' ? 21 : 13;
+        const avail = 100 - fixedW;
+        const widths = {};
+        vis.forEach(c => { widths[c.key] = ((c.w / totalW) * avail).toFixed(1); });
+        return widths;
+    }
+
+    function buildTableColPicker(type, dropdown) {
+        const vis = tableColState[type];
+        dropdown.innerHTML = TABLE_COLS[type].map(c => {
+            const active = vis.has(c.key);
+            const locked = c.req;
+            return '<button type="button" class="usheet-card' + (active ? ' active' : '') + (locked ? ' locked' : '') + '" data-col="' + c.key + '" data-table-type="' + type + '"' + (locked ? ' disabled' : '') + '>' + escapeHtml(c.label) + '</button>';
+        }).join('');
+        dropdown.querySelectorAll('.usheet-card:not(.locked)').forEach(card => {
+            card.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleTableCol(card.dataset.tableType, card.dataset.col, card);
+            });
+        });
+    }
+
+    function toggleTableCol(type, key, card) {
+        if (tableColState[type].has(key)) {
+            tableColState[type].delete(key);
+            card.classList.remove('active');
+        } else {
+            tableColState[type].add(key);
+            card.classList.add('active');
+        }
+        card.classList.add('usheet-card-vanish');
+        setTimeout(() => card.classList.remove('usheet-card-vanish'), 250);
+        saveTableCols(type);
+        const tableId = { trucks: 'trucksTable', trailers: 'trailersTable', drivers: 'driversTable', inspections: 'inspectionsTable' }[type];
+        const tableWrap = $(tableId)?.closest('.dash-table-wrap');
+        if (tableWrap) {
+            tableWrap.classList.add('col-transitioning');
+            setTimeout(() => {
+                const renderFn = { trucks: renderTrucks, trailers: renderTrailers, drivers: renderDrivers, inspections: renderInspections }[type];
+                if (renderFn) renderFn();
+                requestAnimationFrame(() => tableWrap.classList.remove('col-transitioning'));
+            }, 150);
+        }
+    }
+
+    function initTableColPickers() {
+        document.querySelectorAll('.table-col-picker-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const type = btn.dataset.tableType;
+                const wrap = btn.closest('.table-col-picker-wrap');
+                const dropdown = wrap.querySelector('.table-col-dropdown');
+                const isOpen = !dropdown.classList.contains('hidden');
+                document.querySelectorAll('.table-col-dropdown').forEach(d => d.classList.add('hidden'));
+                if (!isOpen) {
+                    buildTableColPicker(type, dropdown);
+                    dropdown.classList.remove('hidden');
+                }
+            });
+        });
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.table-col-picker-wrap')) {
+                document.querySelectorAll('.table-col-dropdown').forEach(d => d.classList.add('hidden'));
+            }
+        });
+    }
+
+    // ── Table Cell Renderers ──
+    function truckCell(t, key) {
+        switch(key) {
+            case 'unit': return '<td class="col-unit"><div class="cell cell-primary" title="Open truck profile for ' + escapeHtml(t.unit || t.id) + '"><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</div></td>';
+            case 'year': return '<td class="col-year"><div class="cell">' + escapeHtml(t.year) + '</div></td>';
+            case 'make': return '<td class="col-make"><div class="cell">' + escapeHtml(t.make) + '</div></td>';
+            case 'model': return '<td class="col-model"><div class="cell">' + escapeHtml(t.model) + '</div></td>';
+            case 'vin': return '<td class="col-vin"><div class="cell vin-cell" title="' + escapeHtml(t.vin) + '">' + escapeHtml(t.vin) + '</div></td>';
+            case 'plate': return '<td class="col-plate"><div class="cell">' + escapeHtml(t.plate) + (t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : '') + '</div></td>';
+            case 'fuel': return '<td class="col-fuel"><div class="cell">' + fuelLabel(t.fuel) + '</div></td>';
+            case 'color': return '<td class="col-color"><div class="cell">' + escapeHtml(t.color || '') + '</div></td>';
+            case 'annualInspDate': return '<td><div class="cell">' + escapeHtml(t.annualInspDate || '\u2014') + '</div></td>';
+            case 'registrationExp': return '<td><div class="cell">' + escapeHtml(t.registrationExp || '\u2014') + '</div></td>';
+            case 'insuranceExp': return '<td><div class="cell">' + escapeHtml(t.insuranceExp || '\u2014') + '</div></td>';
+            case 'status': return '<td class="col-status"><div class="cell">' + statusSelect(t.status, t.id, 'trucks', 'truck') + '</div></td>';
+            default: return '<td><div class="cell">' + escapeHtml(t[key] || '') + '</div></td>';
+        }
+    }
+
+    function trailerCell(t, key) {
+        switch(key) {
+            case 'unit': return '<td><div class="cell cell-primary" title="Open trailer profile for ' + escapeHtml(t.unit || t.id) + '"><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</div></td>';
+            case 'year': return '<td><div class="cell">' + escapeHtml(t.year) + '</div></td>';
+            case 'make': return '<td><div class="cell">' + escapeHtml(t.make) + '</div></td>';
+            case 'type': return '<td><div class="cell">' + trailerTypeLabel(t.type) + '</div></td>';
+            case 'model': return '<td><div class="cell">' + escapeHtml(t.model || '') + '</div></td>';
+            case 'vin': return '<td><div class="cell vin-cell">' + escapeHtml(t.vin) + '</div></td>';
+            case 'plate': return '<td><div class="cell">' + escapeHtml(t.plate) + '</div></td>';
+            case 'annualInspDate': return '<td><div class="cell">' + escapeHtml(t.annualInspDate || '\u2014') + '</div></td>';
+            case 'registrationExp': return '<td><div class="cell">' + escapeHtml(t.registrationExp || '\u2014') + '</div></td>';
+            case 'insuranceExp': return '<td><div class="cell">' + escapeHtml(t.insuranceExp || '\u2014') + '</div></td>';
+            case 'status': return '<td><div class="cell">' + statusSelect(t.status, t.id, 'trailers', 'trailer') + '</div></td>';
+            default: return '<td><div class="cell">' + escapeHtml(t[key] || '') + '</div></td>';
+        }
+    }
+
+    function driverCell(d, key) {
+        switch(key) {
+            case 'name': return '<td><div class="cell cell-primary" title="Open driver profile for ' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '"><strong>' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '</strong>' + (d.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</div></td>';
+            case 'cdl': return '<td><div class="cell">' + escapeHtml(d.cdl) + '</div></td>';
+            case 'cdlState': return '<td><div class="cell">' + escapeHtml(d.cdlState) + '</div></td>';
+            case 'cdlExp': return '<td><div class="cell">' + escapeHtml(d.cdlExp) + '</div></td>';
+            case 'phone': return '<td><div class="cell">' + escapeHtml(d.phone ? formatPhone(d.phone) : '') + '</div></td>';
+            case 'email': return '<td><div class="cell">' + escapeHtml(d.email) + '</div></td>';
+            case 'truck': return '<td><div class="cell">' + truckSelectHtml(d.id, d.truck, d.doNotDispatch) + '</div></td>';
+            case 'dob': return '<td><div class="cell">' + escapeHtml(d.dob || '\u2014') + '</div></td>';
+            case 'medExp': return '<td><div class="cell">' + escapeHtml(d.medExp || '\u2014') + '</div></td>';
+            case 'mvrExp': return '<td><div class="cell">' + escapeHtml(d.mvrExp || '\u2014') + '</div></td>';
+            case 'hireDate': return '<td><div class="cell">' + escapeHtml(d.hireDate || '\u2014') + '</div></td>';
+            case 'status': return '<td><div class="cell">' + statusSelect(d.status, d.id, 'drivers', 'driver') + '</div></td>';
+            default: return '<td><div class="cell">' + escapeHtml(d[key] || '') + '</div></td>';
+        }
+    }
+
+    function inspResultBadge(r) {
+        const cls = r === 'pass' ? 'badge-green' : r === 'fail' || r === 'oos' ? 'badge-red' : r === 'warning' ? 'badge-yellow' : 'badge-gray';
+        const label = r === 'oos' ? 'OOS' : r ? r.charAt(0).toUpperCase() + r.slice(1) : '\u2014';
+        return '<span class="insp-badge ' + cls + '">' + escapeHtml(label) + '</span>';
+    }
+
+    function inspTypeFmt(t) {
+        const map = {'level-1':'Level I','level-2':'Level II','level-3':'Level III','level-4':'Level IV','level-5':'Level V','citation':'Citation'};
+        return map[t] || t || '\u2014';
+    }
+
+    function inspectionCell(d, key) {
+        switch(key) {
+            case 'date': return '<td><div class="cell">' + escapeHtml(d.date || '\u2014') + '</div></td>';
+            case 'type': return '<td><div class="cell">' + escapeHtml(inspTypeFmt(d.type)) + '</div></td>';
+            case 'reportNum': return '<td><div class="cell">' + escapeHtml(d.reportNum || '\u2014') + '</div></td>';
+            case 'driverName': return '<td><div class="cell">' + escapeHtml(d.driverName || '\u2014') + '</div></td>';
+            case 'truckUnit': return '<td><div class="cell">' + escapeHtml(d.truckUnit || '\u2014') + '</div></td>';
+            case 'location': return '<td><div class="cell">' + escapeHtml(d.location || '\u2014') + '</div></td>';
+            case 'result': return '<td><div class="cell">' + inspResultBadge(d.result) + '</div></td>';
+            case 'violations': return '<td><div class="cell">' + (d.violations != null ? escapeHtml(String(d.violations)) : '0') + '</div></td>';
+            case 'fineAmount': return '<td><div class="cell">' + (d.fineAmount ? '$' + parseFloat(d.fineAmount).toFixed(2) : '\u2014') + '</div></td>';
+            case 'notes': return '<td><div class="cell">' + escapeHtml(d.notes || '\u2014') + '</div></td>';
+            case 'status': {
+                const resolved = d.inspStatus === 'resolved';
+                const paid = d.paidStatus === 'paid';
+                const statusBadge = resolved ? '<span class="insp-badge badge-green">Resolved</span>' : '<span class="insp-badge badge-red">Open</span>';
+                const paidBadge = (d.fineAmount && parseFloat(d.fineAmount) > 0) ? (paid ? '<span class="insp-badge badge-green">Paid</span>' : '<span class="insp-badge badge-yellow">Unpaid</span>') : '';
+                return '<td><div class="cell">' + statusBadge + ' ' + paidBadge + '</div></td>';
+            }
+            default: return '<td><div class="cell">' + escapeHtml(d[key] || '') + '</div></td>';
+        }
+    }
 
     function uGetVisibleCols(type) {
         return UNIFIED_COLS[type].filter(c => uSheetState.visibleCols[type].has(c.key));
@@ -2679,6 +2915,7 @@
     function uToggleCol(type, key, show) {
         if (show) uSheetState.visibleCols[type].add(key);
         else uSheetState.visibleCols[type].delete(key);
+        localStorage.setItem('dash_sheet_cols_' + type, JSON.stringify([...uSheetState.visibleCols[type]]));
         uBuildTable(type, null, uSheetState.mode);
     }
 
@@ -7746,28 +7983,23 @@
         const sorted = sortItems(filtered, sortState.trailers, 'trailer');
         bulkSelection.trailers = new Set([...bulkSelection.trailers].filter(id => sorted.some(t => t.id === id)));
         updateBulkBar('trailers');
-        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="trailerSelectAll" title="Select all"></th><th class="col-validation"></th><th style="width:11%">Unit #</th><th style="width:9%">Year</th><th style="width:12%">Make</th><th style="width:12%">Type</th><th style="width:18%">VIN</th><th style="width:12%">Plate</th><th style="width:10%">Status</th><th style="width:7%"></th>`;
+        const visCols = getVisibleTableCols('trailers');
+        const widths = computeTableColWidths('trailers');
+        if (thead) {
+            let h = '<th class="col-checkbox"><input type="checkbox" id="trailerSelectAll" title="Select all"></th><th class="col-validation"></th>';
+            visCols.forEach(c => { h += '<th style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
+            h += '<th style="width:7%"></th>';
+            thead.innerHTML = h;
+        }
         const selAll = thead?.querySelector('#trailerSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('trailers', selAll);
-        tbody.innerHTML = sorted.map(t => `<tr data-id="${t.id}" class="${bulkSelection.trailers.has(t.id) ? 'row-selected' : ''} ${t.doNotDispatch ? 'row-dnd' : ''} ${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
-            <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${t.id}" ${bulkSelection.trailers.has(t.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('trailers','${t.id}',this)"></td>
-            ${validationIndicator(t)}
-            <td><div class="cell cell-primary" title="Open trailer profile for ${escapeHtml(t.unit || t.id)}"><strong>${escapeHtml(t.unit || t.id)}</strong>${t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : ''}</div></td>
-            <td><div class="cell">${escapeHtml(t.year)}</div></td>
-            <td><div class="cell">${escapeHtml(t.make)}</div></td>
-            <td><div class="cell">${trailerTypeLabel(t.type)}</div></td>
-            <td><div class="cell vin-cell">${escapeHtml(t.vin)}</div></td>
-            <td><div class="cell">${escapeHtml(t.plate)}</div></td>
-            <td><div class="cell">${statusSelect(t.status, t.id, 'trailers', 'trailer')}</div></td>
-            <td class="row-actions"><div class="cell">
-                <button title="Edit" onclick="Dashboard.editTrailer('${t.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTrailer('${t.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-            </div></td>
-        </tr>`).join('');
+        tbody.innerHTML = sorted.map(t => {
+            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + t.id + '" ' + (bulkSelection.trailers.has(t.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'trailers\',\'' + t.id + '\',this)"></td>';
+            cells += validationIndicator(t);
+            visCols.forEach(c => { cells += trailerCell(t, c.key); });
+            cells += '<td class="row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editTrailer(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button title="Delete" class="btn-delete" onclick="Dashboard.deleteTrailer(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>';
+            return '<tr data-id="' + t.id + '" class="' + (bulkSelection.trailers.has(t.id) ? 'row-selected' : '') + ' ' + (t.doNotDispatch ? 'row-dnd' : '') + ' ' + (t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : '') + '">' + cells + '</tr>';
+        }).join('');
     }
 
     function openTrailerModal(data) {
@@ -7869,29 +8101,23 @@
         const sorted = sortItems(filtered, sortState.drivers, 'driver');
         bulkSelection.drivers = new Set([...bulkSelection.drivers].filter(id => sorted.some(d => d.id === id)));
         updateBulkBar('drivers');
-        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="driverSelectAll" title="Select all"></th><th class="col-validation"></th><th style="width:14%">Name</th><th style="width:9%">CDL #</th><th style="width:5%">State</th><th style="width:9%">CDL Exp</th><th style="width:10%">Phone</th><th style="width:11%">Email</th><th style="width:12%">Truck</th><th style="width:10%">Status</th><th style="width:8%"></th>`;
+        const visCols = getVisibleTableCols('drivers');
+        const widths = computeTableColWidths('drivers');
+        if (thead) {
+            let h = '<th class="col-checkbox"><input type="checkbox" id="driverSelectAll" title="Select all"></th><th class="col-validation"></th>';
+            visCols.forEach(c => { h += '<th style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
+            h += '<th style="width:8%"></th>';
+            thead.innerHTML = h;
+        }
         const selAll = thead?.querySelector('#driverSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('drivers', selAll);
-        tbody.innerHTML = sorted.map(d => `<tr data-id="${d.id}" class="${bulkSelection.drivers.has(d.id) ? 'row-selected' : ''} ${d.doNotDispatch ? 'row-dnd' : ''} ${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
-            <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${d.id}" ${bulkSelection.drivers.has(d.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('drivers','${d.id}',this)"></td>
-            ${validationIndicator(d)}
-            <td><div class="cell cell-primary" title="Open driver profile for ${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong>${d.doNotDispatch ? '<span class="dnd-tag">DND</span>' : ''}</div></td>
-            <td><div class="cell">${escapeHtml(d.cdl)}</div></td>
-            <td><div class="cell">${escapeHtml(d.cdlState)}</div></td>
-            <td><div class="cell">${escapeHtml(d.cdlExp)}</div></td>
-            <td><div class="cell">${escapeHtml(d.phone ? formatPhone(d.phone) : '')}</div></td>
-            <td><div class="cell">${escapeHtml(d.email)}</div></td>
-            <td><div class="cell">${truckSelectHtml(d.id, d.truck, d.doNotDispatch)}</div></td>
-            <td><div class="cell">${statusSelect(d.status, d.id, 'drivers', 'driver')}</div></td>
-            <td class="row-actions"><div class="cell">
-                <button title="Edit" onclick="Dashboard.editDriver('${d.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteDriver('${d.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-            </div></td>
-        </tr>`).join('');
+        tbody.innerHTML = sorted.map(d => {
+            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + d.id + '" ' + (bulkSelection.drivers.has(d.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'drivers\',\'' + d.id + '\',this)"></td>';
+            cells += validationIndicator(d);
+            visCols.forEach(c => { cells += driverCell(d, c.key); });
+            cells += '<td class="row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editDriver(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button title="Delete" class="btn-delete" onclick="Dashboard.deleteDriver(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>';
+            return '<tr data-id="' + d.id + '" class="' + (bulkSelection.drivers.has(d.id) ? 'row-selected' : '') + ' ' + (d.doNotDispatch ? 'row-dnd' : '') + ' ' + (d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : '') + '">' + cells + '</tr>';
+        }).join('');
     }
 
     function openDriverModal(data) {
@@ -9429,6 +9655,7 @@
         initSearchFilters();
         initInlineEditing();
         initInspections();
+        initTableColPickers();
         initGoogleDriveForImport();
         initSamsara();
         initAuth();
@@ -9475,6 +9702,7 @@
         const tbody = $('inspectionsTableBody');
         const table = $('inspectionsTable');
         const empty = $('inspectionsEmpty');
+        const thead = table?.querySelector('thead tr');
         if (!tbody) return;
         if (state.inspections.length === 0) {
             table.style.display = 'none';
@@ -9485,53 +9713,31 @@
         table.style.display = '';
         const filtered = state.inspections.filter(d => matchesFilter(d, 'inspection'));
         const sorted = sortItems(filtered, sortState.inspections, 'inspection');
-        const resultBadge = (r) => {
-            const cls = r === 'pass' ? 'badge-green' : r === 'fail' || r === 'oos' ? 'badge-red' : r === 'warning' ? 'badge-yellow' : 'badge-gray';
-            const label = r === 'oos' ? 'OOS' : r ? r.charAt(0).toUpperCase() + r.slice(1) : '—';
-            return '<span class="insp-badge ' + cls + '">' + escapeHtml(label) + '</span>';
-        };
-        const typeFmt = (t) => {
-            const map = { 'level-1': 'Level I', 'level-2': 'Level II', 'level-3': 'Level III', 'level-4': 'Level IV', 'level-5': 'Level V', 'citation': 'Citation' };
-            return map[t] || t || '—';
-        };
+        const visCols = getVisibleTableCols('inspections');
+        const widths = computeTableColWidths('inspections');
+        if (thead) {
+            let h = '<th class="col-checkbox"><input type="checkbox" id="inspectionSelectAll" title="Select all"></th>';
+            visCols.forEach(c => { h += '<th style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
+            h += '<th style="width:18%"></th>';
+            thead.innerHTML = h;
+        }
+        const selAll = thead?.querySelector('#inspectionSelectAll');
+        if (selAll) selAll.onchange = () => toggleSelectAll('inspections', selAll);
         tbody.innerHTML = sorted.map(d => {
             const resolved = d.inspStatus === 'resolved';
             const paid = d.paidStatus === 'paid';
-            const statusBadge = resolved
-                ? '<span class="insp-badge badge-green">Resolved</span>'
-                : '<span class="insp-badge badge-red">Open</span>';
-            const paidBadge = (d.fineAmount && parseFloat(d.fineAmount) > 0)
-                ? (paid ? '<span class="insp-badge badge-green">Paid</span>' : '<span class="insp-badge badge-yellow">Unpaid</span>')
-                : '';
-            return `<tr data-id="${d.id}" class="${resolved ? 'insp-resolved' : ''}">
-            <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${d.id}" ${bulkSelection.inspections.has(d.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('inspections','${d.id}',this)"></td>
-            <td><div class="cell">${escapeHtml(d.date || '—')}</div></td>
-            <td><div class="cell">${escapeHtml(typeFmt(d.type))}</div></td>
-            <td><div class="cell">${escapeHtml(d.reportNum || '—')}</div></td>
-            <td><div class="cell">${escapeHtml(d.driverName || '—')}</div></td>
-            <td><div class="cell">${escapeHtml(d.truckUnit || '—')}</div></td>
-            <td><div class="cell">${escapeHtml(d.location || '—')}</div></td>
-            <td><div class="cell">${resultBadge(d.result)}</div></td>
-            <td><div class="cell">${d.violations != null ? escapeHtml(String(d.violations)) : '0'}</div></td>
-            <td><div class="cell">${statusBadge} ${paidBadge}</div></td>
-            <td class="row-actions"><div class="cell">
-                <button title="${resolved ? 'Reopen' : 'Mark Resolved'}" class="insp-action-btn ${resolved ? 'insp-btn-reopen' : 'insp-btn-resolve'}" onclick="Dashboard.toggleInspResolved('${d.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
-                </button>
-                ${(d.fineAmount && parseFloat(d.fineAmount) > 0) ? `<button title="${paid ? 'Mark Unpaid' : 'Mark Paid'}" class="insp-action-btn ${paid ? 'insp-btn-paid' : 'insp-btn-unpaid'}" onclick="Dashboard.toggleInspPaid('${d.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                </button>` : ''}
-                <button title="Create Task" class="insp-action-btn insp-btn-task" onclick="Dashboard.createInspTask('${d.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                </button>
-                <button title="Edit" onclick="Dashboard.editInspection('${d.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteInspection('${d.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-            </div></td>
-        </tr>`;
+            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + d.id + '" ' + (bulkSelection.inspections.has(d.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'inspections\',\'' + d.id + '\',this)"></td>';
+            visCols.forEach(c => { cells += inspectionCell(d, c.key); });
+            cells += '<td class="row-actions"><div class="cell">';
+            cells += '<button title="' + (resolved ? 'Reopen' : 'Mark Resolved') + '" class="insp-action-btn ' + (resolved ? 'insp-btn-reopen' : 'insp-btn-resolve') + '" onclick="Dashboard.toggleInspResolved(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>';
+            if (d.fineAmount && parseFloat(d.fineAmount) > 0) {
+                cells += '<button title="' + (paid ? 'Mark Unpaid' : 'Mark Paid') + '" class="insp-action-btn ' + (paid ? 'insp-btn-paid' : 'insp-btn-unpaid') + '" onclick="Dashboard.toggleInspPaid(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></button>';
+            }
+            cells += '<button title="Create Task" class="insp-action-btn insp-btn-task" onclick="Dashboard.createInspTask(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>';
+            cells += '<button title="Edit" onclick="Dashboard.editInspection(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
+            cells += '<button title="Delete" class="btn-delete" onclick="Dashboard.deleteInspection(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
+            cells += '</div></td>';
+            return '<tr data-id="' + d.id + '" class="' + (resolved ? 'insp-resolved' : '') + '">' + cells + '</tr>';
         }).join('');
     }
 
