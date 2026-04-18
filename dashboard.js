@@ -2321,7 +2321,7 @@
     }
 
     function toggleSelectAll(collection, masterCheckbox) {
-        const tbodyId = { trucks: 'trucksTableBody', trailers: 'trailersTableBody', drivers: 'driversTableBody', inspections: 'inspectionsTableBody' }[collection] || 'driversTableBody';
+        const tbodyId = { trucks: 'trucksTableBody', trailers: 'trailersTableBody', drivers: 'driversTableBody', inspections: 'inspectionsTableBody', loads: 'loadsTableBody' }[collection] || 'driversTableBody';
         const tbody = $(tbodyId);
         const checkboxes = tbody.querySelectorAll('.bulk-cb');
         checkboxes.forEach(cb => {
@@ -2337,7 +2337,7 @@
 
     function updateBulkBar(collection) {
         const count = bulkSelection[collection].size;
-        const barId = { trucks: 'truckBulkBar', trailers: 'trailerBulkBar', drivers: 'driverBulkBar', inspections: 'inspectionBulkBar' }[collection];
+        const barId = { trucks: 'truckBulkBar', trailers: 'trailerBulkBar', drivers: 'driverBulkBar', inspections: 'inspectionBulkBar', loads: 'loadsBulkBar' }[collection];
         const bar = $(barId);
         if (!bar) return;
         if (count > 0) {
@@ -2606,12 +2606,34 @@
             { key: 'paidStatus', label: 'Paid', type: 'select', width: '80px', default: false, options: [
                 { value: 'unpaid', label: 'Unpaid' }, { value: 'paid', label: 'Paid' }
             ]}
+        ],
+        load: [
+            { key: 'loadNumber', label: 'Load #', type: 'text', width: '100px', placeholder: 'e.g., 176-1', required: true, default: true },
+            { key: 'unit', label: 'Unit', type: 'truck-select', width: '90px', default: true },
+            { key: 'origin', label: 'Origin', type: 'text', width: '130px', placeholder: 'City, ST', default: true },
+            { key: 'destination', label: 'Destination', type: 'text', width: '130px', placeholder: 'City, ST', default: true },
+            { key: 'broker', label: 'Broker', type: 'text', width: '120px', placeholder: 'Broker name', default: true },
+            { key: 'rate', label: 'Rate', type: 'number', width: '90px', placeholder: '0.00', default: true },
+            { key: 'mileage', label: 'Mileage', type: 'number', width: '80px', placeholder: '0', default: true },
+            { key: 'detention', label: 'Det/Bonus', type: 'number', width: '90px', placeholder: '0.00', default: true },
+            { key: 'status', label: 'Status', type: 'select', width: '100px', default: true, options: [
+                { value: 'booked', label: 'Booked' }, { value: 'dispatched', label: 'Dispatched' },
+                { value: 'loaded', label: 'Loaded' }, { value: 'in-transit', label: 'In Transit' },
+                { value: 'delivered', label: 'Delivered' }, { value: 'invoiced', label: 'Invoiced' },
+                { value: 'paid', label: 'Paid' }, { value: 'canceled', label: 'Canceled' },
+                { value: 'issue', label: 'Issue' }
+            ]},
+            { key: 'deliveryDate', label: 'DEL Date', type: 'date', width: '110px', default: true },
+            { key: 'driver', label: 'Driver', type: 'driver-select', width: '120px', default: true },
+            { key: 'dispatcher', label: 'Dispatcher', type: 'text', width: '110px', placeholder: 'Dispatcher', default: true },
+            { key: 'loadDate', label: 'Load Date', type: 'date', width: '110px', default: false },
+            { key: 'comments', label: 'Comments', type: 'text', width: '160px', placeholder: 'Notes...', default: false }
         ]
     };
 
     const uSheetState = {
         open: false,
-        type: null,        // 'truck' | 'trailer' | 'driver'
+        type: null,        // 'truck' | 'trailer' | 'driver' | 'load'
         mode: null,         // 'add' | 'edit' | 'import'
         items: [],          // original items (for edit mode)
         visibleCols: {},    // { truck: Set(['unit','year',...]), trailer: Set([...]), driver: Set([...]) }
@@ -2878,7 +2900,7 @@
         uSheetState.dirty = new Set();
 
         // Title
-        const titleMap = { truck: 'Trucks', trailer: 'Trailers', driver: 'Drivers', inspection: 'Inspections' };
+        const titleMap = { truck: 'Trucks', trailer: 'Trailers', driver: 'Drivers', inspection: 'Inspections', load: 'Loads' };
         const titleEl = $('usheetTitle');
         if (mode === 'add') titleEl.textContent = 'Add ' + titleMap[type];
         else if (mode === 'import') titleEl.textContent = 'Import ' + titleMap[type];
@@ -3067,6 +3089,13 @@
         // Normalization
         if (payload.plateState) payload.plateState = payload.plateState.toUpperCase();
         if (payload.cdlState) payload.cdlState = payload.cdlState.toUpperCase();
+        // Load-specific normalization
+        if (type === 'load') {
+            if (payload.rate) payload.rate = parseFloat(payload.rate) || 0;
+            if (payload.mileage) payload.mileage = parseFloat(payload.mileage) || 0;
+            if (payload.detention) payload.detention = parseFloat(payload.detention) || 0;
+            if (!payload.loadDate) payload.loadDate = new Date().toISOString().split('T')[0];
+        }
         normalizePayload(payload, type);
         payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
 
@@ -3470,7 +3499,7 @@
     function bulkEdit(collection) {
         const ids = [...bulkSelection[collection]];
         if (!ids.length) return;
-        const type = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : collection === 'inspections' ? 'inspection' : 'driver';
+        const type = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : collection === 'inspections' ? 'inspection' : collection === 'loads' ? 'load' : 'driver';
         const stateArr = state[collection];
         const items = stateArr.filter(x => ids.includes(x.id));
         openUnifiedSheet(type, items, { mode: 'edit' });
@@ -7351,6 +7380,51 @@
                 fineAmount: ['fine', 'fineamount', 'penalty', 'amount', 'fee', 'cost'],
                 notes: ['notes', 'note', 'comments', 'comment', 'remarks', 'description', 'details']
             }
+        },
+        load: {
+            cols: [
+                { key: 'loadNumber', placeholder: 'e.g., 176-1', type: 'text', required: true },
+                { key: 'unit', type: 'truck-select' },
+                { key: 'origin', placeholder: 'City, ST', type: 'text' },
+                { key: 'destination', placeholder: 'City, ST', type: 'text' },
+                { key: 'broker', placeholder: 'Broker name', type: 'text' },
+                { key: 'rate', placeholder: '0.00', type: 'number' },
+                { key: 'mileage', placeholder: '0', type: 'number' },
+                { key: 'detention', placeholder: '0.00', type: 'number' },
+                { key: 'status', type: 'select', defaultLabel: 'Booked', options: [
+                    { value: 'booked', label: 'Booked' }, { value: 'dispatched', label: 'Dispatched' },
+                    { value: 'loaded', label: 'Loaded' }, { value: 'in-transit', label: 'In Transit' },
+                    { value: 'delivered', label: 'Delivered' }, { value: 'invoiced', label: 'Invoiced' },
+                    { value: 'paid', label: 'Paid' }, { value: 'canceled', label: 'Canceled' },
+                    { value: 'issue', label: 'Issue' }
+                ]},
+                { key: 'deliveryDate', type: 'date' },
+                { key: 'driver', type: 'driver-select' },
+                { key: 'dispatcher', placeholder: 'Dispatcher', type: 'text' }
+            ],
+            collection: 'loads',
+            label: 'load',
+            requiredKey: 'loadNumber',
+            duplicateKey: 'loadNumber',
+            defaults: { status: 'booked' },
+            afterSave: async () => { await loadLoads(); updateOverview(); },
+            extraFields: ['loadDate', 'comments'],
+            csvAliases: {
+                loadNumber: ['loadnumber', 'load', 'loadnum', 'loadid', 'loadno', 'number', 'no', 'id', 'order', 'ordernumber', 'orderno', 'orderid', 'pro', 'pronumber', 'prono', 'ref', 'reference', 'refnumber', 'refno', 'bol', 'bolnumber'],
+                unit: ['unit', 'unitnumber', 'unitno', 'truck', 'truckno', 'trucknumber', 'vehicle', 'equipmentno'],
+                origin: ['origin', 'from', 'pickup', 'pickuplocation', 'shipper', 'shippercity', 'originlocation', 'pickupcity', 'fromlocation', 'fromcity', 'pu', 'pulocation'],
+                destination: ['destination', 'to', 'delivery', 'deliverylocation', 'receiver', 'receivercity', 'destlocation', 'deliverycity', 'tolocation', 'tocity', 'del', 'dellocation', 'consignee'],
+                broker: ['broker', 'brokername', 'brokercompany', 'customer', 'customername', 'shipper', 'client', 'clientname', 'company'],
+                rate: ['rate', 'loadrate', 'amount', 'price', 'totalrate', 'linehaul', 'linehaulrate', 'revenue', 'pay', 'loadpay'],
+                mileage: ['mileage', 'miles', 'distance', 'totalmiles', 'loadmiles', 'mi', 'km', 'deadhead'],
+                detention: ['detention', 'bonus', 'detbonus', 'detentionpay', 'accessorial', 'extra', 'lumper', 'tonu'],
+                status: ['status', 'loadstatus', 'state', 'condition'],
+                deliveryDate: ['deliverydate', 'deldate', 'delivery', 'delivered', 'deliveryday', 'dropoff', 'dropoffdate', 'duedate', 'eta'],
+                driver: ['driver', 'drivername', 'assigneddriver', 'operator'],
+                dispatcher: ['dispatcher', 'dispatchername', 'dispatch', 'coordinator', 'rep'],
+                loadDate: ['loaddate', 'date', 'pickupdate', 'pudate', 'bookdate', 'bookeddate', 'created', 'createddate'],
+                comments: ['comments', 'comment', 'notes', 'note', 'remarks', 'memo', 'description']
+            }
         }
     };
 
@@ -8655,28 +8729,28 @@
         const sorted = sortItems(filtered, sortState.loads, 'load');
         bulkSelection.loads = new Set([...bulkSelection.loads].filter(id => sorted.some(l => l.id === id)));
         updateBulkBar('loads');
-        if (spreadsheetMode.loads) {
-            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.loads.map(c => `<th class="ss-th" style="width:${c.width}">${c.label}</th>`).join('') + '<th class="ss-th" style="width:80px">RPM</th><th class="ss-th" style="width:90px">Total</th>';
-            tbody.innerHTML = sorted.map((l, i) => {
-                const rpm = calcRPM(l.rate, l.mileage);
-                const total = calcTotal(l.rate, l.detention);
-                return `<tr data-id="${l.id}" class="ss-row">${'<td class="ss-num">' + (i+1) + '</td>'}${SPREADSHEET_COLS.loads.map(c => '<td class="ss-cell">' + ssInput(c, l, 'loads') + '</td>').join('')}<td class="ss-cell ss-readonly">${escapeHtml(rpm)}</td><td class="ss-cell ss-readonly">${total ? formatCurrency(total) : ''}</td></tr>`;
-            }).join('');
-            return;
-        }
-        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="loadSelectAll" title="Select all"></th><th style="width:7%">Date</th><th style="width:6%">Load #</th><th style="width:5%">Unit</th><th style="width:11%">Origin</th><th style="width:11%">Destination</th><th style="width:8%">Broker</th><th style="width:6%">Rate</th><th style="width:5%">Miles</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bon</th><th style="width:8%">Status</th><th style="width:7%">Del Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:5%"></th>`;
+        // Show/hide bulk edit button
+        const bulkEditBtn = $('bulkEditLoadsBtn');
+        if (bulkEditBtn) bulkEditBtn.style.display = bulkSelection.loads.size > 0 ? '' : 'none';
+
+        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="loadSelectAll" title="Select all"></th><th style="width:3%">#</th><th style="width:5%">Unit</th><th style="width:11%">From</th><th style="width:11%">To</th><th style="width:7%">Broker</th><th style="width:6%">Rate</th><th style="width:5%">Mileage</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bonus</th><th style="width:7%">Status</th><th style="width:7%">DEL Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:7%">Dispatcher</th><th style="width:6%">Comments</th><th style="width:4%"></th>`;
         const selAll = thead?.querySelector('#loadSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('loads', selAll);
-        tbody.innerHTML = sorted.map(l => {
+        tbody.innerHTML = sorted.map((l, i) => {
             const rpm = calcRPM(l.rate, l.mileage);
             const total = calcTotal(l.rate, l.detention);
+            const rcIcon = l.rcUrl
+                ? '<button class="load-doc-btn uploaded" data-doc="rc" data-id="' + l.id + '" title="RC uploaded — click to replace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>'
+                : '<button class="load-doc-btn" data-doc="rc" data-id="' + l.id + '" title="Upload Rate Confirmation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>';
+            const podIcon = l.podUrl
+                ? '<button class="load-doc-btn uploaded" data-doc="pod" data-id="' + l.id + '" title="POD uploaded — click to replace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>'
+                : '<button class="load-doc-btn" data-doc="pod" data-id="' + l.id + '" title="Upload Proof of Delivery"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>';
             return `<tr data-id="${l.id}" class="${bulkSelection.loads.has(l.id) ? 'row-selected' : ''}">
             <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${l.id}" ${bulkSelection.loads.has(l.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('loads','${l.id}',this)"></td>
-            <td><div class="cell">${escapeHtml(l.loadDate || '')}</div></td>
-            <td><div class="cell cell-primary"><strong>${escapeHtml(l.loadNumber || '')}</strong></div></td>
+            <td><div class="cell cell-muted">${i + 1}</div></td>
             <td><div class="cell">${escapeHtml(l.unit || '')}</div></td>
-            <td><div class="cell">${escapeHtml(l.origin || '')}</div></td>
-            <td><div class="cell">${escapeHtml(l.destination || '')}</div></td>
+            <td><div class="cell load-cell-with-doc"><span>${escapeHtml(l.origin || '')}</span>${rcIcon}</div></td>
+            <td><div class="cell load-cell-with-doc"><span>${escapeHtml(l.destination || '')}</span>${podIcon}</div></td>
             <td><div class="cell">${escapeHtml(l.broker || '')}</div></td>
             <td><div class="cell">${l.rate ? formatCurrency(l.rate) : ''}</div></td>
             <td><div class="cell">${escapeHtml(l.mileage ? String(l.mileage) : '')}</div></td>
@@ -8686,6 +8760,8 @@
             <td><div class="cell">${escapeHtml(l.deliveryDate || '')}</div></td>
             <td><div class="cell"><strong>${total ? formatCurrency(total) : ''}</strong></div></td>
             <td><div class="cell">${escapeHtml(l.driver || '')}</div></td>
+            <td><div class="cell">${escapeHtml(l.dispatcher || '')}</div></td>
+            <td><div class="cell cell-muted" title="${escapeHtml(l.comments || '')}">${escapeHtml((l.comments || '').substring(0, 30))}${(l.comments || '').length > 30 ? '…' : ''}</div></td>
             <td class="row-actions"><div class="cell">
                 <button title="Edit" onclick="Dashboard.editLoad('${l.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
@@ -8738,10 +8814,23 @@
     }
 
     function initLoadForm() {
+        // New Load → open unified sheet in add mode
         const addBtn = $('addLoadBtn');
-        if (addBtn) addBtn.addEventListener('click', () => openLoadModal(null));
+        if (addBtn) addBtn.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
         const addFirst = $('addFirstLoad');
-        if (addFirst) addFirst.addEventListener('click', () => openLoadModal(null));
+        if (addFirst) addFirst.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
+        // Import → open unified sheet in add mode (import button triggers file picker inside usheet)
+        const importBtn = $('importLoadsBtn');
+        if (importBtn) importBtn.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
+        // Bulk edit selected
+        const bulkEditBtn = $('bulkEditLoadsBtn');
+        if (bulkEditBtn) bulkEditBtn.addEventListener('click', () => {
+            const ids = [...bulkSelection.loads];
+            if (!ids.length) return;
+            const items = state.loads.filter(l => ids.includes(l.id));
+            openUnifiedSheet('load', items, { mode: 'edit' });
+        });
+        // Keep modal for single-load edit from row actions
         const closeBtn = $('closeLoadModal');
         if (closeBtn) closeBtn.addEventListener('click', () => $('loadModal').classList.add('hidden'));
         const cancelBtn = $('cancelLoad');
@@ -8802,6 +8891,67 @@
         } catch (err) {
             console.error('Delete load error:', err);
             showMsg('Error deleting load', true);
+        }
+    }
+
+    // ── Load Document Upload (RC / POD) ────────────────
+    let loadDocTarget = { loadId: null, docType: null };
+    const MAX_LOAD_DOC_SIZE = 10 * 1024 * 1024; // 10MB
+
+    function initLoadDocUpload() {
+        const fileInput = $('loadDocUpload');
+        if (!fileInput) return;
+        // Delegated click on table body for .load-doc-btn
+        const tbody = $('loadsTableBody');
+        if (tbody) {
+            tbody.addEventListener('click', (e) => {
+                const btn = e.target.closest('.load-doc-btn');
+                if (!btn) return;
+                e.stopPropagation();
+                loadDocTarget.loadId = btn.dataset.id;
+                loadDocTarget.docType = btn.dataset.doc;
+                fileInput.value = '';
+                fileInput.click();
+            });
+        }
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files[0];
+            if (!file) return;
+            if (file.size > MAX_LOAD_DOC_SIZE) { showMsg('File too large (max 10MB)', true); return; }
+            await uploadLoadDoc(loadDocTarget.loadId, loadDocTarget.docType, file);
+        });
+    }
+
+    async function uploadLoadDoc(loadId, docType, file) {
+        if (!loadId || !docType || !file) return;
+        const uid = firebase.auth().currentUser?.uid;
+        if (!uid) { showMsg('Not authenticated', true); return; }
+        const ts = Date.now();
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storagePath = `users/${uid}/loads/${loadId}/docs/${docType}_${ts}_${safeName}`;
+        try {
+            showMsg('Uploading ' + (docType === 'rc' ? 'Rate Confirmation' : 'Proof of Delivery') + '...');
+            const ref = storage.ref(storagePath);
+            await ref.put(file);
+            const url = await ref.getDownloadURL();
+            const update = {};
+            update[docType + 'Url'] = url;
+            update[docType + 'Name'] = file.name;
+            update[docType + 'Path'] = storagePath;
+            update.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+            await col('loads').doc(loadId).update(update);
+            // Update local state
+            const load = state.loads.find(l => l.id === loadId);
+            if (load) {
+                load[docType + 'Url'] = url;
+                load[docType + 'Name'] = file.name;
+                load[docType + 'Path'] = storagePath;
+            }
+            renderLoads();
+            showMsg((docType === 'rc' ? 'Rate Confirmation' : 'Proof of Delivery') + ' uploaded');
+        } catch (err) {
+            console.error('Upload load doc error:', err);
+            showMsg('Error uploading document', true);
         }
     }
 
@@ -9646,6 +9796,7 @@
         initTrailerForm();
         initDriverForm();
         initLoadForm();
+        initLoadDocUpload();
         initUnifiedSheet();
         initTruckDetailPanel();
         initTrailerDetailPanel();
@@ -9833,7 +9984,7 @@
     // Expose edit/delete/inline methods for inline onclick
     window.Dashboard = {
         editTruck, editTrailer, editDriver, editLoad,
-        deleteTruck, deleteTrailer, deleteDriver, deleteLoad,
+        deleteTruck, deleteTrailer, deleteDriver, deleteLoad, uploadLoadDoc,
         editInspection, deleteInspection, toggleInspResolved, toggleInspPaid, createInspTask,
         inlineStatus, inlineTruckAssign,
         toggleBulkSelect, bulkDelete, bulkChangeStatus, bulkExport, bulkEdit,

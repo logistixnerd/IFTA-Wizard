@@ -5788,6 +5788,60 @@ input[type="date"].ss-input {
     font-weight: 600;
     color: #059669;
 }
+/* ── Load Cell with Document Upload ── */
+.load-cell-with-doc {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+}
+.load-cell-with-doc > span {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.load-doc-btn {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: transparent;
+    color: #9ca3af;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    opacity: 0;
+}
+.load-doc-btn svg {
+    width: 13px;
+    height: 13px;
+}
+tr:hover .load-doc-btn {
+    opacity: 1;
+}
+.load-doc-btn:hover {
+    color: #6366f1;
+    border-color: #c7d2fe;
+    background: #eef2ff;
+}
+.load-doc-btn.uploaded {
+    opacity: 1;
+    color: #059669;
+}
+.load-doc-btn.uploaded:hover {
+    color: #047857;
+    border-color: #a7f3d0;
+    background: #ecfdf5;
+}
+.cell-muted {
+    color: #6b7280;
+    font-size: 0.7rem;
+}
 /* Load modal wider */
 .modal-lg {
     max-width: 720px;
