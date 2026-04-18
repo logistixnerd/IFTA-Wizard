@@ -2158,7 +2158,7 @@
 
         container.innerHTML = reminders.map(r => {
             if (r.link) {
-                return `<a href="${escapeHtml(r.link)}" onclick="sessionStorage.setItem('fromDashboard','true')" class="fmcsa-reminder fmcsa-reminder-${escapeHtml(r.type)} fmcsa-reminder-link">`
+                return `<a href="${escapeHtml(r.link)}" onclick="sessionStorage.setItem('fromDashboard','true')" class="fmcsa-reminder fmcsa-reminder-${escapeHtml(r.type)} fmcsa-reminder-link" title="Go to IFTA Wizard">`
                     + `${iconMap[r.icon] || ''}  <span>${escapeHtml(r.text)}</span>`
                     + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="fmcsa-reminder-arrow"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>`
                     + `</a>`;
@@ -8489,7 +8489,7 @@
                     + `</div>`;
             }
             if (a.link) {
-                return `<a href="${escapeHtml(a.link)}" onclick="sessionStorage.setItem('fromDashboard','true')" class="alert-item alert-${escapeHtml(a.type)} alert-link">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
+                return `<a href="${escapeHtml(a.link)}" onclick="sessionStorage.setItem('fromDashboard','true')" class="alert-item alert-${escapeHtml(a.type)} alert-link" title="Go to IFTA Wizard">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
                     + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="alert-link-arrow"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>`;
             }
             return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
