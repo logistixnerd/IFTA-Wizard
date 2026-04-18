@@ -9013,14 +9013,14 @@
         if (!isGMaps() || !ensureUsheetMap()) return;
         const mapEl = $('usheetRouteMap');
         const infoEl = $('usheetRouteInfo');
-        mapEl.style.display = 'block';
-        google.maps.event.trigger(_usheetMap, 'resize');
         _usheetDirService.route({
             origin: origin,
             destination: dest,
             travelMode: google.maps.TravelMode.DRIVING
         }, (result, status) => {
             if (status === 'OK' && result.routes[0]) {
+                mapEl.style.display = 'block';
+                google.maps.event.trigger(_usheetMap, 'resize');
                 _usheetDirRenderer.setDirections(result);
                 const leg = result.routes[0].legs[0];
                 const miles = Math.round(leg.distance.value * 0.000621371);
@@ -9035,6 +9035,10 @@
             } else {
                 console.warn('[LoadRoute] Directions failed:', status, 'from', origin, 'to', dest);
                 hideUsheetMap();
+                if (infoEl) {
+                    infoEl.style.display = 'flex';
+                    infoEl.innerHTML = '<span style="color:#ef4444">Route error: ' + escapeHtml(status) + '</span>';
+                }
             }
         });
     }
