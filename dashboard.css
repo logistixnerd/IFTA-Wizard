@@ -6393,6 +6393,20 @@ tr:hover .load-doc-btn {
     position: relative;
 }
 
+/* Computed (read-only) cell */
+.usheet-computed {
+    background: #f9fafb;
+}
+.usheet-computed span {
+    display: block;
+    padding: 0.25rem 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #6366f1;
+    text-align: center;
+    white-space: nowrap;
+}
+
 .usheet-cell select {
     appearance: none;
     -webkit-appearance: none;

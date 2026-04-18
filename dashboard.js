@@ -2608,13 +2608,13 @@
             ]}
         ],
         load: [
-            { key: 'loadNumber', label: 'Load #', type: 'text', width: '100px', placeholder: 'e.g., 176-1', required: true, default: true },
             { key: 'unit', label: 'Unit', type: 'truck-select', width: '90px', default: true },
             { key: 'origin', label: 'Origin', type: 'text', width: '130px', placeholder: 'Zip or City, ST', default: true },
             { key: 'destination', label: 'Destination', type: 'text', width: '130px', placeholder: 'Zip or City, ST', default: true },
             { key: 'broker', label: 'Broker', type: 'text', width: '120px', placeholder: 'Broker name', default: true },
             { key: 'rate', label: 'Rate', type: 'number', width: '90px', placeholder: '0.00', default: true },
             { key: 'mileage', label: 'Mileage', type: 'number', width: '80px', placeholder: '0', default: true },
+            { key: 'rpm', label: 'RPM', type: 'computed', width: '70px', default: true },
             { key: 'detention', label: 'Det/Bonus', type: 'number', width: '90px', placeholder: '0.00', default: true },
             { key: 'status', label: 'Status', type: 'select', width: '100px', default: true, options: [
                 { value: 'booked', label: 'Booked' }, { value: 'dispatched', label: 'Dispatched' },
@@ -3016,6 +3016,11 @@
                 html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Dispatcher</option>${opts}</select></td>`;
             } else if (c.type === 'date') {
                 html += `<td class="usheet-cell" data-key="${c.key}"><input type="date" data-key="${c.key}" value="${escapeHtml(val)}"${!val ? ' class="usheet-empty"' : ''}></td>`;
+            } else if (c.type === 'computed') {
+                // Read-only computed cell (e.g. RPM)
+                let computed = '';
+                if (c.key === 'rpm' && data) computed = calcRPM(data.rate, data.mileage);
+                html += `<td class="usheet-cell usheet-computed" data-key="${c.key}"><span data-key="${c.key}">${escapeHtml(computed)}</span></td>`;
             } else {
                 html += `<td class="usheet-cell" data-key="${c.key}"><input type="${c.type === 'number' ? 'number' : 'text'}" data-key="${c.key}" value="${escapeHtml(val)}" placeholder="${c.placeholder || ''}"${c.maxlength ? ' maxlength="' + c.maxlength + '"' : ''}></td>`;
             }
@@ -3392,6 +3397,16 @@
         tbody.addEventListener('input', (e) => {
             const tr = e.target.closest('tr');
             if (tr) uMarkDirty(tr);
+
+            // Live RPM update when rate or mileage changes
+            if (uSheetState.type === 'load' && tr && (e.target.dataset.key === 'rate' || e.target.dataset.key === 'mileage')) {
+                const rateEl = tr.querySelector('input[data-key="rate"]');
+                const mileEl = tr.querySelector('input[data-key="mileage"]');
+                const rpmEl = tr.querySelector('span[data-key="rpm"]');
+                if (rpmEl && rateEl && mileEl) {
+                    rpmEl.textContent = calcRPM(rateEl.value, mileEl.value);
+                }
+            }
 
             // Auto-add row when typing in last row (add/import mode)
             if (uSheetState.mode !== 'edit' && tr === tbody.lastElementChild) {
@@ -7464,7 +7479,7 @@
             collection: 'loads',
             label: 'load',
             requiredKey: null,
-            duplicateKey: 'loadNumber',
+            duplicateKey: null,
             defaults: { status: 'booked' },
             afterSave: async () => { await loadLoads(); updateOverview(); updateDispatchOverview(); },
             extraFields: ['loadDate', 'comments'],
@@ -9042,6 +9057,10 @@
                 if (mileInput) {
                     mileInput.value = miles;
                     if (tr) uMarkDirty(tr);
+                    // Update RPM
+                    const rateEl = tr && tr.querySelector('input[data-key="rate"]');
+                    const rpmEl = tr && tr.querySelector('span[data-key="rpm"]');
+                    if (rpmEl && rateEl) rpmEl.textContent = calcRPM(rateEl.value, miles);
                 }
                 if (infoEl) {
                     infoEl.style.display = 'flex';
