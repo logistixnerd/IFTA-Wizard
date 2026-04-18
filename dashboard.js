@@ -2914,6 +2914,9 @@
         const importBtn = $('usheetImportFile');
         if (importBtn) importBtn.style.display = mode === 'add' ? '' : 'none';
 
+        // Hide route map for non-load types
+        if (type !== 'load') hideUsheetMap();
+
         $('unifiedSheetModal').classList.remove('hidden');
         document.body.style.overflow = 'hidden';
         // Focus first input after render
@@ -3410,7 +3413,7 @@
             }
         });
 
-        // Zip → City resolve + auto-mileage for load rows
+        // Zip → City resolve + auto-mileage + route map for load rows
         tbody.addEventListener('focusout', async (e) => {
             if (uSheetState.type !== 'load') return;
             const key = e.target.dataset && e.target.dataset.key;
@@ -3424,7 +3427,7 @@
                     if (tr) uMarkDirty(tr);
                 }
             }
-            // Auto-calc mileage
+            // Auto-calc mileage + show route map
             const tr = e.target.closest('tr');
             if (!tr || !isGMaps()) return;
             const originInput = tr.querySelector('[data-key="origin"]');
@@ -3433,16 +3436,8 @@
             if (!originInput || !destInput || !mileInput) return;
             const o = originInput.value.trim();
             const d = destInput.value.trim();
-            if (!o || !d) return;
-            new google.maps.DirectionsService().route({
-                origin: o, destination: d, travelMode: google.maps.TravelMode.DRIVING
-            }, (result, status) => {
-                if (status === 'OK' && result.routes[0]) {
-                    const miles = Math.round(result.routes[0].legs[0].distance.value * 0.000621371);
-                    mileInput.value = miles;
-                    uMarkDirty(tr);
-                }
-            });
+            if (!o || !d) { hideUsheetMap(); return; }
+            showUsheetRoute(o, d, mileInput, tr);
         });
 
         // Keyboard: Tab/Enter/Escape navigation
@@ -8975,12 +8970,75 @@
         });
     }
 
+    /* ── Unified Sheet Route Map ── */
+    let _usheetMap = null;
+    let _usheetDirService = null;
+    let _usheetDirRenderer = null;
+
+    function ensureUsheetMap() {
+        const container = $('usheetRouteMap');
+        if (!container || !isGMaps()) return false;
+        if (!_usheetMap) {
+            _usheetMap = new google.maps.Map(container, {
+                center: { lat: 39.8283, lng: -98.5795 },
+                zoom: 4,
+                disableDefaultUI: true,
+                zoomControl: true,
+                gestureHandling: 'cooperative',
+                styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }]
+            });
+            _usheetDirService = new google.maps.DirectionsService();
+            _usheetDirRenderer = new google.maps.DirectionsRenderer({
+                map: _usheetMap,
+                suppressMarkers: false,
+                polylineOptions: { strokeColor: '#6366f1', strokeWeight: 4, strokeOpacity: 0.8 }
+            });
+        }
+        return true;
+    }
+
+    function showUsheetRoute(origin, dest, mileInput, tr) {
+        if (!isGMaps() || !ensureUsheetMap()) return;
+        const mapEl = $('usheetRouteMap');
+        const infoEl = $('usheetRouteInfo');
+        mapEl.style.display = 'block';
+        google.maps.event.trigger(_usheetMap, 'resize');
+        _usheetDirService.route({
+            origin: origin,
+            destination: dest,
+            travelMode: google.maps.TravelMode.DRIVING
+        }, (result, status) => {
+            if (status === 'OK' && result.routes[0]) {
+                _usheetDirRenderer.setDirections(result);
+                const leg = result.routes[0].legs[0];
+                const miles = Math.round(leg.distance.value * 0.000621371);
+                if (mileInput) {
+                    mileInput.value = miles;
+                    if (tr) uMarkDirty(tr);
+                }
+                if (infoEl) {
+                    infoEl.style.display = 'flex';
+                    infoEl.innerHTML = '<span>' + escapeHtml(leg.distance.text) + '</span><span>' + escapeHtml(leg.duration.text) + '</span>';
+                }
+            } else {
+                hideUsheetMap();
+            }
+        });
+    }
+
+    function hideUsheetMap() {
+        const mapEl = $('usheetRouteMap');
+        const infoEl = $('usheetRouteInfo');
+        if (mapEl) mapEl.style.display = 'none';
+        if (infoEl) infoEl.style.display = 'none';
+    }
+
     function initLoadForm() {
-        // New Load → open modal (with route map)
+        // New Load → open unified sheet in add mode
         const addBtn = $('addLoadBtn');
-        if (addBtn) addBtn.addEventListener('click', () => openLoadModal(null));
+        if (addBtn) addBtn.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
         const addFirst = $('addFirstLoad');
-        if (addFirst) addFirst.addEventListener('click', () => openLoadModal(null));
+        if (addFirst) addFirst.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
         // Import → open unified sheet in add mode (import button triggers file picker inside usheet)
         const importBtn = $('importLoadsBtn');
         if (importBtn) importBtn.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
