@@ -671,7 +671,7 @@
             // Fleet Maintenance
             'maintenance': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
             // Dispatch
-            'dispatch': 'dispatch', 'dispatch-board': 'dispatch', 'active-loads': 'dispatch', 'driver-assignments': 'dispatch',
+            'dispatch': 'dispatch', 'dispatch-board': 'dispatch', 'active-loads': 'dispatch', 'driver-assignments': 'dispatch', 'analytics': 'dispatch',
             // Track & Trace
             'tracking': 'tracking', 'live-map': 'tracking', 'load-status': 'tracking', 'eta-tracking': 'tracking',
             // Accounting
@@ -7527,7 +7527,7 @@
             requiredKey: null,
             duplicateKey: null,
             defaults: { status: 'booked' },
-            afterSave: async () => { await loadLoads(); updateOverview(); updateDispatchOverview(); },
+            afterSave: async () => { await loadLoads(); updateOverview(); updateDispatchOverview(); updateAnalytics(); },
             extraFields: ['loadDate', 'comments'],
             csvAliases: {
                 loadNumber: ['loadnumber', 'load', 'loadnum', 'loadid', 'loadno', 'number', 'no', 'id', 'order', 'ordernumber', 'orderno', 'orderid', 'pro', 'pronumber', 'prono', 'ref', 'reference', 'refnumber', 'refno', 'bol', 'bolnumber'],
@@ -8906,6 +8906,7 @@
             });
         }
         updateDispatchOverview();
+        updateAnalytics();
     }
 
     function nextLoadNumber() {
@@ -9618,6 +9619,377 @@
         });
     }
 
+    /* ── Analytics Section ────────────────────────────── */
+    let _anCharts = {};
+    let _anDriverMetric = 'gross';
+    let _anDispatcherMetric = 'gross';
+
+    function updateAnalytics() {
+        const loads = state.loads.filter(l => l.status !== 'canceled');
+        if (!loads.length) return;
+
+        // ─── KPIs ───
+        let totalGross = 0, totalMiles = 0, rpmSum = 0, rpmN = 0;
+        loads.forEach(l => {
+            const r = parseFloat(l.rate) || 0, d = parseFloat(l.detention) || 0, m = parseFloat(l.mileage) || 0;
+            totalGross += r + d;
+            totalMiles += m;
+            if (m > 0 && r > 0) { rpmSum += r / m; rpmN++; }
+        });
+        const avgRpm = rpmN ? rpmSum / rpmN : 0;
+        const avgRate = loads.length ? totalGross / loads.length : 0;
+
+        const fmt$ = v => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        $('anGross').textContent = fmt$(totalGross);
+        $('anMiles').textContent = totalMiles.toLocaleString();
+        $('anRpm').textContent = fmt$(avgRpm);
+        $('anLoads').textContent = loads.length;
+        $('anAvgRate').textContent = fmt$(avgRate);
+
+        // ─── Monthly aggregation ───
+        const months = {};
+        loads.forEach(l => {
+            const d = l.loadDate ? new Date(l.loadDate) : null;
+            if (!d || isNaN(d.getTime())) return;
+            const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+            if (!months[key]) months[key] = { gross: 0, miles: 0, loads: 0, rpmS: 0, rpmN: 0 };
+            const r = parseFloat(l.rate) || 0, det = parseFloat(l.detention) || 0, m = parseFloat(l.mileage) || 0;
+            months[key].gross += r + det;
+            months[key].miles += m;
+            months[key].loads++;
+            if (m > 0 && r > 0) { months[key].rpmS += r / m; months[key].rpmN++; }
+        });
+        const sortedKeys = Object.keys(months).sort();
+        const labels = sortedKeys.map(k => {
+            const [y, m] = k.split('-');
+            return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1] + ' ' + y.slice(2);
+        });
+        const earningsData = sortedKeys.map(k => months[k].gross);
+        const mileageData = sortedKeys.map(k => months[k].miles);
+        const rpmData = sortedKeys.map(k => months[k].rpmN ? months[k].rpmS / months[k].rpmN : 0);
+        const loadsData = sortedKeys.map(k => months[k].loads);
+
+        // ─── Render Charts ───
+        const chartOpts = (label, data, color, isCurrency) => ({
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label, data,
+                    backgroundColor: color + '33',
+                    borderColor: color,
+                    borderWidth: 2,
+                    borderRadius: 6,
+                    hoverBackgroundColor: color + '66'
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => isCurrency ? '$' + ctx.raw.toLocaleString(undefined, { minimumFractionDigits: 2 }) : ctx.raw.toLocaleString()
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: v => isCurrency ? '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) : v.toLocaleString(),
+                            font: { size: 10 }, color: '#9ca3af'
+                        },
+                        grid: { color: 'rgba(0,0,0,0.04)' }
+                    },
+                    x: { ticks: { font: { size: 10 }, color: '#9ca3af' }, grid: { display: false } }
+                }
+            }
+        });
+
+        const make = (id, label, data, color, isCurrency) => {
+            if (_anCharts[id]) _anCharts[id].destroy();
+            const ctx = $(id);
+            if (!ctx) return;
+            _anCharts[id] = new Chart(ctx, chartOpts(label, data, color, isCurrency));
+        };
+
+        make('anEarningsChart', 'Earnings', earningsData, '#6366f1', true);
+        make('anMileageChart', 'Mileage', mileageData, '#06b6d4', false);
+        make('anRpmChart', 'RPM', rpmData, '#8b5cf6', true);
+        make('anLoadsChart', 'Loads', loadsData, '#f59e0b', false);
+
+        // ─── Leaderboards ───
+        renderLeaderboard('drivers', _anDriverMetric);
+        renderLeaderboard('dispatchers', _anDispatcherMetric);
+        renderTeams();
+    }
+
+    function renderLeaderboard(board, metric) {
+        const key = board === 'drivers' ? 'driver' : 'dispatcher';
+        const rows = aggregateLoadsBy(key);
+        if (board === 'drivers') _anDriverMetric = metric;
+        else _anDispatcherMetric = metric;
+
+        // Sort by selected metric
+        const sortKey = { gross: 'gross', miles: 'miles', rpm: 'avgRPM', loads: 'loads' }[metric] || 'gross';
+        rows.sort((a, b) => b[sortKey] - a[sortKey]);
+
+        const containerId = board === 'drivers' ? 'anDriverBoard' : 'anDispatcherBoard';
+        const container = $(containerId);
+        if (!container) return;
+
+        const medals = ['🥇', '🥈', '🥉'];
+        const fmt$ = v => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const fmtVal = (r) => {
+            if (metric === 'gross') return fmt$(r.gross);
+            if (metric === 'miles') return r.miles.toLocaleString() + ' mi';
+            if (metric === 'rpm') return '$' + r.avgRPM.toFixed(2) + '/mi';
+            return r.loads + ' loads';
+        };
+        const fmtSub = (r) => {
+            if (metric === 'gross') return r.loads + ' loads · $' + r.avgRPM.toFixed(2) + '/mi';
+            if (metric === 'miles') return r.loads + ' loads · avg ' + r.avgMiles.toLocaleString() + ' mi';
+            if (metric === 'rpm') return fmt$(r.gross) + ' gross · ' + r.miles.toLocaleString() + ' mi';
+            return fmt$(r.gross) + ' · ' + r.miles.toLocaleString() + ' mi';
+        };
+
+        // Top bar % for visual comparison
+        const maxVal = rows.length ? rows[0][sortKey] : 1;
+
+        container.innerHTML = rows.slice(0, 10).map((r, i) => {
+            const pct = maxVal ? Math.round((r[sortKey] / maxVal) * 100) : 0;
+            return `<div class="an-lb-row${i < 3 ? ' an-lb-top' : ''}">
+                <span class="an-lb-rank">${medals[i] || (i + 1)}</span>
+                <div class="an-lb-info">
+                    <div class="an-lb-name">${escapeHtml(r.name)}</div>
+                    <div class="an-lb-sub">${fmtSub(r)}</div>
+                    <div class="an-lb-bar"><div class="an-lb-fill" style="width:${pct}%"></div></div>
+                </div>
+                <span class="an-lb-value">${fmtVal(r)}</span>
+            </div>`;
+        }).join('') || '<p class="an-empty">No data</p>';
+
+        // Update active tab
+        document.querySelectorAll(`.an-tab[data-board="${board}"]`).forEach(b => {
+            b.classList.toggle('active', b.dataset.metric === metric);
+        });
+    }
+
+    /* ── Dispatcher Teams ──────────────────────────────── */
+    async function loadTeams() {
+        try {
+            const doc = await col('settings').doc('dispatcherTeams').get();
+            return doc.exists ? (doc.data().teams || []) : [];
+        } catch (e) { console.error('loadTeams', e); return []; }
+    }
+
+    async function saveTeams(teams) {
+        await col('settings').doc('dispatcherTeams').set({ teams });
+    }
+
+    function getDispatchers() {
+        const users = (state.companyDashboard && state.companyDashboard.users) || [];
+        return users.filter(u => u.role === 'Dispatcher');
+    }
+
+    async function renderTeams() {
+        const teams = await loadTeams();
+        const grid = $('anTeamsGrid');
+        if (!grid) return;
+
+        if (!teams.length) {
+            grid.innerHTML = '<p class="an-empty">No teams configured yet. Click "Manage Teams" to create dispatcher teams.</p>';
+            return;
+        }
+
+        // Build per-dispatcher stats from loads
+        const dispStats = {};
+        state.loads.filter(l => l.status !== 'canceled').forEach(l => {
+            const name = (l.dispatcher || '').trim();
+            if (!name) return;
+            if (!dispStats[name]) dispStats[name] = { gross: 0, miles: 0, loads: 0, rpmS: 0, rpmN: 0 };
+            const r = parseFloat(l.rate) || 0, det = parseFloat(l.detention) || 0, m = parseFloat(l.mileage) || 0;
+            dispStats[name].gross += r + det;
+            dispStats[name].miles += m;
+            dispStats[name].loads++;
+            if (m > 0 && r > 0) { dispStats[name].rpmS += r / m; dispStats[name].rpmN++; }
+        });
+
+        // Aggregate team stats
+        const teamStats = teams.map(t => {
+            let tGross = 0, tMiles = 0, tLoads = 0, tRpmS = 0, tRpmN = 0;
+            (t.members || []).forEach(m => {
+                const s = dispStats[m] || {};
+                tGross += s.gross || 0;
+                tMiles += s.miles || 0;
+                tLoads += s.loads || 0;
+                tRpmS += s.rpmS || 0;
+                tRpmN += s.rpmN || 0;
+            });
+            return { ...t, gross: tGross, miles: tMiles, loads: tLoads, rpm: tRpmN ? tRpmS / tRpmN : 0 };
+        }).sort((a, b) => b.gross - a.gross);
+
+        const fmt$ = v => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const medals = ['🥇', '🥈', '🥉'];
+
+        grid.innerHTML = teamStats.map((t, i) => {
+            const memberList = (t.members || []).map(m => {
+                const s = dispStats[m] || {};
+                return `<div class="an-team-member">
+                    <span class="an-team-member-name">${escapeHtml(m)}${m === t.leader ? ' <span class="an-leader-badge">TL</span>' : ''}</span>
+                    <span class="an-team-member-stat">${fmt$(s.gross || 0)}</span>
+                </div>`;
+            }).join('');
+
+            return `<div class="an-team-card${i === 0 ? ' an-team-first' : ''}">
+                <div class="an-team-rank">${medals[i] || (i + 1)}</div>
+                <div class="an-team-header">
+                    <h4 class="an-team-name">${escapeHtml(t.name)}</h4>
+                    <span class="an-team-leader">TL: ${escapeHtml(t.leader || 'None')}</span>
+                </div>
+                <div class="an-team-stats">
+                    <div class="an-team-stat"><strong>${fmt$(t.gross)}</strong><span>Gross</span></div>
+                    <div class="an-team-stat"><strong>${t.miles.toLocaleString()}</strong><span>Miles</span></div>
+                    <div class="an-team-stat"><strong>${t.loads}</strong><span>Loads</span></div>
+                    <div class="an-team-stat"><strong>$${t.rpm.toFixed(2)}</strong><span>RPM</span></div>
+                </div>
+                <div class="an-team-members">${memberList}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function initAnalytics() {
+        // Tab clicks
+        document.querySelectorAll('.an-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                renderLeaderboard(btn.dataset.board, btn.dataset.metric);
+            });
+        });
+
+        // Manage teams modal
+        const modal = $('anTeamModal');
+        const openBtn = $('anManageTeams');
+        const closeBtn = $('anTeamModalClose');
+        if (openBtn) openBtn.addEventListener('click', () => openTeamModal());
+        if (closeBtn) closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
+        if (modal) modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+
+        // Add team
+        const addBtn = $('anAddTeam');
+        if (addBtn) addBtn.addEventListener('click', addTeam);
+    }
+
+    async function openTeamModal() {
+        const modal = $('anTeamModal');
+        if (!modal) return;
+        modal.style.display = 'flex';
+
+        // Populate leader dropdown
+        const sel = $('anTeamLeader');
+        const disps = getDispatchers();
+        sel.innerHTML = '<option value="">Select team leader…</option>' + disps.map(d => {
+            const name = [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email;
+            return `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+        }).join('');
+
+        // Render existing teams
+        await renderTeamList();
+    }
+
+    async function renderTeamList() {
+        const teams = await loadTeams();
+        const list = $('anTeamList');
+        if (!list) return;
+
+        if (!teams.length) {
+            list.innerHTML = '<p class="an-empty">No teams yet.</p>';
+            $('anAssignSection').style.display = 'none';
+            return;
+        }
+
+        list.innerHTML = teams.map((t, i) => `<div class="an-team-row" data-idx="${i}">
+            <div class="an-team-row-info">
+                <strong>${escapeHtml(t.name)}</strong>
+                <span class="an-team-row-leader">TL: ${escapeHtml(t.leader || 'None')}</span>
+                <span class="an-team-row-count">${(t.members || []).length} members</span>
+            </div>
+            <div class="an-team-row-actions">
+                <button class="btn btn-sm btn-outline an-assign-btn" data-idx="${i}">Assign</button>
+                <button class="btn btn-sm btn-danger an-delete-team" data-idx="${i}">&times;</button>
+            </div>
+        </div>`).join('');
+
+        // Assign clicks
+        list.querySelectorAll('.an-assign-btn').forEach(btn => {
+            btn.addEventListener('click', () => openAssignPanel(+btn.dataset.idx, teams));
+        });
+
+        // Delete clicks
+        list.querySelectorAll('.an-delete-team').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const idx = +btn.dataset.idx;
+                teams.splice(idx, 1);
+                await saveTeams(teams);
+                await renderTeamList();
+                renderTeams();
+            });
+        });
+    }
+
+    async function openAssignPanel(idx, teams) {
+        const team = teams[idx];
+        if (!team) return;
+        const section = $('anAssignSection');
+        const pool = $('anDispatcherPool');
+        section.style.display = '';
+        $('anAssignTitle').textContent = 'Assign dispatchers to ' + team.name;
+
+        // Get all dispatchers from company users
+        const disps = getDispatchers();
+        const members = team.members || [];
+        // Also include names that appear in loads but not in company users
+        const loadDisps = new Set();
+        state.loads.forEach(l => { if (l.dispatcher) loadDisps.add(l.dispatcher.trim()); });
+        const allNames = new Set([...disps.map(d => [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email), ...loadDisps]);
+
+        // Remove names already in other teams
+        const takenNames = new Set();
+        teams.forEach((t, i) => { if (i !== idx) (t.members || []).forEach(m => takenNames.add(m)); });
+
+        pool.innerHTML = [...allNames].filter(n => n && !takenNames.has(n)).sort().map(name => {
+            const checked = members.includes(name) ? 'checked' : '';
+            return `<label class="an-disp-label"><input type="checkbox" value="${escapeHtml(name)}" ${checked}> ${escapeHtml(name)}</label>`;
+        }).join('');
+
+        // Live-update on change
+        pool.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', async () => {
+                const updated = [...pool.querySelectorAll('input:checked')].map(c => c.value);
+                teams[idx].members = updated;
+                await saveTeams(teams);
+                await renderTeamList();
+                renderTeams();
+            });
+        });
+    }
+
+    async function addTeam() {
+        const nameEl = $('anTeamName');
+        const leaderEl = $('anTeamLeader');
+        const name = (nameEl.value || '').trim();
+        const leader = leaderEl.value;
+        if (!name) { nameEl.focus(); return; }
+
+        const teams = await loadTeams();
+        teams.push({ name, leader, members: leader ? [leader] : [] });
+        await saveTeams(teams);
+        nameEl.value = '';
+        leaderEl.selectedIndex = 0;
+        await renderTeamList();
+        renderTeams();
+    }
+
     function showMsg(text, isError) {
         if (typeof showToast === 'function') {
             showToast(text, isError ? 'error' : 'success');
@@ -10256,6 +10628,7 @@
         initLoadForm();
         initLoadDocUpload();
         initDispatchOverview();
+        initAnalytics();
         wireLoadLocationEvents();
         initUnifiedSheet();
         initTruckDetailPanel();

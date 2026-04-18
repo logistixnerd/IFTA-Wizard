@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=70">
+    <link rel="stylesheet" href="dashboard.css?v=71">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -21,6 +21,8 @@
     <!-- Google Identity Services + API (for Google Drive import) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <!-- Google Maps API (route calc, zip resolve, map display) -->
     <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDrjI76QLlhLnmX80_XdFaD4QHP32I9QxY&libraries=geometry" async defer></script>
 </head>
@@ -172,6 +174,12 @@
                                 <line x1="23" y1="11" x2="17" y2="11"/>
                             </svg>
                             <span>Assignments</span>
+                        </button>
+                        <button class="dash-nav-item" data-section="analytics">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                <path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/>
+                            </svg>
+                            <span>Analytics</span>
                         </button>
                     </div>
                 </div>
@@ -1729,6 +1737,109 @@
                             </svg>
                             <p>Driver assignments coming soon</p>
                             <span class="placeholder-hint">View and manage driver-load assignments</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Analytics Section -->
+            <section class="dash-section" id="section-analytics">
+                <!-- KPI row -->
+                <div class="an-kpis">
+                    <div class="an-kpi"><span class="an-kpi-label">Gross Revenue</span><strong id="anGross">$0</strong></div>
+                    <div class="an-kpi"><span class="an-kpi-label">Total Miles</span><strong id="anMiles">0</strong></div>
+                    <div class="an-kpi"><span class="an-kpi-label">Avg RPM</span><strong id="anRpm">$0</strong></div>
+                    <div class="an-kpi"><span class="an-kpi-label">Total Loads</span><strong id="anLoads">0</strong></div>
+                    <div class="an-kpi"><span class="an-kpi-label">Avg Rate</span><strong id="anAvgRate">$0</strong></div>
+                </div>
+
+                <!-- Charts row -->
+                <div class="an-charts">
+                    <div class="an-chart-card">
+                        <h3 class="an-card-title">Monthly Earnings</h3>
+                        <canvas id="anEarningsChart" height="220"></canvas>
+                    </div>
+                    <div class="an-chart-card">
+                        <h3 class="an-card-title">Monthly Mileage</h3>
+                        <canvas id="anMileageChart" height="220"></canvas>
+                    </div>
+                </div>
+                <div class="an-charts">
+                    <div class="an-chart-card">
+                        <h3 class="an-card-title">RPM Trend</h3>
+                        <canvas id="anRpmChart" height="220"></canvas>
+                    </div>
+                    <div class="an-chart-card">
+                        <h3 class="an-card-title">Loads per Month</h3>
+                        <canvas id="anLoadsChart" height="220"></canvas>
+                    </div>
+                </div>
+
+                <!-- Leaderboards row -->
+                <div class="an-boards">
+                    <!-- Top Drivers -->
+                    <div class="an-board-card">
+                        <div class="an-board-head">
+                            <h3 class="an-card-title">Top Drivers</h3>
+                            <div class="an-board-tabs">
+                                <button class="an-tab active" data-board="drivers" data-metric="gross">Gross</button>
+                                <button class="an-tab" data-board="drivers" data-metric="miles">Miles</button>
+                                <button class="an-tab" data-board="drivers" data-metric="rpm">RPM</button>
+                                <button class="an-tab" data-board="drivers" data-metric="loads">Loads</button>
+                            </div>
+                        </div>
+                        <div class="an-board-body" id="anDriverBoard"></div>
+                    </div>
+
+                    <!-- Top Dispatchers -->
+                    <div class="an-board-card">
+                        <div class="an-board-head">
+                            <h3 class="an-card-title">Top Dispatchers</h3>
+                            <div class="an-board-tabs">
+                                <button class="an-tab active" data-board="dispatchers" data-metric="gross">Gross</button>
+                                <button class="an-tab" data-board="dispatchers" data-metric="miles">Miles</button>
+                                <button class="an-tab" data-board="dispatchers" data-metric="rpm">RPM</button>
+                                <button class="an-tab" data-board="dispatchers" data-metric="loads">Loads</button>
+                            </div>
+                        </div>
+                        <div class="an-board-body" id="anDispatcherBoard"></div>
+                    </div>
+                </div>
+
+                <!-- Dispatcher Teams -->
+                <div class="an-teams-section">
+                    <div class="an-teams-head">
+                        <h3 class="an-card-title">Dispatcher Teams</h3>
+                        <button class="btn btn-sm btn-outline" id="anManageTeams">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                            Manage Teams
+                        </button>
+                    </div>
+                    <div class="an-teams-grid" id="anTeamsGrid">
+                        <p class="an-empty">No teams configured yet. Click "Manage Teams" to create dispatcher teams.</p>
+                    </div>
+                </div>
+
+                <!-- Manage Teams Modal -->
+                <div class="an-modal-overlay" id="anTeamModal" style="display:none">
+                    <div class="an-modal">
+                        <div class="an-modal-head">
+                            <h3>Manage Dispatcher Teams</h3>
+                            <button class="an-modal-close" id="anTeamModalClose">&times;</button>
+                        </div>
+                        <div class="an-modal-body">
+                            <div class="an-team-form">
+                                <input type="text" id="anTeamName" class="dash-search" placeholder="Team name…" maxlength="40">
+                                <select id="anTeamLeader" class="dash-filter">
+                                    <option value="">Select team leader…</option>
+                                </select>
+                                <button class="btn btn-primary btn-sm" id="anAddTeam">Add Team</button>
+                            </div>
+                            <div class="an-team-list" id="anTeamList"></div>
+                            <div class="an-assign-section" id="anAssignSection" style="display:none">
+                                <h4 id="anAssignTitle">Assign dispatchers to team</h4>
+                                <div class="an-dispatcher-pool" id="anDispatcherPool"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3737,6 +3848,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=76"></script>
+    <script src="dashboard.js?v=77"></script>
 </body>
 </html>
