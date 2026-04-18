@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=40">
+    <link rel="stylesheet" href="dashboard.css?v=41">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -1253,11 +1253,6 @@
                             <p class="compliance-fetched-at" id="complianceFetchedAt"></p>
                         </div>
 
-                        <!-- Compliance Reminders -->
-                        <div class="compliance-block" id="complianceRemindersBlock" style="display:none">
-                            <h3>Compliance Reminders</h3>
-                            <div class="fmcsa-reminders" id="fmcsaReminders"></div>
-                        </div>
                     </div>
                 </div>
             </section>
@@ -2405,6 +2400,10 @@
                         </div>
                     </div>
                 </div>
+            <!-- Compliance Reminders (always visible) -->
+            <div class="compliance-reminders-bar" id="complianceRemindersBlock" style="display:none">
+                <div class="fmcsa-reminders" id="fmcsaReminders"></div>
+            </div>
         </main>
     </div>
 
