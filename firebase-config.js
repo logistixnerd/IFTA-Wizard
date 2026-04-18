@@ -513,33 +513,45 @@ const FirebaseDB = {
     // Get all tasks across entities for task board
     async getAllTasks(userId, filters = {}) {
         try {
-            const allTasks = [];
             const entityTypes = ['drivers', 'trucks', 'trailers'];
-            
-            for (const entityType of entityTypes) {
-                const entitiesSnapshot = await db.collection('users').doc(userId)
-                    .collection(entityType).get();
-                
-                for (const entityDoc of entitiesSnapshot.docs) {
-                    // Fetch all history entries and filter client-side to avoid composite index requirement
-                    const tasksSnapshot = await entityDoc.ref.collection('history')
-                        .orderBy('createdAt', 'desc').get();
-                    
-                    tasksSnapshot.forEach(taskDoc => {
-                        const data = taskDoc.data();
-                        // Only include docs that have a status field (actual tasks, not plain history)
-                        if (!data.status) return;
-                        allTasks.push({
-                            id: taskDoc.id,
-                            entityType: entityType,
-                            entityId: entityDoc.id,
-                            entityName: entityDoc.data()[entityType === 'drivers' ? 'firstName' : 'unit'] || entityDoc.id,
-                            ...data
-                        });
+            const userRef = db.collection('users').doc(userId);
+
+            // Fetch all 3 entity collections in parallel
+            const entitySnapshots = await Promise.all(
+                entityTypes.map(t => userRef.collection(t).get())
+            );
+
+            // Build a flat list of { entityType, entityDoc } then fetch all history in parallel
+            const jobs = [];
+            entityTypes.forEach((entityType, i) => {
+                entitySnapshots[i].docs.forEach(entityDoc => {
+                    jobs.push(
+                        entityDoc.ref.collection('history')
+                            .orderBy('createdAt', 'desc').get()
+                            .then(tasksSnap => ({ entityType, entityDoc, tasksSnap }))
+                    );
+                });
+            });
+
+            const results = await Promise.all(jobs);
+
+            const allTasks = [];
+            for (const { entityType, entityDoc, tasksSnap } of results) {
+                const nameKey = entityType === 'drivers' ? 'firstName' : 'unit';
+                const entityName = entityDoc.data()[nameKey] || entityDoc.id;
+                tasksSnap.forEach(taskDoc => {
+                    const data = taskDoc.data();
+                    if (!data.status) return;
+                    allTasks.push({
+                        id: taskDoc.id,
+                        entityType,
+                        entityId: entityDoc.id,
+                        entityName,
+                        ...data
                     });
-                }
+                });
             }
-            
+
             // Sort by creation date
             allTasks.sort((a, b) => {
                 const aTime = a.createdAt?.toDate?.() || new Date(a.createdAtIso || 0);
