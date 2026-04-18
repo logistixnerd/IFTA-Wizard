@@ -628,6 +628,9 @@
             state.user = user;
             setTopbarAccount(user.displayName || 'User', user.photoURL || localStorage.getItem('ifta_avatar') || null);
             await loadAll();
+            // Navigate to hash section if present, else stay on overview
+            const hash = window.location.hash.replace('#', '');
+            if (hash) navigateToSection(hash, true);
         });
     }
 
@@ -647,13 +650,18 @@
         }
     }
 
-    function navigateToSection(section) {
+    function navigateToSection(section, skipHash) {
         if (!section) return;
         
         // Handle external pages
         if (section === 'task-manager') {
             window.location.href = 'task-manager.html';
             return;
+        }
+
+        // Update URL hash (skip during popstate handling)
+        if (!skipHash) {
+            history.pushState(null, '', '#' + section);
         }
         
         // Map sections to their parent department groups
@@ -801,6 +809,13 @@
         if (accountBtn) {
             accountBtn.addEventListener('click', () => navigateToSection('profile'));
         }
+
+        // Back/forward browser navigation
+        window.addEventListener('popstate', () => {
+            const hash = window.location.hash.replace('#', '');
+            if (hash) navigateToSection(hash, true);
+            else navigateToSection('overview', true);
+        });
     }
 
     // ── Load All Data ─────────────────────
