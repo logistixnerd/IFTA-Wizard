@@ -850,6 +850,7 @@
 
             // Company fields
             $('dashCompany').value = data.company || '';
+            if (data.company) $('navCompanyLabel').textContent = data.company;
             $('dashDotNumber').value = data.dotNumber || '';
             $('dashMcNumber').value = (data.mcNumber || '').replace(/\D/g, '');
             $('dashEin').value = data.ein || '';
@@ -1024,6 +1025,7 @@
             };
             try {
                 await db.collection('users').doc(uid()).set(payload, { merge: true });
+                $('navCompanyLabel').textContent = payload.company || 'Company';
                 showMsg('Company info saved');
             } catch (err) {
                 console.error('Save company error:', err);
@@ -1923,6 +1925,7 @@
         try {
             await db.collection('users').doc(uid()).set(payload, { merge: true });
             showMsg('Company profile created from FMCSA');
+            $('navCompanyLabel').textContent = payload.company || 'Company';
             if (state.fmcsaSnapshot) {
                 renderComplianceSection(state.fmcsaSnapshot);
                 renderComplianceReminders(state.fmcsaSnapshot);
