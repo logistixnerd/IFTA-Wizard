@@ -461,10 +461,88 @@
         });
     }
 
+    function formatCurrency(v) {
+        const n = parseFloat(v) || 0;
+        return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    async function loadDriverStats() {
+        try {
+            const d = state.driver;
+            if (!d) return;
+            const driverName = [d.firstName, d.lastName].filter(Boolean).join(' ');
+            if (!driverName) return;
+
+            // Query loads assigned to this driver
+            const snapshot = await col('loads').where('driver', '==', driverName).get();
+            const loads = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+            if (!loads.length) return;
+
+            // Gross earnings & mileage
+            let grossEarnings = 0;
+            let totalMiles = 0;
+            let totalRate = 0;
+            let ratedLoads = 0;
+
+            loads.forEach(l => {
+                const rate = parseFloat(l.rate) || 0;
+                const det = parseFloat(l.detention) || 0;
+                const miles = parseFloat(l.mileage) || 0;
+                grossEarnings += rate + det;
+                totalMiles += miles;
+                if (rate > 0) { totalRate += rate; ratedLoads++; }
+            });
+
+            const avgRpm = totalMiles > 0 && grossEarnings > 0 ? (grossEarnings / totalMiles) : 0;
+            const avgRate = ratedLoads > 0 ? totalRate / ratedLoads : 0;
+            const avgMilesPerLoad = loads.length > 0 ? Math.round(totalMiles / loads.length) : 0;
+
+            // Days on road vs home per month
+            // Use loadDate → deliveryDate spans to estimate days on road
+            const monthRoad = {}; // { 'YYYY-MM': daysOnRoad }
+            const monthTotal = {}; // { 'YYYY-MM': true } tracks which months have data
+
+            loads.forEach(l => {
+                const start = l.loadDate ? new Date(l.loadDate) : null;
+                const end = l.deliveryDate ? new Date(l.deliveryDate) : null;
+                if (!start || isNaN(start.getTime())) return;
+                const finish = (end && !isNaN(end.getTime()) && end >= start) ? end : start;
+                const days = Math.max(1, Math.round((finish - start) / 86400000) + 1);
+                const key = start.getFullYear() + '-' + String(start.getMonth() + 1).padStart(2, '0');
+                monthRoad[key] = (monthRoad[key] || 0) + days;
+                monthTotal[key] = true;
+            });
+
+            const months = Object.keys(monthTotal);
+            let avgDaysRoad = 0;
+            let avgDaysHome = 0;
+            if (months.length > 0) {
+                const totalRoadDays = months.reduce((s, k) => s + (monthRoad[k] || 0), 0);
+                avgDaysRoad = Math.round(totalRoadDays / months.length);
+                avgDaysHome = Math.max(0, 30 - avgDaysRoad);
+            }
+
+            // Render
+            const container = $('driverStats');
+            if (container) container.style.display = '';
+            $('statGrossEarnings').textContent = formatCurrency(grossEarnings);
+            $('statLoadCount').textContent = loads.length + ' load' + (loads.length !== 1 ? 's' : '');
+            $('statTotalMiles').textContent = totalMiles.toLocaleString() + ' mi';
+            $('statAvgMilesLoad').textContent = 'avg ' + avgMilesPerLoad.toLocaleString() + ' mi/load';
+            $('statAvgRpm').textContent = avgRpm > 0 ? '$' + avgRpm.toFixed(2) + '/mi' : '-';
+            $('statAvgRate').textContent = 'avg rate ' + formatCurrency(avgRate);
+            $('statDaysRoad').textContent = avgDaysRoad > 0 ? avgDaysRoad + ' days/mo' : '-';
+            $('statDaysHome').textContent = avgDaysHome > 0 ? avgDaysHome + ' days home/mo' : '-';
+        } catch (err) {
+            console.error('loadDriverStats error:', err);
+        }
+    }
+
     async function loadPage() {
         const ok = await loadDriver();
         if (!ok) return;
-        await Promise.all([loadHistory(), loadPhotos(), loadTasks()]);
+        await Promise.all([loadHistory(), loadPhotos(), loadTasks(), loadDriverStats()]);
     }
 
     function initAuth() {
