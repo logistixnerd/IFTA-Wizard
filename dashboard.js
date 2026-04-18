@@ -1995,14 +1995,6 @@
         if (titleEl && d.legalName) titleEl.textContent = d.legalName;
         if (authEl) authEl.textContent = d.operationType || '';
 
-        // Status bar
-        const authorised = d.allowedToOperate === 'Authorized';
-        const statusBar = $('complianceStatusBar');
-        statusBar.className = 'fmcsa-status-bar ' + (authorised ? 'fmcsa-status-ok' : 'fmcsa-status-bad');
-        statusBar.innerHTML = '<span class="fmcsa-status-dot"></span><strong>'
-            + escapeHtml(d.allowedToOperate || 'Unknown') + '</strong>'
-            + (d.operationType ? ' &mdash; ' + escapeHtml(d.operationType) : '');
-
         // Summary stat cards
         const totalInsp = (d.driverInsp || 0) + (d.vehicleInsp || 0) + (d.hazmatInsp || 0);
         const totalOos = (d.driverOosInsp || 0) + (d.vehicleOosInsp || 0) + (d.hazmatOosInsp || 0);
