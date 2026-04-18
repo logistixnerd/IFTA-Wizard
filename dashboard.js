@@ -2069,6 +2069,10 @@
 
     async function initComplianceSection() {
         renderComplianceSection(state.fmcsaSnapshot || null);
+        // Collapsible block toggles
+        document.querySelectorAll('.compliance-collapsible .compliance-block-toggle').forEach(toggle => {
+            toggle.addEventListener('click', () => toggle.closest('.compliance-collapsible').classList.toggle('open'));
+        });
         const dot = ($('dashDotNumber')?.value || '').replace(/\D/g, '').trim();
         if (!dot) return;
         try {

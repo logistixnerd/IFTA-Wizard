@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=39">
+    <link rel="stylesheet" href="dashboard.css?v=40">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -1197,46 +1197,56 @@
                             <div class="compliance-stats" id="complianceStats"></div>
 
                             <!-- Inspections Breakdown -->
-                            <div class="compliance-block">
-                                <h3>Inspections &amp; Out-of-Service</h3>
-                                <div class="fmcsa-grid">
-                                    <div class="fmcsa-card"><h4>Driver Inspections</h4><div class="fmcsa-rows" id="compDriverInsp"></div></div>
-                                    <div class="fmcsa-card"><h4>Vehicle Inspections</h4><div class="fmcsa-rows" id="compVehicleInsp"></div></div>
-                                    <div class="fmcsa-card"><h4>HazMat Inspections</h4><div class="fmcsa-rows" id="compHazmatInsp"></div></div>
+                            <div class="compliance-block compliance-collapsible">
+                                <h3 class="compliance-block-toggle">Inspections &amp; Out-of-Service<svg class="compliance-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg></h3>
+                                <div class="compliance-block-body">
+                                    <div class="fmcsa-grid">
+                                        <div class="fmcsa-card"><h4>Driver Inspections</h4><div class="fmcsa-rows" id="compDriverInsp"></div></div>
+                                        <div class="fmcsa-card"><h4>Vehicle Inspections</h4><div class="fmcsa-rows" id="compVehicleInsp"></div></div>
+                                        <div class="fmcsa-card"><h4>HazMat Inspections</h4><div class="fmcsa-rows" id="compHazmatInsp"></div></div>
+                                    </div>
                                 </div>
                             </div>
 
                             <!-- Crash History -->
-                            <div class="compliance-block">
-                                <h3>Crash History</h3>
-                                <div class="fmcsa-grid">
-                                    <div class="fmcsa-card"><h4>Crashes</h4><div class="fmcsa-rows" id="compCrashes"></div></div>
+                            <div class="compliance-block compliance-collapsible">
+                                <h3 class="compliance-block-toggle">Crash History<svg class="compliance-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg></h3>
+                                <div class="compliance-block-body">
+                                    <div class="fmcsa-grid">
+                                        <div class="fmcsa-card"><h4>Crashes</h4><div class="fmcsa-rows" id="compCrashes"></div></div>
+                                    </div>
                                 </div>
                             </div>
 
                             <!-- Safety & Authority -->
-                            <div class="compliance-block">
-                                <h3>Safety &amp; Authority</h3>
-                                <div class="fmcsa-grid">
-                                    <div class="fmcsa-card"><h4>Safety Record</h4><div class="fmcsa-rows" id="compSafety"></div></div>
-                                    <div class="fmcsa-card"><h4>Operating Authority</h4><div class="fmcsa-rows" id="compAuthority"></div></div>
+                            <div class="compliance-block compliance-collapsible">
+                                <h3 class="compliance-block-toggle">Safety &amp; Authority<svg class="compliance-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg></h3>
+                                <div class="compliance-block-body">
+                                    <div class="fmcsa-grid">
+                                        <div class="fmcsa-card"><h4>Safety Record</h4><div class="fmcsa-rows" id="compSafety"></div></div>
+                                        <div class="fmcsa-card"><h4>Operating Authority</h4><div class="fmcsa-rows" id="compAuthority"></div></div>
+                                    </div>
                                 </div>
                             </div>
 
                             <!-- Insurance -->
-                            <div class="compliance-block">
-                                <h3>Insurance</h3>
-                                <div class="fmcsa-grid">
-                                    <div class="fmcsa-card"><h4>Insurance Coverage</h4><div class="fmcsa-rows" id="compInsurance"></div></div>
+                            <div class="compliance-block compliance-collapsible">
+                                <h3 class="compliance-block-toggle">Insurance<svg class="compliance-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg></h3>
+                                <div class="compliance-block-body">
+                                    <div class="fmcsa-grid">
+                                        <div class="fmcsa-card"><h4>Insurance Coverage</h4><div class="fmcsa-rows" id="compInsurance"></div></div>
+                                    </div>
                                 </div>
                             </div>
 
                             <!-- Fleet & Identity -->
-                            <div class="compliance-block">
-                                <h3>Carrier Identity &amp; Fleet</h3>
-                                <div class="fmcsa-grid">
-                                    <div class="fmcsa-card"><h4>Carrier Identity</h4><div class="fmcsa-rows" id="compIdentity"></div></div>
-                                    <div class="fmcsa-card"><h4>Fleet Info</h4><div class="fmcsa-rows" id="compFleet"></div></div>
+                            <div class="compliance-block compliance-collapsible">
+                                <h3 class="compliance-block-toggle">Carrier Identity &amp; Fleet<svg class="compliance-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg></h3>
+                                <div class="compliance-block-body">
+                                    <div class="fmcsa-grid">
+                                        <div class="fmcsa-card"><h4>Carrier Identity</h4><div class="fmcsa-rows" id="compIdentity"></div></div>
+                                        <div class="fmcsa-card"><h4>Fleet Info</h4><div class="fmcsa-rows" id="compFleet"></div></div>
+                                    </div>
                                 </div>
                             </div>
 
@@ -3554,6 +3564,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=46"></script>
+    <script src="dashboard.js?v=47"></script>
 </body>
 </html>
