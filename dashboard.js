@@ -2843,9 +2843,20 @@
     }
 
     // ── Table Cell Renderers ──
+    function hasInlineDoc(entity, docType) {
+        return Array.isArray(entity?.docTypes) && entity.docTypes.includes(docType);
+    }
+
+    function inlineDocButton(entityType, entityId, docType, label, uploaded) {
+        const title = uploaded ? label + ' uploaded — click to replace' : 'Upload ' + label;
+        return '<button class="entity-doc-btn' + (uploaded ? ' uploaded' : '') + '" data-entity="' + entityType + '" data-id="' + entityId + '" data-doc="' + docType + '" title="' + escapeHtml(title) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">' +
+            (uploaded ? '<polyline points="20 6 9 17 4 12"/>' : '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>') +
+            '</svg></button>';
+    }
+
     function truckCell(t, key) {
         switch(key) {
-            case 'unit': return '<td class="col-unit"><div class="cell cell-primary" title="Open truck profile for ' + escapeHtml(t.unit || t.id) + '"><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</div></td>';
+            case 'unit': return '<td class="col-unit"><div class="cell cell-primary cell-with-doc" title="Open truck profile for ' + escapeHtml(t.unit || t.id) + '"><span><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('truck', t.id, 'photo', 'Truck Photo', hasInlineDoc(t, 'photo')) + '</div></td>';
             case 'year': return '<td class="col-year"><div class="cell">' + escapeHtml(t.year) + '</div></td>';
             case 'make': return '<td class="col-make"><div class="cell">' + escapeHtml(t.make) + '</div></td>';
             case 'model': return '<td class="col-model"><div class="cell">' + escapeHtml(t.model) + '</div></td>';
@@ -2853,9 +2864,9 @@
             case 'plate': return '<td class="col-plate"><div class="cell">' + escapeHtml(t.plate) + (t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : '') + '</div></td>';
             case 'fuel': return '<td class="col-fuel"><div class="cell">' + fuelLabel(t.fuel) + '</div></td>';
             case 'color': return '<td class="col-color"><div class="cell">' + escapeHtml(t.color || '') + '</div></td>';
-            case 'annualInspDate': return '<td><div class="cell">' + escapeHtml(t.annualInspDate || '\u2014') + '</div></td>';
-            case 'registrationExp': return '<td><div class="cell">' + escapeHtml(t.registrationExp || '\u2014') + '</div></td>';
-            case 'insuranceExp': return '<td><div class="cell">' + escapeHtml(t.insuranceExp || '\u2014') + '</div></td>';
+            case 'annualInspDate': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.annualInspDate || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'inspection', 'Annual Inspection', hasInlineDoc(t, 'inspection')) + '</div></td>';
+            case 'registrationExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.registrationExp || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'registration', 'Registration', hasInlineDoc(t, 'registration')) + '</div></td>';
+            case 'insuranceExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.insuranceExp || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'insurance', 'Insurance', hasInlineDoc(t, 'insurance')) + '</div></td>';
             case 'status': return '<td class="col-status"><div class="cell">' + statusSelect(t.status, t.id, 'trucks', 'truck') + '</div></td>';
             default: return '<td><div class="cell">' + escapeHtml(t[key] || '') + '</div></td>';
         }
@@ -2863,16 +2874,16 @@
 
     function trailerCell(t, key) {
         switch(key) {
-            case 'unit': return '<td><div class="cell cell-primary" title="Open trailer profile for ' + escapeHtml(t.unit || t.id) + '"><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</div></td>';
+            case 'unit': return '<td><div class="cell cell-primary cell-with-doc" title="Open trailer profile for ' + escapeHtml(t.unit || t.id) + '"><span><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('trailer', t.id, 'photo', 'Trailer Photo', hasInlineDoc(t, 'photo')) + '</div></td>';
             case 'year': return '<td><div class="cell">' + escapeHtml(t.year) + '</div></td>';
             case 'make': return '<td><div class="cell">' + escapeHtml(t.make) + '</div></td>';
             case 'type': return '<td><div class="cell">' + trailerTypeLabel(t.type) + '</div></td>';
             case 'model': return '<td><div class="cell">' + escapeHtml(t.model || '') + '</div></td>';
             case 'vin': return '<td><div class="cell vin-cell">' + escapeHtml(t.vin) + '</div></td>';
             case 'plate': return '<td><div class="cell">' + escapeHtml(t.plate) + '</div></td>';
-            case 'annualInspDate': return '<td><div class="cell">' + escapeHtml(t.annualInspDate || '\u2014') + '</div></td>';
-            case 'registrationExp': return '<td><div class="cell">' + escapeHtml(t.registrationExp || '\u2014') + '</div></td>';
-            case 'insuranceExp': return '<td><div class="cell">' + escapeHtml(t.insuranceExp || '\u2014') + '</div></td>';
+            case 'annualInspDate': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.annualInspDate || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'inspection', 'Annual Inspection', hasInlineDoc(t, 'inspection')) + '</div></td>';
+            case 'registrationExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.registrationExp || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'registration', 'Registration', hasInlineDoc(t, 'registration')) + '</div></td>';
+            case 'insuranceExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.insuranceExp || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'insurance', 'Insurance', hasInlineDoc(t, 'insurance')) + '</div></td>';
             case 'status': return '<td><div class="cell">' + statusSelect(t.status, t.id, 'trailers', 'trailer') + '</div></td>';
             default: return '<td><div class="cell">' + escapeHtml(t[key] || '') + '</div></td>';
         }
@@ -2880,15 +2891,15 @@
 
     function driverCell(d, key) {
         switch(key) {
-            case 'name': return '<td><div class="cell cell-primary" title="Open driver profile for ' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '"><strong>' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '</strong>' + (d.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</div></td>';
-            case 'cdl': return '<td><div class="cell">' + escapeHtml(d.cdl) + '</div></td>';
+            case 'name': return '<td><div class="cell cell-primary cell-with-doc" title="Open driver profile for ' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '"><span><strong>' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '</strong>' + (d.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('driver', d.id, 'photo', 'Driver Photo', hasInlineDoc(d, 'photo')) + '</div></td>';
+            case 'cdl': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(d.cdl) + '</span>' + inlineDocButton('driver', d.id, 'cdl', 'CDL', hasInlineDoc(d, 'cdl')) + '</div></td>';
             case 'cdlState': return '<td><div class="cell">' + escapeHtml(d.cdlState) + '</div></td>';
             case 'cdlExp': return '<td><div class="cell">' + escapeHtml(d.cdlExp) + '</div></td>';
             case 'phone': return '<td><div class="cell">' + escapeHtml(d.phone ? formatPhone(d.phone) : '') + '</div></td>';
             case 'email': return '<td><div class="cell">' + escapeHtml(d.email) + '</div></td>';
             case 'truck': return '<td><div class="cell">' + truckSelectHtml(d.id, d.truck, d.doNotDispatch) + '</div></td>';
             case 'dob': return '<td><div class="cell">' + escapeHtml(d.dob || '\u2014') + '</div></td>';
-            case 'medExp': return '<td><div class="cell">' + escapeHtml(d.medExp || '\u2014') + '</div></td>';
+            case 'medExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(d.medExp || '\u2014') + '</span>' + inlineDocButton('driver', d.id, 'medical', 'Medical Card', hasInlineDoc(d, 'medical')) + '</div></td>';
             case 'mvrExp': return '<td><div class="cell">' + escapeHtml(d.mvrExp || '\u2014') + '</div></td>';
             case 'hireDate': return '<td><div class="cell">' + escapeHtml(d.hireDate || '\u2014') + '</div></td>';
             case 'status': return '<td><div class="cell">' + statusSelect(d.status, d.id, 'drivers', 'driver') + '</div></td>';
@@ -4793,6 +4804,7 @@
             const url = await ref.getDownloadURL();
             const docEntry = { name: file.name, type: docType, storagePath: path, url, size: file.size, contentType: file.type, uploadedAt: new Date().toISOString() };
             await col('trucks').doc(truckId).collection('documents').add(docEntry);
+            await syncTruckDocSummary(truckId);
             showMsg('Document uploaded');
             return docEntry;
         } catch (err) { console.error('Upload error:', err); showMsg('Upload failed', true); return null; }
@@ -4801,7 +4813,20 @@
     async function deleteTruckDoc(truckId, docId, storagePath) {
         try { await storage.ref(storagePath).delete(); } catch (err) { if (err.code !== 'storage/object-not-found') console.warn(err); }
         await col('trucks').doc(truckId).collection('documents').doc(docId).delete();
+        await syncTruckDocSummary(truckId);
         showMsg('Document removed');
+    }
+
+    async function syncTruckDocSummary(truckId) {
+        const docs = await loadTruckDocs(truckId);
+        const types = [...new Set(docs.map(d => d.type).filter(Boolean))];
+        await col('trucks').doc(truckId).update({
+            docTypes: types,
+            docCount: docs.length,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        const truck = state.trucks.find(t => t.id === truckId);
+        if (truck) { truck.docTypes = types; truck.docCount = docs.length; }
     }
 
     async function loadTruckDocs(truckId) {
@@ -5396,6 +5421,7 @@
             const url = await ref.getDownloadURL();
             const docEntry = { name: file.name, type: docType, storagePath: path, url, size: file.size, contentType: file.type, uploadedAt: new Date().toISOString() };
             await col('trailers').doc(trailerId).collection('documents').add(docEntry);
+            await syncTrailerDocSummary(trailerId);
             showMsg('Document uploaded');
             return docEntry;
         } catch (err) { console.error('Upload error:', err); showMsg('Upload failed', true); return null; }
@@ -5404,7 +5430,20 @@
     async function deleteTrailerDoc(trailerId, docId, storagePath) {
         try { await storage.ref(storagePath).delete(); } catch (err) { if (err.code !== 'storage/object-not-found') console.warn(err); }
         await col('trailers').doc(trailerId).collection('documents').doc(docId).delete();
+        await syncTrailerDocSummary(trailerId);
         showMsg('Document removed');
+    }
+
+    async function syncTrailerDocSummary(trailerId) {
+        const docs = await loadTrailerDocs(trailerId);
+        const types = [...new Set(docs.map(d => d.type).filter(Boolean))];
+        await col('trailers').doc(trailerId).update({
+            docTypes: types,
+            docCount: docs.length,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        const trailer = state.trailers.find(t => t.id === trailerId);
+        if (trailer) { trailer.docTypes = types; trailer.docCount = docs.length; }
     }
 
     async function loadTrailerDocs(trailerId) {
@@ -9502,6 +9541,48 @@
         }
     }
 
+    const inlineDocTarget = { entityType: '', entityId: '', docType: '' };
+    let inlineDocFileInput = null;
+
+    function initInlineDocUploads() {
+        inlineDocFileInput = document.createElement('input');
+        inlineDocFileInput.type = 'file';
+        inlineDocFileInput.accept = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx';
+        inlineDocFileInput.hidden = true;
+        document.body.appendChild(inlineDocFileInput);
+
+        ['trucksTableBody', 'trailersTableBody', 'driversTableBody'].forEach(id => {
+            const tbody = $(id);
+            if (!tbody) return;
+            tbody.addEventListener('click', (e) => {
+                const btn = e.target.closest('.entity-doc-btn');
+                if (!btn) return;
+                e.stopPropagation();
+                inlineDocTarget.entityType = btn.dataset.entity;
+                inlineDocTarget.entityId = btn.dataset.id;
+                inlineDocTarget.docType = btn.dataset.doc;
+                inlineDocFileInput.value = '';
+                inlineDocFileInput.click();
+            });
+        });
+
+        inlineDocFileInput.addEventListener('change', async () => {
+            const file = inlineDocFileInput.files[0];
+            if (!file) return;
+            if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return; }
+            if (inlineDocTarget.entityType === 'driver') {
+                await uploadDriverDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
+                renderDrivers();
+            } else if (inlineDocTarget.entityType === 'truck') {
+                await uploadTruckDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
+                renderTrucks();
+            } else if (inlineDocTarget.entityType === 'trailer') {
+                await uploadTrailerDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
+                renderTrailers();
+            }
+        });
+    }
+
     // ── Operational Alerts ────────────────
     function updateAlerts() {
         const alerts = [];
@@ -10972,6 +11053,7 @@
         initDriverForm();
         initLoadForm();
         initLoadDocUpload();
+        initInlineDocUploads();
         initDispatchOverview();
         initAnalytics();
         wireLoadLocationEvents();
