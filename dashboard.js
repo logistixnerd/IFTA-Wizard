@@ -380,6 +380,7 @@
     function $(id) { return document.getElementById(id); }
     function uid() { return state.user ? state.user.uid : null; }
     function col(name) { return db.collection('users').doc(uid()).collection(name); }
+    function titleCase(s) { return s ? s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : s; }
     function escapeHtml(str) {
         if (!str) return '';
         const div = document.createElement('div');
@@ -850,7 +851,7 @@
 
             // Company fields
             $('dashCompany').value = data.company || '';
-            if (data.company) $('navCompanyLabel').textContent = data.company;
+            if (data.company) $('navCompanyLabel').textContent = titleCase(data.company);
             $('dashDotNumber').value = data.dotNumber || '';
             $('dashMcNumber').value = (data.mcNumber || '').replace(/\D/g, '');
             $('dashEin').value = data.ein || '';
@@ -1025,7 +1026,7 @@
             };
             try {
                 await db.collection('users').doc(uid()).set(payload, { merge: true });
-                $('navCompanyLabel').textContent = payload.company || 'Company';
+                $('navCompanyLabel').textContent = titleCase(payload.company) || 'Company';
                 showMsg('Company info saved');
             } catch (err) {
                 console.error('Save company error:', err);
@@ -1925,7 +1926,7 @@
         try {
             await db.collection('users').doc(uid()).set(payload, { merge: true });
             showMsg('Company profile created from FMCSA');
-            $('navCompanyLabel').textContent = payload.company || 'Company';
+            $('navCompanyLabel').textContent = titleCase(payload.company) || 'Company';
             if (state.fmcsaSnapshot) {
                 renderComplianceSection(state.fmcsaSnapshot);
                 renderComplianceReminders(state.fmcsaSnapshot);

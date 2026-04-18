@@ -124,6 +124,14 @@
     margin-top: auto;
 }
 
+.dash-nav-item-company span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-transform: none;
+    font-size: 0.75rem;
+}
+
 .dash-nav-item-settings {
     margin-top: 0;
 }
