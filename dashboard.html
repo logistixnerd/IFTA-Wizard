@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=68">
+    <link rel="stylesheet" href="dashboard.css?v=69">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -2912,8 +2912,15 @@
                         <tbody id="usheetTbody"></tbody>
                     </table>
                 </div>
-                <div id="usheetRouteMap" class="usheet-route-map" style="display:none"></div>
-                <div id="usheetRouteInfo" class="usheet-route-info" style="display:none"></div>
+                <div id="usheetRouteCard" class="usheet-route-card" style="display:none">
+                    <div class="usheet-route-header">
+                        <button class="usheet-route-nav usheet-route-prev" id="usheetRoutePrev" title="Previous load">&lsaquo;</button>
+                        <div class="usheet-route-load-num" id="usheetRouteLoadNum"></div>
+                        <button class="usheet-route-nav usheet-route-next" id="usheetRouteNext" title="Next load">&rsaquo;</button>
+                    </div>
+                    <div id="usheetRouteMap" class="usheet-route-map"></div>
+                    <div id="usheetRouteInfo" class="usheet-route-info"></div>
+                </div>
             </div>
             <div class="usheet-footer">
                 <div class="usheet-footer-left">
@@ -3730,6 +3737,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=74"></script>
+    <script src="dashboard.js?v=75"></script>
 </body>
 </html>
