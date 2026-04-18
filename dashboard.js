@@ -3386,9 +3386,10 @@
             if (uSheetState.mode !== 'edit' && tr === tbody.lastElementChild) {
                 const cfg = SHEET_CONFIGS[uSheetState.type];
                 const reqKey = cfg && cfg.requiredKey;
-                const reqInput = reqKey ? tr.querySelector('[data-key="' + reqKey + '"]') : null;
-                const hasRequired = reqInput ? reqInput.value.trim() : Array.from(tr.querySelectorAll('input')).some(i => i.value.trim());
-                if (hasRequired) uAddRow();
+                if (reqKey) {
+                    const reqInput = tr.querySelector('[data-key="' + reqKey + '"]');
+                    if (reqInput && reqInput.value.trim()) uAddRow();
+                }
             }
 
             // Live VIN decode
