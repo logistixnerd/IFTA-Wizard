@@ -593,7 +593,8 @@
 .compliance-fetched-at {
     font-size: 0.68rem;
     color: var(--gray-300);
-    text-align: right;
+    margin: 0;
+    white-space: nowrap;
 }
 
 @media (max-width: 640px) {

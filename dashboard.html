@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=41">
+    <link rel="stylesheet" href="dashboard.css?v=42">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -1179,6 +1179,7 @@
                 <div class="dash-card">
                     <div class="dash-card-header">
                         <h2>Compliance Overview</h2>
+                        <p class="compliance-fetched-at" id="complianceFetchedAt"></p>
                     </div>
                     <div class="dash-card-body">
                         <div class="placeholder-content" id="complianceHint">
@@ -1250,7 +1251,6 @@
                                 </div>
                             </div>
 
-                            <p class="compliance-fetched-at" id="complianceFetchedAt"></p>
                         </div>
 
                     </div>
