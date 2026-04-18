@@ -1435,10 +1435,10 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 .dash-table-wrap {
     overflow-x: auto;
     overflow-y: visible;
-    border-radius: 10px;
-    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
     cursor: default;
-    background: rgba(255, 255, 255, 0.3);
+    background: #fff;
 }
 
 .dash-table {
@@ -1451,16 +1451,15 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 
 .dash-table th {
     text-align: left;
-    padding: 0.5rem 0.4rem;
+    padding: 7px 8px;
     font-weight: 700;
-    font-size: var(--dash-table-head-font-size);
-    color: var(--gray-400);
+    font-size: 0.625rem;
+    color: #6b7280;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    background: rgba(248, 250, 252, 0.85);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    border-bottom: 1px solid #e5e7eb;
+    border-right: 1px solid #f3f4f6;
+    background: #f9fafb;
     position: sticky;
     top: 0;
     z-index: 2;
@@ -1468,10 +1467,14 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
     user-select: none;
 }
 
+.dash-table th:last-child {
+    border-right: none;
+}
+
 .dash-table td {
     padding: 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.035);
-    border-right: none;
+    border-bottom: 1px solid #f3f4f6;
+    border-right: 1px solid #f3f4f6;
     color: var(--gray-700);
     position: relative;
     height: var(--dash-row-height);
@@ -1642,6 +1645,10 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
     transition: background 0.1s ease;
 }
 
+.dash-table tbody tr:nth-child(even) {
+    background: #fafbfc;
+}
+
 .dash-table tbody tr[data-id] {
     cursor: default;
 }
@@ -1653,11 +1660,11 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 }
 
 .dash-table tbody tr:hover {
-    background: rgba(79, 70, 229, 0.03);
+    background: #f0f4ff;
 }
 
 .dash-table tbody tr.row-editing {
-    background: rgba(79, 70, 229, 0.05);
+    background: #fffbeb;
 }
 
 .dash-table tbody tr:last-child td {
@@ -1720,13 +1727,11 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
     align-items: center;
     gap: 0.375rem;
     flex-wrap: wrap;
-    margin-bottom: 1.25rem;
+    margin-bottom: 0.75rem;
     padding: var(--dash-toolbar-padding);
-    background: rgba(248, 250, 252, 0.65);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    border-radius: var(--dash-toolbar-radius);
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
 }
 
 .dash-search-wrap {
@@ -1889,11 +1894,11 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 }
 
 .row-selected {
-    background: rgba(79, 70, 229, 0.04) !important;
+    background: #eef2ff !important;
 }
 
 .row-selected:hover {
-    background: rgba(79, 70, 229, 0.07) !important;
+    background: #e0e7ff !important;
 }
 
 /* Bulk action bar */
