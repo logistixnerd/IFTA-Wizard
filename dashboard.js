@@ -878,6 +878,7 @@
 
             state.companyDashboard = normalizeCompanyDashboard(data.companyDashboard);
             state.fmcsaSnapshot = data.fmcsaSnapshot || null;
+            updateSamsaraUI(data.samsara || null);
             ensureCompanyOwnerMember();
             renderCompanyDashboard();
         } catch (e) {
@@ -8920,6 +8921,94 @@
         });
     }
 
+    // ── Samsara Integration ───────────────
+    function updateSamsaraUI(samsaraData) {
+        const connectBtn = $('samsaraConnectBtn');
+        const disconnectBtn = $('samsaraDisconnectBtn');
+        const desc = $('samsaraStatusDesc');
+        if (!connectBtn || !disconnectBtn) return;
+
+        if (samsaraData && samsaraData.connectedAt) {
+            connectBtn.classList.add('hidden');
+            disconnectBtn.classList.remove('hidden');
+            const d = new Date(samsaraData.connectedAt);
+            if (desc) desc.textContent = 'Connected ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } else {
+            connectBtn.classList.remove('hidden');
+            disconnectBtn.classList.add('hidden');
+            if (desc) desc.textContent = 'Connect your Samsara fleet account for ELD and telematics data';
+        }
+    }
+
+    function initSamsara() {
+        // Handle OAuth redirect result
+        const params = new URLSearchParams(window.location.search);
+        const samsaraResult = params.get('samsara');
+        if (samsaraResult) {
+            // Clean URL
+            const clean = new URL(window.location.href);
+            clean.searchParams.delete('samsara');
+            clean.searchParams.delete('reason');
+            window.history.replaceState({}, '', clean.toString());
+
+            if (samsaraResult === 'connected') {
+                showMsg('Samsara connected successfully');
+                // Navigate to settings
+                const settingsNav = document.querySelector('[data-section="settings"]');
+                if (settingsNav) settingsNav.click();
+            } else {
+                const reason = params.get('reason') || 'unknown';
+                showMsg('Samsara connection failed: ' + reason, true);
+            }
+        }
+
+        // Connect button
+        const connectBtn = $('samsaraConnectBtn');
+        if (connectBtn) {
+            connectBtn.addEventListener('click', async () => {
+                connectBtn.disabled = true;
+                connectBtn.textContent = 'Connecting...';
+                try {
+                    const fn = firebase.functions().httpsCallable('samsaraAuthUrl');
+                    const result = await fn();
+                    if (result.data && result.data.url) {
+                        window.location.href = result.data.url;
+                    } else {
+                        showMsg('Failed to get Samsara authorization URL', true);
+                    }
+                } catch (err) {
+                    console.error('Samsara connect error:', err);
+                    showMsg(err.message || 'Failed to connect Samsara', true);
+                } finally {
+                    connectBtn.disabled = false;
+                    connectBtn.textContent = 'Connect';
+                }
+            });
+        }
+
+        // Disconnect button
+        const disconnectBtn = $('samsaraDisconnectBtn');
+        if (disconnectBtn) {
+            disconnectBtn.addEventListener('click', async () => {
+                if (!confirm('Disconnect Samsara? This will remove your fleet data connection.')) return;
+                disconnectBtn.disabled = true;
+                disconnectBtn.textContent = 'Disconnecting...';
+                try {
+                    const fn = firebase.functions().httpsCallable('samsaraDisconnect');
+                    await fn();
+                    updateSamsaraUI(null);
+                    showMsg('Samsara disconnected');
+                } catch (err) {
+                    console.error('Samsara disconnect error:', err);
+                    showMsg(err.message || 'Failed to disconnect Samsara', true);
+                } finally {
+                    disconnectBtn.disabled = false;
+                    disconnectBtn.textContent = 'Disconnect';
+                }
+            });
+        }
+    }
+
     // ── Init ──────────────────────────────
     function init() {
         initNav();
@@ -8944,6 +9033,7 @@
         initSearchFilters();
         initInlineEditing();
         initGoogleDriveForImport();
+        initSamsara();
         initAuth();
 
         // Handle URL params to open detail panel (e.g. from Task Manager)

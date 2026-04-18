@@ -919,6 +919,20 @@
                             </div>
                         </div>
                         <div class="settings-group">
+                            <h3 class="settings-group-title">Integrations</h3>
+                            <div class="settings-row" id="samsaraIntegrationRow">
+                                <div class="settings-row-info">
+                                    <span class="settings-row-label">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" style="vertical-align:-3px;margin-right:4px"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                        Samsara
+                                    </span>
+                                    <span class="settings-row-desc" id="samsaraStatusDesc">Connect your Samsara fleet account for ELD and telematics data</span>
+                                </div>
+                                <button class="btn btn-primary btn-sm" id="samsaraConnectBtn">Connect</button>
+                                <button class="btn btn-danger btn-sm hidden" id="samsaraDisconnectBtn">Disconnect</button>
+                            </div>
+                        </div>
+                        <div class="settings-group">
                             <h3 class="settings-group-title">Account</h3>
                             <div class="settings-row">
                                 <div class="settings-row-info">
@@ -3419,6 +3433,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=34"></script>
+    <script src="dashboard.js?v=35"></script>
 </body>
 </html>

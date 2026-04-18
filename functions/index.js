@@ -1,15 +1,19 @@
 'use strict';
 /**
- * IFTA Wizard – FMCSA Lookup Cloud Functions (Gen 1)
+ * IFTA Wizard – Cloud Functions (Gen 1)
  *
  * Gen 1 functions are publicly accessible by default — no Cloud Run IAM.
  * Uses firebase-functions v4 with runWith() for Gen 1 deployment.
  *
- * Before deploying, set the API key secret:
+ * Secrets required:
  *   firebase functions:secrets:set FMCSA_API_KEY
+ *   firebase functions:secrets:set SAMSARA_CLIENT_ID
+ *   firebase functions:secrets:set SAMSARA_CLIENT_SECRET
  */
 
 const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+admin.initializeApp();
 
 const FMCSA_BASE_URL = 'https://mobile.fmcsa.dot.gov/qc/services';
 
@@ -218,4 +222,136 @@ exports.carrierLookup = functions
       console.error('carrierLookup unexpected error:', err);
       throw new functions.https.HttpsError('internal', 'Internal server error');
     }
+  });
+
+// ─────────────────────────────────────────────────────────
+// Samsara OAuth2 Integration
+// ─────────────────────────────────────────────────────────
+
+const SAMSARA_TOKEN_URL = 'https://api.samsara.com/oauth2/token';
+const SAMSARA_AUTH_URL = 'https://api.samsara.com/oauth2/authorize';
+const HOSTING_ORIGIN = 'https://ifta-wizard-a9061.web.app';
+
+/**
+ * Callable: Start Samsara OAuth flow — returns the authorize URL.
+ * The client redirects the user to this URL.
+ */
+exports.samsaraAuthUrl = functions
+  .runWith({ secrets: ['SAMSARA_CLIENT_ID'], memory: '256MB', timeoutSeconds: 10 })
+  .https.onCall((data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const clientId = process.env.SAMSARA_CLIENT_ID;
+    if (!clientId) throw new functions.https.HttpsError('failed-precondition', 'Samsara integration not configured.');
+
+    // Encode uid in state so the callback can associate tokens with the user
+    const state = Buffer.from(JSON.stringify({ uid: context.auth.uid, ts: Date.now() })).toString('base64url');
+
+    const params = new URLSearchParams({
+      client_id: clientId,
+      response_type: 'code',
+      state,
+      redirect_uri: HOSTING_ORIGIN + '/api/samsara/callback',
+    });
+
+    return { url: `${SAMSARA_AUTH_URL}?${params.toString()}` };
+  });
+
+/**
+ * HTTPS handler: Samsara OAuth callback.
+ * Exchanges the authorization code for tokens, stores them in Firestore,
+ * and redirects back to the dashboard.
+ */
+exports.samsaraCallback = functions
+  .runWith({ secrets: ['SAMSARA_CLIENT_ID', 'SAMSARA_CLIENT_SECRET'], memory: '256MB', timeoutSeconds: 20 })
+  .https.onRequest(async (req, res) => {
+    try {
+      const { code, state, error } = req.query;
+
+      if (error) {
+        console.warn('Samsara OAuth error:', error);
+        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=' + encodeURIComponent(error));
+      }
+
+      if (!code || !state) {
+        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=missing_params');
+      }
+
+      // Decode state to get uid
+      let parsed;
+      try {
+        parsed = JSON.parse(Buffer.from(state, 'base64url').toString());
+      } catch {
+        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=invalid_state');
+      }
+
+      const uid = parsed.uid;
+      if (!uid) {
+        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=no_uid');
+      }
+
+      // Verify the state isn't stale (10 min window)
+      if (Date.now() - parsed.ts > 600000) {
+        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=expired');
+      }
+
+      const clientId = process.env.SAMSARA_CLIENT_ID;
+      const clientSecret = process.env.SAMSARA_CLIENT_SECRET;
+
+      // Exchange code for tokens
+      const tokenRes = await fetch(SAMSARA_TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code,
+          grant_type: 'authorization_code',
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: HOSTING_ORIGIN + '/api/samsara/callback',
+        }).toString(),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!tokenRes.ok) {
+        const errBody = await tokenRes.text();
+        console.error('Samsara token exchange failed:', tokenRes.status, errBody);
+        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=token_exchange');
+      }
+
+      const tokens = await tokenRes.json();
+
+      // Store tokens in Firestore under the user's doc
+      await admin.firestore().collection('users').doc(uid).set({
+        samsara: {
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token,
+          expiresAt: Date.now() + (tokens.expires_in * 1000),
+          connectedAt: Date.now(),
+        }
+      }, { merge: true });
+
+      return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=connected');
+    } catch (err) {
+      console.error('samsaraCallback unexpected error:', err);
+      return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=internal');
+    }
+  });
+
+/**
+ * Callable: Disconnect Samsara — removes stored tokens.
+ */
+exports.samsaraDisconnect = functions
+  .runWith({ memory: '256MB', timeoutSeconds: 10 })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    await admin.firestore().collection('users').doc(context.auth.uid).update({
+      samsara: admin.firestore.FieldValue.delete(),
+    });
+
+    return { success: true };
   });
