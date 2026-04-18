@@ -8578,6 +8578,10 @@
         $('overviewTrucks').textContent = state.trucks.length;
         $('overviewTrailers').textContent = state.trailers.length;
         $('overviewDrivers').textContent = state.drivers.length;
+        // Safety counts
+        const st = $('safetyTruckCount'); if (st) st.textContent = state.trucks.length;
+        const str = $('safetyTrailerCount'); if (str) str.textContent = state.trailers.length;
+        const sd = $('safetyDriverCount'); if (sd) sd.textContent = state.drivers.length;
         populateOverviewDropdowns();
         updateAlerts();
     }
@@ -8788,6 +8792,29 @@
                 openDriverProfile(item.dataset.id);
             });
         });
+
+        // Safety dropdown panels – mirror the overview panels
+        const safeTrucks = $('safetyTrucksDropdownPanel');
+        const safeTrailers = $('safetyTrailersDropdownPanel');
+        const safeDrivers = $('safetyDriversDropdownPanel');
+        if (safeTrucks) {
+            safeTrucks.innerHTML = trucksPanel.innerHTML;
+            safeTrucks.querySelectorAll('.overview-dropdown-item').forEach(item => {
+                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openTruckProfile(item.dataset.id); });
+            });
+        }
+        if (safeTrailers) {
+            safeTrailers.innerHTML = trailersPanel.innerHTML;
+            safeTrailers.querySelectorAll('.overview-dropdown-item').forEach(item => {
+                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openTrailerProfile(item.dataset.id); });
+            });
+        }
+        if (safeDrivers) {
+            safeDrivers.innerHTML = driversPanel.innerHTML;
+            safeDrivers.querySelectorAll('.overview-dropdown-item').forEach(item => {
+                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openDriverProfile(item.dataset.id); });
+            });
+        }
     }
 
     function buildOverviewLookupItems() {
