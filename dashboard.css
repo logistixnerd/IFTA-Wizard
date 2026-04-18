@@ -16,11 +16,11 @@
     --dash-toolbar-gap: 0.5rem;
     --dash-toolbar-padding: 0.5rem 0.625rem;
     --dash-toolbar-radius: 12px;
-    --dash-control-height: 30px;
-    --dash-control-font-size: 0.75rem;
-    --dash-search-width: 220px;
-    --dash-status-filter-width: 118px;
-    --dash-fuel-filter-width: 94px;
+    --dash-control-height: 26px;
+    --dash-control-font-size: 0.68rem;
+    --dash-search-width: 190px;
+    --dash-status-filter-width: 105px;
+    --dash-fuel-filter-width: 86px;
     --dash-add-button-width: 124px;
     --dash-import-button-width: 86px;
     --dash-table-font-size: 0.6875rem;
@@ -1781,10 +1781,10 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 .dash-search {
     width: 100%;
     height: var(--dash-control-height);
-    padding: 0 0.75rem 0 2rem;
+    padding: 0 0.625rem 0 1.75rem;
     font-size: var(--dash-control-font-size);
     border: 1px solid rgba(0, 0, 0, 0.07);
-    border-radius: 8px;
+    border-radius: 6px;
     background: var(--white);
     color: var(--gray-700);
     transition: all 0.15s ease;
@@ -1810,11 +1810,11 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 .dash-filter,
 .dash-sort {
     height: var(--dash-control-height);
-    padding: 0 1.75rem 0 0.625rem;
+    padding: 0 1.5rem 0 0.5rem;
     font-size: var(--dash-control-font-size);
     font-weight: 600;
     border: 1px solid rgba(0, 0, 0, 0.07);
-    border-radius: 8px;
+    border-radius: 6px;
     background: var(--white);
     color: var(--gray-600);
     cursor: pointer;
@@ -1856,8 +1856,8 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 
 /* Sort dropdown */
 .dash-sort {
-    width: 140px;
-    min-width: 120px;
+    width: 125px;
+    min-width: 110px;
 }
 
 /* Checkbox column */
