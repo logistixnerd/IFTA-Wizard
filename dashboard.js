@@ -3101,6 +3101,7 @@
             if (payload.mileage) payload.mileage = parseFloat(payload.mileage) || 0;
             if (payload.detention) payload.detention = parseFloat(payload.detention) || 0;
             if (!payload.loadDate) payload.loadDate = new Date().toISOString().split('T')[0];
+            if (!payload.loadNumber) payload.loadNumber = nextLoadNumber();
         }
         normalizePayload(payload, type);
         payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
@@ -7448,7 +7449,7 @@
             ],
             collection: 'loads',
             label: 'load',
-            requiredKey: 'loadNumber',
+            requiredKey: null,
             duplicateKey: 'loadNumber',
             defaults: { status: 'booked' },
             afterSave: async () => { await loadLoads(); updateOverview(); updateDispatchOverview(); },
@@ -8819,11 +8820,16 @@
         updateDispatchOverview();
     }
 
+    function nextLoadNumber() {
+        const nums = state.loads.map(l => parseInt(l.loadNumber, 10)).filter(n => !isNaN(n));
+        return nums.length ? String(Math.max(...nums) + 1) : '1000';
+    }
+
     function openLoadModal(data) {
         $('loadModalTitle').textContent = data ? 'Edit Load' : 'New Load';
         $('loadEditId').value = data ? data.id : '';
         $('loadDate').value = data ? data.loadDate || '' : new Date().toISOString().split('T')[0];
-        $('loadNumber').value = data ? data.loadNumber || '' : '';
+        $('loadNumber').value = data ? data.loadNumber || '' : nextLoadNumber();
         $('loadUnit').value = data ? data.unit || '' : '';
         $('loadOrigin').value = data ? data.origin || '' : '';
         $('loadDestination').value = data ? data.destination || '' : '';
@@ -8997,14 +9003,14 @@
             e.preventDefault();
             const payload = {
                 loadDate: $('loadDate').value.trim(),
-                loadNumber: $('loadNumber').value.trim(),
+                loadNumber: $('loadNumber').value.trim() || nextLoadNumber(),
                 unit: $('loadUnit').value,
                 origin: $('loadOrigin').value.trim(),
                 destination: $('loadDestination').value.trim(),
                 broker: $('loadBroker').value.trim(),
-                rate: $('loadRate').value.trim(),
-                mileage: $('loadMileage').value.trim(),
-                detention: $('loadDetention').value.trim(),
+                rate: parseFloat($('loadRate').value) || 0,
+                mileage: parseFloat($('loadMileage').value) || 0,
+                detention: parseFloat($('loadDetention').value) || 0,
                 status: $('loadStatus').value,
                 deliveryDate: $('loadDeliveryDate').value.trim(),
                 driver: $('loadDriver').value,
@@ -9012,7 +9018,7 @@
                 comments: $('loadComments').value.trim(),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             };
-            if (!payload.loadNumber) { showMsg('Load # is required', true); return; }
+            if (!payload.loadNumber) payload.loadNumber = nextLoadNumber();
             try {
                 const editId = $('loadEditId').value;
                 if (editId) {
