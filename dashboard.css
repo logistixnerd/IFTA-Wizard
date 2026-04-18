@@ -1641,11 +1641,11 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 }
 
 .cell-status-select:hover {
-    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 0 0 2px #c7d2fe;
 }
 
 .cell-status-select:focus {
-    box-shadow: 0 0 0 2px var(--primary);
+    box-shadow: 0 0 0 2px #6366f1;
 }
 
 /* Row states */
@@ -1706,13 +1706,13 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
     height: var(--dash-action-button-size);
     padding: 0;
     color: var(--gray-400);
-    border-radius: 6px;
+    border-radius: 5px;
     transition: all 0.12s ease;
     line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    opacity: 0.65;
+    opacity: 0;
 }
 
 .dash-table tbody tr:hover .row-actions button {
@@ -1721,12 +1721,12 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 
 .row-actions button:hover {
     color: var(--primary);
-    background: rgba(79, 70, 229, 0.1);
+    background: rgba(79, 70, 229, 0.08);
 }
 
 .row-actions .btn-delete:hover {
     color: var(--danger);
-    background: rgba(220, 38, 38, 0.08);
+    background: rgba(220, 38, 38, 0.06);
 }
 
 /* Table Toolbar (search + filter) */
@@ -1737,10 +1737,9 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
     flex-wrap: wrap;
     margin-bottom: 0.75rem;
     padding: 0.5rem 0.75rem;
-    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
     border-radius: 10px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 .dash-search-wrap {
@@ -1770,28 +1769,29 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
     height: var(--dash-control-height);
     padding: 0 0.625rem 0 1.75rem;
     font-size: var(--dash-control-font-size);
-    border: 1px solid rgba(0, 0, 0, 0.07);
-    border-radius: 8px;
-    background: var(--white);
-    color: var(--gray-700);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    border: 1px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: #111827;
+    font-weight: 500;
+    transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }
 
 .dash-search:hover {
-    border-color: rgba(79, 70, 229, 0.25);
-    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.08);
+    border-color: #c7d2fe;
+    background: #fafbff;
 }
 
 .dash-search:focus {
     outline: none;
-    border-color: var(--primary);
-    background: var(--white);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1), 0 1px 2px rgba(0, 0, 0, 0.04);
+    border-color: #6366f1;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px #6366f1;
 }
 
 .dash-search::placeholder {
-    color: var(--gray-400);
+    color: #c6cbd2;
+    font-weight: 400;
 }
 
 .dash-filter,
@@ -1799,13 +1799,13 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
     height: var(--dash-control-height);
     padding: 0 1.5rem 0 0.5rem;
     font-size: var(--dash-control-font-size);
-    font-weight: 600;
-    border: 1px solid rgba(0, 0, 0, 0.07);
-    border-radius: 8px;
-    background: var(--white);
-    color: var(--gray-600);
+    font-weight: 500;
+    border: 1px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: #111827;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
     appearance: none;
     -webkit-appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -1813,7 +1813,6 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
     background-position: right 0.5rem center;
     background-size: 10px 6px;
     flex: 0 0 auto;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .dash-filter {
@@ -1828,17 +1827,16 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 
 .dash-filter:hover,
 .dash-sort:hover {
-    border-color: rgba(79, 70, 229, 0.25);
-    color: var(--gray-700);
-    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.08);
+    border-color: #c7d2fe;
+    background: #fafbff;
 }
 
 .dash-filter:focus,
 .dash-sort:focus {
     outline: none;
-    border-color: var(--primary);
-    color: var(--gray-800);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1), 0 1px 2px rgba(0, 0, 0, 0.04);
+    border-color: #6366f1;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px #6366f1;
 }
 
 /* Sort dropdown */
@@ -1863,26 +1861,21 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
     font-weight: 700;
     font-family: inherit;
     border: 1.5px solid rgba(79, 70, 229, 0.2);
-    border-radius: 8px;
-    background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 100%);
-    color: var(--primary);
+    border-radius: 6px;
+    background: #eef2ff;
+    color: #6366f1;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color 0.12s, background 0.12s;
     white-space: nowrap;
-    box-shadow: 0 1px 3px rgba(79, 70, 229, 0.08);
 }
 
 .table-col-picker-btn:hover {
-    background: linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%);
-    color: var(--primary-dark);
-    border-color: rgba(79, 70, 229, 0.35);
-    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.15);
-    transform: translateY(-1px);
+    background: #e0e7ff;
+    border-color: #c7d2fe;
 }
 
 .table-col-picker-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 2px rgba(79, 70, 229, 0.1);
+    background: #c7d2fe;
 }
 
 .table-col-picker-btn svg {
@@ -1896,9 +1889,9 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
     top: calc(100% + 6px);
     z-index: 100;
     background: #fff;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.06), 0 12px 32px rgba(0,0,0,0.08);
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.08);
     padding: 8px;
     display: flex;
     flex-direction: column;
@@ -2067,42 +2060,41 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
 .inline-truck-select {
     width: 100%;
     max-width: 130px;
-    padding: 0.25rem 1.4rem 0.25rem 0.5rem;
-    font-size: 0.6875rem;
+    height: 30px;
+    padding: 0 20px 0 8px;
+    font-size: 0.75rem;
     font-weight: 500;
-    line-height: 1.3;
-    border: 1px solid rgba(0, 0, 0, 0.07);
-    border-radius: 6px;
-    background: var(--white);
-    color: var(--gray-700);
+    line-height: 30px;
+    border: 1px solid transparent;
+    border-radius: 0;
+    background: transparent;
+    color: #111827;
     cursor: pointer;
     appearance: none;
     -webkit-appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 5px center;
+    background-position: right 6px center;
     background-size: 10px 6px;
-    transition: all 0.15s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }
 
 .inline-truck-select:hover {
-    border-color: rgba(79, 70, 229, 0.25);
-    box-shadow: 0 2px 6px rgba(79, 70, 229, 0.08);
+    border-color: #c7d2fe;
+    background: #fafbff;
 }
 
 .inline-truck-select:focus {
     outline: none;
-    border-color: var(--primary);
-    background: var(--white);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1), 0 1px 2px rgba(0, 0, 0, 0.04);
+    border-color: #6366f1;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px #6366f1;
 }
 
 .inline-truck-select:disabled {
     opacity: 0.35;
     cursor: not-allowed;
-    background: rgba(0, 0, 0, 0.02);
-    box-shadow: none;
+    background: transparent;
 }
 
 .inline-truck-select option {
@@ -4979,10 +4971,10 @@ textarea.detail-field-input {
 }
 
 #driversTable tbody tr { cursor: pointer; }
-#driversTable tbody tr:hover { background: rgba(79, 70, 229, 0.025); }
+#driversTable tbody tr:hover { background: #f0f4ff; }
 
 tr.detail-active {
-    background: rgba(79, 70, 229, 0.04) !important;
+    background: #f0f4ff !important;
     box-shadow: inset 3px 0 0 var(--primary);
 }
 
