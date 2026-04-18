@@ -3451,12 +3451,16 @@
                 if (next >= 0 && next < inputs.length) inputs[next].focus();
             } else if (e.key === 'Enter') {
                 e.preventDefault();
-                // Move to same column next row
                 const cell = e.target.closest('td');
                 const tr = cell?.closest('tr');
                 if (!tr) return;
                 const cellIdx = Array.from(tr.children).indexOf(cell);
-                const nextRow = tr.nextElementSibling;
+                let nextRow = tr.nextElementSibling;
+                // If on last row, add a new row first
+                if (!nextRow && uSheetState.mode !== 'edit') {
+                    uAddRow();
+                    nextRow = tr.nextElementSibling;
+                }
                 if (nextRow) {
                     const nextCell = nextRow.children[cellIdx];
                     const nextInput = nextCell?.querySelector('input, select');
