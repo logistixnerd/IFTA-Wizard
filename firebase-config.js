@@ -644,6 +644,45 @@ const FirebaseDB = {
         }
     },
     
+    // Update task note with history
+    async updateTaskNote(userId, entityType, entityId, taskId, newText, oldText, editedBy) {
+        try {
+            const ref = db.collection('users').doc(userId)
+                .collection(entityType).doc(entityId)
+                .collection('history').doc(taskId);
+            await ref.update({
+                text: newText,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                noteHistory: firebase.firestore.FieldValue.arrayUnion({
+                    text: oldText,
+                    editedBy: editedBy,
+                    editedAt: new Date().toISOString()
+                })
+            });
+            return { success: true };
+        } catch (error) {
+            console.error('Error updating task note:', error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    // Add a comment to a task
+    async addTaskComment(userId, entityType, entityId, taskId, comment) {
+        try {
+            const ref = db.collection('users').doc(userId)
+                .collection(entityType).doc(entityId)
+                .collection('history').doc(taskId);
+            await ref.update({
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                comments: firebase.firestore.FieldValue.arrayUnion(comment)
+            });
+            return { success: true };
+        } catch (error) {
+            console.error('Error adding comment:', error);
+            return { success: false, error: error.message };
+        }
+    },
+
     // Delete a task
     async deleteTask(userId, entityType, entityId, taskId) {
         try {

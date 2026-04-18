@@ -59,6 +59,24 @@
         }).format(date);
     }
 
+    function formatTime(value) {
+        if (!value) return '';
+        const date = typeof value.toDate === 'function' ? value.toDate() : new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date);
+    }
+
+    function getDayCount(dueDate) {
+        if (!dueDate) return null;
+        const date = typeof dueDate.toDate === 'function' ? dueDate.toDate() : new Date(dueDate);
+        if (Number.isNaN(date.getTime())) return null;
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+        const due = new Date(date);
+        due.setHours(0, 0, 0, 0);
+        return Math.ceil((due - now) / (1000 * 60 * 60 * 24));
+    }
+
     function isOverdue(dueDate) {
         if (!dueDate) return false;
         const date = typeof dueDate.toDate === 'function' ? dueDate.toDate() : new Date(dueDate);
@@ -279,35 +297,76 @@
 
         if (empty) empty.style.display = 'none';
 
-        tbody.innerHTML = state.filteredTasks.map(task => {
+        let html = '';
+        state.filteredTasks.forEach(task => {
             const overdue = task.dueDate && isOverdue(task.dueDate);
             const rowClass = overdue ? ' row-overdue' : '';
-            const typeClass = task.type ? ` task-type-${task.type}` : '';
-            const assigneesText = (task.assignedTo || []).join(', ') || 'Unassigned';
+            const assigneesVal = (task.assignedTo || []).join(', ');
+            const days = getDayCount(task.dueDate);
+            const commentCount = (task.comments || []).length;
 
-            return `
-                <tr class="task-row${rowClass}" data-task-id="${escapeHtml(task.id)}" data-entity-type="${escapeHtml(task.entityType)}" data-entity-id="${escapeHtml(task.entityId)}">
-                    <td class="td-due-date">${task.dueDate ? escapeHtml(formatDate(task.dueDate)) : '—'}</td>
-                    <td class="td-task">
-                        <strong>${escapeHtml(task.text)}</strong>
-                    </td>
-                    <td class="td-entity">${escapeHtml(task.entityName)}</td>
-                    <td class="td-type">${task.type ? `<span class="task-type-badge task-type-${escapeHtml(task.type)}">${escapeHtml(task.type)}</span>` : '—'}</td>
-                    <td class="td-assigned">${escapeHtml(assigneesText)}</td>
-                    <td class="td-status">
-                        <span class="status-badge" style="background-color: ${getStatusColor(task.status)}40; color: ${getStatusColor(task.status)}">
-                            ${escapeHtml(task.status)}
-                        </span>
-                    </td>
-                    <td class="td-created">${escapeHtml(formatDate(task.createdAt))}</td>
-                    <td class="td-actions">
-                        <button class="btn-task-view" title="View details">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        }).join('');
+            // Status select options
+            const statusOpts = state.customStatuses.map(s =>
+                `<option value="${escapeHtml(s.name)}"${s.name === task.status ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
+            ).join('');
+
+            // Days badge
+            let daysBadge = '<span class="days-na">\u2014</span>';
+            if (days !== null) {
+                const cls = days < 0 ? 'days-overdue' : days <= 3 ? 'days-warn' : 'days-ok';
+                const label = days < 0 ? Math.abs(days) + 'd late' : days === 0 ? 'Today' : days + 'd';
+                daysBadge = `<span class="days-badge ${cls}">${label}</span>`;
+            }
+
+            // Created
+            const createdDate = task.createdAt ? formatDate(task.createdAt) : 'Unknown';
+            const createdTime = task.createdAt ? formatTime(task.createdAt) : '';
+
+            // Note truncated
+            const noteText = task.text || '';
+            const noteTruncated = noteText.length > 50 ? noteText.substring(0, 50) + '\u2026' : noteText;
+
+            // Status color for inline select
+            const sColor = getStatusColor(task.status);
+
+            html += `<tr class="task-row${rowClass}" data-task-id="${escapeHtml(task.id)}" data-entity-type="${escapeHtml(task.entityType)}" data-entity-id="${escapeHtml(task.entityId)}">
+                <td class="td-created"><span class="created-date">${escapeHtml(createdDate)}</span><span class="created-time">${escapeHtml(createdTime)}</span></td>
+                <td class="td-due-date">${task.dueDate ? escapeHtml(formatDate(task.dueDate)) : '\u2014'}</td>
+                <td class="td-days">${daysBadge}</td>
+                <td class="td-note"><div class="note-cell" data-task-id="${escapeHtml(task.id)}"><span class="note-preview" title="${escapeHtml(noteText)}">${escapeHtml(noteTruncated)}</span><button class="btn-note-toggle" title="Expand note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div></td>
+                <td class="td-owner">${escapeHtml(task.entityName)}</td>
+                <td class="td-assigned"><input type="text" class="inline-assigned" value="${escapeHtml(assigneesVal)}" placeholder="Unassigned" data-task-id="${escapeHtml(task.id)}"></td>
+                <td class="td-type">${task.type ? `<span class="task-type-badge task-type-${escapeHtml(task.type)}">${escapeHtml(task.type)}</span>` : '\u2014'}</td>
+                <td class="td-status"><select class="inline-status" data-task-id="${escapeHtml(task.id)}" style="background-color:${sColor}18;color:${sColor};border-color:${sColor}40">${statusOpts}</select></td>
+                <td class="td-comments"><button class="btn-comments-toggle" data-task-id="${escapeHtml(task.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>${commentCount}</span></button></td>
+            </tr>`;
+
+            // ── Note expand row ──
+            const noteHistory = (task.noteHistory || []).slice().reverse();
+            const historyHtml = noteHistory.length > 0
+                ? noteHistory.map(h => `<div class="note-history-entry"><div class="note-history-meta">${escapeHtml(h.editedBy || 'Unknown')} \u00b7 ${escapeHtml(formatDateTime(h.editedAt))}</div><div class="note-history-text">${escapeHtml(h.text)}</div></div>`).join('')
+                : '<p class="note-history-empty">No previous edits</p>';
+
+            html += `<tr class="task-expand-row" id="noteExpand_${task.id}" style="display:none"><td colspan="9"><div class="expand-note-panel">
+                <label class="expand-label">Edit Note</label>
+                <textarea class="note-edit-area" data-task-id="${escapeHtml(task.id)}">${escapeHtml(noteText)}</textarea>
+                <div class="expand-actions"><button class="btn btn-sm btn-primary btn-save-note" data-task-id="${escapeHtml(task.id)}">Save</button><button class="btn btn-sm btn-secondary btn-cancel-note" data-task-id="${escapeHtml(task.id)}">Cancel</button></div>
+                <div class="note-history"><div class="note-history-title">Edit History</div>${historyHtml}</div>
+            </div></td></tr>`;
+
+            // ── Comments expand row ──
+            const comments = task.comments || [];
+            const commentsHtml = comments.length > 0
+                ? comments.map(c => `<div class="comment-entry"><div class="comment-meta">${escapeHtml(c.author || 'Unknown')} \u00b7 ${escapeHtml(formatDateTime(c.timestamp))}</div><div class="comment-text">${escapeHtml(c.text)}</div></div>`).join('')
+                : '<p class="comments-empty">No comments yet</p>';
+
+            html += `<tr class="task-expand-row" id="commentsExpand_${task.id}" style="display:none"><td colspan="9"><div class="expand-comments-panel">
+                <div class="comment-thread">${commentsHtml}</div>
+                <div class="comment-add"><input type="text" class="comment-input" data-task-id="${escapeHtml(task.id)}" placeholder="Write a comment\u2026"><button class="btn btn-sm btn-primary btn-post-comment" data-task-id="${escapeHtml(task.id)}">Post</button></div>
+            </div></td></tr>`;
+        });
+
+        tbody.innerHTML = html;
     }
 
     function getStatusColor(status) {
@@ -550,6 +609,81 @@
         }
     }
 
+    // ── Inline Editing ─────────────────────
+    async function saveInlineNote(taskId) {
+        const task = state.allTasks.find(t => t.id === taskId);
+        if (!task) return;
+        const textarea = document.querySelector('.note-edit-area[data-task-id="' + taskId + '"]');
+        if (!textarea) return;
+        const newText = textarea.value.trim();
+        if (!newText) { showMsg('Note cannot be empty', true); return; }
+        if (newText === task.text) {
+            document.getElementById('noteExpand_' + taskId).style.display = 'none';
+            return;
+        }
+        try {
+            const result = await FirebaseDB.updateTaskNote(
+                state.user.uid, task.entityType, task.entityId, taskId,
+                newText, task.text, state.user.email || state.user.uid
+            );
+            if (!result.success) throw new Error(result.error);
+            if (!task.noteHistory) task.noteHistory = [];
+            task.noteHistory.push({ text: task.text, editedBy: state.user.email || state.user.uid, editedAt: new Date().toISOString() });
+            task.text = newText;
+            renderView();
+            showMsg('Note updated');
+        } catch (err) {
+            console.error('Error updating note:', err);
+            showMsg('Error updating note', true);
+        }
+    }
+
+    async function saveInlineAssigned(taskId, value) {
+        const task = state.allTasks.find(t => t.id === taskId);
+        if (!task) return;
+        const newAssignees = value ? value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : [];
+        const oldStr = (task.assignedTo || []).join(',');
+        if (newAssignees.join(',') === oldStr) return;
+        try {
+            const result = await FirebaseDB.updateTask(
+                state.user.uid, task.entityType, task.entityId, taskId,
+                { assignedTo: newAssignees }
+            );
+            if (!result.success) throw new Error(result.error);
+            task.assignedTo = newAssignees;
+            showMsg('Assignee updated');
+        } catch (err) {
+            console.error('Error updating assignee:', err);
+            showMsg('Error updating assignee', true);
+        }
+    }
+
+    async function postInlineComment(taskId) {
+        const task = state.allTasks.find(t => t.id === taskId);
+        if (!task) return;
+        const input = document.querySelector('.comment-input[data-task-id="' + taskId + '"]');
+        if (!input) return;
+        const text = input.value.trim();
+        if (!text) return;
+        const comment = { text: text, author: state.user.email || state.user.uid, timestamp: new Date().toISOString() };
+        try {
+            const result = await FirebaseDB.addTaskComment(
+                state.user.uid, task.entityType, task.entityId, taskId, comment
+            );
+            if (!result.success) throw new Error(result.error);
+            if (!task.comments) task.comments = [];
+            task.comments.push(comment);
+            renderView();
+            // Re-open comments panel after render
+            const row = document.getElementById('commentsExpand_' + taskId);
+            if (row) row.style.display = '';
+            showMsg('Comment added');
+        } catch (err) {
+            console.error('Error adding comment:', err);
+            showMsg('Error adding comment', true);
+        }
+    }
+
     // ── Kanban Drag & Drop ─────────────────
     function attachKanbanDragListeners() {
         const cards = document.querySelectorAll('.task-card');
@@ -716,41 +850,84 @@
                 return;
             }
 
-            // Task row click (table)
-            const row = e.target.closest('.task-row');
-            if (row && !e.target.closest('button')) {
-                const taskId = row.dataset.taskId;
-                const task = state.allTasks.find(t => t.id === taskId);
-                if (task) showTaskDetail(task);
+            // Note expand toggle
+            const noteBtn = e.target.closest('.btn-note-toggle');
+            if (noteBtn) {
+                const taskId = noteBtn.closest('.note-cell').dataset.taskId;
+                const noteRow = document.getElementById('noteExpand_' + taskId);
+                const commRow = document.getElementById('commentsExpand_' + taskId);
+                if (commRow) commRow.style.display = 'none';
+                if (noteRow) noteRow.style.display = noteRow.style.display === 'none' ? '' : 'none';
                 return;
             }
 
-            // View details button
-            const viewBtn = e.target.closest('.btn-task-view');
-            if (viewBtn) {
-                const row = viewBtn.closest('.task-row');
-                if (row) {
-                    const taskId = row.dataset.taskId;
-                    const task = state.allTasks.find(t => t.id === taskId);
-                    if (task) showTaskDetail(task);
-                }
+            // Save note
+            const saveNoteBtn = e.target.closest('.btn-save-note');
+            if (saveNoteBtn) { saveInlineNote(saveNoteBtn.dataset.taskId); return; }
+
+            // Cancel note
+            const cancelNoteBtn = e.target.closest('.btn-cancel-note');
+            if (cancelNoteBtn) {
+                const id = cancelNoteBtn.dataset.taskId;
+                const task = state.allTasks.find(t => t.id === id);
+                const ta = document.querySelector('.note-edit-area[data-task-id="' + id + '"]');
+                if (ta && task) ta.value = task.text;
+                document.getElementById('noteExpand_' + id).style.display = 'none';
                 return;
+            }
+
+            // Comments expand toggle
+            const commBtn = e.target.closest('.btn-comments-toggle');
+            if (commBtn) {
+                const taskId = commBtn.dataset.taskId;
+                const commRow = document.getElementById('commentsExpand_' + taskId);
+                const noteRow = document.getElementById('noteExpand_' + taskId);
+                if (noteRow) noteRow.style.display = 'none';
+                if (commRow) commRow.style.display = commRow.style.display === 'none' ? '' : 'none';
+                return;
+            }
+
+            // Post comment
+            const postBtn = e.target.closest('.btn-post-comment');
+            if (postBtn) { postInlineComment(postBtn.dataset.taskId); return; }
+        });
+
+        // Inline status change
+        document.addEventListener('change', async (e) => {
+            const sel = e.target.closest('.inline-status');
+            if (sel) {
+                await changeTaskStatus(sel.dataset.taskId, sel.value);
+                const sColor = getStatusColor(sel.value);
+                sel.style.backgroundColor = sColor + '18';
+                sel.style.color = sColor;
+                sel.style.borderColor = sColor + '40';
+            }
+
+            // Detail drawer status
+            const detailSel = e.target.closest('.task-detail-status-select');
+            if (detailSel) {
+                await changeTaskStatus(detailSel.dataset.taskId, detailSel.value);
+                const task = state.allTasks.find(t => t.id === detailSel.dataset.taskId);
+                if (task) showTaskDetail(task);
+            }
+        });
+
+        // Inline assigned-to save on blur
+        document.addEventListener('focusout', async (e) => {
+            const inp = e.target.closest('.inline-assigned');
+            if (inp) await saveInlineAssigned(inp.dataset.taskId, inp.value);
+        });
+
+        // Comment input Enter key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && e.target.classList.contains('comment-input')) {
+                e.preventDefault();
+                postInlineComment(e.target.dataset.taskId);
             }
         });
 
         // Task detail drawer actions
         document.addEventListener('click', async (e) => {
-            // Status change in detail
-            const statusSelect = e.target.closest('.task-detail-status-select');
-            if (statusSelect) {
-                const taskId = statusSelect.dataset.taskId;
-                const newStatus = statusSelect.value;
-                await changeTaskStatus(taskId, newStatus);
-                const task = state.allTasks.find(t => t.id === taskId);
-                if (task) showTaskDetail(task);
-                return;
-            }
-
             // Resolve button
             const resolveBtn = e.target.closest('.btn-resolve-task');
             if (resolveBtn) {
