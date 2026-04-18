@@ -8908,14 +8908,15 @@
         if (boardLoads.length === 0) {
             console.log('renderLoads: no board loads, showing empty state');
             if (table) table.style.display = 'none';
-            if (empty) empty.style.display = '';
+            if (empty) empty.style.display = 'block';
             renderLoadHistory();
             updateDispatchOverview();
             updateAnalytics();
             return;
         }
         if (empty) empty.style.display = 'none';
-        if (table) table.style.display = '';
+        if (table) table.style.display = 'table';
+        console.log('renderLoads: table element =', table, 'display =', table?.style.display);
         // Track existing row IDs before re-render
         const existingIds = new Set(Array.from(tbody.querySelectorAll('tr[data-id]')).map(r => r.dataset.id));
         const filtered = state.loads.filter(l => isLoadBoardItem(l) && matchesFilter(l, 'load'));
@@ -8931,7 +8932,7 @@
         if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="loadSelectAll" title="Select all"></th><th style="width:5%">Load #</th><th style="width:5%">Unit</th><th style="width:11%">From</th><th style="width:11%">To</th><th style="width:7%">Broker</th><th style="width:6%">Rate</th><th style="width:5%">Mileage</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bonus</th><th style="width:7%">Status</th><th style="width:7%">DEL Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:7%">Dispatcher</th><th style="width:5%">Comments</th><th style="width:4%"></th>`;
         const selAll = thead?.querySelector('#loadSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('loads', selAll);
-        tbody.innerHTML = sorted.map((l, i) => {
+        const rowsHtml = sorted.map((l, i) => {
             const rpm = calcRPM(l.rate, l.mileage);
             const total = calcTotal(l.rate, l.detention);
             const rcIcon = l.rcUrl
@@ -8967,6 +8968,8 @@
             </div></td>
         </tr>`;
         }).join('');
+        tbody.innerHTML = rowsHtml;
+        console.log('renderLoads: tbody HTML length =', rowsHtml.length, 'tbody.innerHTML.length =', tbody.innerHTML.length, 'tbody rows count =', tbody.querySelectorAll('tr').length);
         // Animate new rows sliding in
         if (existingIds.size > 0) {
             Array.from(tbody.querySelectorAll('tr[data-id]')).forEach(tr => {
@@ -9002,13 +9005,14 @@
         try {
             const historyLoads = state.loads.filter(l => !isLoadBoardItem(l) && matchesHistoryFilter(l));
             const sorted = sortItems(historyLoads, sortState_history, 'load');
+            console.log('renderLoadHistory: historyLoads =', historyLoads.length, 'sorted =', sorted.length);
             if (sorted.length === 0) {
                 if (table) table.style.display = 'none';
-                if (empty) empty.style.display = '';
+                if (empty) empty.style.display = 'block';
                 return;
             }
             if (empty) empty.style.display = 'none';
-            if (table) table.style.display = '';
+            if (table) table.style.display = 'table';
             if (thead) thead.innerHTML = `<th style="width:5%">Load #</th><th style="width:5%">Unit</th><th style="width:12%">From</th><th style="width:12%">To</th><th style="width:8%">Broker</th><th style="width:7%">Rate</th><th style="width:5%">Mileage</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bonus</th><th style="width:7%">Status</th><th style="width:7%">DEL Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:7%">Dispatcher</th><th style="width:4%"></th>`;
             tbody.innerHTML = sorted.map(l => {
                 const rpm = calcRPM(l.rate, l.mileage);
