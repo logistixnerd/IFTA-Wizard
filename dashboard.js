@@ -659,7 +659,7 @@
         // Map sections to their parent department groups
         const sectionGroups = {
             // Safety
-            'safety': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'compliance': 'safety', 'inspections': 'safety',
+            'safety': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'compliance': 'safety',
             // Fleet Maintenance
             'maintenance': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
             // Dispatch

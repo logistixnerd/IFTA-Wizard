@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=44">
+    <link rel="stylesheet" href="dashboard.css?v=45">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -90,14 +90,6 @@
                                 <path d="M9 14l2 2 4-4"/>
                             </svg>
                             <span>Compliance</span>
-                        </button>
-                        <button class="dash-nav-item" data-section="inspections">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-                                <path d="M8 11h6"/><path d="M11 8v6"/>
-                            </svg>
-                            <span>Inspections</span>
-                            <span class="dash-nav-count" id="inspectionCount">0</span>
                         </button>
                     </div>
                 </div>
@@ -1261,76 +1253,70 @@
 
                         </div>
 
-                    </div>
-                </div>
-            </section>
-
-            <!-- Inspections & Citations -->
-            <section class="dash-section" id="section-inspections">
-                <div class="dash-card">
-                    <div class="dash-card-header">
-                        <h2>Inspections &amp; Citations</h2>
-                        <div class="dash-card-header-actions">
-                            <button class="btn btn-primary btn-sm dash-toolbar-add" id="addInspectionBtn">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-                                Add Inspection
-                            </button>
-                        </div>
-                    </div>
-                    <div class="dash-card-body">
-                        <div class="dash-table-toolbar">
-                            <div class="dash-search-wrap">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-                                <input type="text" class="dash-search" id="inspectionSearch" placeholder="Search inspections...">
+                        <!-- Inspections & Citations -->
+                        <div class="compliance-inspections-section">
+                            <div class="compliance-inspections-header">
+                                <h3>Inspections &amp; Citations</h3>
+                                <button class="btn btn-primary btn-sm dash-toolbar-add" id="addInspectionBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                                    Add
+                                </button>
                             </div>
-                            <select class="dash-filter" id="inspectionTypeFilter">
-                                <option value="">All Types</option>
-                                <option value="roadside">Roadside</option>
-                                <option value="dot-audit">DOT Audit</option>
-                                <option value="annual">Annual</option>
-                                <option value="pre-trip">Pre-Trip</option>
-                                <option value="post-trip">Post-Trip</option>
-                                <option value="citation">Citation</option>
-                            </select>
-                            <select class="dash-filter" id="inspectionResultFilter">
-                                <option value="">All Results</option>
-                                <option value="pass">Pass</option>
-                                <option value="fail">Fail</option>
-                                <option value="warning">Warning</option>
-                                <option value="oos">Out of Service</option>
-                            </select>
-                            <select class="dash-sort" id="inspectionSort">
-                                <option value="date-new">Newest First</option>
-                                <option value="date-old">Oldest First</option>
-                                <option value="driver-az">Driver A-Z</option>
-                                <option value="truck-az">Truck A-Z</option>
-                                <option value="type">Type</option>
-                                <option value="result">Result</option>
-                            </select>
+                            <div class="dash-table-toolbar">
+                                <div class="dash-search-wrap">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                                    <input type="text" class="dash-search" id="inspectionSearch" placeholder="Search inspections...">
+                                </div>
+                                <select class="dash-filter" id="inspectionTypeFilter">
+                                    <option value="">All Types</option>
+                                    <option value="roadside">Roadside</option>
+                                    <option value="dot-audit">DOT Audit</option>
+                                    <option value="annual">Annual</option>
+                                    <option value="pre-trip">Pre-Trip</option>
+                                    <option value="post-trip">Post-Trip</option>
+                                    <option value="citation">Citation</option>
+                                </select>
+                                <select class="dash-filter" id="inspectionResultFilter">
+                                    <option value="">All Results</option>
+                                    <option value="pass">Pass</option>
+                                    <option value="fail">Fail</option>
+                                    <option value="warning">Warning</option>
+                                    <option value="oos">Out of Service</option>
+                                </select>
+                                <select class="dash-sort" id="inspectionSort">
+                                    <option value="date-new">Newest First</option>
+                                    <option value="date-old">Oldest First</option>
+                                    <option value="driver-az">Driver A-Z</option>
+                                    <option value="truck-az">Truck A-Z</option>
+                                    <option value="type">Type</option>
+                                    <option value="result">Result</option>
+                                </select>
+                            </div>
+                            <div class="dash-empty" id="inspectionsEmpty">
+                                <p>No inspections or citations recorded</p>
+                                <button class="btn btn-secondary btn-sm" id="addFirstInspection">Add your first inspection</button>
+                            </div>
+                            <div class="dash-table-wrap">
+                                <table class="dash-table" id="inspectionsTable" style="display:none;">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:10%">Date</th>
+                                            <th style="width:10%">Type</th>
+                                            <th style="width:10%">Report #</th>
+                                            <th style="width:13%">Driver</th>
+                                            <th style="width:8%">Truck</th>
+                                            <th style="width:12%">Location</th>
+                                            <th style="width:9%">Result</th>
+                                            <th style="width:8%">Violations</th>
+                                            <th style="width:12%">Notes</th>
+                                            <th style="width:8%"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="inspectionsTableBody"></tbody>
+                                </table>
+                            </div>
                         </div>
-                        <div class="dash-empty" id="inspectionsEmpty">
-                            <p>No inspections or citations recorded</p>
-                            <button class="btn btn-secondary btn-sm" id="addFirstInspection">Add your first inspection</button>
-                        </div>
-                        <div class="dash-table-wrap">
-                            <table class="dash-table" id="inspectionsTable" style="display:none;">
-                                <thead>
-                                    <tr>
-                                        <th style="width:10%">Date</th>
-                                        <th style="width:10%">Type</th>
-                                        <th style="width:10%">Report #</th>
-                                        <th style="width:13%">Driver</th>
-                                        <th style="width:8%">Truck</th>
-                                        <th style="width:12%">Location</th>
-                                        <th style="width:9%">Result</th>
-                                        <th style="width:8%">Violations</th>
-                                        <th style="width:12%">Notes</th>
-                                        <th style="width:8%"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="inspectionsTableBody"></tbody>
-                            </table>
-                        </div>
+
                     </div>
                 </div>
             </section>
@@ -3724,6 +3710,6 @@
     </div>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=48"></script>
+    <script src="dashboard.js?v=49"></script>
 </body>
 </html>

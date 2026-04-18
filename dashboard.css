@@ -521,6 +521,26 @@
 #inspectionsTable tbody tr { cursor: default; }
 #inspectionsTable tbody tr:hover { background: rgba(79, 70, 229, 0.025); }
 
+.compliance-inspections-section {
+    margin-top: 0.75rem;
+    border-top: 1px solid rgba(0,0,0,0.06);
+    padding-top: 0.5rem;
+}
+.compliance-inspections-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.35rem;
+}
+.compliance-inspections-header h3 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0;
+}
+
 .compliance-snapshot {
     display: flex;
     flex-direction: column;
