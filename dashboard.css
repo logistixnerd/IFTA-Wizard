@@ -1441,6 +1441,12 @@ a.fmcsa-reminder-link:hover .fmcsa-reminder-arrow {
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.03);
 }
 
+.table-scroll {
+    overflow-x: auto;
+    overflow-y: visible;
+    width: 100%;
+}
+
 .dash-table {
     width: 100%;
     border-collapse: collapse;
