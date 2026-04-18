@@ -671,7 +671,7 @@
             // Fleet Maintenance
             'maintenance': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
             // Dispatch
-            'dispatch': 'dispatch', 'dispatch-board': 'dispatch', 'active-loads': 'dispatch', 'driver-assignments': 'dispatch', 'analytics': 'dispatch',
+            'dispatch': 'dispatch', 'dispatch-board': 'dispatch', 'active-loads': 'dispatch', 'driver-assignments': 'dispatch',
             // Track & Trace
             'tracking': 'tracking', 'live-map': 'tracking', 'load-status': 'tracking', 'eta-tracking': 'tracking',
             // Accounting
