@@ -2430,14 +2430,19 @@
 
     function isLoadBoardItem(l) {
         // Active loads always show
-        if (ACTIVE_STATUSES.has(l.status)) return true;
+        if (ACTIVE_STATUSES.has(l.status)) {
+            return true;
+        }
         // Closed loads: show if delivery date is today or yesterday
         const d = l.deliveryDate ? new Date(l.deliveryDate + 'T00:00:00') : l.loadDate ? new Date(l.loadDate + 'T00:00:00') : null;
-        if (!d || isNaN(d.getTime())) return true; // no date = show on board
+        if (!d || isNaN(d.getTime())) {
+            return true; // no date = show on board
+        }
         const now = new Date();
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-        return d >= yesterday;
+        const result = d >= yesterday;
+        return result;
     }
 
     function sortItems(arr, sortKey, type) {
@@ -8893,9 +8898,15 @@
         const table = $('loadsTable');
         const empty = $('loadsEmpty');
         const thead = table?.querySelector('thead tr');
-        if (!tbody) return;
+        if (!tbody) {
+            console.warn('renderLoads: loadsTableBody not found');
+            return;
+        }
+        console.log('renderLoads: state.loads =', state.loads.length, 'items');
         const boardLoads = state.loads.filter(isLoadBoardItem);
+        console.log('renderLoads: boardLoads after filter =', boardLoads.length);
         if (boardLoads.length === 0) {
+            console.log('renderLoads: no board loads, showing empty state');
             if (table) table.style.display = 'none';
             if (empty) empty.style.display = '';
             renderLoadHistory();
@@ -8908,7 +8919,9 @@
         // Track existing row IDs before re-render
         const existingIds = new Set(Array.from(tbody.querySelectorAll('tr[data-id]')).map(r => r.dataset.id));
         const filtered = state.loads.filter(l => isLoadBoardItem(l) && matchesFilter(l, 'load'));
+        console.log('renderLoads: filtered after matchesFilter =', filtered.length);
         const sorted = sortItems(filtered, sortState.loads, 'load');
+        console.log('renderLoads: sorted results =', sorted.length);
         bulkSelection.loads = new Set([...bulkSelection.loads].filter(id => sorted.some(l => l.id === id)));
         updateBulkBar('loads');
         // Show/hide bulk edit button
