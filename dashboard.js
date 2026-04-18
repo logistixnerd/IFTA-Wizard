@@ -2184,11 +2184,6 @@
         const sorted = sortItems(filtered, sortState.trucks, 'truck');
         bulkSelection.trucks = new Set([...bulkSelection.trucks].filter(id => sorted.some(t => t.id === id)));
         updateBulkBar('trucks');
-        if (spreadsheetMode.trucks) {
-            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.trucks.map(c => `<th class="ss-th" style="width:${c.width}">${c.label}</th>`).join('');
-            tbody.innerHTML = sorted.map((t, i) => `<tr data-id="${t.id}" class="ss-row">${'<td class="ss-num">' + (i+1) + '</td>'}${SPREADSHEET_COLS.trucks.map(c => '<td class="ss-cell">' + ssInput(c, t, 'trucks') + '</td>').join('')}</tr>`).join('');
-            return;
-        }
         if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="truckSelectAll" title="Select all"></th><th class="col-validation"></th><th style="width:9%">Unit #</th><th style="width:7%">Year</th><th style="width:11%">Make</th><th style="width:11%">Model</th><th style="width:17%">VIN</th><th style="width:12%">Plate</th><th style="width:8%">Fuel</th><th style="width:10%">Status</th><th style="width:8%"></th>`;
         const selAll = thead?.querySelector('#truckSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('trucks', selAll);
@@ -3150,53 +3145,10 @@
     }
 
     // ── Spreadsheet Edit Mode ──────────────────────
-    const spreadsheetMode = { trucks: false, trailers: false, drivers: false, loads: false };
-    const spreadsheetDirty = { trucks: new Map(), trailers: new Map(), drivers: new Map(), loads: new Map() };
+    const spreadsheetMode = { loads: false };
+    const spreadsheetDirty = { loads: new Map() };
 
     const SPREADSHEET_COLS = {
-        trucks: [
-            { key: 'unit', label: 'Unit #', type: 'text', width: '70px' },
-            { key: 'year', label: 'Year', type: 'text', maxlength: 4, width: '55px' },
-            { key: 'make', label: 'Make', type: 'text', width: '90px' },
-            { key: 'model', label: 'Model', type: 'text', width: '90px' },
-            { key: 'color', label: 'Color', type: 'text', width: '70px' },
-            { key: 'vin', label: 'VIN', type: 'text', maxlength: 17, width: '155px' },
-            { key: 'plate', label: 'Plate', type: 'text', width: '85px' },
-            { key: 'plateState', label: 'St', type: 'text', maxlength: 2, width: '40px' },
-            { key: 'fuel', label: 'Fuel', type: 'select', optionsKey: 'truckFuel', width: '80px' },
-            { key: 'annualInspDate', label: 'Insp Exp', type: 'date', width: '120px', expiry: true },
-            { key: 'registrationExp', label: 'Reg Exp', type: 'date', width: '120px', expiry: true },
-            { key: 'insuranceExp', label: 'Ins Exp', type: 'date', width: '120px', expiry: true },
-            { key: 'status', label: 'Status', type: 'select', optionsKey: 'truckStatus', width: '100px' }
-        ],
-        trailers: [
-            { key: 'unit', label: 'Unit #', type: 'text', width: '70px' },
-            { key: 'year', label: 'Year', type: 'text', maxlength: 4, width: '55px' },
-            { key: 'make', label: 'Make', type: 'text', width: '90px' },
-            { key: 'type', label: 'Type', type: 'select', optionsKey: 'trailerType', width: '100px' },
-            { key: 'model', label: 'Model', type: 'text', width: '90px' },
-            { key: 'vin', label: 'VIN', type: 'text', maxlength: 17, width: '155px' },
-            { key: 'plate', label: 'Plate', type: 'text', width: '85px' },
-            { key: 'annualInspDate', label: 'Insp Exp', type: 'date', width: '120px', expiry: true },
-            { key: 'registrationExp', label: 'Reg Exp', type: 'date', width: '120px', expiry: true },
-            { key: 'insuranceExp', label: 'Ins Exp', type: 'date', width: '120px', expiry: true },
-            { key: 'status', label: 'Status', type: 'select', optionsKey: 'trailerStatus', width: '100px' }
-        ],
-        drivers: [
-            { key: 'firstName', label: 'First', type: 'text', width: '90px' },
-            { key: 'lastName', label: 'Last', type: 'text', width: '90px' },
-            { key: 'dob', label: 'DOB', type: 'date', width: '120px' },
-            { key: 'phone', label: 'Phone', type: 'text', width: '110px' },
-            { key: 'email', label: 'Email', type: 'text', width: '150px' },
-            { key: 'cdl', label: 'CDL #', type: 'text', width: '120px' },
-            { key: 'cdlState', label: 'St', type: 'text', maxlength: 2, width: '40px' },
-            { key: 'cdlExp', label: 'CDL Exp', type: 'date', width: '120px', expiry: true },
-            { key: 'medExp', label: 'Med Exp', type: 'date', width: '120px', expiry: true },
-            { key: 'mvrExp', label: 'MVR Exp', type: 'date', width: '120px', expiry: true },
-            { key: 'hireDate', label: 'Hire Date', type: 'date', width: '120px' },
-            { key: 'truck', label: 'Truck', type: 'truck-select', width: '90px' },
-            { key: 'status', label: 'Status', type: 'select', optionsKey: 'driverStatus', width: '100px' }
-        ],
         loads: [
             { key: 'loadDate', label: 'Date', type: 'date', width: '110px' },
             { key: 'loadNumber', label: 'Load #', type: 'text', width: '100px' },
@@ -3220,16 +3172,14 @@
         spreadsheetDirty[collection].clear();
         const section = $('section-' + collection);
         if (section) section.classList.toggle('spreadsheet-active', spreadsheetMode[collection]);
-        const btn = $( collection + 'SpreadsheetBtn');
+        const btn = $(collection + 'SpreadsheetBtn') || $(collection + 'SpreadsheetToggle');
         if (btn) {
             btn.classList.toggle('active', spreadsheetMode[collection]);
             btn.title = spreadsheetMode[collection] ? 'Exit spreadsheet mode' : 'Spreadsheet edit mode';
         }
         const saveBar = $(collection + 'SpreadsheetSave');
         if (saveBar) saveBar.style.display = 'none';
-        if (collection === 'trucks') renderTrucks();
-        else if (collection === 'trailers') renderTrailers();
-        else renderDrivers();
+        if (collection === 'loads') renderLoads();
     }
 
     function ssExpiryClass(val) {
@@ -7591,11 +7541,6 @@
         const sorted = sortItems(filtered, sortState.trailers, 'trailer');
         bulkSelection.trailers = new Set([...bulkSelection.trailers].filter(id => sorted.some(t => t.id === id)));
         updateBulkBar('trailers');
-        if (spreadsheetMode.trailers) {
-            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.trailers.map(c => `<th class="ss-th" style="width:${c.width}">${c.label}</th>`).join('');
-            tbody.innerHTML = sorted.map((t, i) => `<tr data-id="${t.id}" class="ss-row">${'<td class="ss-num">' + (i+1) + '</td>'}${SPREADSHEET_COLS.trailers.map(c => '<td class="ss-cell">' + ssInput(c, t, 'trailers') + '</td>').join('')}</tr>`).join('');
-            return;
-        }
         if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="trailerSelectAll" title="Select all"></th><th class="col-validation"></th><th style="width:11%">Unit #</th><th style="width:9%">Year</th><th style="width:12%">Make</th><th style="width:12%">Type</th><th style="width:18%">VIN</th><th style="width:12%">Plate</th><th style="width:10%">Status</th><th style="width:7%"></th>`;
         const selAll = thead?.querySelector('#trailerSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('trailers', selAll);
@@ -7719,11 +7664,6 @@
         const sorted = sortItems(filtered, sortState.drivers, 'driver');
         bulkSelection.drivers = new Set([...bulkSelection.drivers].filter(id => sorted.some(d => d.id === id)));
         updateBulkBar('drivers');
-        if (spreadsheetMode.drivers) {
-            if (thead) thead.innerHTML = '<th class="ss-th-num">#</th>' + SPREADSHEET_COLS.drivers.map(c => `<th class="ss-th" style="width:${c.width}">${c.label}</th>`).join('');
-            tbody.innerHTML = sorted.map((d, i) => `<tr data-id="${d.id}" class="ss-row">${'<td class="ss-num">' + (i+1) + '</td>'}${SPREADSHEET_COLS.drivers.map(c => '<td class="ss-cell">' + ssInput(c, d, 'drivers') + '</td>').join('')}</tr>`).join('');
-            return;
-        }
         if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="driverSelectAll" title="Select all"></th><th class="col-validation"></th><th style="width:14%">Name</th><th style="width:9%">CDL #</th><th style="width:5%">State</th><th style="width:9%">CDL Exp</th><th style="width:10%">Phone</th><th style="width:11%">Email</th><th style="width:12%">Truck</th><th style="width:10%">Status</th><th style="width:8%"></th>`;
         const selAll = thead?.querySelector('#driverSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('drivers', selAll);
