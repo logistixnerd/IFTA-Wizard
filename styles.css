@@ -1339,6 +1339,15 @@ input::placeholder {
     display: flex;
     gap: 0.25rem;
     flex-wrap: wrap;
+    align-items: center;
+}
+
+.paste-hint {
+    font-size: 0.625rem;
+    color: var(--gray-400);
+    cursor: default;
+    margin-left: 0.25rem;
+    white-space: nowrap;
 }
 
 /* Data Table */
@@ -1396,6 +1405,52 @@ input::placeholder {
     background: var(--white);
 }
 
+/* Hover-to-edit cells */
+.ifta-cell {
+    position: relative;
+    cursor: pointer;
+}
+
+.ifta-cell .ifta-cell-display {
+    padding: 0.125rem 0.375rem;
+    min-height: 1.5em;
+    white-space: nowrap;
+    border-radius: 3px;
+    transition: background 0.15s;
+}
+
+.ifta-cell:hover .ifta-cell-display {
+    background: rgba(99, 102, 241, 0.06);
+}
+
+.ifta-cell .ifta-cell-editor {
+    display: none;
+}
+
+.ifta-cell.editing .ifta-cell-display {
+    display: none;
+}
+
+.ifta-cell.editing .ifta-cell-editor {
+    display: block;
+    width: 100%;
+}
+
+.ifta-cell-number .ifta-cell-display {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.ifta-cell-jurisdiction .ifta-cell-display {
+    font-weight: 500;
+    color: var(--gray-800);
+}
+
+.cell-placeholder {
+    color: var(--gray-400);
+    font-weight: 400;
+}
+
 .col-jurisdiction { min-width: 100px; }
 .col-miles, .col-taxable, .col-gallons { min-width: 65px; }
 .col-rate { min-width: 55px; }
@@ -1424,7 +1479,11 @@ input::placeholder {
 
 .tax-amount {
     font-weight: 700;
-    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.6875rem;
+    padding: 0 0.375rem;
+    white-space: nowrap;
+    text-align: right;
 }
 
 .tax-amount.positive {
@@ -1437,24 +1496,21 @@ input::placeholder {
 
 /* Read-only calculated fields */
 .rate-display {
-    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.6875rem;
     color: var(--primary);
     font-weight: 600;
-    background: rgba(99, 102, 241, 0.08);
-    padding: 0.375rem 0.5rem;
-    border-radius: var(--radius-md);
-    display: inline-block;
+    padding: 0 0.375rem;
+    white-space: nowrap;
 }
 
 .taxable-gallons,
 .net-taxable-gallons {
-    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     font-size: 0.6875rem;
-    background: var(--gray-50);
-    padding: 0.375rem 0.5rem;
-    border-radius: var(--radius-md);
-    display: inline-block;
+    padding: 0 0.375rem;
+    white-space: nowrap;
+    text-align: right;
 }
 
 .net-taxable-gallons.negative {
@@ -4199,6 +4255,16 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     border-color: rgba(0,0,0,0.07);
 }
 
+/* Hover-to-edit cells in embedded mode */
+.embedded .ifta-cell:hover .ifta-cell-display {
+    background: rgba(79, 70, 229, 0.06);
+}
+
+.embedded .ifta-cell.editing .ifta-cell-editor {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12);
+}
+
 /* Export section — match card look */
 .embedded .export-section {
     border-radius: 16px;
@@ -4271,17 +4337,16 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     color: var(--danger);
 }
 
-/* Rate display — indigo pill */
+/* Rate display — compact */
 .embedded .rate-display {
-    border-radius: 8px;
-    background: rgba(79,70,229,0.08);
     color: var(--primary);
+    font-weight: 600;
 }
 
-/* Calculated field cells — softer look */
+/* Calculated field cells — consistent */
 .embedded .taxable-gallons,
 .embedded .net-taxable-gallons {
-    border-radius: 8px;
+    /* inherit compact style from base */
 }
 
 /* Rates section — match card */

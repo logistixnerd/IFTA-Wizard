@@ -357,6 +357,24 @@ function attachEventListeners() {
     });
     
     // Note: saveReport, sendEmail, saveToDrive are handled by reports.js
+    
+    // Excel paste support on the data table
+    const tableBody = document.getElementById('dataTableBody');
+    if (tableBody) {
+        tableBody.addEventListener('paste', handleExcelPaste);
+    }
+    // Also allow paste when table area is focused (global fallback)
+    document.addEventListener('paste', (e) => {
+        // Only handle if we're not inside an input/select/textarea
+        const tag = e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+        // Check if paste contains tab-separated data (Excel pattern)
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        if (text && text.includes('\t')) {
+            e.preventDefault();
+            parseAndInsertPastedData(text);
+        }
+    });
 }
 
 // Add a new data row
@@ -383,6 +401,7 @@ function addNewRow(data = null) {
     // Create the row element
     const row = document.createElement('tr');
     row.id = `row-${rowId}`;
+    row.dataset.rowId = rowId;
     row.innerHTML = createRowHtml(rowData);
     elements.dataTableBody.appendChild(row);
     
@@ -391,6 +410,14 @@ function addNewRow(data = null) {
     
     // Refresh all dropdowns to show updated disabled states
     refreshAllJurisdictionDropdowns();
+    
+    // Auto-enter edit mode on jurisdiction cell for new empty rows
+    if (!data || !data.jurisdiction) {
+        const jurisdictionCell = row.querySelector('.ifta-cell-jurisdiction');
+        if (jurisdictionCell) {
+            setTimeout(() => enterCellEdit(jurisdictionCell), 50);
+        }
+    }
     
     return rowData;
 }
@@ -431,35 +458,39 @@ function createRowHtml(rowData) {
     const taxClass = displayTaxDue >= 0 ? 'positive' : 'negative';
     
     // Display values - whole numbers for miles, integers for gallons
-    const totalMilesDisplay = rowData.totalMiles ? Math.round(rowData.totalMiles) : '';
-    const taxableMilesDisplay = rowData.taxableMiles ? Math.round(rowData.taxableMiles) : '';
-    const taxPaidGallonsDisplay = rowData.taxPaidGallons ? Math.round(rowData.taxPaidGallons) : '';
+    const totalMilesVal = rowData.totalMiles ? Math.round(rowData.totalMiles) : 0;
+    const taxableMilesVal = rowData.taxableMiles ? Math.round(rowData.taxableMiles) : 0;
+    const taxPaidGallonsVal = rowData.taxPaidGallons ? Math.round(rowData.taxPaidGallons) : 0;
+    
+    // Jurisdiction label
+    const jurisdictionLabel = rowData.jurisdiction || '<span class="cell-placeholder">Select...</span>';
     
     return `
-        <td>
-            <select class="jurisdiction-select" data-field="jurisdiction" data-tooltip="Select the state or province">
+        <td class="ifta-cell ifta-cell-jurisdiction" data-field="jurisdiction">
+            <div class="ifta-cell-display">${jurisdictionLabel}</div>
+            <select class="jurisdiction-select ifta-cell-editor" data-field="jurisdiction">
                 ${jurisdictionOptions}
             </select>
         </td>
-        <td>
-            <input type="number" class="total-miles" data-field="totalMiles" 
-                   value="${totalMilesDisplay}" min="0" step="1" placeholder="0"
-                   data-tooltip="Total miles traveled in this jurisdiction">
+        <td class="ifta-cell ifta-cell-number" data-field="totalMiles">
+            <div class="ifta-cell-display">${totalMilesVal ? totalMilesVal.toLocaleString() : '<span class="cell-placeholder">0</span>'}</div>
+            <input type="number" class="total-miles ifta-cell-editor" data-field="totalMiles" 
+                   value="${totalMilesVal || ''}" min="0" step="1" placeholder="0">
         </td>
-        <td>
-            <input type="number" class="taxable-miles" data-field="taxableMiles" 
-                   value="${taxableMilesDisplay}" min="0" step="1" placeholder="0"
-                   data-tooltip="Taxable miles - defaults to total miles, edit for exemptions">
+        <td class="ifta-cell ifta-cell-number" data-field="taxableMiles">
+            <div class="ifta-cell-display">${taxableMilesVal ? taxableMilesVal.toLocaleString() : '<span class="cell-placeholder">0</span>'}</div>
+            <input type="number" class="taxable-miles ifta-cell-editor" data-field="taxableMiles" 
+                   value="${taxableMilesVal || ''}" min="0" step="1" placeholder="0">
         </td>
-        <td>
-            <input type="number" class="tax-paid-gallons" data-field="taxPaidGallons" 
-                   value="${taxPaidGallonsDisplay}" min="0" step="1" placeholder="0"
-                   data-tooltip="Gallons purchased with tax paid in this jurisdiction">
+        <td class="ifta-cell ifta-cell-number" data-field="taxPaidGallons">
+            <div class="ifta-cell-display">${taxPaidGallonsVal ? taxPaidGallonsVal.toLocaleString() : '<span class="cell-placeholder">0</span>'}</div>
+            <input type="number" class="tax-paid-gallons ifta-cell-editor" data-field="taxPaidGallons" 
+                   value="${taxPaidGallonsVal || ''}" min="0" step="1" placeholder="0">
         </td>
-        <td class="rate-display" data-tooltip="IFTA tax rate per gallon - auto filled">${formatRate(rowData.taxRate)}</td>
-        <td class="taxable-gallons" data-tooltip="Taxable miles divided by fleet MPG">${formatWholeGallons(rowData.taxableGallons)}</td>
-        <td class="net-taxable-gallons" data-tooltip="Taxable gallons minus tax paid gallons">${formatWholeGallons(rowData.netTaxableGallons)}</td>
-        <td class="tax-amount ${taxClass}" data-tooltip="Net taxable gallons times tax rate">${formatCurrency(displayTaxDue)}</td>
+        <td class="rate-display">${formatRate(rowData.taxRate)}</td>
+        <td class="taxable-gallons">${formatWholeGallons(rowData.taxableGallons)}</td>
+        <td class="net-taxable-gallons">${formatWholeGallons(rowData.netTaxableGallons)}</td>
+        <td class="tax-amount ${taxClass}">${formatCurrency(displayTaxDue)}</td>
         <td>
             <button class="delete-row" title="Delete row">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -498,6 +529,13 @@ function attachRowEventListeners(row, rowId) {
         forceUpdateTaxRate(rowId);
         calculateRow(rowId);
         
+        // Update the display text
+        const cell = e.target.closest('.ifta-cell');
+        if (cell) {
+            cell.querySelector('.ifta-cell-display').innerHTML = newJurisdiction || '<span class="cell-placeholder">Select...</span>';
+            exitCellEdit(cell);
+        }
+        
         // Refresh all jurisdiction dropdowns to update disabled states
         refreshAllJurisdictionDropdowns();
     });
@@ -525,6 +563,11 @@ function attachRowEventListeners(row, rowId) {
             taxableMilesInput.value = value || '';
             updateRowField(rowId, 'taxableMiles', value);
             rowData.taxableMilesManuallyEdited = false;
+            // Also update the taxable miles display text
+            const taxableMilesCell = row.querySelector('[data-field="taxableMiles"]');
+            if (taxableMilesCell) {
+                taxableMilesCell.querySelector('.ifta-cell-display').innerHTML = value ? value.toLocaleString() : '<span class="cell-placeholder">0</span>';
+            }
         }
         
         calculateRow(rowId);
@@ -557,7 +600,7 @@ function attachRowEventListeners(row, rowId) {
         calculateRow(rowId);
     });
     
-    // Prevent decimal input on number fields AND handle Enter key to add new row
+    // Prevent decimal input on number fields AND handle Enter/Tab key navigation
     ['.total-miles', '.taxable-miles', '.tax-paid-gallons'].forEach(selector => {
         const input = row.querySelector(selector);
         if (input) {
@@ -566,33 +609,210 @@ function attachRowEventListeners(row, rowId) {
                 if (e.key === '.' || e.key === ',' || e.key === '-') {
                     e.preventDefault();
                 }
-                // Enter key - validate and add new row
+                // Enter key - commit edit and add new row
                 if (e.key === 'Enter') {
                     e.preventDefault();
+                    const cell = input.closest('.ifta-cell');
+                    if (cell) commitCellEdit(cell, rowId);
                     handleEnterKeyAddRow(rowId);
                 }
+                // Escape key - cancel edit
+                if (e.key === 'Escape') {
+                    const cell = input.closest('.ifta-cell');
+                    if (cell) exitCellEdit(cell);
+                }
+                // Tab key - commit and move to next editable cell
+                if (e.key === 'Tab') {
+                    e.preventDefault();
+                    const cell = input.closest('.ifta-cell');
+                    if (cell) commitCellEdit(cell, rowId);
+                    tabToNextCell(cell, e.shiftKey);
+                }
             });
-            // On blur, ensure positive whole number
+            // On blur, commit the edit
             input.addEventListener('blur', (e) => {
                 let value = Math.round(parseFloat(e.target.value) || 0);
                 if (value < 0) value = 0;
                 e.target.value = value || '';
+                const cell = input.closest('.ifta-cell');
+                if (cell) commitCellEdit(cell, rowId);
             });
         }
     });
     
-    // Also handle Enter on jurisdiction select
+    // Jurisdiction select keydown: Escape closes, Enter/Tab commits
     row.querySelector('.jurisdiction-select').addEventListener('keydown', (e) => {
         if (e.key === 'Enter') {
             e.preventDefault();
             handleEnterKeyAddRow(rowId);
         }
+        if (e.key === 'Escape') {
+            const cell = e.target.closest('.ifta-cell');
+            if (cell) exitCellEdit(cell);
+        }
+    });
+    
+    // Click-to-edit: clicking on a cell display enters edit mode
+    row.querySelectorAll('.ifta-cell').forEach(cell => {
+        cell.addEventListener('click', (e) => {
+            // Don't re-enter if already editing
+            if (cell.classList.contains('editing')) return;
+            // Don't trigger on editor element clicks (they handle themselves)
+            if (e.target.closest('.ifta-cell-editor')) return;
+            
+            enterCellEdit(cell);
+        });
     });
     
     // Delete row
     row.querySelector('.delete-row').addEventListener('click', () => {
         deleteRow(rowId);
     });
+}
+
+// Enter edit mode on a cell
+function enterCellEdit(cell) {
+    // Close any other open editors first
+    document.querySelectorAll('.ifta-cell.editing').forEach(c => {
+        if (c !== cell) {
+            const tr = c.closest('tr');
+            const rId = tr ? parseInt(tr.dataset.rowId) : null;
+            commitCellEdit(c, rId);
+        }
+    });
+    
+    cell.classList.add('editing');
+    const editor = cell.querySelector('.ifta-cell-editor');
+    if (editor) {
+        editor.focus();
+        if (editor.type === 'number' && editor.value) {
+            editor.select();
+        }
+    }
+}
+
+// Commit the edit and exit edit mode
+function commitCellEdit(cell, rowId) {
+    if (!cell.classList.contains('editing')) return;
+    
+    const field = cell.dataset.field;
+    const editor = cell.querySelector('.ifta-cell-editor');
+    const display = cell.querySelector('.ifta-cell-display');
+    if (!editor || !display) return;
+    
+    if (field === 'jurisdiction') {
+        display.innerHTML = editor.value || '<span class="cell-placeholder">Select...</span>';
+    } else {
+        const val = Math.round(parseFloat(editor.value) || 0);
+        display.innerHTML = val ? val.toLocaleString() : '<span class="cell-placeholder">0</span>';
+    }
+    
+    cell.classList.remove('editing');
+}
+
+// Exit edit mode without committing
+function exitCellEdit(cell) {
+    cell.classList.remove('editing');
+}
+
+// Tab navigation between editable cells
+function tabToNextCell(currentCell, reverse) {
+    const allCells = Array.from(document.querySelectorAll('#dataTable tbody .ifta-cell'));
+    const idx = allCells.indexOf(currentCell);
+    if (idx === -1) return;
+    
+    const nextIdx = reverse ? idx - 1 : idx + 1;
+    if (nextIdx >= 0 && nextIdx < allCells.length) {
+        enterCellEdit(allCells[nextIdx]);
+    } else if (!reverse) {
+        // Past the last cell, add new row
+        const lastRow = appState.rows[appState.rows.length - 1];
+        if (lastRow) handleEnterKeyAddRow(lastRow.id);
+    }
+}
+
+// Handle Excel paste on data table
+function handleExcelPaste(e) {
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (!text || !text.includes('\t')) return; // Not tab-delimited data
+    e.preventDefault();
+    parseAndInsertPastedData(text);
+}
+
+// Parse tab-delimited clipboard data and create rows
+// Expected columns: Jurisdiction | Total Miles | Taxable Miles | Tax Paid Gallons
+function parseAndInsertPastedData(text) {
+    const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+    if (!lines.length) return;
+    
+    // Detect if first line is a header row
+    const firstCols = lines[0].split('\t').map(c => c.trim().toLowerCase());
+    const headerKeywords = ['jurisdiction', 'state', 'province', 'miles', 'gallons', 'gal', 'fuel'];
+    const isHeader = headerKeywords.some(kw => firstCols.some(c => c.includes(kw)));
+    const dataLines = isHeader ? lines.slice(1) : lines;
+    
+    if (!dataLines.length) {
+        showToast('No data rows found in pasted content', 'warning');
+        return;
+    }
+    
+    const jurisdictions = getJurisdictionList();
+    const jurisdictionCodes = jurisdictions.map(j => j.code.toUpperCase());
+    const jurisdictionNames = {};
+    jurisdictions.forEach(j => {
+        jurisdictionNames[j.name.toUpperCase()] = j.code;
+        jurisdictionNames[j.code.toUpperCase()] = j.code;
+    });
+    
+    let addedCount = 0;
+    let skippedCount = 0;
+    
+    dataLines.forEach(line => {
+        const cols = line.split('\t').map(c => c.trim());
+        if (cols.length < 2) return; // Need at least jurisdiction + miles
+        
+        // Resolve jurisdiction (accept code like "TX" or name like "Texas")
+        let jurisdiction = '';
+        const rawJuris = cols[0].toUpperCase().replace(/[^A-Z\s]/g, '').trim();
+        if (jurisdictionNames[rawJuris]) {
+            jurisdiction = jurisdictionNames[rawJuris];
+        } else {
+            // Fuzzy: check if it starts with any known name
+            const match = Object.keys(jurisdictionNames).find(k => k.startsWith(rawJuris) || rawJuris.startsWith(k));
+            if (match) jurisdiction = jurisdictionNames[match];
+        }
+        
+        // Skip if jurisdiction already exists in rows
+        if (jurisdiction && appState.rows.some(r => r.jurisdiction === jurisdiction)) {
+            skippedCount++;
+            return;
+        }
+        
+        const totalMiles = Math.round(parseFloat(cols[1]?.replace(/[^0-9.]/g, '')) || 0);
+        const taxableMiles = cols.length > 2 ? Math.round(parseFloat(cols[2]?.replace(/[^0-9.]/g, '')) || 0) : totalMiles;
+        const taxPaidGallons = cols.length > 3 ? Math.round(parseFloat(cols[3]?.replace(/[^0-9.]/g, '')) || 0) : 0;
+        
+        const rowData = addNewRow({
+            jurisdiction,
+            totalMiles,
+            taxableMiles: taxableMiles || totalMiles,
+            taxPaidGallons
+        });
+        
+        if (rowData) {
+            if (jurisdiction) {
+                forceUpdateTaxRate(rowData.id);
+            }
+            calculateRow(rowData.id);
+            addedCount++;
+        }
+    });
+    
+    if (addedCount > 0) {
+        showToast(`Pasted ${addedCount} row${addedCount > 1 ? 's' : ''} from clipboard${skippedCount ? ` (${skippedCount} skipped - duplicate jurisdiction)` : ''}`, 'success');
+    } else {
+        showToast('No valid data found in clipboard. Expected: Jurisdiction, Total Miles, Taxable Miles, Tax Paid Gallons', 'warning');
+    }
 }
 
 // Handle Enter key to validate current row and add new row
@@ -810,6 +1030,18 @@ function updateRowUI(rowId, rowData) {
     const taxCell = row.querySelector('.tax-amount');
     taxCell.textContent = formatCurrency(displayTaxDue);
     taxCell.className = `tax-amount ${displayTaxDue >= 0 ? 'positive' : 'negative'}`;
+    
+    // Update editable cell displays (if not currently editing)
+    const updateCellDisplay = (field, value, formatter) => {
+        const cell = row.querySelector(`.ifta-cell[data-field="${field}"]`);
+        if (cell && !cell.classList.contains('editing')) {
+            const display = cell.querySelector('.ifta-cell-display');
+            if (display) display.innerHTML = value ? formatter(value) : '<span class="cell-placeholder">0</span>';
+        }
+    };
+    updateCellDisplay('totalMiles', rowData.totalMiles, v => Math.round(v).toLocaleString());
+    updateCellDisplay('taxableMiles', rowData.taxableMiles, v => Math.round(v).toLocaleString());
+    updateCellDisplay('taxPaidGallons', rowData.taxPaidGallons, v => Math.round(v).toLocaleString());
 }
 
 // Refresh all jurisdiction dropdowns to update disabled states
