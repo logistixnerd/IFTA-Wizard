@@ -2662,14 +2662,35 @@
         dirty: new Set()    // row indices with unsaved changes
     };
 
+    function uDefaultVisibleColKeys(type) {
+        return UNIFIED_COLS[type]
+            .filter(c => c.default || c.required)
+            .map(c => c.key);
+    }
+
+    function uSanitizeVisibleCols(type, keys) {
+        const validKeys = new Set(UNIFIED_COLS[type].map(c => c.key));
+        const requiredKeys = UNIFIED_COLS[type].filter(c => c.required).map(c => c.key);
+        const next = new Set((keys || []).filter(key => validKeys.has(key)));
+        requiredKeys.forEach(key => next.add(key));
+        if (!next.size) {
+            uDefaultVisibleColKeys(type).forEach(key => next.add(key));
+        }
+        return next;
+    }
+
     // Initialize visible cols with defaults or from localStorage
     Object.keys(UNIFIED_COLS).forEach(type => {
         const saved = localStorage.getItem('dash_sheet_cols_' + type);
         if (saved) {
-            try { uSheetState.visibleCols[type] = new Set(JSON.parse(saved)); }
-            catch { uSheetState.visibleCols[type] = new Set(UNIFIED_COLS[type].filter(c => c.default).map(c => c.key)); }
+            try {
+                uSheetState.visibleCols[type] = uSanitizeVisibleCols(type, JSON.parse(saved));
+            }
+            catch {
+                uSheetState.visibleCols[type] = uSanitizeVisibleCols(type, uDefaultVisibleColKeys(type));
+            }
         } else {
-            uSheetState.visibleCols[type] = new Set(UNIFIED_COLS[type].filter(c => c.default).map(c => c.key));
+            uSheetState.visibleCols[type] = uSanitizeVisibleCols(type, uDefaultVisibleColKeys(type));
         }
     });
 
@@ -2910,6 +2931,7 @@
     }
 
     function uGetVisibleCols(type) {
+        uSheetState.visibleCols[type] = uSanitizeVisibleCols(type, [...(uSheetState.visibleCols[type] || [])]);
         return UNIFIED_COLS[type].filter(c => uSheetState.visibleCols[type].has(c.key));
     }
 
@@ -2967,6 +2989,7 @@
     function uToggleCol(type, key, show) {
         if (show) uSheetState.visibleCols[type].add(key);
         else uSheetState.visibleCols[type].delete(key);
+        uSheetState.visibleCols[type] = uSanitizeVisibleCols(type, [...uSheetState.visibleCols[type]]);
         localStorage.setItem('dash_sheet_cols_' + type, JSON.stringify([...uSheetState.visibleCols[type]]));
         uBuildTable(type, null, uSheetState.mode);
     }
