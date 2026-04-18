@@ -6303,6 +6303,16 @@ tr:hover .load-doc-btn {
     transition: background 0.15s;
 }
 
+.usheet-row.usheet-row-out {
+    opacity: 0;
+    transform: translateX(40px);
+    max-height: 0;
+    overflow: hidden;
+    padding: 0;
+    border: none;
+    transition: opacity 0.3s ease, transform 0.3s ease, max-height 0.3s ease 0.1s;
+}
+
 /* Row num */
 .usheet-num {
     text-align: center;

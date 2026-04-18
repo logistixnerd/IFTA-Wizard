@@ -3126,9 +3126,21 @@
                 const docRef = await col(cfg.collection).add(payload);
                 tr.dataset.id = docRef.id; // Track new ID
             }
-            // Flash green
+            // Flash green then remove row in add/import mode
             tr.classList.add('usheet-saved');
-            setTimeout(() => tr.classList.remove('usheet-saved'), 1200);
+            if (mode !== 'edit') {
+                setTimeout(() => {
+                    tr.classList.add('usheet-row-out');
+                    tr.addEventListener('transitionend', () => {
+                        tr.remove();
+                        uRenumberRows();
+                        uUpdateRowCount();
+                        uUpdateFooter();
+                    }, { once: true });
+                }, 600);
+            } else {
+                setTimeout(() => tr.classList.remove('usheet-saved'), 1200);
+            }
             uSheetState.dirty.delete(Array.from($('usheetTbody').children).indexOf(tr));
             uUpdateFooter();
         } catch (err) {
@@ -3201,10 +3213,22 @@
             }
 
             await batch.commit();
-            savedRows.forEach(tr => {
-                tr.classList.add('usheet-saved');
-                setTimeout(() => tr.classList.remove('usheet-saved'), 1200);
-            });
+            if (mode !== 'edit') {
+                savedRows.forEach(tr => {
+                    tr.classList.add('usheet-saved');
+                    setTimeout(() => {
+                        tr.classList.add('usheet-row-out');
+                        tr.addEventListener('transitionend', () => tr.remove(), { once: true });
+                    }, 400);
+                });
+                // Renumber after animation
+                setTimeout(() => { uRenumberRows(); uUpdateRowCount(); uUpdateFooter(); }, 800);
+            } else {
+                savedRows.forEach(tr => {
+                    tr.classList.add('usheet-saved');
+                    setTimeout(() => tr.classList.remove('usheet-saved'), 1200);
+                });
+            }
             uSheetState.dirty.clear();
             uUpdateFooter();
             showMsg(count + ' ' + cfg.label + (count > 1 ? 's' : '') + ' saved');
@@ -3212,9 +3236,6 @@
             // Reload the collection
             if (cfg.afterSave) await cfg.afterSave();
             updateOverview();
-
-            // Close modal after save-all
-            uCloseAfterSave();
         } catch (err) {
             console.error('Save all error:', err);
             showMsg('Error saving: ' + (err.message || ''), true);
@@ -3256,6 +3277,15 @@
         const count = tbody ? tbody.children.length : 0;
         const el = $('usheetRowCount');
         if (el) el.textContent = count + ' row' + (count !== 1 ? 's' : '');
+    }
+
+    function uRenumberRows() {
+        const tbody = $('usheetTbody');
+        if (!tbody) return;
+        Array.from(tbody.children).forEach((tr, i) => {
+            const numCell = tr.querySelector('.usheet-num');
+            if (numCell) numCell.textContent = i + 1;
+        });
     }
 
     function uUpdateFooter() {
