@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=62">
+    <link rel="stylesheet" href="dashboard.css?v=63">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -21,6 +21,8 @@
     <!-- Google Identity Services + API (for Google Drive import) -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
+    <!-- Google Maps API (route calc, zip resolve, map display) -->
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDrjI76QLlhLnmX80_XdFaD4QHP32I9QxY&libraries=geometry&callback=_gmapsReady" async defer></script>
 </head>
 <body>
     <div class="dash-layout">
@@ -2826,13 +2828,15 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="loadOrigin">Origin</label>
-                            <input type="text" id="loadOrigin" placeholder="City, ST">
+                            <input type="text" id="loadOrigin" placeholder="Zip code or City, ST">
                         </div>
                         <div class="form-group">
                             <label for="loadDestination">Destination</label>
-                            <input type="text" id="loadDestination" placeholder="City, ST">
+                            <input type="text" id="loadDestination" placeholder="Zip code or City, ST">
                         </div>
                     </div>
+                    <div id="loadRouteMap" class="load-route-map" style="display:none"></div>
+                    <div id="loadRouteInfo" class="load-route-info" style="display:none"></div>
                     <div class="form-row">
                         <div class="form-group">
                             <label for="loadBroker">Broker</label>
@@ -3724,6 +3728,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=62"></script>
+    <script src="dashboard.js?v=63"></script>
 </body>
 </html>

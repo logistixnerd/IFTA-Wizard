@@ -3406,6 +3406,41 @@
             }
         });
 
+        // Zip → City resolve + auto-mileage for load rows
+        tbody.addEventListener('focusout', async (e) => {
+            if (uSheetState.type !== 'load') return;
+            const key = e.target.dataset && e.target.dataset.key;
+            if (key !== 'origin' && key !== 'destination') return;
+            const val = e.target.value.trim();
+            if (/^\d{5}$/.test(val)) {
+                const resolved = await resolveZipToCity(val);
+                if (resolved) {
+                    e.target.value = resolved;
+                    const tr = e.target.closest('tr');
+                    if (tr) uMarkDirty(tr);
+                }
+            }
+            // Auto-calc mileage
+            const tr = e.target.closest('tr');
+            if (!tr || !isGMaps()) return;
+            const originInput = tr.querySelector('[data-key="origin"]');
+            const destInput = tr.querySelector('[data-key="destination"]');
+            const mileInput = tr.querySelector('[data-key="mileage"]');
+            if (!originInput || !destInput || !mileInput) return;
+            const o = originInput.value.trim();
+            const d = destInput.value.trim();
+            if (!o || !d) return;
+            new google.maps.DirectionsService().route({
+                origin: o, destination: d, travelMode: google.maps.TravelMode.DRIVING
+            }, (result, status) => {
+                if (status === 'OK' && result.routes[0]) {
+                    const miles = Math.round(result.routes[0].legs[0].distance.value * 0.000621371);
+                    mileInput.value = miles;
+                    uMarkDirty(tr);
+                }
+            });
+        });
+
         // Keyboard: Tab/Enter/Escape navigation
         tbody.addEventListener('keydown', (e) => {
             if (e.key === 'Tab') {
@@ -8826,6 +8861,111 @@
             if (current) driverSel.value = current;
         }
         $('loadModal').classList.remove('hidden');
+        // Show route if both origin & destination exist
+        setTimeout(() => calcLoadRoute(), 200);
+    }
+
+    /* ── Load Route Map (Google Maps) ── */
+    let _gmapsReady = false;
+    let _loadMap = null;
+    let _loadDirService = null;
+    let _loadDirRenderer = null;
+
+    window._gmapsReady = function() { _gmapsReady = true; };
+
+    function isGMaps() { return _gmapsReady && window.google && google.maps; }
+
+    function resolveZipToCity(zip) {
+        return new Promise(resolve => {
+            if (!isGMaps()) return resolve(null);
+            new google.maps.Geocoder().geocode(
+                { address: zip, componentRestrictions: { country: 'US' } },
+                (results, status) => {
+                    if (status !== 'OK' || !results[0]) return resolve(null);
+                    let city = '', st = '';
+                    results[0].address_components.forEach(c => {
+                        if (c.types.includes('locality')) city = c.long_name;
+                        if (!city && c.types.includes('sublocality_level_1')) city = c.long_name;
+                        if (!city && c.types.includes('administrative_area_level_2')) city = c.long_name;
+                        if (c.types.includes('administrative_area_level_1')) st = c.short_name;
+                    });
+                    resolve(city && st ? city + ', ' + st : null);
+                }
+            );
+        });
+    }
+
+    function ensureLoadMap() {
+        const container = $('loadRouteMap');
+        if (!container || !isGMaps()) return false;
+        if (!_loadMap) {
+            _loadMap = new google.maps.Map(container, {
+                center: { lat: 39.8283, lng: -98.5795 },
+                zoom: 4,
+                disableDefaultUI: true,
+                zoomControl: true,
+                gestureHandling: 'cooperative',
+                styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }]
+            });
+            _loadDirService = new google.maps.DirectionsService();
+            _loadDirRenderer = new google.maps.DirectionsRenderer({
+                map: _loadMap,
+                suppressMarkers: false,
+                polylineOptions: { strokeColor: '#6366f1', strokeWeight: 4, strokeOpacity: 0.8 }
+            });
+        }
+        return true;
+    }
+
+    function calcLoadRoute() {
+        const originVal = ($('loadOrigin') || {}).value || '';
+        const destVal = ($('loadDestination') || {}).value || '';
+        const mapEl = $('loadRouteMap');
+        const infoEl = $('loadRouteInfo');
+        if (!originVal.trim() || !destVal.trim() || !isGMaps()) {
+            if (mapEl) mapEl.style.display = 'none';
+            if (infoEl) infoEl.style.display = 'none';
+            return;
+        }
+        if (!ensureLoadMap()) return;
+        mapEl.style.display = 'block';
+        _loadDirService.route({
+            origin: originVal.trim(),
+            destination: destVal.trim(),
+            travelMode: google.maps.TravelMode.DRIVING
+        }, (result, status) => {
+            if (status === 'OK' && result.routes[0]) {
+                _loadDirRenderer.setDirections(result);
+                const leg = result.routes[0].legs[0];
+                const miles = Math.round(leg.distance.value * 0.000621371);
+                const mileageInput = $('loadMileage');
+                if (mileageInput) mileageInput.value = miles;
+                if (infoEl) {
+                    infoEl.style.display = 'flex';
+                    infoEl.innerHTML = '<span>' + escapeHtml(leg.distance.text) + '</span><span>' + escapeHtml(leg.duration.text) + '</span>';
+                }
+            } else {
+                if (mapEl) mapEl.style.display = 'none';
+                if (infoEl) infoEl.style.display = 'none';
+            }
+        });
+    }
+
+    async function handleLoadLocationBlur(input) {
+        const val = input.value.trim();
+        if (/^\d{5}$/.test(val)) {
+            const resolved = await resolveZipToCity(val);
+            if (resolved) input.value = resolved;
+        }
+        calcLoadRoute();
+    }
+
+    function wireLoadLocationEvents() {
+        ['loadOrigin', 'loadDestination'].forEach(id => {
+            const input = $(id);
+            if (!input) return;
+            input.addEventListener('blur', () => handleLoadLocationBlur(input));
+        });
     }
 
     function initLoadForm() {
@@ -9895,6 +10035,7 @@
         initLoadForm();
         initLoadDocUpload();
         initDispatchOverview();
+        wireLoadLocationEvents();
         initUnifiedSheet();
         initTruckDetailPanel();
         initTrailerDetailPanel();

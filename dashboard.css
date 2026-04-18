@@ -5844,6 +5844,30 @@ tr:hover .load-doc-btn {
     font-size: 0.7rem;
 }
 
+/* ── Load Route Map ── */
+.load-route-map {
+    width: 100%;
+    height: 220px;
+    border-radius: 10px;
+    margin: 0.25rem 0 0.5rem;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+}
+.load-route-info {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--gray-500);
+}
+.load-route-info span {
+    background: #f3f4f6;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+}
+
 /* ── Dispatch Overview ── */
 .dispatch-overview {
     margin-bottom: 0.75rem;
