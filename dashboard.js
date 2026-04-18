@@ -8582,6 +8582,10 @@
         const st = $('safetyTruckCount'); if (st) st.textContent = state.trucks.length;
         const str = $('safetyTrailerCount'); if (str) str.textContent = state.trailers.length;
         const sd = $('safetyDriverCount'); if (sd) sd.textContent = state.drivers.length;
+        // All department DTT counts
+        document.querySelectorAll('[data-dtt-count="trucks"]').forEach(el => el.textContent = state.trucks.length);
+        document.querySelectorAll('[data-dtt-count="trailers"]').forEach(el => el.textContent = state.trailers.length);
+        document.querySelectorAll('[data-dtt-count="drivers"]').forEach(el => el.textContent = state.drivers.length);
         populateOverviewDropdowns();
         updateAlerts();
     }
@@ -8793,7 +8797,26 @@
             });
         });
 
-        // Safety dropdown panels – mirror the overview panels
+        // Populate all department DTT panels (safety, maintenance, dispatch, etc.)
+        document.querySelectorAll('.dtt-panel[data-dtt="trucks"]').forEach(panel => {
+            panel.innerHTML = trucksPanel.innerHTML;
+            panel.querySelectorAll('.overview-dropdown-item').forEach(item => {
+                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openTruckProfile(item.dataset.id); });
+            });
+        });
+        document.querySelectorAll('.dtt-panel[data-dtt="trailers"]').forEach(panel => {
+            panel.innerHTML = trailersPanel.innerHTML;
+            panel.querySelectorAll('.overview-dropdown-item').forEach(item => {
+                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openTrailerProfile(item.dataset.id); });
+            });
+        });
+        document.querySelectorAll('.dtt-panel[data-dtt="drivers"]').forEach(panel => {
+            panel.innerHTML = driversPanel.innerHTML;
+            panel.querySelectorAll('.overview-dropdown-item').forEach(item => {
+                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openDriverProfile(item.dataset.id); });
+            });
+        });
+        // Also populate safety ID-based panels
         const safeTrucks = $('safetyTrucksDropdownPanel');
         const safeTrailers = $('safetyTrailersDropdownPanel');
         const safeDrivers = $('safetyDriversDropdownPanel');
