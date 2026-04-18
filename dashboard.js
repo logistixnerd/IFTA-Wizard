@@ -2690,7 +2690,7 @@
         Array.from(tbody.children).forEach(tr => {
             const data = {};
             if (tr.dataset.id) data.id = tr.dataset.id;
-            tr.querySelectorAll('[data-key]').forEach(el => {
+            tr.querySelectorAll('input[data-key], select[data-key]').forEach(el => {
                 data[el.dataset.key] = el.value;
             });
             // Carry over extra fields
@@ -2705,7 +2705,7 @@
     function uCollectRowData(tr) {
         const data = {};
         if (tr.dataset.id) data.id = tr.dataset.id;
-        tr.querySelectorAll('[data-key]').forEach(el => {
+        tr.querySelectorAll('input[data-key], select[data-key]').forEach(el => {
             data[el.dataset.key] = el.value.trim();
         });
         // Carry over extra fields stored as data attributes
@@ -2834,8 +2834,7 @@
             updateOverview();
 
             // Close modal after save-all
-            $('unifiedSheetModal').classList.add('hidden');
-            uSheetState.open = false;
+            uCloseAfterSave();
         } catch (err) {
             console.error('Save all error:', err);
             showMsg('Error saving: ' + (err.message || ''), true);
@@ -2901,6 +2900,14 @@
             if (!confirm('You have unsaved changes. Discard?')) return;
         }
         modal.classList.add('hidden');
+        $('usheetColDropdown').classList.add('hidden');
+        document.body.style.overflow = '';
+        uSheetState.open = false;
+        uSheetState.dirty.clear();
+    }
+
+    function uCloseAfterSave() {
+        $('unifiedSheetModal').classList.add('hidden');
         $('usheetColDropdown').classList.add('hidden');
         document.body.style.overflow = '';
         uSheetState.open = false;
