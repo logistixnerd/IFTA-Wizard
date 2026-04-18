@@ -8521,25 +8521,10 @@
     }
 
     function updateOverview() {
-        const activeTrucks = state.trucks.filter(t => t.status === 'active').length;
-        const activeTrailers = state.trailers.filter(t => t.status === 'active').length;
-        const activeDrivers = state.drivers.filter(d => d.status === 'active').length;
-        const maintenance = state.trucks.filter(t => t.status === 'maintenance').length
-            + state.trailers.filter(t => t.status === 'maintenance').length;
-        const oos = state.trucks.filter(t => t.status === 'inactive').length
-            + state.trailers.filter(t => t.status === 'inactive').length;
-        const activeLoads = state.loads.filter(l => ['booked','dispatched','loaded','in-transit'].includes(l.status)).length;
-
         $('overviewTrucks').textContent = state.trucks.length;
         $('overviewTrailers').textContent = state.trailers.length;
         $('overviewDrivers').textContent = state.drivers.length;
-        $('overviewActiveTrucks').textContent = activeTrucks;
-        $('overviewActiveTrailers').textContent = activeTrailers;
-        $('overviewActiveDrivers').textContent = activeDrivers;
-        $('overviewMaintenance').textContent = maintenance;
-        $('overviewOutOfService').textContent = oos;
-        const loadsEl = $('overviewActiveLoads');
-        if (loadsEl) loadsEl.textContent = activeLoads;
+        populateOverviewDropdowns();
         updateAlerts();
     }
 
@@ -8623,17 +8608,119 @@
         });
     }
 
-    // ── Overview card click → navigate ─────
+    // ── Overview dropdown toggle ─────
     function initOverviewCards() {
-        document.querySelectorAll('.overview-card[data-nav]').forEach(card => {
-            card.addEventListener('click', () => {
-                navigateToSection(card.dataset.nav);
+        document.querySelectorAll('.overview-dropdown').forEach(dd => {
+            dd.querySelector('.overview-card').addEventListener('click', () => {
+                const wasOpen = dd.classList.contains('open');
+                // Close all
+                document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
+                if (!wasOpen) dd.classList.add('open');
             });
+        });
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.overview-dropdown')) {
+                document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
+            }
         });
         // Dept landing page nav cards
         document.querySelectorAll('.dept-nav-card[data-navigate]').forEach(card => {
             card.addEventListener('click', () => {
                 navigateToSection(card.dataset.navigate);
+            });
+        });
+    }
+
+    function populateOverviewDropdowns() {
+        const trucksPanel = $('trucksDropdownPanel');
+        const trailersPanel = $('trailersDropdownPanel');
+        const driversPanel = $('driversDropdownPanel');
+        if (!trucksPanel || !trailersPanel || !driversPanel) return;
+
+        // Trucks
+        if (state.trucks.length) {
+            trucksPanel.innerHTML = state.trucks.map(t => {
+                const label = t.unit || t.id;
+                const meta = [t.year, t.make, t.model].filter(Boolean).join(' ');
+                const initials = label.slice(0, 2);
+                const sCls = t.status === 'active' ? 'active' : t.status === 'maintenance' ? 'maintenance' : 'inactive';
+                const sLabel = t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : '';
+                return `<div class="overview-dropdown-item" data-id="${escapeHtml(t.id)}">
+                    <div class="overview-dropdown-item-icon">${escapeHtml(initials)}</div>
+                    <div class="overview-dropdown-item-info">
+                        <span class="overview-dropdown-item-name">${escapeHtml(label)}</span>
+                        ${meta ? `<span class="overview-dropdown-item-meta">${escapeHtml(meta)}</span>` : ''}
+                    </div>
+                    ${sLabel ? `<span class="overview-dropdown-item-status ${sCls}">${escapeHtml(sLabel)}</span>` : ''}
+                </div>`;
+            }).join('');
+        } else {
+            trucksPanel.innerHTML = '<div class="overview-dropdown-empty">No trucks added</div>';
+        }
+
+        // Trailers
+        if (state.trailers.length) {
+            trailersPanel.innerHTML = state.trailers.map(t => {
+                const label = t.unit || ('Trailer ' + t.id);
+                const meta = [t.year, t.make, trailerTypeLabel(t.type)].filter(Boolean).join(' ');
+                const initials = label.slice(0, 2);
+                const sCls = t.status === 'active' ? 'active' : t.status === 'maintenance' ? 'maintenance' : 'inactive';
+                const sLabel = t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : '';
+                return `<div class="overview-dropdown-item" data-id="${escapeHtml(t.id)}">
+                    <div class="overview-dropdown-item-icon">${escapeHtml(initials)}</div>
+                    <div class="overview-dropdown-item-info">
+                        <span class="overview-dropdown-item-name">${escapeHtml(label)}</span>
+                        ${meta ? `<span class="overview-dropdown-item-meta">${escapeHtml(meta)}</span>` : ''}
+                    </div>
+                    ${sLabel ? `<span class="overview-dropdown-item-status ${sCls}">${escapeHtml(sLabel)}</span>` : ''}
+                </div>`;
+            }).join('');
+        } else {
+            trailersPanel.innerHTML = '<div class="overview-dropdown-empty">No trailers added</div>';
+        }
+
+        // Drivers
+        if (state.drivers.length) {
+            driversPanel.innerHTML = state.drivers.map(d => {
+                const name = [d.firstName, d.lastName].filter(Boolean).join(' ') || ('Driver ' + d.id);
+                const meta = [d.cdl, d.cdlState].filter(Boolean).join(' ');
+                const initials = (d.firstName || '').charAt(0) + (d.lastName || '').charAt(0) || name.slice(0, 2);
+                const sCls = d.status === 'active' ? 'active' : 'inactive';
+                const sLabel = d.status ? d.status.charAt(0).toUpperCase() + d.status.slice(1) : '';
+                return `<div class="overview-dropdown-item" data-id="${escapeHtml(d.id)}">
+                    <div class="overview-dropdown-item-icon">${escapeHtml(initials.toUpperCase())}</div>
+                    <div class="overview-dropdown-item-info">
+                        <span class="overview-dropdown-item-name">${escapeHtml(name)}</span>
+                        ${meta ? `<span class="overview-dropdown-item-meta">${escapeHtml(meta)}</span>` : ''}
+                    </div>
+                    ${sLabel ? `<span class="overview-dropdown-item-status ${sCls}">${escapeHtml(sLabel)}</span>` : ''}
+                </div>`;
+            }).join('');
+        } else {
+            driversPanel.innerHTML = '<div class="overview-dropdown-empty">No drivers added</div>';
+        }
+
+        // Click handlers for items
+        trucksPanel.querySelectorAll('.overview-dropdown-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
+                openTruckProfile(item.dataset.id);
+            });
+        });
+        trailersPanel.querySelectorAll('.overview-dropdown-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
+                openTrailerProfile(item.dataset.id);
+            });
+        });
+        driversPanel.querySelectorAll('.overview-dropdown-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
+                openDriverProfile(item.dataset.id);
             });
         });
     }
