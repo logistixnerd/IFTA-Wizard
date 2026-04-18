@@ -6,6 +6,7 @@
         user: null,
         allTasks: [],
         customStatuses: [],
+        companyUsers: [],
         filteredTasks: [],
         currentView: localStorage.getItem('taskManagerView') || 'table',
         filters: {
@@ -107,6 +108,27 @@
     }
 
     // ── Load Data ──────────────────────────
+    async function loadCompanyUsers() {
+        try {
+            const doc = await db.collection('users').doc(state.user.uid).get();
+            const data = doc.data();
+            const users = (data && data.companyDashboard && data.companyDashboard.users) || [];
+            state.companyUsers = users.map(u => ({
+                name: u.name || '',
+                email: (u.email || '').toLowerCase(),
+                role: u.role || ''
+            })).filter(u => u.email);
+            // Ensure current user is in the list
+            const myEmail = (state.user.email || '').toLowerCase();
+            if (myEmail && !state.companyUsers.some(u => u.email === myEmail)) {
+                state.companyUsers.unshift({ name: state.user.displayName || myEmail.split('@')[0], email: myEmail, role: 'Owner' });
+            }
+        } catch (err) {
+            console.error('Error loading company users:', err);
+            state.companyUsers = [];
+        }
+    }
+
     async function loadTasks() {
         try {
             const result = await FirebaseDB.getAllTasks(state.user.uid);
@@ -301,7 +323,6 @@
         state.filteredTasks.forEach(task => {
             const overdue = task.dueDate && isOverdue(task.dueDate);
             const rowClass = overdue ? ' row-overdue' : '';
-            const assigneesVal = (task.assignedTo || []).join(', ');
             const days = getDayCount(task.dueDate);
             const commentCount = (task.comments || []).length;
 
@@ -329,13 +350,18 @@
             // Status color for inline select
             const sColor = getStatusColor(task.status);
 
+            const assignees = task.assignedTo || [];
+            const assigneeDisplay = assignees.length > 0
+                ? assignees.map(e => { const u = state.companyUsers.find(cu => cu.email === e); return u ? escapeHtml(u.name || u.email) : escapeHtml(e); }).join(', ')
+                : '<span class="unassigned-label">Unassigned</span>';
+
             html += `<tr class="task-row${rowClass}" data-task-id="${escapeHtml(task.id)}" data-entity-type="${escapeHtml(task.entityType)}" data-entity-id="${escapeHtml(task.entityId)}">
                 <td class="td-created"><span class="created-date">${escapeHtml(createdDate)}</span><span class="created-time">${escapeHtml(createdTime)}</span></td>
                 <td class="td-due-date">${task.dueDate ? escapeHtml(formatDate(task.dueDate)) : '\u2014'}</td>
                 <td class="td-days">${daysBadge}</td>
                 <td class="td-note"><div class="note-cell" data-task-id="${escapeHtml(task.id)}"><span class="note-preview" title="${escapeHtml(noteText)}">${escapeHtml(noteTruncated)}</span><button class="btn-note-toggle" title="Expand note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div></td>
                 <td class="td-owner">${escapeHtml(task.entityName)}</td>
-                <td class="td-assigned"><input type="text" class="inline-assigned" value="${escapeHtml(assigneesVal)}" placeholder="Unassigned" data-task-id="${escapeHtml(task.id)}"></td>
+                <td class="td-assigned"><button class="assignee-trigger" data-task-id="${escapeHtml(task.id)}">${assigneeDisplay}</button></td>
                 <td class="td-type">${task.type ? `<span class="task-type-badge task-type-${escapeHtml(task.type)}">${escapeHtml(task.type)}</span>` : '\u2014'}</td>
                 <td class="td-status"><select class="inline-status" data-task-id="${escapeHtml(task.id)}" style="background-color:${sColor}18;color:${sColor};border-color:${sColor}40">${statusOpts}</select></td>
                 <td class="td-comments"><button class="btn-comments-toggle" data-task-id="${escapeHtml(task.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>${commentCount}</span></button></td>
@@ -474,11 +500,16 @@
             $('taskEntityId').value = prefilledEntity.id;
         }
 
+        // Reset assignee picker
+        $('taskAssignees').value = '';
+        renderFormAssigneeTags([]);
+
         $('taskFormModal').classList.add('open');
     }
 
     function closeTaskForm() {
         $('taskFormModal').classList.remove('open');
+        closeAssigneeDropdown();
     }
 
     function populateEntityDropdown(entityType) {
@@ -638,10 +669,9 @@
         }
     }
 
-    async function saveInlineAssigned(taskId, value) {
+    async function saveInlineAssigned(taskId, newAssignees) {
         const task = state.allTasks.find(t => t.id === taskId);
         if (!task) return;
-        const newAssignees = value ? value.split(',').map(s => s.trim().toLowerCase()).filter(Boolean) : [];
         const oldStr = (task.assignedTo || []).join(',');
         if (newAssignees.join(',') === oldStr) return;
         try {
@@ -651,11 +681,144 @@
             );
             if (!result.success) throw new Error(result.error);
             task.assignedTo = newAssignees;
+            // Update the trigger button text
+            const btn = document.querySelector('.assignee-trigger[data-task-id="' + taskId + '"]');
+            if (btn) {
+                if (newAssignees.length > 0) {
+                    btn.innerHTML = newAssignees.map(e => {
+                        const u = state.companyUsers.find(cu => cu.email === e);
+                        return escapeHtml(u ? (u.name || u.email) : e);
+                    }).join(', ');
+                } else {
+                    btn.innerHTML = '<span class="unassigned-label">Unassigned</span>';
+                }
+            }
             showMsg('Assignee updated');
         } catch (err) {
             console.error('Error updating assignee:', err);
             showMsg('Error updating assignee', true);
         }
+    }
+
+    // ── Assignee Dropdown ──────────────────
+    let activeAssigneeDropdown = null;
+
+    function openAssigneeDropdown(taskId, triggerEl) {
+        closeAssigneeDropdown();
+        const task = state.allTasks.find(t => t.id === taskId);
+        if (!task) return;
+        const selected = new Set((task.assignedTo || []).map(e => e.toLowerCase()));
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'assignee-dropdown';
+        dropdown.innerHTML = `
+            <div class="assignee-dd-search"><input type="text" class="assignee-dd-input" placeholder="Search users\u2026" autocomplete="off"></div>
+            <div class="assignee-dd-list"></div>
+        `;
+        document.body.appendChild(dropdown);
+        activeAssigneeDropdown = { el: dropdown, taskId: taskId, selected: selected };
+
+        // Position
+        const rect = triggerEl.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.minWidth = Math.max(rect.width, 220) + 'px';
+
+        // Clamp to viewport
+        requestAnimationFrame(() => {
+            const dRect = dropdown.getBoundingClientRect();
+            if (dRect.right > window.innerWidth - 8) dropdown.style.left = Math.max(8, window.innerWidth - dRect.width - 8) + 'px';
+            if (dRect.bottom > window.innerHeight - 8) dropdown.style.top = Math.max(8, rect.top - dRect.height - 4) + 'px';
+        });
+
+        renderAssigneeOptions('');
+        const input = dropdown.querySelector('.assignee-dd-input');
+        input.focus();
+        input.addEventListener('input', () => renderAssigneeOptions(input.value));
+    }
+
+    function renderAssigneeOptions(query) {
+        if (!activeAssigneeDropdown) return;
+        const { el, selected } = activeAssigneeDropdown;
+        const listEl = el.querySelector('.assignee-dd-list');
+        const q = query.toLowerCase().trim();
+        const filtered = state.companyUsers.filter(u =>
+            !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
+        );
+        if (filtered.length === 0) {
+            listEl.innerHTML = '<div class="assignee-dd-empty">No users found</div>';
+            return;
+        }
+        listEl.innerHTML = filtered.map(u => {
+            const checked = selected.has(u.email) ? ' checked' : '';
+            const initials = (u.name || u.email).substring(0, 2).toUpperCase();
+            return `<label class="assignee-dd-item${checked ? ' is-selected' : ''}">
+                <input type="checkbox" value="${escapeHtml(u.email)}"${checked}>
+                <span class="assignee-dd-avatar">${escapeHtml(initials)}</span>
+                <span class="assignee-dd-info"><span class="assignee-dd-name">${escapeHtml(u.name || u.email)}</span><span class="assignee-dd-email">${escapeHtml(u.email)}</span></span>
+            </label>`;
+        }).join('');
+    }
+
+    function closeAssigneeDropdown() {
+        if (!activeAssigneeDropdown) return;
+        const { el, taskId, selected } = activeAssigneeDropdown;
+        el.remove();
+        if (taskId === '__form__') {
+            // Update form hidden input + tags
+            const emails = Array.from(selected);
+            $('taskAssignees').value = emails.join(',');
+            renderFormAssigneeTags(emails);
+        } else {
+            saveInlineAssigned(taskId, Array.from(selected));
+        }
+        activeAssigneeDropdown = null;
+    }
+
+    function openFormAssigneeDropdown() {
+        const trigger = $('formAssigneeTrigger');
+        if (!trigger) return;
+        const currentVal = ($('taskAssignees').value || '').trim();
+        const emails = currentVal ? currentVal.split(',').map(e => e.trim().toLowerCase()).filter(Boolean) : [];
+        // Reuse the inline dropdown infrastructure with a pseudo taskId
+        closeAssigneeDropdown();
+        const selected = new Set(emails);
+        const dropdown = document.createElement('div');
+        dropdown.className = 'assignee-dropdown';
+        dropdown.innerHTML = `
+            <div class="assignee-dd-search"><input type="text" class="assignee-dd-input" placeholder="Search users\u2026" autocomplete="off"></div>
+            <div class="assignee-dd-list"></div>
+        `;
+        document.body.appendChild(dropdown);
+        activeAssigneeDropdown = { el: dropdown, taskId: '__form__', selected: selected };
+        const rect = trigger.getBoundingClientRect();
+        dropdown.style.top = (rect.bottom + 4) + 'px';
+        dropdown.style.left = rect.left + 'px';
+        dropdown.style.minWidth = Math.max(rect.width, 220) + 'px';
+        requestAnimationFrame(() => {
+            const dRect = dropdown.getBoundingClientRect();
+            if (dRect.right > window.innerWidth - 8) dropdown.style.left = Math.max(8, window.innerWidth - dRect.width - 8) + 'px';
+            if (dRect.bottom > window.innerHeight - 8) dropdown.style.top = Math.max(8, rect.top - dRect.height - 4) + 'px';
+        });
+        renderAssigneeOptions('');
+        const input = dropdown.querySelector('.assignee-dd-input');
+        input.focus();
+        input.addEventListener('input', () => renderAssigneeOptions(input.value));
+    }
+
+    function renderFormAssigneeTags(emails) {
+        const container = $('formAssigneeTags');
+        if (!container) return;
+        if (emails.length === 0) {
+            container.innerHTML = '';
+            $('formAssigneeTrigger').textContent = 'Select users\u2026';
+            return;
+        }
+        $('formAssigneeTrigger').textContent = emails.length + ' user' + (emails.length > 1 ? 's' : '') + ' selected';
+        container.innerHTML = emails.map(e => {
+            const u = state.companyUsers.find(cu => cu.email === e);
+            return '<span class="assignee-tag">' + escapeHtml(u ? (u.name || u.email) : e) + '</span>';
+        }).join('');
     }
 
     async function postInlineComment(taskId) {
@@ -784,6 +947,9 @@
             if (entityType) populateEntityDropdown(entityType);
         });
 
+        // Form assignee picker
+        $('formAssigneeTrigger').addEventListener('click', () => openFormAssigneeDropdown());
+
         // Task detail drawer
         $('closeTaskDetail').addEventListener('click', closeTaskDetail);
 
@@ -890,10 +1056,32 @@
             // Post comment
             const postBtn = e.target.closest('.btn-post-comment');
             if (postBtn) { postInlineComment(postBtn.dataset.taskId); return; }
+
+            // Assignee trigger
+            const assignBtn = e.target.closest('.assignee-trigger');
+            if (assignBtn) { openAssigneeDropdown(assignBtn.dataset.taskId, assignBtn); return; }
+
+            // Close assignee dropdown on outside click
+            if (activeAssigneeDropdown && !e.target.closest('.assignee-dropdown') && !e.target.closest('.assignee-trigger')) {
+                closeAssigneeDropdown();
+            }
         });
 
-        // Inline status change
+        // Assignee dropdown checkbox toggle
         document.addEventListener('change', async (e) => {
+            if (activeAssigneeDropdown && e.target.closest('.assignee-dd-item input[type="checkbox"]')) {
+                const cb = e.target;
+                const email = cb.value.toLowerCase();
+                if (cb.checked) {
+                    activeAssigneeDropdown.selected.add(email);
+                } else {
+                    activeAssigneeDropdown.selected.delete(email);
+                }
+                const item = cb.closest('.assignee-dd-item');
+                if (item) item.classList.toggle('is-selected', cb.checked);
+                return;
+            }
+
             const sel = e.target.closest('.inline-status');
             if (sel) {
                 await changeTaskStatus(sel.dataset.taskId, sel.value);
@@ -910,12 +1098,6 @@
                 const task = state.allTasks.find(t => t.id === detailSel.dataset.taskId);
                 if (task) showTaskDetail(task);
             }
-        });
-
-        // Inline assigned-to save on blur
-        document.addEventListener('focusout', async (e) => {
-            const inp = e.target.closest('.inline-assigned');
-            if (inp) await saveInlineAssigned(inp.dataset.taskId, inp.value);
         });
 
         // Comment input Enter key
@@ -987,6 +1169,7 @@
             if (activeContainer) activeContainer.classList.add('active');
 
             await loadCustomStatuses();
+            await loadCompanyUsers();
             await loadTasks();
             initEventListeners();
         });

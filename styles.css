@@ -2866,34 +2866,197 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     white-space: nowrap;
 }
 
-/* Inline assigned input */
-.inline-assigned {
+/* Assignee trigger button */
+.assignee-trigger {
+    display: block;
     width: 100%;
-    min-width: 110px;
-    border: 1px solid transparent;
+    text-align: left;
     background: transparent;
+    border: 1px solid transparent;
     font: inherit;
     font-size: 0.8rem;
     color: var(--gray-600);
     padding: 0.3rem 0.4rem;
     border-radius: 4px;
+    cursor: pointer;
     transition: var(--transition);
-    outline: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.inline-assigned:hover {
+.assignee-trigger:hover {
     border-color: var(--gray-200);
+    background: rgba(79, 70, 229, 0.02);
 }
 
-.inline-assigned:focus {
-    border-color: var(--primary);
-    background: var(--white);
-    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.12);
-}
-
-.inline-assigned::placeholder {
+.unassigned-label {
     color: var(--gray-300);
     font-style: italic;
+}
+
+/* Assignee dropdown */
+.assignee-dropdown {
+    position: fixed;
+    z-index: 10000;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    max-height: 320px;
+    display: flex;
+    flex-direction: column;
+    animation: fadeInDown 0.12s ease;
+}
+
+@keyframes fadeInDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.assignee-dd-search {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.assignee-dd-input {
+    width: 100%;
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font: inherit;
+    font-size: 0.8rem;
+    color: var(--gray-800);
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.assignee-dd-input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.1);
+}
+
+.assignee-dd-input::placeholder {
+    color: var(--gray-300);
+}
+
+.assignee-dd-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.25rem;
+}
+
+.assignee-dd-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.1s;
+    user-select: none;
+}
+
+.assignee-dd-item:hover {
+    background: rgba(79, 70, 229, 0.04);
+}
+
+.assignee-dd-item.is-selected {
+    background: rgba(79, 70, 229, 0.06);
+}
+
+.assignee-dd-item input[type="checkbox"] {
+    flex-shrink: 0;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--primary);
+    cursor: pointer;
+}
+
+.assignee-dd-avatar {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+    color: var(--primary);
+    font-size: 0.65rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.assignee-dd-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.assignee-dd-name {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--gray-800);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.assignee-dd-email {
+    font-size: 0.7rem;
+    color: var(--gray-400);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.assignee-dd-empty {
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--gray-400);
+}
+
+/* Form assignee picker */
+.form-assignee-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.form-assignee-trigger {
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 6px;
+    background: var(--white);
+    font: inherit;
+    font-size: 0.84rem;
+    color: var(--gray-500);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.form-assignee-trigger:hover {
+    border-color: var(--primary);
+}
+
+.form-assignee-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+}
+
+.assignee-tag {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    background: rgba(79, 70, 229, 0.08);
+    color: var(--primary);
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 4px;
 }
 
 /* Inline status select */
