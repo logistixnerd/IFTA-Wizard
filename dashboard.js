@@ -8405,7 +8405,9 @@
                 kind: 'unassigned-drivers',
                 text: unassigned.length + ' active driver' + (unassigned.length > 1 ? 's' : '') + ' unassigned to a truck',
                 drivers: unassigned.map((d) => ({
+                    id: d.id,
                     name: [d.firstName, d.lastName].filter(Boolean).join(' ').trim() || 'Unnamed driver',
+                    initials: ((d.firstName || '').charAt(0) + (d.lastName || '').charAt(0)).toUpperCase() || '?',
                     phone: (d.phone || '').trim(),
                     cdl: (d.cdl || '').trim()
                 }))
@@ -8469,8 +8471,12 @@
                 const rows = (a.drivers || []).map((driver) => {
                     const subtitle = [driver.phone, driver.cdl ? ('CDL: ' + driver.cdl) : '']
                         .filter(Boolean)
-                        .join(' | ');
-                    return `<li class="alert-dropdown-item"><span class="alert-dropdown-name">${escapeHtml(driver.name)}</span>${subtitle ? `<span class="alert-dropdown-meta">${escapeHtml(subtitle)}</span>` : ''}</li>`;
+                        .join(' \u00b7 ');
+                    return `<li class="alert-dropdown-item" data-driver-id="${escapeHtml(driver.id)}">`
+                        + `<div class="alert-dropdown-item-avatar">${escapeHtml(driver.initials)}</div>`
+                        + `<div class="alert-dropdown-item-copy"><span class="alert-dropdown-name">${escapeHtml(driver.name)}</span>${subtitle ? `<span class="alert-dropdown-meta">${escapeHtml(subtitle)}</span>` : ''}</div>`
+                        + `<svg class="alert-dropdown-item-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`
+                        + `</li>`;
                 }).join('');
                 return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned" data-alert-kind="unassigned-drivers">`
                     + `<button type="button" class="alert-dropdown-trigger" aria-expanded="false" aria-controls="${detailId}">`
@@ -8498,6 +8504,12 @@
                 btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
                 panel.hidden = expanded;
                 alertEl.classList.toggle('expanded', !expanded);
+            });
+        });
+
+        container.querySelectorAll('.alert-dropdown-item[data-driver-id]').forEach((item) => {
+            item.addEventListener('click', () => {
+                openDriverProfile(item.dataset.driverId);
             });
         });
     }
