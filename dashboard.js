@@ -8472,9 +8472,14 @@
                     const subtitle = [driver.phone, driver.cdl ? ('CDL: ' + driver.cdl) : '']
                         .filter(Boolean)
                         .join(' \u00b7 ');
+                    const activeTrucks = state.trucks.filter(t => t.status === 'active');
+                    const truckOpts = '<option value="">Assign truck\u2026</option>' + activeTrucks.map(t =>
+                        '<option value="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit) + '</option>'
+                    ).join('');
                     return `<li class="alert-dropdown-item" data-driver-id="${escapeHtml(driver.id)}">`
                         + `<div class="alert-dropdown-item-avatar">${escapeHtml(driver.initials)}</div>`
                         + `<div class="alert-dropdown-item-copy"><span class="alert-dropdown-name">${escapeHtml(driver.name)}</span>${subtitle ? `<span class="alert-dropdown-meta">${escapeHtml(subtitle)}</span>` : ''}</div>`
+                        + `<select class="alert-dropdown-truck-select" data-driver-id="${escapeHtml(driver.id)}">${truckOpts}</select>`
                         + `<svg class="alert-dropdown-item-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`
                         + `</li>`;
                 }).join('');
@@ -8508,8 +8513,30 @@
         });
 
         container.querySelectorAll('.alert-dropdown-item[data-driver-id]').forEach((item) => {
-            item.addEventListener('click', () => {
-                openDriverProfile(item.dataset.driverId);
+            const avatar = item.querySelector('.alert-dropdown-item-avatar');
+            const copy = item.querySelector('.alert-dropdown-item-copy');
+            const arrow = item.querySelector('.alert-dropdown-item-arrow');
+            const driverId = item.dataset.driverId;
+            [avatar, copy, arrow].forEach(el => {
+                if (el) el.addEventListener('click', () => openDriverProfile(driverId));
+            });
+        });
+
+        container.querySelectorAll('.alert-dropdown-truck-select').forEach((sel) => {
+            sel.addEventListener('click', (e) => e.stopPropagation());
+            sel.addEventListener('change', async () => {
+                const driverId = sel.dataset.driverId;
+                const truckId = sel.value;
+                if (!truckId) return;
+                try {
+                    await col('drivers').doc(driverId).update({ truck: truckId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                    const d = state.drivers.find(x => x.id === driverId);
+                    if (d) d.truck = truckId;
+                    const truck = state.trucks.find(t => t.id === truckId);
+                    showMsg('Assigned to ' + (truck ? truck.unit : 'truck'));
+                    renderDrivers();
+                    updateOverview();
+                } catch (err) { console.error(err); showMsg('Error assigning truck', true); }
             });
         });
     }
