@@ -2575,7 +2575,13 @@
             { key: 'violations', label: 'Violations', type: 'number', width: '72px', placeholder: '0', default: true },
             { key: 'location', label: 'Location', type: 'text', width: '120px', placeholder: 'City, ST', default: true },
             { key: 'fineAmount', label: 'Fine $', type: 'number', width: '72px', placeholder: '0.00', default: false },
-            { key: 'notes', label: 'Notes', type: 'text', width: '160px', placeholder: 'Details...', default: false }
+            { key: 'notes', label: 'Notes', type: 'text', width: '160px', placeholder: 'Details...', default: false },
+            { key: 'inspStatus', label: 'Status', type: 'select', width: '100px', default: false, options: [
+                { value: 'open', label: 'Open' }, { value: 'resolved', label: 'Resolved' }
+            ]},
+            { key: 'paidStatus', label: 'Paid', type: 'select', width: '80px', default: false, options: [
+                { value: 'unpaid', label: 'Unpaid' }, { value: 'paid', label: 'Paid' }
+            ]}
         ]
     };
 
@@ -6988,7 +6994,7 @@
             requiredKey: 'date',
             defaults: { violations: 0 },
             afterSave: async () => { await loadInspections(); },
-            extraFields: ['driverName', 'truckUnit', 'location', 'violations', 'fineAmount', 'notes']
+            extraFields: ['driverName', 'truckUnit', 'location', 'violations', 'fineAmount', 'notes', 'inspStatus', 'paidStatus']
         }
     };
 
@@ -8184,10 +8190,13 @@
         if (type === 'inspection') {
             const typeF = $('inspectionTypeFilter');
             const resultF = $('inspectionResultFilter');
+            const statusF = $('inspectionStatusFilter');
             const tf = typeF ? typeF.value : '';
             const rf = resultF ? resultF.value : '';
+            const sf = statusF ? statusF.value : '';
             if (tf && item.type !== tf) return false;
             if (rf && item.result !== rf) return false;
+            if (sf && (item.inspStatus || 'open') !== sf) return false;
             if (!q) return true;
             return [item.reportNum, item.driverName, item.truckUnit, item.location, item.type, item.result, item.notes].some(v => v && String(v).toLowerCase().includes(q));
         }
@@ -8211,7 +8220,7 @@
             const el = $(id);
             if (el) el.addEventListener('input', renderLoads);
         });
-        ['inspectionSearch', 'inspectionTypeFilter', 'inspectionResultFilter'].forEach(id => {
+        ['inspectionSearch', 'inspectionTypeFilter', 'inspectionResultFilter', 'inspectionStatusFilter'].forEach(id => {
             const el = $(id);
             if (el) el.addEventListener('input', renderInspections);
         });
@@ -9365,7 +9374,16 @@
             const map = { 'level-1': 'Level I', 'level-2': 'Level II', 'level-3': 'Level III', 'level-4': 'Level IV', 'level-5': 'Level V', 'citation': 'Citation' };
             return map[t] || t || '—';
         };
-        tbody.innerHTML = sorted.map(d => `<tr data-id="${d.id}">
+        tbody.innerHTML = sorted.map(d => {
+            const resolved = d.inspStatus === 'resolved';
+            const paid = d.paidStatus === 'paid';
+            const statusBadge = resolved
+                ? '<span class="insp-badge badge-green">Resolved</span>'
+                : '<span class="insp-badge badge-red">Open</span>';
+            const paidBadge = (d.fineAmount && parseFloat(d.fineAmount) > 0)
+                ? (paid ? '<span class="insp-badge badge-green">Paid</span>' : '<span class="insp-badge badge-yellow">Unpaid</span>')
+                : '';
+            return `<tr data-id="${d.id}" class="${resolved ? 'insp-resolved' : ''}">
             <td><div class="cell">${escapeHtml(d.date || '—')}</div></td>
             <td><div class="cell">${escapeHtml(typeFmt(d.type))}</div></td>
             <td><div class="cell">${escapeHtml(d.reportNum || '—')}</div></td>
@@ -9374,8 +9392,17 @@
             <td><div class="cell">${escapeHtml(d.location || '—')}</div></td>
             <td><div class="cell">${resultBadge(d.result)}</div></td>
             <td><div class="cell">${d.violations != null ? escapeHtml(String(d.violations)) : '0'}</div></td>
-            <td><div class="cell text-muted">${escapeHtml(d.notes || '')}</div></td>
+            <td><div class="cell">${statusBadge} ${paidBadge}</div></td>
             <td class="row-actions"><div class="cell">
+                <button title="${resolved ? 'Reopen' : 'Mark Resolved'}" class="insp-action-btn ${resolved ? 'insp-btn-reopen' : 'insp-btn-resolve'}" onclick="Dashboard.toggleInspResolved('${d.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg>
+                </button>
+                ${(d.fineAmount && parseFloat(d.fineAmount) > 0) ? `<button title="${paid ? 'Mark Unpaid' : 'Mark Paid'}" class="insp-action-btn ${paid ? 'insp-btn-paid' : 'insp-btn-unpaid'}" onclick="Dashboard.toggleInspPaid('${d.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </button>` : ''}
+                <button title="Create Task" class="insp-action-btn insp-btn-task" onclick="Dashboard.createInspTask('${d.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </button>
                 <button title="Edit" onclick="Dashboard.editInspection('${d.id}')">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                 </button>
@@ -9383,7 +9410,8 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                 </button>
             </div></td>
-        </tr>`).join('');
+        </tr>`;
+        }).join('');
     }
 
     function editInspection(id) {
@@ -9398,6 +9426,59 @@
             await loadInspections();
             showMsg('Inspection deleted');
         } catch (e) { console.error(e); showMsg('Error deleting inspection', true); }
+    }
+
+    async function toggleInspResolved(id) {
+        const d = state.inspections.find(x => x.id === id);
+        if (!d) return;
+        const newStatus = d.inspStatus === 'resolved' ? 'open' : 'resolved';
+        try {
+            await col('inspections').doc(id).update({ inspStatus: newStatus });
+            d.inspStatus = newStatus;
+            renderInspections();
+            showMsg(newStatus === 'resolved' ? 'Inspection marked resolved' : 'Inspection reopened');
+        } catch (e) { console.error(e); showMsg('Error updating status', true); }
+    }
+
+    async function toggleInspPaid(id) {
+        const d = state.inspections.find(x => x.id === id);
+        if (!d) return;
+        const newStatus = d.paidStatus === 'paid' ? 'unpaid' : 'paid';
+        try {
+            await col('inspections').doc(id).update({ paidStatus: newStatus });
+            d.paidStatus = newStatus;
+            renderInspections();
+            showMsg(newStatus === 'paid' ? 'Marked as paid' : 'Marked as unpaid');
+        } catch (e) { console.error(e); showMsg('Error updating paid status', true); }
+    }
+
+    async function createInspTask(id) {
+        const d = state.inspections.find(x => x.id === id);
+        if (!d) return;
+        const typeFmt = { 'level-1': 'Level I', 'level-2': 'Level II', 'level-3': 'Level III', 'level-4': 'Level IV', 'level-5': 'Level V', 'citation': 'Citation' };
+        const typeLabel = typeFmt[d.type] || d.type || 'Inspection';
+        const fine = d.fineAmount && parseFloat(d.fineAmount) > 0 ? ` — Fine: $${parseFloat(d.fineAmount).toFixed(2)}` : '';
+        const text = `${typeLabel} (${d.reportNum || 'No report #'}) — ${d.driverName || 'No driver'} / ${d.truckUnit || 'No truck'} on ${d.date || '?'}${fine}`;
+        const priority = d.result === 'fail' || d.result === 'oos' ? 'high' : 'normal';
+
+        const taskData = {
+            text,
+            type: 'task',
+            status: 'Open',
+            priority,
+            assignedTo: [],
+            dueDate: null,
+            createdBy: state.user.email || state.user.uid,
+            source: 'inspection',
+            inspectionId: id,
+            createdAtIso: new Date().toISOString()
+        };
+
+        try {
+            const result = await FirebaseDB.createTask(state.user.uid, 'inspections', id, taskData);
+            if (!result.success) throw new Error(result.error);
+            showMsg('Task created — view in Task Manager');
+        } catch (e) { console.error(e); showMsg('Error creating task', true); }
     }
 
     function initInspections() {
@@ -9415,7 +9496,7 @@
     window.Dashboard = {
         editTruck, editTrailer, editDriver, editLoad,
         deleteTruck, deleteTrailer, deleteDriver, deleteLoad,
-        editInspection, deleteInspection,
+        editInspection, deleteInspection, toggleInspResolved, toggleInspPaid, createInspTask,
         inlineStatus, inlineTruckAssign,
         toggleBulkSelect, bulkDelete, bulkChangeStatus, bulkExport, bulkEdit,
         openTruckProfile, openTrailerProfile, openDriverProfile,
