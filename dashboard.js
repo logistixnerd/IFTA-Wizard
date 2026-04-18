@@ -1989,6 +1989,12 @@
         hint.style.display = 'none';
         snap.style.display = 'flex';
 
+        // Company name heading
+        const titleEl = $('complianceTitle');
+        const authEl = $('complianceAuthority');
+        if (titleEl && d.legalName) titleEl.textContent = d.legalName;
+        if (authEl) authEl.textContent = d.operationType || '';
+
         // Status bar
         const authorised = d.allowedToOperate === 'Authorized';
         const statusBar = $('complianceStatusBar');

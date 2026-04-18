@@ -668,6 +668,14 @@
     margin: 0;
     white-space: nowrap;
 }
+.compliance-authority {
+    font-size: 0.7rem;
+    color: var(--gray-300);
+    margin: 0.1rem 0 0;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
 
 @media (max-width: 640px) {
     .compliance-stats {
