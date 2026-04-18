@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="dashboard.css?v=71">
+    <link rel="stylesheet" href="dashboard.css?v=72">
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
@@ -1610,6 +1610,35 @@
                         <div class="dispatch-stat-card">
                             <span class="dispatch-stat-value" id="dispAvgRPM">$0</span>
                             <span class="dispatch-stat-label">Avg RPM</span>
+                        </div>
+                    </div>
+                    <!-- Period overview + pulse -->
+                    <div class="disp-pulse-row">
+                        <div class="disp-period-tables">
+                            <table class="disp-period-table">
+                                <thead><tr><th></th><th>Gross</th><th>Miles</th><th>RPM</th><th>Loads</th><th>Avg Rate</th></tr></thead>
+                                <tbody>
+                                    <tr><td class="disp-period-label">This Week</td><td id="dpWeekGross">-</td><td id="dpWeekMiles">-</td><td id="dpWeekRpm">-</td><td id="dpWeekLoads">-</td><td id="dpWeekRate">-</td></tr>
+                                    <tr><td class="disp-period-label">This Month</td><td id="dpMonthGross">-</td><td id="dpMonthMiles">-</td><td id="dpMonthRpm">-</td><td id="dpMonthLoads">-</td><td id="dpMonthRate">-</td></tr>
+                                    <tr><td class="disp-period-label">This Year</td><td id="dpYearGross">-</td><td id="dpYearMiles">-</td><td id="dpYearRpm">-</td><td id="dpYearLoads">-</td><td id="dpYearRate">-</td></tr>
+                                </tbody>
+                            </table>
+                            <table class="disp-period-table">
+                                <thead><tr><th></th><th>Gross</th><th>Miles</th><th>RPM</th><th>Loads</th><th>Avg Rate</th></tr></thead>
+                                <tbody>
+                                    <tr><td class="disp-period-label">Avg / Week</td><td id="dpAvgWeekGross">-</td><td id="dpAvgWeekMiles">-</td><td id="dpAvgWeekRpm">-</td><td id="dpAvgWeekLoads">-</td><td id="dpAvgWeekRate">-</td></tr>
+                                    <tr><td class="disp-period-label">Avg / Month</td><td id="dpAvgMonthGross">-</td><td id="dpAvgMonthMiles">-</td><td id="dpAvgMonthRpm">-</td><td id="dpAvgMonthLoads">-</td><td id="dpAvgMonthRate">-</td></tr>
+                                    <tr><td class="disp-period-label">Avg / Year</td><td id="dpAvgYearGross">-</td><td id="dpAvgYearMiles">-</td><td id="dpAvgYearRpm">-</td><td id="dpAvgYearLoads">-</td><td id="dpAvgYearRate">-</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="disp-pulse-card">
+                            <span class="disp-pulse-label">Revenue Pulse</span>
+                            <canvas id="dispPulseChart" height="80"></canvas>
+                            <div class="disp-pulse-footer">
+                                <span class="disp-pulse-delta" id="dispPulseDelta"></span>
+                                <span class="disp-pulse-range" id="dispPulseRange"></span>
+                            </div>
                         </div>
                     </div>
                     <div class="dispatch-breakdown">
@@ -3848,6 +3877,6 @@
     </aside>
 
     <script src="firebase-config.js?v=4"></script>
-    <script src="dashboard.js?v=77"></script>
+    <script src="dashboard.js?v=78"></script>
 </body>
 </html>

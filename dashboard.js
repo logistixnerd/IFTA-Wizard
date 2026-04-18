@@ -9563,6 +9563,193 @@
         el('dispAvgRate').textContent = '$' + avgRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         el('dispAvgRPM').textContent = '$' + avgRPM.toFixed(2);
         renderDispatchBreakdown(_dispatchTab);
+        renderDispatchPeriods(loads);
+        renderPulseChart(loads);
+    }
+
+    /* ── Period overview tables ── */
+    function renderDispatchPeriods(loads) {
+        const now = new Date();
+        const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const yearStart = new Date(now.getFullYear(), 0, 1);
+
+        function agg(filtered) {
+            let gross = 0, miles = 0, rS = 0, rN = 0;
+            filtered.forEach(l => {
+                const r = parseFloat(l.rate) || 0, d = parseFloat(l.detention) || 0, m = parseFloat(l.mileage) || 0;
+                gross += r + d; miles += m;
+                if (m > 0 && r > 0) { rS += r / m; rN++; }
+            });
+            return { gross, miles, rpm: rN ? rS / rN : 0, loads: filtered.length, avgRate: filtered.length ? gross / filtered.length : 0 };
+        }
+
+        function inRange(l, start) {
+            const d = l.loadDate ? new Date(l.loadDate) : null;
+            return d && !isNaN(d.getTime()) && d >= start;
+        }
+
+        const week = agg(loads.filter(l => inRange(l, weekStart)));
+        const month = agg(loads.filter(l => inRange(l, monthStart)));
+        const year = agg(loads.filter(l => inRange(l, yearStart)));
+
+        // Averages: group loads by period and compute average
+        function avgByPeriod(keyFn) {
+            const buckets = {};
+            loads.forEach(l => {
+                const d = l.loadDate ? new Date(l.loadDate) : null;
+                if (!d || isNaN(d.getTime())) return;
+                const k = keyFn(d);
+                if (!buckets[k]) buckets[k] = [];
+                buckets[k].push(l);
+            });
+            const keys = Object.keys(buckets);
+            if (!keys.length) return { gross: 0, miles: 0, rpm: 0, loads: 0, avgRate: 0 };
+            const totals = keys.map(k => agg(buckets[k]));
+            const n = totals.length;
+            return {
+                gross: totals.reduce((s, t) => s + t.gross, 0) / n,
+                miles: totals.reduce((s, t) => s + t.miles, 0) / n,
+                rpm: totals.reduce((s, t) => s + t.rpm, 0) / n,
+                loads: totals.reduce((s, t) => s + t.loads, 0) / n,
+                avgRate: totals.reduce((s, t) => s + t.avgRate, 0) / n
+            };
+        }
+
+        function weekKey(d) {
+            const jan1 = new Date(d.getFullYear(), 0, 1);
+            const wn = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+            return d.getFullYear() + '-W' + wn;
+        }
+
+        const avgWeek = avgByPeriod(weekKey);
+        const avgMonth = avgByPeriod(d => d.getFullYear() + '-' + (d.getMonth() + 1));
+        const avgYear = avgByPeriod(d => '' + d.getFullYear());
+
+        const f$ = v => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        const fRpm = v => v > 0 ? '$' + v.toFixed(2) : '-';
+        const fN = v => typeof v === 'number' && v % 1 !== 0 ? v.toFixed(1) : String(v || 0);
+
+        function fill(prefix, data) {
+            const e = id => $(id);
+            e(prefix + 'Gross').textContent = f$(data.gross);
+            e(prefix + 'Miles').textContent = Math.round(data.miles).toLocaleString();
+            e(prefix + 'Rpm').textContent = fRpm(data.rpm);
+            e(prefix + 'Loads').textContent = fN(data.loads);
+            e(prefix + 'Rate').textContent = f$(data.avgRate);
+        }
+
+        fill('dpWeek', week);
+        fill('dpMonth', month);
+        fill('dpYear', year);
+        fill('dpAvgWeek', avgWeek);
+        fill('dpAvgMonth', avgMonth);
+        fill('dpAvgYear', avgYear);
+    }
+
+    /* ── Revenue Pulse chart (sparkline) ── */
+    let _pulseChart = null;
+    function renderPulseChart(loads) {
+        const canvas = $('dispPulseChart');
+        if (!canvas || typeof Chart === 'undefined') return;
+
+        // Build daily gross for last 60 days
+        const now = new Date();
+        const days = 60;
+        const dayMap = {};
+        for (let i = days - 1; i >= 0; i--) {
+            const d = new Date(now); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
+            dayMap[d.toISOString().slice(0, 10)] = 0;
+        }
+        loads.forEach(l => {
+            const d = l.loadDate ? new Date(l.loadDate) : null;
+            if (!d || isNaN(d.getTime())) return;
+            const key = d.toISOString().slice(0, 10);
+            if (key in dayMap) {
+                dayMap[key] += (parseFloat(l.rate) || 0) + (parseFloat(l.detention) || 0);
+            }
+        });
+
+        const keys = Object.keys(dayMap).sort();
+        const vals = keys.map(k => dayMap[k]);
+
+        // Rolling 7-day average for smoother line
+        const smooth = vals.map((_, i) => {
+            const start = Math.max(0, i - 6);
+            const slice = vals.slice(start, i + 1);
+            return slice.reduce((a, b) => a + b, 0) / slice.length;
+        });
+
+        // Delta text
+        const recent7 = vals.slice(-7).reduce((a, b) => a + b, 0);
+        const prev7 = vals.slice(-14, -7).reduce((a, b) => a + b, 0);
+        const deltaEl = $('dispPulseDelta');
+        const rangeEl = $('dispPulseRange');
+        if (deltaEl) {
+            if (prev7 > 0) {
+                const pct = ((recent7 - prev7) / prev7 * 100).toFixed(1);
+                const up = recent7 >= prev7;
+                deltaEl.textContent = (up ? '▲ ' : '▼ ') + Math.abs(pct) + '% vs prev week';
+                deltaEl.className = 'disp-pulse-delta ' + (up ? 'pulse-up' : 'pulse-down');
+            } else {
+                deltaEl.textContent = '';
+            }
+        }
+        if (rangeEl) {
+            rangeEl.textContent = 'Last 60 days · 7-day avg';
+        }
+
+        // Determine line color from trend
+        const lineColor = recent7 >= prev7 ? '#22c55e' : '#ef4444';
+        const fillColor = recent7 >= prev7 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
+
+        if (_pulseChart) _pulseChart.destroy();
+        _pulseChart = new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: keys.map(k => { const d = new Date(k); return (d.getMonth()+1) + '/' + d.getDate(); }),
+                datasets: [{
+                    data: smooth,
+                    borderColor: lineColor,
+                    backgroundColor: fillColor,
+                    borderWidth: 1.5,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHitRadius: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: ctx => ctx[0].label,
+                            label: ctx => '$' + ctx.raw.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+                        },
+                        backgroundColor: 'rgba(30,27,75,0.9)',
+                        titleFont: { size: 10 },
+                        bodyFont: { size: 11, weight: 'bold' },
+                        padding: 6,
+                        cornerRadius: 8,
+                        displayColors: false
+                    }
+                },
+                scales: {
+                    y: {
+                        display: false,
+                        beginAtZero: true
+                    },
+                    x: {
+                        display: false
+                    }
+                },
+                interaction: { intersect: false, mode: 'index' }
+            }
+        });
     }
 
     function aggregateLoadsBy(key) {

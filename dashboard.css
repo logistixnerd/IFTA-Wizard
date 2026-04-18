@@ -6021,6 +6021,117 @@ tr:hover .load-doc-btn {
     text-transform: uppercase;
     letter-spacing: 0.45px;
 }
+
+/* ── Period overview + Pulse ── */
+.disp-pulse-row {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 0.65rem;
+    margin-bottom: 0.75rem;
+}
+.disp-period-tables {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+.disp-period-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(255,255,255,0.38);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.45);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+.disp-period-table th {
+    font-size: 0.5rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(107,114,128,0.55);
+    padding: 0.3rem 0.5rem;
+    text-align: right;
+    border-bottom: 1px solid rgba(0,0,0,0.03);
+    background: rgba(249,250,251,0.4);
+}
+.disp-period-table th:first-child {
+    text-align: left;
+    width: 80px;
+}
+.disp-period-table td {
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: rgba(30,27,75,0.55);
+    padding: 0.28rem 0.5rem;
+    text-align: right;
+    border-bottom: 1px solid rgba(0,0,0,0.015);
+    letter-spacing: -0.01em;
+}
+.disp-period-table tr:last-child td { border-bottom: none; }
+.disp-period-table tr:hover td {
+    color: rgba(30,27,75,0.8);
+    background: rgba(99,102,241,0.03);
+}
+.disp-period-label {
+    text-align: left !important;
+    font-size: 0.56rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(107,114,128,0.6) !important;
+}
+.disp-pulse-card {
+    background: rgba(255,255,255,0.38);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.45);
+    border-radius: 10px;
+    padding: 0.6rem 0.7rem 0.45rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    display: flex;
+    flex-direction: column;
+}
+.disp-pulse-label {
+    font-size: 0.52rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgba(107,114,128,0.55);
+    margin-bottom: 0.35rem;
+}
+.disp-pulse-card canvas {
+    flex: 1;
+    width: 100% !important;
+    min-height: 60px;
+}
+.disp-pulse-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.3rem;
+    gap: 0.4rem;
+}
+.disp-pulse-delta {
+    font-size: 0.58rem;
+    font-weight: 800;
+    color: #9ca3af;
+}
+.disp-pulse-delta.pulse-up { color: #22c55e; }
+.disp-pulse-delta.pulse-down { color: #ef4444; }
+.disp-pulse-range {
+    font-size: 0.48rem;
+    font-weight: 600;
+    color: rgba(156,163,175,0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+@media (max-width: 900px) {
+    .disp-pulse-row { grid-template-columns: 1fr; }
+    .disp-pulse-card { min-height: 100px; }
+}
 .dispatch-breakdown {
     background: rgba(255,255,255,0.72);
     backdrop-filter: blur(16px);
