@@ -12,6 +12,7 @@
         trailers: [],
         drivers: [],
         loads: [],
+        inspections: [],
         profile: {},
         fmcsaSnapshot: null,
         dropdownOptions: {},
@@ -658,7 +659,7 @@
         // Map sections to their parent department groups
         const sectionGroups = {
             // Safety
-            'safety': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'compliance': 'safety',
+            'safety': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'compliance': 'safety', 'inspections': 'safety',
             // Fleet Maintenance
             'maintenance': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
             // Dispatch
@@ -2397,7 +2398,7 @@
     }
 
     // ── Sort State ──
-    const sortState = { trucks: 'unit-az', trailers: 'unit-az', drivers: 'name-az', loads: 'date-desc' };
+    const sortState = { trucks: 'unit-az', trailers: 'unit-az', drivers: 'name-az', loads: 'date-desc', inspections: 'date-new' };
 
     function sortItems(arr, sortKey, type) {
         const cmp = (a, b, field, dir) => {
@@ -2448,6 +2449,13 @@
             case 'rpm-high': sorted.sort((a, b) => { const ra = (parseFloat(a.rate)||0)/(parseFloat(a.mileage)||1); const rb = (parseFloat(b.rate)||0)/(parseFloat(b.mileage)||1); return rb - ra; }); break;
             case 'broker-az': sorted.sort((a, b) => cmp(a, b, 'broker', 'asc')); break;
             case 'del-date': sorted.sort((a, b) => dateCmp(a, b, 'deliveryDate', true)); break;
+            // Inspections
+            case 'date-new': sorted.sort((a, b) => dateCmp(a, b, 'date', false)); break;
+            case 'date-old': sorted.sort((a, b) => dateCmp(a, b, 'date', true)); break;
+            case 'driver-az': sorted.sort((a, b) => cmp(a, b, 'driverName', 'asc')); break;
+            case 'truck-az': sorted.sort((a, b) => cmp(a, b, 'truckUnit', 'asc')); break;
+            case 'type': sorted.sort((a, b) => cmp(a, b, 'type', 'asc')); break;
+            case 'result': sorted.sort((a, b) => cmp(a, b, 'result', 'asc')); break;
         }
         return sorted;
     }
@@ -8123,6 +8131,16 @@
         if (type === 'load') {
             return [item.loadNumber, item.unit, item.origin, item.destination, item.broker, item.driver, item.dispatcher, item.comments].some(v => v && String(v).toLowerCase().includes(q));
         }
+        if (type === 'inspection') {
+            const typeF = $('inspectionTypeFilter');
+            const resultF = $('inspectionResultFilter');
+            const tf = typeF ? typeF.value : '';
+            const rf = resultF ? resultF.value : '';
+            if (tf && item.type !== tf) return false;
+            if (rf && item.result !== rf) return false;
+            if (!q) return true;
+            return [item.reportNum, item.driverName, item.truckUnit, item.location, item.type, item.result, item.notes].some(v => v && String(v).toLowerCase().includes(q));
+        }
         return true;
     }
 
@@ -8143,6 +8161,10 @@
             const el = $(id);
             if (el) el.addEventListener('input', renderLoads);
         });
+        ['inspectionSearch', 'inspectionTypeFilter', 'inspectionResultFilter'].forEach(id => {
+            const el = $(id);
+            if (el) el.addEventListener('input', renderInspections);
+        });
         // Sort dropdowns
         const truckSort = $('truckSort');
         if (truckSort) truckSort.addEventListener('change', () => { sortState.trucks = truckSort.value; renderTrucks(); });
@@ -8152,6 +8174,8 @@
         if (driverSort) driverSort.addEventListener('change', () => { sortState.drivers = driverSort.value; renderDrivers(); });
         const loadSort = $('loadSort');
         if (loadSort) loadSort.addEventListener('change', () => { sortState.loads = loadSort.value; renderLoads(); });
+        const inspSort = $('inspectionSort');
+        if (inspSort) inspSort.addEventListener('change', () => { sortState.inspections = inspSort.value; renderInspections(); });
         // Select-all checkboxes
         const truckSelAll = $('truckSelectAll');
         if (truckSelAll) truckSelAll.addEventListener('change', () => toggleSelectAll('trucks', truckSelAll));
@@ -9225,6 +9249,7 @@
         initModalBackdrops();
         initSearchFilters();
         initInlineEditing();
+        initInspections();
         initGoogleDriveForImport();
         initSamsara();
         initAuth();
@@ -9257,10 +9282,161 @@
         }
     }
 
+    // ── INSPECTIONS & CITATIONS ───────────
+    async function loadInspections() {
+        try {
+            const snap = await col('inspections').orderBy('date', 'desc').get();
+            state.inspections = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            renderInspections();
+            updateCount('inspectionCount', state.inspections.length);
+        } catch (e) { console.error('Load inspections error:', e); }
+    }
+
+    function renderInspections() {
+        const tbody = $('inspectionsTableBody');
+        const table = $('inspectionsTable');
+        const empty = $('inspectionsEmpty');
+        if (!tbody) return;
+        if (state.inspections.length === 0) {
+            table.style.display = 'none';
+            empty.style.display = '';
+            return;
+        }
+        empty.style.display = 'none';
+        table.style.display = '';
+        const filtered = state.inspections.filter(d => matchesFilter(d, 'inspection'));
+        const sorted = sortItems(filtered, sortState.inspections, 'inspection');
+        const resultBadge = (r) => {
+            const cls = r === 'pass' ? 'badge-green' : r === 'fail' || r === 'oos' ? 'badge-red' : r === 'warning' ? 'badge-yellow' : 'badge-gray';
+            const label = r === 'oos' ? 'OOS' : r ? r.charAt(0).toUpperCase() + r.slice(1) : '—';
+            return '<span class="insp-badge ' + cls + '">' + escapeHtml(label) + '</span>';
+        };
+        const typeFmt = (t) => {
+            const map = { 'roadside': 'Roadside', 'dot-audit': 'DOT Audit', 'annual': 'Annual', 'pre-trip': 'Pre-Trip', 'post-trip': 'Post-Trip', 'citation': 'Citation' };
+            return map[t] || t || '—';
+        };
+        tbody.innerHTML = sorted.map(d => `<tr data-id="${d.id}">
+            <td><div class="cell">${escapeHtml(d.date || '—')}</div></td>
+            <td><div class="cell">${escapeHtml(typeFmt(d.type))}</div></td>
+            <td><div class="cell">${escapeHtml(d.reportNum || '—')}</div></td>
+            <td><div class="cell">${escapeHtml(d.driverName || '—')}</div></td>
+            <td><div class="cell">${escapeHtml(d.truckUnit || '—')}</div></td>
+            <td><div class="cell">${escapeHtml(d.location || '—')}</div></td>
+            <td><div class="cell">${resultBadge(d.result)}</div></td>
+            <td><div class="cell">${d.violations != null ? escapeHtml(String(d.violations)) : '0'}</div></td>
+            <td><div class="cell text-muted">${escapeHtml(d.notes || '')}</div></td>
+            <td class="row-actions"><div class="cell">
+                <button title="Edit" onclick="Dashboard.editInspection('${d.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteInspection('${d.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </div></td>
+        </tr>`).join('');
+    }
+
+    function populateInspectionDropdowns() {
+        const driverSel = $('inspectionDriver');
+        const truckSel = $('inspectionTruck');
+        if (driverSel) {
+            driverSel.innerHTML = '<option value="">Select driver...</option>' +
+                state.drivers.map(d => '<option value="' + escapeHtml(d.id) + '">' + escapeHtml(d.firstName + ' ' + d.lastName) + '</option>').join('');
+        }
+        if (truckSel) {
+            truckSel.innerHTML = '<option value="">Select truck...</option>' +
+                state.trucks.map(t => '<option value="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit) + '</option>').join('');
+        }
+    }
+
+    function openInspectionModal(data) {
+        $('inspectionModalTitle').textContent = data ? 'Edit Inspection' : 'Add Inspection';
+        $('inspectionEditId').value = data ? data.id : '';
+        $('inspectionDate').value = data ? data.date || '' : new Date().toISOString().slice(0, 10);
+        $('inspectionType').value = data ? data.type || '' : '';
+        $('inspectionReportNum').value = data ? data.reportNum || '' : '';
+        $('inspectionResult').value = data ? data.result || '' : '';
+        $('inspectionDriver').value = data ? data.driverId || '' : '';
+        $('inspectionTruck').value = data ? data.truckId || '' : '';
+        $('inspectionLocation').value = data ? data.location || '' : '';
+        $('inspectionViolations').value = data ? (data.violations ?? 0) : 0;
+        $('inspectionFineAmount').value = data ? (data.fineAmount ?? '') : '';
+        $('inspectionNotes').value = data ? data.notes || '' : '';
+        populateInspectionDropdowns();
+        if (data && data.driverId) $('inspectionDriver').value = data.driverId;
+        if (data && data.truckId) $('inspectionTruck').value = data.truckId;
+        $('inspectionModal').classList.remove('hidden');
+    }
+
+    function editInspection(id) {
+        const d = state.inspections.find(x => x.id === id);
+        if (d) openInspectionModal(d);
+    }
+
+    async function deleteInspection(id) {
+        if (!confirm('Delete this inspection? This cannot be undone.')) return;
+        try {
+            await col('inspections').doc(id).delete();
+            await loadInspections();
+            showMsg('Inspection deleted');
+        } catch (e) { console.error(e); showMsg('Error deleting inspection', true); }
+    }
+
+    function initInspections() {
+        const addBtn = $('addInspectionBtn');
+        const addFirst = $('addFirstInspection');
+        const closeBtn = $('closeInspectionModal');
+        const cancelBtn = $('cancelInspection');
+        const form = $('inspectionForm');
+
+        if (addBtn) addBtn.addEventListener('click', () => openInspectionModal(null));
+        if (addFirst) addFirst.addEventListener('click', () => openInspectionModal(null));
+        if (closeBtn) closeBtn.addEventListener('click', () => $('inspectionModal').classList.add('hidden'));
+        if (cancelBtn) cancelBtn.addEventListener('click', () => $('inspectionModal').classList.add('hidden'));
+
+        if (form) form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const editId = $('inspectionEditId').value;
+            const driverSel = $('inspectionDriver');
+            const truckSel = $('inspectionTruck');
+            const driverOpt = driverSel.options[driverSel.selectedIndex];
+            const truckOpt = truckSel.options[truckSel.selectedIndex];
+            const data = {
+                date: $('inspectionDate').value,
+                type: $('inspectionType').value,
+                reportNum: $('inspectionReportNum').value.trim(),
+                result: $('inspectionResult').value,
+                driverId: driverSel.value,
+                driverName: driverSel.value ? driverOpt.textContent : '',
+                truckId: truckSel.value,
+                truckUnit: truckSel.value ? truckOpt.textContent : '',
+                location: $('inspectionLocation').value.trim(),
+                violations: parseInt($('inspectionViolations').value) || 0,
+                fineAmount: parseFloat($('inspectionFineAmount').value) || 0,
+                notes: $('inspectionNotes').value.trim(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            try {
+                if (editId) {
+                    await col('inspections').doc(editId).update(data);
+                } else {
+                    data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                    await col('inspections').add(data);
+                }
+                $('inspectionModal').classList.add('hidden');
+                await loadInspections();
+                showMsg(editId ? 'Inspection updated' : 'Inspection added');
+            } catch (err) { console.error(err); showMsg('Error saving inspection', true); }
+        });
+
+        loadInspections();
+    }
+
     // Expose edit/delete/inline methods for inline onclick
     window.Dashboard = {
         editTruck, editTrailer, editDriver, editLoad,
         deleteTruck, deleteTrailer, deleteDriver, deleteLoad,
+        editInspection, deleteInspection,
         inlineStatus, inlineTruckAssign,
         toggleBulkSelect, bulkDelete, bulkChangeStatus, bulkExport, bulkEdit,
         openTruckProfile, openTrailerProfile, openDriverProfile,

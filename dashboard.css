@@ -502,6 +502,25 @@
 #section-compliance .dash-card-body {
     padding: 0.5rem 0.75rem;
 }
+
+/* ── Inspection Badges ─────────── */
+.insp-badge {
+    display: inline-block;
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    line-height: 1.2;
+}
+.badge-green { background: rgba(16,185,129,0.1); color: #059669; }
+.badge-red { background: rgba(239,68,68,0.1); color: #dc2626; }
+.badge-yellow { background: rgba(245,158,11,0.1); color: #b45309; }
+.badge-gray { background: rgba(107,114,128,0.1); color: #6b7280; }
+#inspectionsTable tbody tr { cursor: default; }
+#inspectionsTable tbody tr:hover { background: rgba(79, 70, 229, 0.025); }
+
 .compliance-snapshot {
     display: flex;
     flex-direction: column;
