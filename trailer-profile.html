@@ -7,6 +7,186 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="unit-profile.css?v=11">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+</head>
+<body>
+    <div class="up-page">
+        <header class="up-topbar">
+            <a class="up-back" href="dashboard.html">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+                Dashboard
+            </a>
+            <span class="up-email" id="unitUserEmail"></span>
+        </header>
+
+        <main class="up-main">
+            <!-- Hero -->
+            <section class="up-hero">
+                <div class="up-hero-left">
+                    <span class="up-label">Trailer profile</span>
+                    <div class="up-hero-name-row">
+                        <div class="up-hero-photo" id="heroPhoto">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><rect x="2" y="4" width="20" height="12" rx="2"/><circle cx="7" cy="20" r="2"/><circle cx="17" cy="20" r="2"/><line x1="2" y1="16" x2="22" y2="16"/></svg>
+                        </div>
+                        <h1 class="up-hero-name" id="unitTitle">Loading trailer…</h1>
+                    </div>
+                    <p class="up-hero-sub" id="unitSubtitle">Pulling trailer details and history.</p>
+                    <div class="up-chips">
+                        <span class="up-chip up-chip--accent" id="unitStatusChip">Status</span>
+                        <span class="up-chip" id="unitTypeChip">Type</span>
+                        <span class="up-chip" id="unitPlateChip">Plate</span>
+                    </div>
+                </div>
+                <div class="up-hero-kpis">
+                    <div class="up-kpi">
+                        <span class="up-kpi-label">Notes</span>
+                        <strong id="historyCount">0</strong>
+                    </div>
+                    <div class="up-kpi">
+                        <span class="up-kpi-label">Documents</span>
+                        <strong id="docCount">0</strong>
+                    </div>
+                </div>
+            </section>
+
+            <section class="up-alert hidden" id="unitAlert"></section>
+
+            <!-- Content Grid -->
+            <section class="up-grid">
+
+                <!-- History / Notes -->
+                <div class="up-card up-card--wide">
+                    <div class="up-card-head up-card-head--stack">
+                        <div>
+                            <span class="up-label">History</span>
+                            <h2 class="up-card-title">Notes &amp; Service Events <span class="up-badge up-badge--blue" id="noteCountBadge"></span></h2>
+                        </div>
+                        <form class="up-history-form" id="historyForm">
+                            <div class="up-history-form-row">
+                                <select id="historyType" class="up-select">
+                                    <option value="note">General note</option>
+                                    <option value="service">Service</option>
+                                    <option value="inspection">Inspection</option>
+                                    <option value="repair">Repair</option>
+                                    <option value="registration">Registration</option>
+                                </select>
+                                <textarea id="historyText" class="up-input up-input--grow" rows="2" placeholder="Add maintenance details, inspection notes, or trailer history…"></textarea>
+                                <button type="submit" class="up-compose-btn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                                    Post
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="up-feed" id="historyList">
+                        <p class="up-empty">No history yet.</p>
+                    </div>
+                </div>
+
+                <!-- Tasks -->
+                <div class="up-card up-card--wide">
+                    <div class="up-card-head">
+                        <div>
+                            <span class="up-label">Tasks &amp; Issues</span>
+                            <h2 class="up-card-title">Open items <span class="up-badge up-badge--red" id="taskCountBadge"></span></h2>
+                        </div>
+                        <a href="task-manager.html" class="up-link-btn">View all tasks</a>
+                    </div>
+                    <div class="up-tasks" id="profileTasksList"></div>
+                </div>
+
+                <!-- Trailer Details (collapsible) -->
+                <div class="up-card up-card--wide up-section-collapse collapsed" id="unitDetailsCard">
+                    <button class="up-collapse-head" id="unitDetailsToggle" type="button" aria-expanded="false">
+                        <div class="up-collapse-lead">
+                            <svg class="up-collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="2" y="4" width="20" height="12" rx="2"/><circle cx="7" cy="20" r="2"/><circle cx="17" cy="20" r="2"/></svg>
+                            <span class="up-collapse-label">Trailer Details</span>
+                        </div>
+                        <div class="up-collapse-trail">
+                            <span class="up-collapse-hint" id="collapseHint">Show</span>
+                            <svg class="up-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
+                        </div>
+                    </button>
+                    <div class="up-collapse-body" id="unitDetailsBody">
+                        <dl class="up-detail-grid">
+                            <div class="up-detail-cell"><dt>Unit #</dt><dd id="detailUnit">-</dd></div>
+                            <div class="up-detail-cell"><dt>Year</dt><dd id="detailYear">-</dd></div>
+                            <div class="up-detail-cell"><dt>Make</dt><dd id="detailMake">-</dd></div>
+                            <div class="up-detail-cell"><dt>Type</dt><dd id="detailType">-</dd></div>
+                            <div class="up-detail-cell"><dt>VIN</dt><dd id="detailVin">-</dd></div>
+                            <div class="up-detail-cell"><dt>License plate</dt><dd id="detailPlate">-</dd></div>
+                            <div class="up-detail-cell"><dt>DOT inspection exp.</dt><dd id="detailInspExp">-</dd></div>
+                            <div class="up-detail-cell"><dt>Registration exp.</dt><dd id="detailRegExp">-</dd></div>
+                            <div class="up-detail-cell"><dt>Insurance exp.</dt><dd id="detailInsExp">-</dd></div>
+                        </dl>
+                    </div>
+                </div>
+
+                <!-- Documents from dashboard -->
+                <div class="up-card up-card--wide">
+                    <div class="up-card-head">
+                        <div>
+                            <span class="up-label">Documents &amp; files</span>
+                            <h2 class="up-card-title">Attached documents</h2>
+                        </div>
+                    </div>
+                    <div class="up-doc-grid" id="docGrid">
+                        <p class="up-empty">No documents uploaded yet. Upload from the dashboard to see them here.</p>
+                    </div>
+                </div>
+
+                <!-- Photos (legacy gallery) -->
+                <div class="up-card">
+                    <div class="up-card-head up-card-head--stack">
+                        <div>
+                            <span class="up-label">Photos</span>
+                            <h2 class="up-card-title">Trailer gallery</h2>
+                        </div>
+                        <form class="up-doc-form" id="photoForm">
+                            <div class="up-doc-form-row">
+                                <label class="up-file-label">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                                    Choose file
+                                    <input type="file" id="photoUpload" accept="image/*" required hidden>
+                                </label>
+                                <input type="text" id="photoCaption" class="up-input" maxlength="120" placeholder="Caption…">
+                                <button type="submit" class="up-compose-btn">Add</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="up-photos" id="photoGrid"></div>
+                </div>
+
+            </section>
+        </main>
+    </div>
+
+    <!-- Photo Lightbox -->
+    <div class="up-lightbox" id="photoLightbox">
+        <div class="up-lightbox-backdrop"></div>
+        <div class="up-lightbox-content">
+            <img id="lightboxImg" src="" alt="Photo">
+            <button class="up-lightbox-close" title="Close">&times;</button>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="trailer-profile.js?v=11"></script>
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trailer Profile - IFTA Wizard</title>
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="unit-profile.css?v=5">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>

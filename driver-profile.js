@@ -7,6 +7,7 @@
         driver: null,
         history: [],
         photos: [],
+        documents: []
     };
 
     function $(id) {
@@ -27,6 +28,34 @@
 
     function photoRef() {
         return driverRef().collection('photos');
+    }
+
+    function docRef() {
+        return driverRef().collection('documents');
+    }
+
+    /* ---------- Doc type helpers ---------- */
+    const DOC_TYPE_LABELS = {
+        cdl: 'CDL',
+        medical: 'Medical',
+        contract: 'Contract',
+        mvr: 'MVR',
+        psp: 'PSP',
+        photo: 'Photo',
+        other: 'Other'
+    };
+
+    function docTypeLabel(type) {
+        return DOC_TYPE_LABELS[type] || (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Other');
+    }
+
+    function isImageDoc(doc) {
+        if (doc.contentType && doc.contentType.startsWith('image/')) return true;
+        if (doc.url) {
+            const lower = doc.url.split('?')[0].toLowerCase();
+            return /\.(jpg|jpeg|png|gif|webp|svg)$/.test(lower);
+        }
+        return false;
     }
 
     function escapeHtml(value) {
@@ -99,6 +128,18 @@
         $('unitStatusChip').textContent = statusLabel(d.status);
         $('unitCdlChip').textContent = d.cdlState ? ('CDL · ' + d.cdlState) : 'No CDL state';
         $('unitTruckChip').textContent = d.truck ? ('Truck · ' + d.truck) : 'No truck assigned';
+
+        // Photo circle
+        if (d.photoUrl) {
+            const hero = $('heroPhoto');
+            hero.innerHTML = '';
+            hero.classList.add('has-photo');
+            const img = document.createElement('img');
+            img.src = d.photoUrl;
+            img.alt = fullName;
+            img.addEventListener('click', () => openLightbox(d.photoUrl));
+            hero.appendChild(img);
+        }
 
         $('detailName').textContent = fullName;
         $('detailPhone').textContent = d.phone || '-';
@@ -176,18 +217,20 @@
         $('photoCount').textContent = String(state.photos.length);
         const grid = $('photoGrid');
         if (!state.photos.length) {
-            grid.innerHTML = '<p class="up-empty">No documents uploaded yet. Add CDL scans, medical card photos, training certificates, or other driver documents.</p>';
+            grid.innerHTML = '<p class="up-empty">No photos uploaded yet.</p>';
             return;
         }
         grid.innerHTML = state.photos.map(photo => `
-            <div class="up-photo">
-                <img src="${escapeHtml(photo.imageUrl || '')}" alt="${escapeHtml(photo.caption || 'Driver document')}">
+            <div class="up-photo-card">
+                <img src="${escapeHtml(photo.imageUrl || '')}" alt="${escapeHtml(photo.caption || 'Driver photo')}" class="up-photo-img" data-lightbox>
                 <div class="up-photo-info">
-                    <strong>${escapeHtml(photo.caption || 'Driver document')}</strong>
-                    <span>${escapeHtml(formatDate(photo.createdAt || photo.createdAtIso))}</span>
-                </div>
-                <div class="up-photo-actions">
-                    <button type="button" class="up-photo-del" data-delete-photo="${escapeHtml(photo.id)}">Delete</button>
+                    <span class="up-photo-caption">${escapeHtml(photo.caption || 'Driver photo')}</span>
+                    <div class="up-photo-actions">
+                        <time>${escapeHtml(formatDate(photo.createdAt || photo.createdAtIso))}</time>
+                        <button type="button" class="up-del-btn" data-delete-photo="${escapeHtml(photo.id)}" title="Delete">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
         `).join('');
@@ -200,6 +243,99 @@
                 await loadPhotos();
             });
         });
+
+        grid.querySelectorAll('[data-lightbox]').forEach(img => {
+            img.addEventListener('click', () => openLightbox(img.src));
+        });
+    }
+
+    function renderDocuments() {
+        const count = state.documents.length;
+        const grid = $('docGrid');
+
+        if (!count) {
+            grid.innerHTML = '<p class="up-empty">No documents uploaded yet. Upload from the dashboard to see them here.</p>';
+            return;
+        }
+
+        const grouped = {};
+        state.documents.forEach(doc => {
+            const key = doc.type || 'other';
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(doc);
+        });
+
+        let html = '';
+        for (const [type, docs] of Object.entries(grouped)) {
+            html += `<div class="up-doc-group">
+                <h4 class="up-doc-group-title">${escapeHtml(docTypeLabel(type))}</h4>
+                <div class="up-doc-group-items">`;
+
+            docs.forEach(doc => {
+                if (isImageDoc(doc)) {
+                    html += `
+                        <div class="up-doc-thumb" title="${escapeHtml(doc.name || '')}">
+                            <img src="${escapeHtml(doc.url)}" alt="${escapeHtml(doc.name || '')}" data-lightbox>
+                            <span class="up-doc-thumb-label">${escapeHtml(doc.name || docTypeLabel(type))}</span>
+                        </div>`;
+                } else {
+                    html += `
+                        <a class="up-doc-file" href="${escapeHtml(doc.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(doc.name || '')}">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                            <span>${escapeHtml(doc.name || docTypeLabel(type))}</span>
+                        </a>`;
+                }
+            });
+
+            html += `</div></div>`;
+        }
+        grid.innerHTML = html;
+
+        grid.querySelectorAll('[data-lightbox]').forEach(img => {
+            img.addEventListener('click', () => openLightbox(img.src));
+        });
+    }
+
+    function renderDocWarnings() {
+        const el = $('docWarnings');
+        if (!el) return;
+        const d = state.driver;
+        if (!d) { el.classList.add('hidden'); return; }
+
+        const warnings = [];
+        const today = new Date().toISOString().split('T')[0];
+        const soon30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+        const docTypes = (d.docTypes || []);
+
+        // Missing documents
+        if (!docTypes.includes('cdl'))      warnings.push({ type: 'missing', text: 'CDL document not uploaded' });
+        if (!docTypes.includes('medical'))  warnings.push({ type: 'missing', text: 'Medical card not uploaded' });
+        if (!docTypes.includes('mvr'))      warnings.push({ type: 'missing', text: 'MVR report not uploaded' });
+
+        // Expired dates
+        if (d.cdlExp && d.cdlExp < today)       warnings.push({ type: 'expired', text: 'CDL expired (' + formatDateShort(d.cdlExp) + ')' });
+        else if (d.cdlExp && d.cdlExp <= soon30) warnings.push({ type: 'expiring', text: 'CDL expiring soon (' + formatDateShort(d.cdlExp) + ')' });
+        else if (!d.cdlExp)                      warnings.push({ type: 'missing', text: 'CDL expiration date not set' });
+
+        if (d.medExp && d.medExp < today)        warnings.push({ type: 'expired', text: 'Medical card expired (' + formatDateShort(d.medExp) + ')' });
+        else if (d.medExp && d.medExp <= soon30)  warnings.push({ type: 'expiring', text: 'Medical card expiring soon (' + formatDateShort(d.medExp) + ')' });
+        else if (!d.medExp)                       warnings.push({ type: 'missing', text: 'Medical card expiration not set' });
+
+        if (d.mvrExp && d.mvrExp < today)        warnings.push({ type: 'expired', text: 'MVR expired (' + formatDateShort(d.mvrExp) + ')' });
+        else if (d.mvrExp && d.mvrExp <= soon30)  warnings.push({ type: 'expiring', text: 'MVR expiring soon (' + formatDateShort(d.mvrExp) + ')' });
+
+        if (!warnings.length) { el.classList.add('hidden'); return; }
+
+        const iconSvg = {
+            expired: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            expiring: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
+            missing: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+        };
+
+        el.innerHTML = warnings.map(w =>
+            '<div class="doc-warn doc-warn--' + w.type + '">' + (iconSvg[w.type] || '') + ' <span>' + escapeHtml(w.text) + '</span></div>'
+        ).join('');
+        el.classList.remove('hidden');
     }
 
     function renderTasks(tasks) {
@@ -413,6 +549,36 @@
         renderPhotos();
     }
 
+    async function loadDocuments() {
+        let snapshot;
+        try { snapshot = await docRef().orderBy('uploadedAt', 'desc').get(); }
+        catch { snapshot = await docRef().get(); }
+        state.documents = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .sort((a, b) => {
+                const at = toDate(a.uploadedAt)?.getTime() || 0;
+                const bt = toDate(b.uploadedAt)?.getTime() || 0;
+                return bt - at;
+            });
+        renderDocuments();
+    }
+
+    /* ---------- Lightbox ---------- */
+    function openLightbox(src) {
+        const lb = $('photoLightbox');
+        if (!lb) return;
+        $('lightboxImg').src = src;
+        lb.classList.add('active');
+    }
+
+    function initLightbox() {
+        const lb = $('photoLightbox');
+        if (!lb) return;
+        lb.querySelector('.up-lightbox-backdrop').addEventListener('click', () => lb.classList.remove('active'));
+        lb.querySelector('.up-lightbox-close').addEventListener('click', () => lb.classList.remove('active'));
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('active'); });
+    }
+
     async function resizeImage(file, maxSize) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -449,15 +615,49 @@
                 return;
             }
             setAlert('');
-            const imageUrl = await resizeImage(file, 1600);
-            await photoRef().add({
-                caption,
-                imageUrl,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdAtIso: new Date().toISOString()
-            });
-            $('photoForm').reset();
-            await loadPhotos();
+
+            const btn = event.target.querySelector('button[type="submit"]');
+            if (btn) { btn.disabled = true; btn.textContent = 'Uploading…'; }
+
+            try {
+                // Upload to Firebase Storage
+                const uid = state.user.uid;
+                const ts = Date.now();
+                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const storagePath = 'users/' + uid + '/drivers/' + state.driverId + '/docs/' + ts + '_' + safeName;
+                const ref = storage.ref(storagePath);
+                await ref.put(file);
+                const url = await ref.getDownloadURL();
+
+                // Also save base64 to photos subcollection for backward compat
+                const imageUrl = file.type.startsWith('image/') ? await resizeImage(file, 1600) : null;
+                await photoRef().add({
+                    caption,
+                    imageUrl: imageUrl || url,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdAtIso: new Date().toISOString()
+                });
+
+                // Write to documents subcollection
+                const isImage = file.type.startsWith('image/');
+                await docRef().add({
+                    name: file.name,
+                    type: isImage ? 'photo' : 'other',
+                    storagePath: storagePath,
+                    url: url,
+                    size: file.size,
+                    contentType: file.type,
+                    uploadedAt: new Date().toISOString()
+                });
+
+                $('photoForm').reset();
+                await Promise.all([loadPhotos(), loadDocuments()]);
+            } catch (err) {
+                console.error('Upload error:', err);
+                setAlert('Upload failed: ' + (err.message || err));
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Add'; }
+            }
         });
     }
 
@@ -542,7 +742,8 @@
     async function loadPage() {
         const ok = await loadDriver();
         if (!ok) return;
-        await Promise.all([loadHistory(), loadPhotos(), loadTasks(), loadDriverStats()]);
+        await Promise.all([loadHistory(), loadPhotos(), loadDocuments(), loadTasks(), loadDriverStats()]);
+        renderDocWarnings();
     }
 
     function initAuth() {
@@ -569,6 +770,7 @@
     }
 
     function init() {
+        initLightbox();
         initAuth();
     }
 

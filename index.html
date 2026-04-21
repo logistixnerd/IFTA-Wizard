@@ -10,15 +10,33 @@
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
-        script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.gstatic.com https://apis.google.com https://accounts.google.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cdn.emailjs.com https://*.firebaseapp.com;
+        script-src 'self' 'unsafe-inline' 'unsafe-eval'
+            https://www.gstatic.com
+            https://apis.google.com
+            https://accounts.google.com
+            https://cdn.jsdelivr.net
+            https://cdnjs.cloudflare.com
+            https://ifta-wizard-a9061.firebaseapp.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' https://fonts.gstatic.com;
         img-src 'self' data: https: blob:;
-        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://*.firebase.com https://*.firebaseapp.com https://api.emailjs.com https://firestore.googleapis.com https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://content.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com;
-        frame-src 'self' https://accounts.google.com https://apis.google.com https://content.googleapis.com https://*.firebaseapp.com https://ifta-wizard-a9061.firebaseapp.com https://www.google.com;
+        connect-src 'self'
+            https://*.googleapis.com
+            https://*.firebaseio.com
+            https://*.firebase.com
+            https://*.firebaseapp.com
+            https://api.emailjs.com
+            https://www.gstatic.com;
+        frame-src 'self'
+            https://accounts.google.com
+            https://apis.google.com
+            https://content.googleapis.com
+            https://*.firebaseapp.com
+            https://www.google.com;
         object-src 'none';
         base-uri 'self';
         form-action 'self' https://accounts.google.com;
+        upgrade-insecure-requests;
     ">
     
     <link rel="stylesheet" href="styles.css">
@@ -27,6 +45,19 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <!-- Early auth redirect: if already logged in, go straight to dashboard -->
+    <script>
+    if(window.self===window.top){
+        try{
+            if(!firebase.apps.length)firebase.initializeApp({apiKey:"AIzaSyDrjI76QLlhLnmX80_XdFaD4QHP32I9QxY",authDomain:"ifta-wizard-a9061.firebaseapp.com",projectId:"ifta-wizard-a9061"});
+            document.documentElement.style.visibility='hidden';
+            firebase.auth().onAuthStateChanged(function(u){
+                if(u){window.location.replace('dashboard.html');}
+                else{document.documentElement.style.visibility='';}
+            });
+        }catch(e){document.documentElement.style.visibility='';}
+    }
+    </script>
     <!-- Google Identity Services & API -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://apis.google.com/js/api.js" async defer></script>
@@ -34,13 +65,16 @@
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
-    <!-- Auth Modal - starts hidden, shown only if not authenticated -->
-    <div id="authModal" class="auth-modal hidden" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SECTION: Auth — sign in / sign up modal
+         Shown only when no authenticated session is detected.
+    ═══════════════════════════════════════════════════════════════════ -->
+    <div id="authModal" class="auth-modal hidden" role="dialog" aria-modal="true" aria-labelledby="authTitle">
         <div class="auth-modal-content">
             <div class="auth-header">
                 <img src="LOGO - logistiXnerd dude.png" alt="LogistiXnerd" class="auth-brand-icon">
                 <img src="LOGO - logistiXnerd text.png" alt="LogistiXnerd" class="auth-brand-text">
-                <h1 class="auth-title" id="authTitle">IFTA Wizard</h1>
+                <h1 class="auth-title" id="authTitle">Trucking Management Software</h1>
             </div>
             
             <div class="auth-social">
@@ -134,7 +168,9 @@
         </div>
     </div>
 
-    <!-- Forgot Password Modal -->
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SECTION: Auth — forgot password (4-step: email → OTP → new pw → success)
+    ═══════════════════════════════════════════════════════════════════ -->
     <div id="forgotPasswordModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="forgotPasswordTitle">
         <div class="forgot-password-modal">
             <button class="modal-close" onclick="IFTAAuth.closeForgotPassword()" aria-label="Close">&times;</button>
@@ -160,6 +196,7 @@
                     <span class="forgot-user-avatar" id="forgotUserAvatar">J</span>
                     <span class="forgot-user-name" id="forgotUserName">you@email.com</span>
                 </div>
+                <!-- TODO: replace with <template id="tpl-otp-inputs"> — identical 6-input OTP grid used in 4 places -->
                 <div class="code-input-container" id="forgotCodeInputs">
                     <input type="text" class="code-input" maxlength="1" data-index="0" inputmode="numeric">
                     <input type="text" class="code-input" maxlength="1" data-index="1" inputmode="numeric">
@@ -204,7 +241,9 @@
         </div>
     </div>
 
-    <!-- Email Verification Modal (for signup verification & 2FA) -->
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SECTION: Auth — email verification OTP (signup & 2FA)
+    ═══════════════════════════════════════════════════════════════════ -->
     <div id="emailVerifyModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="verifyTitle">
         <div class="verify-modal">
             <button class="verify-close" onclick="IFTAAuth.closeEmailVerify()" aria-label="Close">&times;</button>
@@ -213,6 +252,7 @@
             <h2 class="verify-title" id="verifyTitle">Verify Your Email</h2>
             <p class="verify-subtitle" id="verifyDescription">We sent a code to <strong id="verifyEmailDisplay">your@email.com</strong></p>
             
+            <!-- TODO: replace with <template id="tpl-otp-inputs"> — identical 6-input OTP grid used in 4 places -->
             <div class="code-input-container" id="verifyCodeInputs">
                 <input type="text" class="code-input" maxlength="1" data-index="0" inputmode="numeric" autocomplete="one-time-code">
                 <input type="text" class="code-input" maxlength="1" data-index="1" inputmode="numeric">
@@ -234,7 +274,9 @@
         </div>
     </div>
 
-    <!-- TOTP Setup Modal (for enabling authenticator app) -->
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SECTION: Auth — TOTP setup (QR code + first-time verify)
+    ═══════════════════════════════════════════════════════════════════ -->
     <div id="totpSetupModal" class="modal-overlay hidden">
         <div class="verify-modal totp-modal">
             <button class="verify-close" onclick="IFTAAuth.closeTOTPSetup()">&times;</button>
@@ -255,6 +297,7 @@
             
             <p class="verify-subtitle" style="margin-top: 1rem;">Enter the 6-digit code from your app:</p>
             
+            <!-- TODO: replace with <template id="tpl-otp-inputs"> — identical 6-input OTP grid used in 4 places -->
             <div class="code-input-container" id="totpSetupCodeInputs">
                 <input type="text" class="code-input" maxlength="1" inputmode="numeric">
                 <input type="text" class="code-input" maxlength="1" inputmode="numeric">
@@ -270,7 +313,9 @@
         </div>
     </div>
 
-    <!-- TOTP Verify Modal (for login with authenticator) -->
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SECTION: Auth — TOTP login verify
+    ═══════════════════════════════════════════════════════════════════ -->
     <div id="totpVerifyModal" class="modal-overlay hidden">
         <div class="verify-modal totp-modal">
             <button class="verify-close" onclick="IFTAAuth.closeTOTPVerify()">&times;</button>
@@ -279,6 +324,7 @@
             <h2 class="verify-title">Two-Factor Authentication</h2>
             <p class="verify-subtitle">Enter the 6-digit code from your authenticator app for <strong id="totpVerifyEmail">your@email.com</strong></p>
             
+            <!-- TODO: replace with <template id="tpl-otp-inputs"> — identical 6-input OTP grid used in 4 places -->
             <div class="code-input-container" id="totpVerifyCodeInputs">
                 <input type="text" class="code-input" maxlength="1" inputmode="numeric">
                 <input type="text" class="code-input" maxlength="1" inputmode="numeric">
@@ -298,8 +344,13 @@
         </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SECTION: App shell — header, calculator, rates reference, footer.
+         Hidden until auth resolves; toggled by auth-firebase.js.
+    ═══════════════════════════════════════════════════════════════════ -->
     <div class="app-container" style="display: none;">
-        <!-- Header -->
+
+        <!-- ── Subsection: Header / profile nav ──────────────────────────── -->
         <header class="header" role="banner">
             <div class="header-content">
                 <div class="logo">
@@ -366,7 +417,7 @@
 
         <!-- Main Content -->
         <main class="main-content" role="main">
-            <!-- Configuration Panel -->
+            <!-- ── Subsection: Trip configuration ────────────────────────── -->
             <section class="config-panel card">
                 <h2>Trip Configuration</h2>
                 <div class="config-grid">
@@ -409,7 +460,7 @@
                 </div>
             </section>
 
-            <!-- Data Entry Table -->
+            <!-- ── Subsection: Jurisdiction data table ──────────────────── -->
             <section class="data-section card">
                 <div class="section-header">
                     <h2>Jurisdiction Data Entry</h2>
@@ -477,7 +528,7 @@
                 </div>
             </section>
 
-            <!-- Export Section - Right Below Data -->
+            <!-- ── Subsection: Export bar ──────────────────────────────── -->
             <section class="export-section card">
                 <div class="export-row">
                     <span class="export-label">Export:</span>
@@ -495,7 +546,7 @@
                 </div>
             </section>
 
-            <!-- Tax Rates Reference -->
+            <!-- ── Subsection: Tax rates reference ──────────────────────── -->
             <section class="rates-section card">
                 <div class="section-header">
                     <h2>Tax Rates Reference</h2>
@@ -545,7 +596,9 @@
         </footer>
     </div>
 
-    <!-- Loading Overlay -->
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SECTION: Global UI — loading overlay, toast notifications, compat
+    ═══════════════════════════════════════════════════════════════════ -->
     <div id="loadingOverlay" class="loading-overlay">
         <div class="loading-spinner"></div>
         <p>Loading...</p>
@@ -554,10 +607,17 @@
     <!-- Toast Notifications -->
     <div id="toastContainer" class="toast-container" role="alert" aria-live="polite"></div>
 
-    <!-- Hidden quarter select for compatibility -->
+    <!-- Hidden quarter select — kept for script compatibility; populated by header.js -->
     <select id="quarterSelect" style="display: none;"></select>
 
-    <!-- Saved Reports Modal -->
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SECTION: Modals
+         All modals share the same .modal > .modal-content > .modal-header +
+         .modal-body structure.
+         TODO: extract .modal-header into <template id="tpl-modal-header"> — used in 7 modals.
+    ═══════════════════════════════════════════════════════════════════ -->
+
+    <!-- Modal: Saved Reports -->
     <div id="savedReportsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="savedReportsTitle">
         <div class="modal-content modal-lg">
             <div class="modal-header">
@@ -585,7 +645,8 @@
         </div>
     </div>
 
-    <!-- Email Modal -->
+    <!-- Modal: Email Report -->
+    <!-- TODO: Google icon SVG below duplicates the one in #googleSignIn — extract to inline SVG sprite -->
     <div id="emailModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="emailModalTitle">
         <div class="modal-content">
             <div class="modal-header">
@@ -631,7 +692,7 @@
         </div>
     </div>
 
-    <!-- Google Drive Modal -->
+    <!-- Modal: Google Drive -->
     <div id="driveModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="driveModalTitle">
         <div class="modal-content">
             <div class="modal-header">
@@ -681,7 +742,7 @@
         </div>
     </div>
 
-    <!-- Profile Settings Modal -->
+    <!-- Modal: Profile Settings -->
     <div id="profileModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
         <div class="modal-content">
             <div class="modal-header">
@@ -732,7 +793,7 @@
         </div>
     </div>
 
-    <!-- Preferences Modal -->
+    <!-- Modal: Preferences -->
     <div id="preferencesModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="preferencesModalTitle">
         <div class="modal-content">
             <div class="modal-header">
@@ -792,7 +853,8 @@
         </div>
     </div>
 
-    <!-- Save Report Modal -->
+    <!-- Modal: Save Report -->
+    <!-- TODO: include-options checkboxes below mirror #exportPdfModal — extract to <template id="tpl-include-options"> -->
     <div id="saveReportModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="saveReportModalTitle">
         <div class="modal-content">
             <div class="modal-header">
@@ -860,7 +922,8 @@
         </div>
     </div>
 
-    <!-- Export PDF Options Modal -->
+    <!-- Modal: Export PDF Options -->
+    <!-- TODO: include-options checkboxes here mirror #saveReportModal — extract to <template id="tpl-include-options"> -->
     <div id="exportPdfModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="exportPdfModalTitle">
         <div class="modal-content modal-sm">
             <div class="modal-header">
@@ -901,7 +964,19 @@
         </div>
     </div>
 
-    <!-- PDF Generation Libraries -->
+    <!-- ═══════════════════════════════════════════════════════════════════
+         SECTION: Scripts
+         Load order matters:
+           1. jsPDF libs (CDN) — consumed by src/features/exports.js
+           2. firebase-config.js — initialises Firebase app + sets window globals
+           3. security.js — CSP / integrity helpers (must run early)
+           4. tax-rates.js — sets window.IFTA_TAX_RATES et al. (consumed by src/main.js)
+           5. integrity-monitor.js
+           6. src/main.js (type=module) — ES module entry, imports from src/
+           7. Inline password helpers — referenced by inline onclick in auth modal
+           8. auth-firebase.js — runs after module bundle; toggles app-container
+           9. reports.js — saved-report helpers; assigns window.loadReportData
+    ═══════════════════════════════════════════════════════════════════ -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
 
@@ -909,7 +984,8 @@
     <script src="security.js"></script>
     <script src="tax-rates.js"></script>
     <script src="integrity-monitor.js"></script>
-    <script src="app.js"></script>
+    <!-- app.js replaced by ES module build -->
+    <script type="module" src="src/main.js"></script>
     
     <!-- Password helpers -->
     <script>

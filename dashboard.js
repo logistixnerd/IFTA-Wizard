@@ -628,6 +628,7 @@
             state.user = user;
             setTopbarAccount(user.displayName || 'User', user.photoURL || localStorage.getItem('ifta_avatar') || null);
             await loadAll();
+            document.querySelector('.dash-layout')?.classList.add('ready');
             // Navigate to hash section if present, else stay on overview
             const hash = window.location.hash.replace('#', '');
             if (hash) navigateToSection(hash, true);
@@ -653,12 +654,6 @@
     function navigateToSection(section, skipHash) {
         if (!section) return;
         
-        // Handle external pages
-        if (section === 'task-manager') {
-            window.location.href = 'task-manager.html';
-            return;
-        }
-
         // Update URL hash (skip during popstate handling)
         if (!skipHash) {
             history.pushState(null, '', '#' + section);
@@ -667,7 +662,7 @@
         // Map sections to their parent department groups
         const sectionGroups = {
             // Safety
-            'safety': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'compliance': 'safety', 'ifta-wizard': 'safety',
+            'safety': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'compliance': 'safety', 'ifta-wizard': 'safety', 'bulk-docs': 'safety',
             // Fleet Maintenance
             'maintenance': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
             // Dispatch
@@ -684,8 +679,10 @@
             'afterhours': 'afterhours', 'on-call': 'afterhours', 'emergency-contacts': 'afterhours', 'driver-support': 'afterhours',
             // Operations
             'operations': 'operations', 'command-center': 'operations', 'cross-dept-alerts': 'operations', 'reports': 'operations',
-            // Reports
-            'task-manager': 'reports'
+            // Company Workspace
+            'overview': 'overview', 'task-manager': 'overview',
+            // Company (standalone)
+            'company': 'company'
         };
         
         const activeGroup = sectionGroups[section] || null;
@@ -715,9 +712,19 @@
             const span = btn.querySelector('span');
             $('pageTitle').textContent = span ? span.textContent : section;
         } else if (section === 'profile') {
-            $('pageTitle').textContent = 'Account';
+            $('pageTitle').textContent = 'User Profile';
         } else if (section === 'overview') {
-            $('pageTitle').textContent = 'Dashboard Overview';
+            $('pageTitle').textContent = 'Company Workspace';
+        }
+
+        // Refresh task widgets each time the company section is opened
+        if (section === 'company' && uid()) {
+            loadCompanyTaskWidgets();
+        }
+
+        // Init task manager section when navigated to
+        if (section === 'task-manager' && uid() && window.TaskManager) {
+            window.TaskManager.initWithUser(state.user);
         }
     }
 
@@ -806,8 +813,37 @@
         }
 
         const accountBtn = $('dashAccountBtn');
-        if (accountBtn) {
-            accountBtn.addEventListener('click', () => navigateToSection('profile'));
+        const accountDropdown = $('dashAccountDropdown');
+        if (accountBtn && accountDropdown) {
+            accountBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const open = !accountDropdown.hidden;
+                accountDropdown.hidden = open;
+                accountBtn.setAttribute('aria-expanded', String(!open));
+            });
+            document.addEventListener('click', () => {
+                if (!accountDropdown.hidden) {
+                    accountDropdown.hidden = true;
+                    accountBtn.setAttribute('aria-expanded', 'false');
+                }
+            });
+        }
+
+        const settingsNavBtn = $('dashAccountSettingsBtn');
+        if (settingsNavBtn) {
+            settingsNavBtn.addEventListener('click', () => {
+                if (accountDropdown) accountDropdown.hidden = true;
+                navigateToSection('settings');
+            });
+        }
+
+        const signOutBtn = $('dashSignOutBtn');
+        if (signOutBtn) {
+            signOutBtn.addEventListener('click', () => {
+                firebase.auth().signOut().then(() => {
+                    window.location.href = 'index.html';
+                });
+            });
         }
 
         // Back/forward browser navigation
@@ -815,6 +851,17 @@
             const hash = window.location.hash.replace('#', '');
             if (hash) navigateToSection(hash, true);
             else navigateToSection('overview', true);
+        });
+
+        // Intercept hash links that target dashboard sections (e.g. "View all in Task Manager")
+        document.addEventListener('click', (e) => {
+            const a = e.target.closest('a[href^="#"]');
+            if (!a) return;
+            const target = a.getAttribute('href').slice(1);
+            if (target) {
+                e.preventDefault();
+                navigateToSection(target);
+            }
         });
     }
 
@@ -826,24 +873,10 @@
         renderDrivers();
         renderLoads();
         updateOverview();
-        renderComplianceReminders(state.fmcsaSnapshot);
         initComplianceSection();
+        initExpirationTabs();
         lockCompanyIfSet();
-
-        // ── TEMPORARY: Seed sample inspections (remove after testing) ──
-        try {
-            const seedFlag = localStorage.getItem('inspections_seeded');
-            if (!seedFlag) {
-                const seedFn = firebase.functions().httpsCallable('seedInspections');
-                const r = await seedFn();
-                if (r.data && r.data.success) {
-                    localStorage.setItem('inspections_seeded', '1');
-                    console.log('Seeded', r.data.count, 'sample inspections');
-                    await loadInspections();
-                }
-            }
-        } catch(e) { console.warn('Seed skipped:', e.message); }
-        // ── END TEMPORARY ──
+        loadCompanyTaskWidgets();
     }
 
     // ── PROFILE ───────────────────────────
@@ -968,7 +1001,6 @@
             $('dashEin').value = '';
             state.fmcsaSnapshot = null;
             renderComplianceSection(null);
-            renderComplianceReminders(null);
             lockCompanyIfSet();
             showMsg('Company removed. You can now set up a new company.');
         } catch (err) {
@@ -1626,6 +1658,123 @@
         });
     }
 
+    // ── Company Task Widgets ───────────────
+    function initCompanyTaskWidgets() {
+        // Collapse toggles only — data is loaded in loadAll() after auth
+        [
+            { toggleId: 'generalTasksToggle', widgetId: 'generalTasksWidget' },
+            { toggleId: 'myTasksToggle',      widgetId: 'myTasksWidget' }
+        ].forEach(({ toggleId, widgetId }) => {
+            const toggle = $(toggleId);
+            const widget = $(widgetId);
+            if (!toggle || !widget) return;
+            toggle.addEventListener('click', () => widget.classList.toggle('collapsed'));
+            toggle.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); widget.classList.toggle('collapsed'); }
+            });
+        });
+    }
+
+    async function loadCompanyTaskWidgets() {
+        const u = uid();
+        if (!u) return;
+
+        const userEmail = (state.user && state.user.email || '').toLowerCase();
+
+        // Show loading state while fetching
+        ['generalTasksList', 'myTasksList'].forEach(id => {
+            const el = $(id);
+            if (el) el.innerHTML = '<li class="company-task-empty">Loading…</li>';
+        });
+        ['generalTasksCount', 'myTasksCount'].forEach(id => {
+            const el = $(id);
+            if (el) el.textContent = '—';
+        });
+
+        // Use the same FirebaseDB helper that task-manager.js uses — guaranteed correct structure
+        let allTasks = [];
+        try {
+            const result = await FirebaseDB.getAllTasks(u);
+            if (result.success) {
+                // Filter out Resolved; use task.text as the display title
+                allTasks = (result.data || [])
+                    .filter(t => t.status && t.status !== 'Resolved')
+                    .map(t => ({
+                        ...t,
+                        title: t.text || t.title || t.description || 'Task',
+                        dueDate: t.dueDate
+                            ? (typeof t.dueDate.toDate === 'function' ? t.dueDate.toDate() : new Date(t.dueDate))
+                            : null,
+                        assignedTo: t.assignedTo || []
+                    }));
+            } else {
+                console.error('Task widgets load error:', result.error);
+            }
+        } catch (err) {
+            console.error('Task widgets load error:', err);
+        }
+
+        // Sort by due date ascending (nulls last)
+        allTasks.sort((a, b) => {
+            const ad = a.dueDate ? a.dueDate.getTime() : Infinity;
+            const bd = b.dueDate ? b.dueDate.getTime() : Infinity;
+            return ad - bd;
+        });
+
+        const myTasks = userEmail
+            ? allTasks.filter(t => t.assignedTo.some(e => e.toLowerCase() === userEmail))
+            : [];
+
+        renderTaskWidget('generalTasksList', 'generalTasksCount', allTasks.slice(0, 10));
+        renderTaskWidget('myTasksList', 'myTasksCount', myTasks.slice(0, 10));
+    }
+
+    function renderTaskWidget(listId, countId, tasks) {
+        const list = $(listId);
+        const countEl = $(countId);
+        if (!list) return;
+
+        const now = new Date();
+        now.setHours(0, 0, 0, 0);
+
+        if (countEl) {
+            countEl.textContent = tasks.length || '0';
+            const hasOverdue = tasks.some(t => t.dueDate && t.dueDate < now);
+            countEl.classList.toggle('has-overdue', hasOverdue);
+        }
+
+        if (!tasks.length) {
+            list.innerHTML = '<li class="company-task-empty">No open tasks — add tasks from a driver, truck, or trailer profile.</li>';
+            return;
+        }
+
+        const statusColors = { 'Open': '#ef4444', 'In Progress': '#f59e0b', 'Pending': '#f59e0b', 'Resolved': '#10b981' };
+
+        list.innerHTML = tasks.map(t => {
+            const color = statusColors[t.status] || '#94a3b8';
+            let dueHtml = '';
+            if (t.dueDate) {
+                const due = new Date(t.dueDate);
+                due.setHours(0, 0, 0, 0);
+                const diff = Math.ceil((due - now) / 86400000);
+                const cls = diff < 0 ? 'overdue' : diff <= 3 ? 'soon' : 'ok';
+                const label = diff < 0 ? `${Math.abs(diff)}d overdue` : diff === 0 ? 'Due today' : `${diff}d left`;
+                dueHtml = `<span class="company-task-due ${cls}">${label}</span>`;
+            }
+            const entity = `${t.entityType.replace(/s$/, '')} · ${escapeHtml(t.entityName)}`;
+            return `<li class="company-task-item">
+                <span class="company-task-dot" style="background:${color}"></span>
+                <div class="company-task-info">
+                    <div class="company-task-title-text">${escapeHtml(t.title)}</div>
+                    <div class="company-task-meta-row">
+                        <span class="company-task-entity">${entity}</span>
+                        ${dueHtml}
+                    </div>
+                </div>
+            </li>`;
+        }).join('');
+    }
+
     function initCompanyTabs() {
         const tabs = Array.from(document.querySelectorAll('.company-tab'));
         const panels = Array.from(document.querySelectorAll('.company-tab-panel'));
@@ -1701,24 +1850,27 @@
     async function fmcsaFetchDot(dot) {
         const base = FMCSA_CONFIG.baseUrl;
         const key = FMCSA_CONFIG.webKey;
-        const mainUrl = `${base}/carriers/${encodeURIComponent(dot)}?webKey=${encodeURIComponent(key)}`;
-        const resp = await fetch(mainUrl, { headers: { Accept: 'application/json' } });
-        if (resp.status === 404) throw new Error(`No carrier found for DOT number ${dot}`);
-        if (!resp.ok) throw new Error('FMCSA API error. Try again later.');
-        const body = await resp.json();
+
+        const upstream = await fetch(`${base}/carriers/${encodeURIComponent(dot)}?webKey=${encodeURIComponent(key)}`, {
+            headers: { Accept: 'application/json' },
+        });
+        if (upstream.status === 404) throw new Error(`No carrier found for DOT number ${dot}`);
+        if (!upstream.ok) throw new Error('FMCSA API error. Try again later.');
+        const body = await upstream.json();
         const c = body?.content?.carrier;
         if (!c) throw new Error(`No carrier data returned for DOT number ${dot}`);
 
-        // Fetch docket numbers & operation classification in parallel (non-blocking)
         let docketNumbers = [], operationClasses = [];
         try {
-            const [docketResp, opsResp] = await Promise.all([
+            const [docketRes, opsRes] = await Promise.all([
                 fetch(`${base}/carriers/${encodeURIComponent(dot)}/docket-numbers?webKey=${encodeURIComponent(key)}`, { headers: { Accept: 'application/json' } }),
                 fetch(`${base}/carriers/${encodeURIComponent(dot)}/operation-classification?webKey=${encodeURIComponent(key)}`, { headers: { Accept: 'application/json' } }),
             ]);
-            if (docketResp.ok) { const d = await docketResp.json(); docketNumbers = d?.content || []; }
-            if (opsResp.ok) { const d = await opsResp.json(); operationClasses = d?.content || []; }
+            if (docketRes.ok) { const d = await docketRes.json(); docketNumbers = d?.content || []; }
+            if (opsRes.ok) { const d = await opsRes.json(); operationClasses = d?.content || []; }
         } catch (_) { /* non-critical */ }
+
+        if (!c) throw new Error(`No carrier data returned for DOT number ${dot}`);
 
         const fmt = (v) => (v != null && v !== '' ? String(v) : null);
         const fmtP = (v) => { if (!v) return null; const d = String(v).replace(/\D/g, ''); return d.length === 10 ? d.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3') : String(v); };
@@ -1961,7 +2113,7 @@
             $('navCompanyLabel').textContent = titleCase(payload.company) || 'Company';
             if (state.fmcsaSnapshot) {
                 renderComplianceSection(state.fmcsaSnapshot);
-                renderComplianceReminders(state.fmcsaSnapshot);
+                updateComplianceScoreCard();
             }
             lockCompanyIfSet();
         } catch (err) {
@@ -2096,110 +2248,323 @@
         }
     }
 
-    async function initComplianceSection() {
-        renderComplianceSection(state.fmcsaSnapshot || null);
-        // Collapsible block toggles
-        document.querySelectorAll('.compliance-collapsible .compliance-block-toggle').forEach(toggle => {
-            toggle.addEventListener('click', () => toggle.closest('.compliance-collapsible').classList.toggle('open'));
+    /* ── Expiration Alerts Card (Safety Dashboard) ── */
+    function renderExpirationAlerts() {
+        const today = new Date().toISOString().split('T')[0];
+        const soon30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+        const soon60 = new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0];
+
+        function daysUntil(dateStr) {
+            return Math.ceil((new Date(dateStr) - new Date()) / 86400000);
+        }
+
+        function gatherItems(entities, fields, nameAccessor) {
+            const items = [];
+            entities.forEach(e => {
+                const name = nameAccessor(e);
+                fields.forEach(f => {
+                    const val = e[f.key];
+                    if (!val) {
+                        items.push({ name, field: f.label, date: null, status: 'missing', sort: 99999 });
+                    } else if (val < today) {
+                        items.push({ name, field: f.label, date: val, status: 'expired', sort: -9999 + daysUntil(val) });
+                    } else if (val <= soon30) {
+                        items.push({ name, field: f.label, date: val, status: 'critical', sort: daysUntil(val) });
+                    } else if (val <= soon60) {
+                        items.push({ name, field: f.label, date: val, status: 'warning', sort: daysUntil(val) });
+                    }
+                });
+            });
+            items.sort((a, b) => a.sort - b.sort);
+            return items;
+        }
+
+        function statusBadge(item) {
+            if (item.status === 'expired') return '<span class="exp-badge exp-badge--expired">Expired</span>';
+            if (item.status === 'critical') return '<span class="exp-badge exp-badge--critical">' + daysUntil(item.date) + 'd left</span>';
+            if (item.status === 'warning') return '<span class="exp-badge exp-badge--warning">' + daysUntil(item.date) + 'd left</span>';
+            return '<span class="exp-badge exp-badge--missing">Not on file</span>';
+        }
+
+        function renderPanel(panelId, items) {
+            const el = document.getElementById(panelId);
+            if (!el) return;
+            if (!items.length) {
+                el.innerHTML = '<div class="exp-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>All documents current</span></div>';
+                return;
+            }
+            el.innerHTML = '<div class="exp-list">' + items.map(it =>
+                '<div class="exp-row exp-row--' + it.status + '">'
+                + '<div class="exp-row-name">' + escapeHtml(it.name) + '</div>'
+                + '<div class="exp-row-field">' + escapeHtml(it.field) + '</div>'
+                + '<div class="exp-row-date">' + (it.date ? escapeHtml(it.date) : '—') + '</div>'
+                + statusBadge(it)
+                + '</div>'
+            ).join('') + '</div>';
+        }
+
+        const activeDrivers = state.drivers.filter(d => d.status === 'active');
+        const activeTrucks = state.trucks.filter(t => t.status === 'active');
+        const activeTrailers = state.trailers.filter(t => t.status === 'active');
+
+        const driverItems = gatherItems(activeDrivers,
+            [{ key: 'cdlExp', label: 'CDL' }, { key: 'medExp', label: 'Medical Card' }, { key: 'mvrExp', label: 'MVR' }],
+            d => [d.firstName, d.lastName].filter(Boolean).join(' ') || 'Unnamed'
+        );
+        const truckItems = gatherItems(activeTrucks,
+            [{ key: 'annualInspDate', label: 'DOT Inspection' }, { key: 'registrationExp', label: 'Registration' }, { key: 'insuranceExp', label: 'Insurance' }],
+            t => t.unit || t.id
+        );
+        const trailerItems = gatherItems(activeTrailers,
+            [{ key: 'annualInspDate', label: 'DOT Inspection' }, { key: 'registrationExp', label: 'Registration' }, { key: 'insuranceExp', label: 'Insurance' }],
+            t => t.unit || t.id
+        );
+
+        renderPanel('expPanelDrivers', driverItems);
+        renderPanel('expPanelTrucks', truckItems);
+        renderPanel('expPanelTrailers', trailerItems);
+
+        // Update tab badges
+        document.querySelectorAll('.exp-tab').forEach(tab => {
+            const key = tab.dataset.expTab;
+            const count = key === 'drivers' ? driverItems.length : key === 'trucks' ? truckItems.length : trailerItems.length;
+            const badge = tab.querySelector('.exp-tab-count');
+            if (badge) badge.textContent = count || '';
+            else if (count) {
+                const b = document.createElement('span');
+                b.className = 'exp-tab-count';
+                b.textContent = count;
+                tab.appendChild(b);
+            }
         });
-        const dot = ($('dashDotNumber')?.value || '').replace(/\D/g, '').trim();
-        if (!dot) return;
+
+        // Update collapsed header count
+        const totalAlerts = driverItems.length + truckItems.length + trailerItems.length;
+        const hc = $('expHeaderCount');
+        if (hc) hc.textContent = totalAlerts ? totalAlerts : '';
+    }
+
+    function initExpirationTabs() {
+        document.querySelectorAll('.exp-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                e.stopPropagation();
+                document.querySelectorAll('.exp-tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.exp-panel').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                const panel = document.getElementById('expPanel' + tab.dataset.expTab.charAt(0).toUpperCase() + tab.dataset.expTab.slice(1));
+                if (panel) panel.classList.add('active');
+            });
+        });
+        // Header click toggles collapse
+        document.querySelectorAll('.exp-header-toggle').forEach(h => {
+            h.addEventListener('click', (e) => {
+                if (e.target.closest('.exp-tab')) return;
+                h.closest('.exp-alerts-card').classList.toggle('exp-collapsed');
+            });
+        });
+    }
+
+    function updateComplianceScoreCard() {
+        const arc = $('compScoreArc');
+        const valEl = $('compScoreValue');
+        const labelEl = $('compScoreLabel');
+        const metaEl = $('compScoreMeta');
+        const statsEl = $('compScoreStats');
+        if (!arc || !valEl) return;
+
+        const d = state.fmcsaSnapshot;
+        if (!d) {
+            arc.style.strokeDashoffset = '326.73';
+            arc.style.stroke = 'var(--gray-300)';
+            valEl.textContent = '\u2014';
+            if (labelEl) labelEl.textContent = 'No FMCSA data';
+            if (metaEl) metaEl.textContent = 'Fetch DOT data in Company Settings';
+            if (statsEl) statsEl.innerHTML = '';
+            // Still show unresolved badge
+            const notif = $('compNotif');
+            if (notif) {
+                const unresolved = (state.inspections || []).filter(i => !['resolved','paid','waived'].includes(i.inspStatus)).length;
+                notif.textContent = unresolved > 0 ? unresolved : '';
+            }
+            return;
+        }
+
+        // Calculate composite score (100 = perfect)
+        const totalInsp = (d.driverInsp || 0) + (d.vehicleInsp || 0) + (d.hazmatInsp || 0);
+        const totalOos = (d.driverOosInsp || 0) + (d.vehicleOosInsp || 0) + (d.hazmatOosInsp || 0);
+        const oosRate = totalInsp > 0 ? (totalOos / totalInsp) * 100 : 0;
+        const crashes = d.crashTotal || 0;
+        const rating = (d.safetyRating || '').toLowerCase();
+
+        // Score: start at 100, deduct for OOS rate, crashes, and bad rating
+        let score = 100;
+        score -= Math.min(oosRate * 1.5, 40);  // up to -40 for OOS
+        score -= Math.min(crashes * 5, 30);     // up to -30 for crashes
+        if (rating === 'unsatisfactory') score -= 25;
+        else if (rating === 'conditional') score -= 10;
+        score = Math.max(0, Math.min(100, Math.round(score)));
+
+        // Ring animation
+        const circumference = 326.73;
+        const offset = circumference - (circumference * score / 100);
+        arc.style.strokeDashoffset = String(offset);
+        arc.style.stroke = score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
+
+        valEl.textContent = score;
+        valEl.style.color = score >= 80 ? '#059669' : score >= 60 ? '#b45309' : '#dc2626';
+
+        // Label
+        if (labelEl) {
+            labelEl.textContent = score >= 90 ? 'Excellent' : score >= 80 ? 'Good' : score >= 60 ? 'Needs Attention' : 'Critical';
+        }
+        if (metaEl) {
+            metaEl.textContent = d.safetyRating ? 'FMCSA Rating: ' + d.safetyRating : '';
+        }
+
+        // Stat chips
+        if (statsEl) {
+            const chipColor = (val, thresholdWarn, thresholdBad) => val >= thresholdBad ? 'red' : val >= thresholdWarn ? 'yellow' : 'green';
+            const chips = [];
+            chips.push({ label: 'OOS ' + oosRate.toFixed(1) + '%', color: chipColor(oosRate, 15, 25) });
+            chips.push({ label: totalInsp + ' Insp', color: 'gray' });
+            if (crashes > 0) chips.push({ label: crashes + ' Crash' + (crashes !== 1 ? 'es' : ''), color: chipColor(crashes, 2, 5) });
+            statsEl.innerHTML = chips.map(c =>
+                '<span class="comp-score-chip comp-score-chip--' + c.color + '">' + escapeHtml(c.label) + '</span>'
+            ).join('');
+        }
+
+        // Update unresolved notification badge
+        const notif = $('compNotif');
+        if (notif) {
+            const unresolved = (state.inspections || []).filter(i => !['resolved','paid','waived'].includes(i.inspStatus)).length;
+            notif.textContent = unresolved > 0 ? unresolved : '';
+        }
+    }
+
+    function renderCompDropdown() {
+        const panel = $('compDropdownPanel');
+        if (!panel) return;
+        const items = (state.inspections || []).slice(0, 15);
+        if (!items.length) {
+            panel.innerHTML = '<div class="comp-card-dropdown-inner"><div class="comp-dropdown-empty">No inspections or citations recorded</div></div>';
+            return;
+        }
+        const resultIcons = {
+            pass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
+            fail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
+            warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            oos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>'
+        };
+        const chevronSvg = '<svg class="comp-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+        const typeLabels = { 'level-1': 'Level I', 'level-2': 'Level II', 'level-3': 'Level III', 'level-4': 'Level IV', 'level-5': 'Level V', citation: 'Citation' };
+        let html = '<div class="comp-card-dropdown-inner"><div class="comp-card-dropdown-list">';
+        items.forEach(d => {
+            const iconClass = d.type === 'citation' ? 'citation' : (d.result || 'pass');
+            const icon = resultIcons[d.result] || resultIcons.pass;
+            const typeLabel = typeLabels[d.type] || d.type || 'Inspection';
+            const dateStr = d.date ? new Date(d.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+            const loc = d.location || '';
+            const driver = d.driverName || '';
+            const sub = [dateStr, driver, loc].filter(Boolean).join(' · ');
+            const status = d.inspStatus || 'open';
+            const violations = d.violations ? d.violations + ' violation' + (d.violations != 1 ? 's' : '') : '';
+            const fine = d.fineAmount && parseFloat(d.fineAmount) > 0 ? '$' + parseFloat(d.fineAmount).toLocaleString() : '';
+            const extra = [violations, fine].filter(Boolean).join(' · ');
+            html += '<div class="comp-dropdown-item" data-insp-id="' + d.id + '">' +
+                '<div class="comp-dropdown-icon ' + iconClass + '">' + icon + '</div>' +
+                '<div class="comp-dropdown-detail">' +
+                '<span class="comp-dropdown-title">' + escapeHtml(typeLabel) + (extra ? ' — ' + escapeHtml(extra) : '') + '</span>' +
+                '<span class="comp-dropdown-sub">' + escapeHtml(sub) + '</span>' +
+                '</div>' +
+                '<span class="comp-dropdown-badge ' + status + '">' + escapeHtml(status) + '</span>' +
+                chevronSvg +
+                '</div>';
+        });
+        html += '</div></div>';
+        panel.innerHTML = html;
+    }
+
+    // Wire compliance card interactions
+    (function () {
+        document.addEventListener('click', function (e) {
+            // Score ring click → navigate to compliance
+            if (e.target.closest('.comp-card-nav')) {
+                e.preventDefault();
+                e.stopPropagation();
+                navigateToSection('compliance');
+                return;
+            }
+            // Click on card-inner (excluding score ring) → toggle dropdown
+            const inner = e.target.closest('.comp-card-inner');
+            if (inner && inner.closest('.comp-card')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const card = inner.closest('.comp-card');
+                const opening = !card.classList.contains('open');
+                card.classList.toggle('open');
+                if (opening) renderCompDropdown();
+                return;
+            }
+            // Click on dropdown item → open inspection detail
+            const item = e.target.closest('.comp-dropdown-item');
+            if (item && item.closest('.comp-card-dropdown')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const id = item.dataset.inspId;
+                if (id) editInspection(id);
+                return;
+            }
+        });
+    })();
+
+    async function refreshComplianceFromFmcsa() {
+        const dot = (state.profile?.dotNumber || $('dashDotNumber')?.value || '').replace(/\D/g, '').trim();
+        const btn = $('complianceRefreshBtn');
+        const hintText = $('complianceHintText');
+        if (!dot) {
+            if (hintText) hintText.textContent = 'No DOT number found. Go to Company Settings and save your DOT number first.';
+            return;
+        }
+        if (btn) { btn.disabled = true; btn.textContent = 'Fetching\u2026'; }
         try {
             const data = await fmcsaFetchDot(dot);
-            if (!data) return;
+            if (!data) throw new Error('No data returned');
             state.fmcsaSnapshot = data;
             await db.collection('users').doc(uid()).set({
                 fmcsaSnapshot: data,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             renderComplianceSection(data);
-            renderComplianceReminders(data);
+            updateComplianceScoreCard();
         } catch (err) {
-            console.error('Compliance auto-refresh error:', err);
+            console.error('Compliance refresh error:', err);
+            const msg = err?.message || 'FMCSA fetch failed. Check your DOT number and try again.';
+            if (hintText) hintText.textContent = msg;
+            renderComplianceSection(state.fmcsaSnapshot || null);
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<svg id="complianceRefreshIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refresh from FMCSA';
+            }
         }
     }
 
-    function renderComplianceReminders(fmcsaData) {
-        const container = $('fmcsaReminders');
-        const block = $('complianceRemindersBlock');
-        if (!container) return;
-        const reminders = [];
-        const today = new Date();
-
-        const iftaDeadlines = [
-            { q: 'Q1', month: 3, day: 30, label: 'Q1 (Jan\u2013Mar)' },
-            { q: 'Q2', month: 6, day: 31, label: 'Q2 (Apr\u2013Jun)' },
-            { q: 'Q3', month: 9, day: 31, label: 'Q3 (Jul\u2013Sep)' },
-            { q: 'Q4', month: 0, day: 31, label: 'Q4 (Oct\u2013Dec)', nextYear: true }
-        ];
-
-        iftaDeadlines.forEach(dl => {
-            const yr = dl.nextYear && today.getMonth() >= 10 ? today.getFullYear() + 1 : today.getFullYear();
-            const deadline = new Date(yr, dl.month, dl.day);
-            const daysUntil = Math.ceil((deadline - today) / 86400000);
-
-            if (daysUntil >= 0 && daysUntil <= 60) {
-                const type = daysUntil <= 7 ? 'danger' : daysUntil <= 30 ? 'warning' : 'info';
-                reminders.push({
-                    type, icon: 'calendar', link: '/',
-                    text: `IFTA ${dl.label} filing due ${deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} \u2014 ${daysUntil} day${daysUntil !== 1 ? 's' : ''} left`
-                });
-            }
+    async function initComplianceSection() {
+        renderComplianceSection(state.fmcsaSnapshot || null);
+        updateComplianceScoreCard();
+        // Collapsible block toggles
+        document.querySelectorAll('.compliance-collapsible .compliance-block-toggle').forEach(toggle => {
+            toggle.addEventListener('click', () => toggle.closest('.compliance-collapsible').classList.toggle('open'));
         });
-
-        if (fmcsaData && fmcsaData.mcs150FormDate) {
-            const lastFiled = new Date(fmcsaData.mcs150FormDate);
-            if (!isNaN(lastFiled.getTime())) {
-                const nextDue = new Date(lastFiled);
-                nextDue.setFullYear(nextDue.getFullYear() + 2);
-                const daysUntilMcs = Math.ceil((nextDue - today) / 86400000);
-
-                if (daysUntilMcs < 0) {
-                    reminders.push({
-                        type: 'danger', icon: 'alert',
-                        text: `MCS-150 biennial update is OVERDUE \u2014 last filed ${lastFiled.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. File immediately at FMCSA.`
-                    });
-                } else if (daysUntilMcs <= 90) {
-                    reminders.push({
-                        type: daysUntilMcs <= 30 ? 'danger' : 'warning', icon: 'calendar',
-                        text: `MCS-150 biennial update due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} \u2014 ${daysUntilMcs} day${daysUntilMcs !== 1 ? 's' : ''} left`
-                    });
-                } else {
-                    reminders.push({
-                        type: 'info', icon: 'check',
-                        text: `MCS-150 up to date \u2014 next due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
-                    });
-                }
-            }
-        } else {
-            reminders.push({
-                type: 'warning', icon: 'alert',
-                text: 'MCS-150 filing date unknown \u2014 fetch FMCSA data or verify your biennial update is filed'
-            });
+        // Wire up Refresh button
+        const refreshBtn = $('complianceRefreshBtn');
+        if (refreshBtn) refreshBtn.addEventListener('click', () => refreshComplianceFromFmcsa());
+        // Auto-fetch if we have a DOT number but no cached snapshot
+        const dot = (state.profile?.dotNumber || $('dashDotNumber')?.value || '').replace(/\D/g, '').trim();
+        if (!dot) return;
+        if (!state.fmcsaSnapshot) {
+            refreshComplianceFromFmcsa();
         }
-
-        if (reminders.length === 0) {
-            container.innerHTML = '<p class="fmcsa-no-reminders">No upcoming deadlines.</p>';
-            return;
-        }
-
-        const iconMap = {
-            calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-            alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-            check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
-        };
-
-        container.innerHTML = reminders.map(r => {
-            if (r.link) {
-                return `<a href="${escapeHtml(r.link)}" onclick="sessionStorage.setItem('fromDashboard','true')" class="fmcsa-reminder fmcsa-reminder-${escapeHtml(r.type)} fmcsa-reminder-link" title="Go to IFTA Wizard">`
-                    + `${iconMap[r.icon] || ''}  <span>${escapeHtml(r.text)}</span>`
-                    + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="fmcsa-reminder-arrow"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>`
-                    + `</a>`;
-            }
-            return `<div class="fmcsa-reminder fmcsa-reminder-${escapeHtml(r.type)}">`
-                + `${iconMap[r.icon] || ''}  <span>${escapeHtml(r.text)}</span></div>`;
-        }).join('');
-        if (block) block.style.display = '';
     }
 
     // ── TRUCKS ────────────────────────────
@@ -2231,16 +2596,16 @@
         const visCols = getVisibleTableCols('trucks');
         const widths = computeTableColWidths('trucks');
         if (thead) {
-            let h = '<th class="col-checkbox"><input type="checkbox" id="truckSelectAll" title="Select all"></th><th class="col-validation"></th>';
-            visCols.forEach(c => { h += '<th style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
+            let h = '<th class="col-checkbox"><input type="checkbox" id="truckSelectAll" title="Select all"></th>';
+            visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
             h += '<th style="width:8%"></th>';
             thead.innerHTML = h;
+            wireColDrag(thead, 'trucks');
         }
         const selAll = thead?.querySelector('#truckSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('trucks', selAll);
         tbody.innerHTML = sorted.map(t => {
-            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + t.id + '" ' + (bulkSelection.trucks.has(t.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'trucks\',\'' + t.id + '\',this)"></td>';
-            cells += validationIndicator(t);
+            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + t.id + '" ' + (bulkSelection.trucks.has(t.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'trucks\',\'' + t.id + '\',this)">' + validationIndicator(t) + '</td>';
             visCols.forEach(c => { cells += truckCell(t, c.key); });
             cells += '<td class="col-actions row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editTruck(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button title="Delete" class="btn-delete" onclick="Dashboard.deleteTruck(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>';
             return '<tr data-id="' + t.id + '" class="' + (bulkSelection.trucks.has(t.id) ? 'row-selected' : '') + ' ' + (t.doNotDispatch ? 'row-dnd' : '') + ' ' + (t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : '') + '">' + cells + '</tr>';
@@ -2473,8 +2838,8 @@
             // Trailer
             case 'type-az': sorted.sort((a, b) => cmp(a, b, 'type', 'asc')); break;
             // Driver
-            case 'name-az': sorted.sort((a, b) => { const r = cmp(a, b, 'lastName', 'asc'); return r !== 0 ? r : cmp(a, b, 'firstName', 'asc'); }); break;
-            case 'name-za': sorted.sort((a, b) => { const r = cmp(a, b, 'lastName', 'desc'); return r !== 0 ? r : cmp(a, b, 'firstName', 'desc'); }); break;
+            case 'name-az': sorted.sort((a, b) => { const r = cmp(a, b, 'firstName', 'asc'); return r !== 0 ? r : cmp(a, b, 'lastName', 'asc'); }); break;
+            case 'name-za': sorted.sort((a, b) => { const r = cmp(a, b, 'firstName', 'desc'); return r !== 0 ? r : cmp(a, b, 'lastName', 'desc'); }); break;
             case 'hired-new': sorted.sort((a, b) => dateCmp(a, b, 'hireDate', false)); break;
             case 'cdl-exp': sorted.sort((a, b) => dateCmp(a, b, 'cdlExp', true)); break;
             case 'med-exp': sorted.sort((a, b) => dateCmp(a, b, 'medExp', true)); break;
@@ -2536,13 +2901,13 @@
 
     const UNIFIED_COLS = {
         truck: [
-            { key: 'unit', label: 'Unit #', type: 'text', width: '72px', placeholder: 'e.g., 101', required: true, default: true },
+            { key: 'unit', label: 'Truck #', type: 'text', width: '72px', placeholder: 'e.g., 101', required: true, default: true },
             { key: 'year', label: 'Year', type: 'number', width: '58px', placeholder: '2024', min: 1900, max: 2099, default: true },
             { key: 'make', label: 'Make', type: 'text', width: '96px', placeholder: 'Freightliner', default: true },
             { key: 'model', label: 'Model', type: 'text', width: '90px', placeholder: 'Cascadia', default: true },
             { key: 'vin', label: 'VIN', type: 'text', width: '160px', placeholder: '17-char VIN', maxlength: 17, default: true },
             { key: 'plate', label: 'Plate', type: 'text', width: '82px', placeholder: 'ABC 1234', default: true },
-            { key: 'plateState', label: 'St', type: 'text', width: '46px', placeholder: 'TX', maxlength: 2, default: true },
+            { key: 'plateState', label: 'Plate State', type: 'text', width: '84px', placeholder: 'TX', maxlength: 2, default: true },
             { key: 'fuel', label: 'Fuel', type: 'select', width: '80px', default: true, options: [
                 { value: 'diesel', label: 'Diesel' }, { value: 'gasoline', label: 'Gasoline' },
                 { value: 'cng', label: 'CNG' }, { value: 'lng', label: 'LNG' }
@@ -2553,12 +2918,12 @@
                 { value: 'reserved', label: 'Reserved' }, { value: 'sold', label: 'Sold' }
             ]},
             { key: 'color', label: 'Color', type: 'text', width: '72px', placeholder: 'White', default: false },
-            { key: 'annualInspDate', label: 'Insp Exp', type: 'date', width: '100px', expiry: true, default: false },
-            { key: 'registrationExp', label: 'Reg Exp', type: 'date', width: '100px', expiry: true, default: false },
-            { key: 'insuranceExp', label: 'Ins Exp', type: 'date', width: '100px', expiry: true, default: false }
+            { key: 'annualInspDate', label: 'DOT Insp. Exp.', type: 'date', width: '110px', expiry: true, default: true },
+            { key: 'registrationExp', label: 'Registration Exp.', type: 'date', width: '118px', expiry: true, default: true },
+            { key: 'insuranceExp', label: 'Insurance Exp.', type: 'date', width: '112px', expiry: true, default: false }
         ],
         trailer: [
-            { key: 'unit', label: 'Unit #', type: 'text', width: '80px', placeholder: 'T-201', required: true, default: true },
+            { key: 'unit', label: 'Trailer #', type: 'text', width: '80px', placeholder: 'T-201', required: true, default: true },
             { key: 'year', label: 'Year', type: 'number', width: '58px', placeholder: '2020', min: 1900, max: 2099, default: true },
             { key: 'make', label: 'Make', type: 'text', width: '96px', placeholder: 'Utility', default: true },
             { key: 'type', label: 'Type', type: 'select', width: '96px', default: true, options: [
@@ -2575,15 +2940,15 @@
                 { value: 'reserved', label: 'Reserved' }, { value: 'sold', label: 'Sold' }
             ]},
             { key: 'model', label: 'Model', type: 'text', width: '90px', placeholder: 'Model', default: false },
-            { key: 'annualInspDate', label: 'Insp Exp', type: 'date', width: '100px', expiry: true, default: false },
-            { key: 'registrationExp', label: 'Reg Exp', type: 'date', width: '100px', expiry: true, default: false },
-            { key: 'insuranceExp', label: 'Ins Exp', type: 'date', width: '100px', expiry: true, default: false }
+            { key: 'annualInspDate', label: 'DOT Insp. Exp.', type: 'date', width: '110px', expiry: true, default: true },
+            { key: 'registrationExp', label: 'Registration Exp.', type: 'date', width: '118px', expiry: true, default: true },
+            { key: 'insuranceExp', label: 'Insurance Exp.', type: 'date', width: '112px', expiry: true, default: false }
         ],
         driver: [
-            { key: 'name', label: 'Name', type: 'text', width: '150px', placeholder: 'John Smith', required: true, default: true },
+            { key: 'name', label: 'Driver Name', type: 'text', width: '150px', placeholder: 'John Smith', required: true, default: true },
             { key: 'phone', label: 'Phone', type: 'text', width: '110px', placeholder: '(555) 123-4567', default: true },
-            { key: 'cdl', label: 'CDL #', type: 'text', width: '110px', placeholder: 'CDL number', default: true },
-            { key: 'cdlState', label: 'CDL St', type: 'text', width: '56px', placeholder: 'TX', maxlength: 2, default: true },
+            { key: 'cdl', label: 'CDL Number', type: 'text', width: '110px', placeholder: 'CDL number', default: true },
+            { key: 'cdlState', label: 'CDL State', type: 'text', width: '76px', placeholder: 'TX', maxlength: 2, default: true },
             { key: 'email', label: 'Email', type: 'text', width: '148px', placeholder: 'john@example.com', default: true },
             { key: 'status', label: 'Status', type: 'select', width: '96px', default: true, options: [
                 { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' },
@@ -2591,10 +2956,10 @@
                 { value: 'pending', label: 'Pending' }, { value: 'suspended', label: 'Suspended' },
                 { value: 'terminated', label: 'Terminated' }
             ]},
-            { key: 'dob', label: 'DOB', type: 'date', width: '100px', default: false },
-            { key: 'cdlExp', label: 'CDL Exp', type: 'date', width: '100px', expiry: true, default: false },
-            { key: 'medExp', label: 'Med Exp', type: 'date', width: '100px', expiry: true, default: false },
-            { key: 'mvrExp', label: 'MVR Exp', type: 'date', width: '100px', expiry: true, default: false },
+            { key: 'dob', label: 'Birth Date', type: 'date', width: '100px', default: false },
+            { key: 'cdlExp', label: 'CDL Expiration', type: 'date', width: '126px', expiry: true, default: false },
+            { key: 'medExp', label: 'Medical Expiration', type: 'date', width: '142px', expiry: true, default: false },
+            { key: 'mvrExp', label: 'MVR Expiration', type: 'date', width: '126px', expiry: true, default: false },
             { key: 'hireDate', label: 'Hire Date', type: 'date', width: '100px', default: false },
             { key: 'truck', label: 'Truck', type: 'truck-select', width: '90px', default: false }
         ],
@@ -2618,15 +2983,13 @@
                 { value: 'oos', label: 'Out of Service' }
             ]},
             { key: 'violations', label: 'Violations', type: 'number', width: '72px', placeholder: '0', default: true },
-            { key: 'location', label: 'Location', type: 'text', width: '120px', placeholder: 'City, ST', default: true },
+            { key: 'location', label: 'Location', type: 'text', width: '120px', placeholder: 'Zip or City, ST', default: true },
             { key: 'fineAmount', label: 'Fine $', type: 'number', width: '72px', placeholder: '0.00', default: false },
             { key: 'notes', label: 'Notes', type: 'text', width: '160px', placeholder: 'Details...', default: false },
-            { key: 'inspStatus', label: 'Status', type: 'select', width: '100px', default: false, options: [
-                { value: 'open', label: 'Open' }, { value: 'resolved', label: 'Resolved' }
+            { key: 'inspStatus', label: 'Status', type: 'select', width: '120px', default: false, options: [
+                { value: 'open', label: 'Open' }, { value: 'under-review', label: 'Under Review' }, { value: 'disputed', label: 'Disputed' }, { value: 'resolved', label: 'Resolved' }, { value: 'pending-payment', label: 'Pending Payment' }, { value: 'paid', label: 'Paid' }, { value: 'payment-disputed', label: 'Payment Disputed' }, { value: 'waived', label: 'Waived' }
             ]},
-            { key: 'paidStatus', label: 'Paid', type: 'select', width: '80px', default: false, options: [
-                { value: 'unpaid', label: 'Unpaid' }, { value: 'paid', label: 'Paid' }
-            ]}
+            { key: 'assignedTo', label: 'Assigned To', type: 'safety-select', width: '130px', default: false }
         ],
         load: [
             { key: 'loadNumber', label: 'Load #', type: 'computed', width: '70px', default: true },
@@ -2650,6 +3013,37 @@
             { key: 'dispatcher', label: 'Dispatcher', type: 'dispatcher-select', width: '130px', default: true },
             { key: 'loadDate', label: 'Load Date', type: 'date', width: '110px', default: false },
             { key: 'comments', label: 'Comments', type: 'text', width: '160px', placeholder: 'Notes...', default: false }
+        ],
+        task: [
+            { key: 'description', label: 'Description', type: 'text', width: '240px', placeholder: 'Task description...', required: true, default: true },
+            { key: 'entityType', label: 'Entity Type', type: 'select', width: '100px', required: true, default: true, options: [
+                { value: 'drivers', label: 'Driver' },
+                { value: 'trucks', label: 'Truck' },
+                { value: 'trailers', label: 'Trailer' }
+            ]},
+            { key: 'entity', label: 'Entity (Unit # or Name)', type: 'text', width: '140px', placeholder: 'e.g. 101 or John Smith', required: true, default: true },
+            { key: 'taskType', label: 'Type', type: 'select', width: '110px', default: true, options: [
+                { value: '', label: 'None' },
+                { value: 'maintenance', label: 'Maintenance' },
+                { value: 'safety', label: 'Safety' },
+                { value: 'training', label: 'Training' },
+                { value: 'incident', label: 'Incident' },
+                { value: 'general', label: 'General' },
+                { value: 'inspection', label: 'Inspection' }
+            ]},
+            { key: 'priority', label: 'Priority', type: 'select', width: '90px', default: true, options: [
+                { value: '', label: 'None' },
+                { value: 'High', label: 'High' },
+                { value: 'Medium', label: 'Medium' },
+                { value: 'Low', label: 'Low' }
+            ]},
+            { key: 'dueDate', label: 'Due Date', type: 'date', width: '110px', default: true },
+            { key: 'status', label: 'Status', type: 'select', width: '100px', default: true, options: [
+                { value: 'Open', label: 'Open' },
+                { value: 'In Progress', label: 'In Progress' },
+                { value: 'Pending', label: 'Pending' },
+                { value: 'Closed', label: 'Closed' }
+            ]}
         ]
     };
 
@@ -2659,8 +3053,87 @@
         mode: null,         // 'add' | 'edit' | 'import'
         items: [],          // original items (for edit mode)
         visibleCols: {},    // { truck: Set(['unit','year',...]), trailer: Set([...]), driver: Set([...]) }
-        dirty: new Set()    // row indices with unsaved changes
+        dirty: new Set(),   // row indices with unsaved changes
+        pendingDocs: new Map()
     };
+
+    function uCellAttachmentSpec(type, key) {
+        const specs = {
+            truck: {
+                unit: { docType: 'photo', label: 'Photo', shortLabel: 'Photo' },
+                annualInspDate: { docType: 'inspection', label: 'Inspection', shortLabel: 'Insp' },
+                registrationExp: { docType: 'registration', label: 'Registration', shortLabel: 'Reg' },
+                insuranceExp: { docType: 'insurance', label: 'Insurance', shortLabel: 'Ins' }
+            },
+            trailer: {
+                unit: { docType: 'photo', label: 'Photo', shortLabel: 'Photo' },
+                annualInspDate: { docType: 'inspection', label: 'Inspection', shortLabel: 'Insp' },
+                registrationExp: { docType: 'registration', label: 'Registration', shortLabel: 'Reg' },
+                insuranceExp: { docType: 'insurance', label: 'Insurance', shortLabel: 'Ins' }
+            },
+            driver: {
+                name: { docType: 'photo', label: 'Photo', shortLabel: 'Photo' },
+                cdl: { docType: 'cdl', label: 'CDL', shortLabel: 'CDL' },
+                medExp: { docType: 'medical', label: 'Medical Card', shortLabel: 'Med' },
+                mvrExp: { docType: 'mvr', label: 'MVR Report', shortLabel: 'MVR' }
+            },
+            load: {
+                origin: { docType: 'rc', label: 'Rate Confirmation', shortLabel: 'RC' },
+                destination: { docType: 'pod', label: 'Proof of Delivery', shortLabel: 'POD' }
+            }
+        };
+        return specs[type]?.[key] || null;
+    }
+
+    function uEnsureRowToken(data) {
+        return data?.__rowToken || ('us_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
+    }
+
+    function uGetPendingDocs(rowToken) {
+        return uSheetState.pendingDocs.get(rowToken) || {};
+    }
+
+    function uSetPendingDoc(rowToken, docType, file) {
+        const next = { ...uGetPendingDocs(rowToken), [docType]: file };
+        uSheetState.pendingDocs.set(rowToken, next);
+    }
+
+    function uClearPendingDocs(rowToken) {
+        uSheetState.pendingDocs.delete(rowToken);
+    }
+
+    function uRowHasExistingDoc(type, data, docType) {
+        if (type === 'load') return Boolean(data && data[docType + 'Url']);
+        return Array.isArray(data?.docTypes) && data.docTypes.includes(docType);
+    }
+
+    function uAttachmentButtonHtml(rowToken, spec, uploaded, fileName) {
+        const title = fileName
+            ? spec.label + ': ' + fileName
+            : uploaded
+                ? spec.label + ' attached'
+                : 'Add ' + spec.label;
+        const icon = uploaded
+            ? '<polyline points="20 6 9 17 4 12"/>'
+            : '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>';
+        return '<button type="button" class="usheet-attach-btn' + (uploaded ? ' has-file' : '') + '" data-row-token="' + rowToken + '" data-doc-type="' + spec.docType + '" title="' + escapeHtml(title) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">' + icon + '</svg></button>';
+    }
+
+    async function uUploadPendingDocs(tr, entityId) {
+        const rowToken = tr?.dataset?.rowToken;
+        if (!rowToken || !entityId) return;
+        const pending = uGetPendingDocs(rowToken);
+        const entries = Object.entries(pending);
+        if (!entries.length) return;
+        for (const [docType, file] of entries) {
+            if (!file) continue;
+            if (uSheetState.type === 'driver') await uploadDriverDoc(entityId, file, docType);
+            else if (uSheetState.type === 'truck') await uploadTruckDoc(entityId, file, docType);
+            else if (uSheetState.type === 'trailer') await uploadTrailerDoc(entityId, file, docType);
+            else if (uSheetState.type === 'load') await uploadLoadDoc(entityId, docType, file);
+        }
+        uClearPendingDocs(rowToken);
+    }
 
     function uDefaultVisibleColKeys(type) {
         return UNIFIED_COLS[type]
@@ -2705,9 +3178,9 @@
             { key: 'plate', label: 'Plate', w: 12, def: true },
             { key: 'fuel', label: 'Fuel', w: 8, def: true },
             { key: 'color', label: 'Color', w: 8, def: false },
-            { key: 'annualInspDate', label: 'Insp Exp', w: 9, def: false },
-            { key: 'registrationExp', label: 'Reg Exp', w: 9, def: false },
-            { key: 'insuranceExp', label: 'Ins Exp', w: 9, def: false },
+            { key: 'annualInspDate', label: 'Inspection Exp.', w: 12, def: false },
+            { key: 'registrationExp', label: 'Registration Exp.', w: 13, def: false },
+            { key: 'insuranceExp', label: 'Insurance Exp.', w: 12, def: false },
             { key: 'status', label: 'Status', w: 10, def: true }
         ],
         trailers: [
@@ -2718,22 +3191,22 @@
             { key: 'model', label: 'Model', w: 10, def: false },
             { key: 'vin', label: 'VIN', w: 18, def: true },
             { key: 'plate', label: 'Plate', w: 12, def: true },
-            { key: 'annualInspDate', label: 'Insp Exp', w: 9, def: false },
-            { key: 'registrationExp', label: 'Reg Exp', w: 9, def: false },
-            { key: 'insuranceExp', label: 'Ins Exp', w: 9, def: false },
+            { key: 'annualInspDate', label: 'Inspection Exp.', w: 12, def: false },
+            { key: 'registrationExp', label: 'Registration Exp.', w: 13, def: false },
+            { key: 'insuranceExp', label: 'Insurance Exp.', w: 12, def: false },
             { key: 'status', label: 'Status', w: 10, def: true }
         ],
         drivers: [
             { key: 'name', label: 'Name', w: 14, req: true, def: true },
             { key: 'cdl', label: 'CDL #', w: 9, def: true },
             { key: 'cdlState', label: 'State', w: 5, def: true },
-            { key: 'cdlExp', label: 'CDL Exp', w: 9, def: true },
+            { key: 'cdlExp', label: 'CDL Expiration', w: 12, def: true },
             { key: 'phone', label: 'Phone', w: 10, def: true },
             { key: 'email', label: 'Email', w: 11, def: true },
             { key: 'truck', label: 'Truck', w: 12, def: true },
-            { key: 'dob', label: 'DOB', w: 9, def: false },
-            { key: 'medExp', label: 'Med Exp', w: 9, def: false },
-            { key: 'mvrExp', label: 'MVR Exp', w: 9, def: false },
+            { key: 'dob', label: 'Date of Birth', w: 10, def: false },
+            { key: 'medExp', label: 'Medical Exp.', w: 11, def: false },
+            { key: 'mvrExp', label: 'MVR Expiration', w: 12, def: false },
             { key: 'hireDate', label: 'Hire Date', w: 9, def: false },
             { key: 'status', label: 'Status', w: 10, def: true }
         ],
@@ -2748,12 +3221,47 @@
             { key: 'violations', label: 'Viol.', w: 6, def: true },
             { key: 'fineAmount', label: 'Fine $', w: 7, def: false },
             { key: 'notes', label: 'Notes', w: 12, def: false },
-            { key: 'status', label: 'Status', w: 13, def: true }
+            { key: 'assignedTo', label: 'Assigned', w: 10, def: true },
+            { key: 'status', label: 'Status', w: 8, def: true }
+        ],
+        loads: [
+            { key: 'loadNumber', label: 'Load #', w: 6, req: true, def: true },
+            { key: 'unit', label: 'Unit', w: 6, def: true },
+            { key: 'origin', label: 'From', w: 11, def: true },
+            { key: 'destination', label: 'To', w: 11, def: true },
+            { key: 'broker', label: 'Broker', w: 7, def: true },
+            { key: 'rate', label: 'Rate', w: 6, def: true },
+            { key: 'mileage', label: 'Mileage', w: 5, def: true },
+            { key: 'rpm', label: 'RPM', w: 4, def: true },
+            { key: 'detention', label: 'Det/Bonus', w: 5, def: false },
+            { key: 'status', label: 'Status', w: 7, def: true },
+            { key: 'deliveryDate', label: 'DEL Date', w: 7, def: true },
+            { key: 'total', label: 'Total', w: 6, def: true },
+            { key: 'driver', label: 'Driver', w: 7, def: true },
+            { key: 'dispatcher', label: 'Dispatcher', w: 7, def: false },
+            { key: 'comments', label: 'Comments', w: 5, def: false }
+        ],
+        history: [
+            { key: 'loadNumber', label: 'Load #', w: 6, req: true, def: true },
+            { key: 'unit', label: 'Unit', w: 6, def: true },
+            { key: 'origin', label: 'From', w: 12, def: true },
+            { key: 'destination', label: 'To', w: 12, def: true },
+            { key: 'broker', label: 'Broker', w: 8, def: true },
+            { key: 'rate', label: 'Rate', w: 7, def: true },
+            { key: 'mileage', label: 'Mileage', w: 5, def: true },
+            { key: 'rpm', label: 'RPM', w: 4, def: true },
+            { key: 'detention', label: 'Det/Bonus', w: 5, def: false },
+            { key: 'status', label: 'Status', w: 7, def: true },
+            { key: 'deliveryDate', label: 'DEL Date', w: 7, def: true },
+            { key: 'total', label: 'Total', w: 6, def: true },
+            { key: 'driver', label: 'Driver', w: 7, def: true },
+            { key: 'dispatcher', label: 'Dispatcher', w: 7, def: false }
         ]
     };
 
     // ── Table Column State (persisted in localStorage) ──
     const tableColState = {};
+    const tableColOrder = {};
     Object.keys(TABLE_COLS).forEach(type => {
         const saved = localStorage.getItem('dash_cols_' + type);
         if (saved) {
@@ -2762,20 +3270,40 @@
         } else {
             tableColState[type] = new Set(TABLE_COLS[type].filter(c => c.def).map(c => c.key));
         }
+        const savedOrder = localStorage.getItem('dash_col_order_' + type);
+        if (savedOrder) {
+            try { tableColOrder[type] = JSON.parse(savedOrder); }
+            catch { tableColOrder[type] = TABLE_COLS[type].map(c => c.key); }
+        } else {
+            tableColOrder[type] = TABLE_COLS[type].map(c => c.key);
+        }
     });
 
     function saveTableCols(type) {
         localStorage.setItem('dash_cols_' + type, JSON.stringify([...tableColState[type]]));
     }
 
+    function saveTableColOrder(type) {
+        localStorage.setItem('dash_col_order_' + type, JSON.stringify(tableColOrder[type]));
+    }
+
     function getVisibleTableCols(type) {
-        return TABLE_COLS[type].filter(c => tableColState[type].has(c.key) || c.req);
+        const vis = TABLE_COLS[type].filter(c => tableColState[type].has(c.key) || c.req);
+        const order = tableColOrder[type];
+        if (order) {
+            vis.sort((a, b) => {
+                const ai = order.indexOf(a.key);
+                const bi = order.indexOf(b.key);
+                return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+            });
+        }
+        return vis;
     }
 
     function computeTableColWidths(type) {
         const vis = getVisibleTableCols(type);
         const totalW = vis.reduce((s, c) => s + c.w, 0);
-        const fixedW = type === 'inspections' ? 21 : 13;
+        const fixedW = type === 'inspections' ? 21 : type === 'loads' ? 8 : type === 'history' ? 4 : 13;
         const avail = 100 - fixedW;
         const widths = {};
         vis.forEach(c => { widths[c.key] = ((c.w / totalW) * avail).toFixed(1); });
@@ -2808,12 +3336,12 @@
         card.classList.add('usheet-card-vanish');
         setTimeout(() => card.classList.remove('usheet-card-vanish'), 250);
         saveTableCols(type);
-        const tableId = { trucks: 'trucksTable', trailers: 'trailersTable', drivers: 'driversTable', inspections: 'inspectionsTable' }[type];
+        const tableId = { trucks: 'trucksTable', trailers: 'trailersTable', drivers: 'driversTable', inspections: 'inspectionsTable', loads: 'loadsTable', history: 'historyTable' }[type];
         const tableWrap = $(tableId)?.closest('.dash-table-wrap');
         if (tableWrap) {
             tableWrap.classList.add('col-transitioning');
             setTimeout(() => {
-                const renderFn = { trucks: renderTrucks, trailers: renderTrailers, drivers: renderDrivers, inspections: renderInspections }[type];
+                const renderFn = { trucks: renderTrucks, trailers: renderTrailers, drivers: renderDrivers, inspections: renderInspections, loads: renderLoads, history: renderLoadHistory }[type];
                 if (renderFn) renderFn();
                 requestAnimationFrame(() => tableWrap.classList.remove('col-transitioning'));
             }, 150);
@@ -2821,24 +3349,92 @@
     }
 
     function initTableColPickers() {
+        let activeDropdownEl = null;
+        let activePickerBtn = null;
+
+        function closeColPicker() {
+            if (activeDropdownEl) { activeDropdownEl.remove(); activeDropdownEl = null; }
+            activePickerBtn = null;
+        }
+
         document.querySelectorAll('.table-col-picker-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                e.stopPropagation();
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                if (activePickerBtn === btn) { closeColPicker(); return; }
+                closeColPicker();
                 const type = btn.dataset.tableType;
-                const wrap = btn.closest('.table-col-picker-wrap');
-                const dropdown = wrap.querySelector('.table-col-dropdown');
-                const isOpen = !dropdown.classList.contains('hidden');
-                document.querySelectorAll('.table-col-dropdown').forEach(d => d.classList.add('hidden'));
-                if (!isOpen) {
-                    buildTableColPicker(type, dropdown);
-                    dropdown.classList.remove('hidden');
+                const floater = document.createElement('div');
+                floater.className = 'table-col-dropdown';
+                document.body.appendChild(floater);
+                buildTableColPicker(type, floater);
+                const rect = btn.getBoundingClientRect();
+                floater.style.top = (rect.bottom + 6) + 'px';
+                floater.style.right = (window.innerWidth - rect.right) + 'px';
+                activeDropdownEl = floater;
+                activePickerBtn = btn;
+            }, true);
+        });
+
+        document.addEventListener('click', (e) => {
+            if (activeDropdownEl && !e.target.closest('.table-col-picker-btn') && !activeDropdownEl.contains(e.target)) {
+                closeColPicker();
+            }
+        }, true);
+    }
+
+    // ── Column Drag-Reorder ──
+    const colDrag = { type: null, dragKey: null, overKey: null };
+    const TABLE_TYPE_MAP = { trucksTable: 'trucks', trailersTable: 'trailers', driversTable: 'drivers', inspectionsTable: 'inspections', loadsTable: 'loads', historyTable: 'history' };
+    const RENDER_MAP_FN = () => ({ trucks: renderTrucks, trailers: renderTrailers, drivers: renderDrivers, inspections: renderInspections, loads: renderLoads, history: renderLoadHistory });
+
+    function wireColDrag(thead, tableType) {
+        if (!thead) return;
+        thead.querySelectorAll('th[data-col-key]').forEach(th => {
+            th.draggable = true;
+            th.addEventListener('dragstart', (e) => {
+                colDrag.type = tableType;
+                colDrag.dragKey = th.dataset.colKey;
+                th.classList.add('th-dragging');
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', th.dataset.colKey);
+            });
+            th.addEventListener('dragend', () => {
+                th.classList.remove('th-dragging');
+                thead.querySelectorAll('.th-drag-over').forEach(el => el.classList.remove('th-drag-over'));
+                colDrag.type = null;
+                colDrag.dragKey = null;
+                colDrag.overKey = null;
+            });
+            th.addEventListener('dragover', (e) => {
+                if (colDrag.type !== tableType) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                if (colDrag.overKey !== th.dataset.colKey) {
+                    thead.querySelectorAll('.th-drag-over').forEach(el => el.classList.remove('th-drag-over'));
+                    th.classList.add('th-drag-over');
+                    colDrag.overKey = th.dataset.colKey;
                 }
             });
-        });
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.table-col-picker-wrap')) {
-                document.querySelectorAll('.table-col-dropdown').forEach(d => d.classList.add('hidden'));
-            }
+            th.addEventListener('dragleave', () => {
+                th.classList.remove('th-drag-over');
+            });
+            th.addEventListener('drop', (e) => {
+                e.preventDefault();
+                th.classList.remove('th-drag-over');
+                const fromKey = colDrag.dragKey;
+                const toKey = th.dataset.colKey;
+                if (!fromKey || !toKey || fromKey === toKey) return;
+                const order = tableColOrder[tableType];
+                const fi = order.indexOf(fromKey);
+                const ti = order.indexOf(toKey);
+                if (fi === -1 || ti === -1) return;
+                order.splice(fi, 1);
+                order.splice(order.indexOf(toKey) + (fi < ti ? 1 : 0), 0, fromKey);
+                saveTableColOrder(tableType);
+                const renderFn = RENDER_MAP_FN()[tableType];
+                if (renderFn) renderFn();
+            });
         });
     }
 
@@ -2847,16 +3443,30 @@
         return Array.isArray(entity?.docTypes) && entity.docTypes.includes(docType);
     }
 
-    function inlineDocButton(entityType, entityId, docType, label, uploaded) {
-        const title = uploaded ? label + ' uploaded — click to replace' : 'Upload ' + label;
-        return '<button class="entity-doc-btn' + (uploaded ? ' uploaded' : '') + '" data-entity="' + entityType + '" data-id="' + entityId + '" data-doc="' + docType + '" title="' + escapeHtml(title) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">' +
-            (uploaded ? '<polyline points="20 6 9 17 4 12"/>' : '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>') +
-            '</svg></button>';
+    function inlineDocButton(entityType, entityId, docType, label, uploaded, docUrl) {
+        if (uploaded) {
+            var viewBtn = '';
+            if (docUrl) {
+                var isImage = docType === 'photo';
+                var viewLabel = isImage ? 'View' : 'Open';
+                viewBtn = '<button class="entity-doc-action entity-doc-view-btn" data-photo-url="' + escapeHtml(docUrl) + '" data-is-image="' + (isImage ? '1' : '') + '" title="' + viewLabel + ' ' + escapeHtml(label) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ' + viewLabel + '</button>';
+            }
+            var indicator = (docType === 'photo' && docUrl)
+                ? '<span class="entity-doc-thumb"><img src="' + escapeHtml(docUrl) + '" alt="' + escapeHtml(label) + '"/></span>'
+                : '<span class="entity-doc-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>';
+            return '<span class="entity-doc-uploaded" data-entity="' + entityType + '" data-id="' + entityId + '" data-doc="' + docType + '">' +
+                indicator +
+                '<span class="entity-doc-menu">' + viewBtn +
+                '<button class="entity-doc-action entity-doc-replace-btn" data-entity="' + entityType + '" data-id="' + entityId + '" data-doc="' + docType + '" title="Replace ' + escapeHtml(label) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Replace</button>' +
+                '</span></span>';
+        }
+        return '<button class="entity-doc-btn" data-entity="' + entityType + '" data-id="' + entityId + '" data-doc="' + docType + '" title="Upload ' + escapeHtml(label) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>';
     }
 
     function truckCell(t, key) {
+        const du = t.docUrls || {};
         switch(key) {
-            case 'unit': return '<td class="col-unit"><div class="cell cell-primary cell-with-doc" title="Open truck profile for ' + escapeHtml(t.unit || t.id) + '"><span><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('truck', t.id, 'photo', 'Truck Photo', hasInlineDoc(t, 'photo')) + '</div></td>';
+            case 'unit': return '<td class="col-unit"><div class="cell cell-primary cell-with-doc" title="Open truck profile for ' + escapeHtml(t.unit || t.id) + '"><span><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('truck', t.id, 'photo', 'Truck Photo', hasInlineDoc(t, 'photo'), t.photoUrl) + '</div></td>';
             case 'year': return '<td class="col-year"><div class="cell">' + escapeHtml(t.year) + '</div></td>';
             case 'make': return '<td class="col-make"><div class="cell">' + escapeHtml(t.make) + '</div></td>';
             case 'model': return '<td class="col-model"><div class="cell">' + escapeHtml(t.model) + '</div></td>';
@@ -2864,43 +3474,45 @@
             case 'plate': return '<td class="col-plate"><div class="cell">' + escapeHtml(t.plate) + (t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : '') + '</div></td>';
             case 'fuel': return '<td class="col-fuel"><div class="cell">' + fuelLabel(t.fuel) + '</div></td>';
             case 'color': return '<td class="col-color"><div class="cell">' + escapeHtml(t.color || '') + '</div></td>';
-            case 'annualInspDate': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.annualInspDate || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'inspection', 'Annual Inspection', hasInlineDoc(t, 'inspection')) + '</div></td>';
-            case 'registrationExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.registrationExp || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'registration', 'Registration', hasInlineDoc(t, 'registration')) + '</div></td>';
-            case 'insuranceExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.insuranceExp || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'insurance', 'Insurance', hasInlineDoc(t, 'insurance')) + '</div></td>';
+            case 'annualInspDate': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.annualInspDate || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'inspection', 'Annual Inspection', hasInlineDoc(t, 'inspection'), du.inspection) + '</div></td>';
+            case 'registrationExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.registrationExp || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'registration', 'Registration', hasInlineDoc(t, 'registration'), du.registration) + '</div></td>';
+            case 'insuranceExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.insuranceExp || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'insurance', 'Insurance', hasInlineDoc(t, 'insurance'), du.insurance) + '</div></td>';
             case 'status': return '<td class="col-status"><div class="cell">' + statusSelect(t.status, t.id, 'trucks', 'truck') + '</div></td>';
             default: return '<td><div class="cell">' + escapeHtml(t[key] || '') + '</div></td>';
         }
     }
 
     function trailerCell(t, key) {
+        const du = t.docUrls || {};
         switch(key) {
-            case 'unit': return '<td><div class="cell cell-primary cell-with-doc" title="Open trailer profile for ' + escapeHtml(t.unit || t.id) + '"><span><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('trailer', t.id, 'photo', 'Trailer Photo', hasInlineDoc(t, 'photo')) + '</div></td>';
+            case 'unit': return '<td><div class="cell cell-primary cell-with-doc" title="Open trailer profile for ' + escapeHtml(t.unit || t.id) + '"><span><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('trailer', t.id, 'photo', 'Trailer Photo', hasInlineDoc(t, 'photo'), t.photoUrl) + '</div></td>';
             case 'year': return '<td><div class="cell">' + escapeHtml(t.year) + '</div></td>';
             case 'make': return '<td><div class="cell">' + escapeHtml(t.make) + '</div></td>';
             case 'type': return '<td><div class="cell">' + trailerTypeLabel(t.type) + '</div></td>';
             case 'model': return '<td><div class="cell">' + escapeHtml(t.model || '') + '</div></td>';
             case 'vin': return '<td><div class="cell vin-cell">' + escapeHtml(t.vin) + '</div></td>';
             case 'plate': return '<td><div class="cell">' + escapeHtml(t.plate) + '</div></td>';
-            case 'annualInspDate': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.annualInspDate || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'inspection', 'Annual Inspection', hasInlineDoc(t, 'inspection')) + '</div></td>';
-            case 'registrationExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.registrationExp || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'registration', 'Registration', hasInlineDoc(t, 'registration')) + '</div></td>';
-            case 'insuranceExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.insuranceExp || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'insurance', 'Insurance', hasInlineDoc(t, 'insurance')) + '</div></td>';
+            case 'annualInspDate': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.annualInspDate || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'inspection', 'Annual Inspection', hasInlineDoc(t, 'inspection'), du.inspection) + '</div></td>';
+            case 'registrationExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.registrationExp || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'registration', 'Registration', hasInlineDoc(t, 'registration'), du.registration) + '</div></td>';
+            case 'insuranceExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.insuranceExp || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'insurance', 'Insurance', hasInlineDoc(t, 'insurance'), du.insurance) + '</div></td>';
             case 'status': return '<td><div class="cell">' + statusSelect(t.status, t.id, 'trailers', 'trailer') + '</div></td>';
             default: return '<td><div class="cell">' + escapeHtml(t[key] || '') + '</div></td>';
         }
     }
 
     function driverCell(d, key) {
+        const du = d.docUrls || {};
         switch(key) {
-            case 'name': return '<td><div class="cell cell-primary cell-with-doc" title="Open driver profile for ' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '"><span><strong>' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '</strong>' + (d.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('driver', d.id, 'photo', 'Driver Photo', hasInlineDoc(d, 'photo')) + '</div></td>';
-            case 'cdl': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(d.cdl) + '</span>' + inlineDocButton('driver', d.id, 'cdl', 'CDL', hasInlineDoc(d, 'cdl')) + '</div></td>';
+            case 'name': return '<td><div class="cell cell-primary cell-with-doc" title="Open driver profile for ' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '"><span><strong>' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '</strong>' + (d.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('driver', d.id, 'photo', 'Driver Photo', hasInlineDoc(d, 'photo'), d.photoUrl) + '</div></td>';
+            case 'cdl': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(d.cdl) + '</span>' + inlineDocButton('driver', d.id, 'cdl', 'CDL', hasInlineDoc(d, 'cdl'), du.cdl) + '</div></td>';
             case 'cdlState': return '<td><div class="cell">' + escapeHtml(d.cdlState) + '</div></td>';
             case 'cdlExp': return '<td><div class="cell">' + escapeHtml(d.cdlExp) + '</div></td>';
             case 'phone': return '<td><div class="cell">' + escapeHtml(d.phone ? formatPhone(d.phone) : '') + '</div></td>';
             case 'email': return '<td><div class="cell">' + escapeHtml(d.email) + '</div></td>';
             case 'truck': return '<td><div class="cell">' + truckSelectHtml(d.id, d.truck, d.doNotDispatch) + '</div></td>';
             case 'dob': return '<td><div class="cell">' + escapeHtml(d.dob || '\u2014') + '</div></td>';
-            case 'medExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(d.medExp || '\u2014') + '</span>' + inlineDocButton('driver', d.id, 'medical', 'Medical Card', hasInlineDoc(d, 'medical')) + '</div></td>';
-            case 'mvrExp': return '<td><div class="cell">' + escapeHtml(d.mvrExp || '\u2014') + '</div></td>';
+            case 'medExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(d.medExp || '\u2014') + '</span>' + inlineDocButton('driver', d.id, 'medical', 'Medical Card', hasInlineDoc(d, 'medical'), du.medical) + '</div></td>';
+            case 'mvrExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(d.mvrExp || '\u2014') + '</span>' + inlineDocButton('driver', d.id, 'mvr', 'MVR Report', hasInlineDoc(d, 'mvr'), du.mvr) + '</div></td>';
             case 'hireDate': return '<td><div class="cell">' + escapeHtml(d.hireDate || '\u2014') + '</div></td>';
             case 'status': return '<td><div class="cell">' + statusSelect(d.status, d.id, 'drivers', 'driver') + '</div></td>';
             default: return '<td><div class="cell">' + escapeHtml(d[key] || '') + '</div></td>';
@@ -2930,14 +3542,59 @@
             case 'violations': return '<td><div class="cell">' + (d.violations != null ? escapeHtml(String(d.violations)) : '0') + '</div></td>';
             case 'fineAmount': return '<td><div class="cell">' + (d.fineAmount ? '$' + parseFloat(d.fineAmount).toFixed(2) : '\u2014') + '</div></td>';
             case 'notes': return '<td><div class="cell">' + escapeHtml(d.notes || '\u2014') + '</div></td>';
+            case 'assignedTo': {
+                const users = (state.companyDashboard && state.companyDashboard.users || []).filter(u => ['Owner','Admin','Safety Manager'].includes(u.role));
+                const cur = d.assignedTo || '';
+                let html = '<td><div class="cell"><select class="insp-assign-select" data-id="' + d.id + '">';
+                html += '<option value=""' + (!cur ? ' selected' : '') + '>Unassigned</option>';
+                users.forEach(u => { html += '<option value="' + escapeHtml(u.name) + '"' + (cur === u.name ? ' selected' : '') + '>' + escapeHtml(u.name) + '</option>'; });
+                html += '</select></div></td>';
+                return html;
+            }
             case 'status': {
-                const resolved = d.inspStatus === 'resolved';
-                const paid = d.paidStatus === 'paid';
-                const statusBadge = resolved ? '<span class="insp-badge badge-green">Resolved</span>' : '<span class="insp-badge badge-red">Open</span>';
-                const paidBadge = (d.fineAmount && parseFloat(d.fineAmount) > 0) ? (paid ? '<span class="insp-badge badge-green">Paid</span>' : '<span class="insp-badge badge-yellow">Unpaid</span>') : '';
-                return '<td><div class="cell">' + statusBadge + ' ' + paidBadge + '</div></td>';
+                const st = d.inspStatus || 'open';
+                const cls = { open: 'is-open', 'under-review': 'is-under-review', disputed: 'is-disputed', resolved: 'is-resolved', 'pending-payment': 'is-pending', paid: 'is-paid', 'payment-disputed': 'is-pay-disputed', waived: 'is-waived' }[st] || 'is-open';
+                const opts = [['open','Open'],['under-review','Under Review'],['disputed','Disputed'],['resolved','Resolved'],['pending-payment','Pending Payment'],['paid','Paid'],['payment-disputed','Payment Disputed'],['waived','Waived']];
+                let html = '<td><div class="cell insp-status-cell">';
+                html += '<select class="insp-status-select ' + cls + '" data-id="' + d.id + '" data-field="inspStatus">';
+                opts.forEach(([v, l]) => { html += '<option value="' + v + '"' + (st === v ? ' selected' : '') + '>' + l + '</option>'; });
+                html += '</select></div></td>';
+                return html;
             }
             default: return '<td><div class="cell">' + escapeHtml(d[key] || '') + '</div></td>';
+        }
+    }
+
+    function loadCell(l, key) {
+        const rpm = calcRPM(l.rate, l.mileage);
+        const total = calcTotal(l.rate, l.detention);
+        switch(key) {
+            case 'loadNumber': return '<td><div class="cell cell-muted">' + escapeHtml(l.loadNumber || '') + '</div></td>';
+            case 'unit': return '<td><div class="cell">' + escapeHtml(l.unit || '') + '</div></td>';
+            case 'origin': {
+                const rcIcon = l.rcUrl
+                    ? '<button class="load-doc-btn uploaded" data-doc="rc" data-id="' + l.id + '" title="RC uploaded — click to replace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>'
+                    : '<button class="load-doc-btn" data-doc="rc" data-id="' + l.id + '" title="Upload Rate Confirmation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>';
+                return '<td><div class="cell load-cell-with-doc"><span>' + escapeHtml(l.origin || '') + '</span>' + rcIcon + '</div></td>';
+            }
+            case 'destination': {
+                const podIcon = l.podUrl
+                    ? '<button class="load-doc-btn uploaded" data-doc="pod" data-id="' + l.id + '" title="POD uploaded — click to replace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>'
+                    : '<button class="load-doc-btn" data-doc="pod" data-id="' + l.id + '" title="Upload Proof of Delivery"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>';
+                return '<td><div class="cell load-cell-with-doc"><span>' + escapeHtml(l.destination || '') + '</span>' + podIcon + '</div></td>';
+            }
+            case 'broker': return '<td><div class="cell">' + escapeHtml(l.broker || '') + '</div></td>';
+            case 'rate': return '<td><div class="cell">' + (l.rate ? formatCurrency(l.rate) : '') + '</div></td>';
+            case 'mileage': return '<td><div class="cell">' + escapeHtml(l.mileage ? String(l.mileage) : '') + '</div></td>';
+            case 'rpm': return '<td><div class="cell load-rpm">' + escapeHtml(rpm) + '</div></td>';
+            case 'detention': return '<td><div class="cell">' + (l.detention ? formatCurrency(l.detention) : '') + '</div></td>';
+            case 'status': return '<td><div class="cell">' + loadStatusBadge(l.status) + '</div></td>';
+            case 'deliveryDate': return '<td><div class="cell">' + escapeHtml(l.deliveryDate || '') + '</div></td>';
+            case 'total': return '<td><div class="cell"><strong>' + (total ? formatCurrency(total) : '') + '</strong></div></td>';
+            case 'driver': return '<td><div class="cell">' + escapeHtml(l.driver || '') + '</div></td>';
+            case 'dispatcher': return '<td><div class="cell">' + escapeHtml(l.dispatcher || '') + '</div></td>';
+            case 'comments': return '<td><div class="cell cell-muted" title="' + escapeHtml(l.comments || '') + '">' + escapeHtml((l.comments || '').substring(0, 30)) + ((l.comments || '').length > 30 ? '\u2026' : '') + '</div></td>';
+            default: return '<td><div class="cell">' + escapeHtml(l[key] || '') + '</div></td>';
         }
     }
 
@@ -2953,9 +3610,10 @@
         uSheetState.mode = mode;
         uSheetState.items = items || [];
         uSheetState.dirty = new Set();
+        uSheetState.pendingDocs = new Map();
 
         // Title
-        const titleMap = { truck: 'Trucks', trailer: 'Trailers', driver: 'Drivers', inspection: 'Inspections', load: 'Loads' };
+        const titleMap = { truck: 'Trucks', trailer: 'Trailers', driver: 'Drivers', inspection: 'Inspections', load: 'Loads', task: 'Tasks' };
         const titleEl = $('usheetTitle');
         if (mode === 'add') titleEl.textContent = 'Add ' + titleMap[type];
         else if (mode === 'import') titleEl.textContent = 'Import ' + titleMap[type];
@@ -3045,6 +3703,8 @@
         const tr = document.createElement('tr');
         tr.className = 'usheet-row';
         if (data && data.id) tr.dataset.id = data.id;
+        const rowToken = uEnsureRowToken(data);
+        tr.dataset.rowToken = rowToken;
         // For drivers in edit mode, combine firstName + lastName into name
         if (uSheetState.type === 'driver' && data && data.firstName) {
             data.name = ((data.firstName || '') + ' ' + (data.lastName || '')).trim();
@@ -3053,30 +3713,41 @@
         let html = `<td class="usheet-num">${index + 1}</td>`;
         visCols.forEach(c => {
             let val = data ? (data[c.key] || '') : '';
+            const attachSpec = uCellAttachmentSpec(uSheetState.type, c.key);
+            const pending = uGetPendingDocs(rowToken);
+            const hasPendingDoc = Boolean(attachSpec && pending[attachSpec.docType]);
+            const hasExistingDoc = Boolean(attachSpec && uRowHasExistingDoc(uSheetState.type, data, attachSpec.docType));
+            const attachmentBtn = attachSpec ? uAttachmentButtonHtml(rowToken, attachSpec, hasPendingDoc || hasExistingDoc, pending[attachSpec.docType]?.name || '') : '';
             if (c.type === 'select') {
                 const opts = c.options.map(o =>
                     `<option value="${escapeHtml(o.value)}"${o.value === val ? ' selected' : ''}>${escapeHtml(o.label)}</option>`
                 ).join('');
                 const placeholder = c.placeholder || 'Select';
-                html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>${placeholder}</option>${opts}</select></td>`;
+                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>${placeholder}</option>${opts}</select>${attachmentBtn}</div></td>`;
             } else if (c.type === 'truck-select') {
                 const opts = state.trucks.map(t =>
                     `<option value="${escapeHtml(t.unit)}"${t.unit === val ? ' selected' : ''}>${escapeHtml(t.unit)}</option>`
                 ).join('');
-                html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Truck</option>${opts}</select></td>`;
+                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Truck</option>${opts}</select>${attachmentBtn}</div></td>`;
             } else if (c.type === 'driver-select') {
                 const opts = state.drivers.map(d =>
                     `<option value="${escapeHtml(d.firstName + ' ' + d.lastName)}"${(d.firstName + ' ' + d.lastName) === val ? ' selected' : ''}>${escapeHtml(d.firstName + ' ' + d.lastName)}</option>`
                 ).join('');
-                html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Driver</option>${opts}</select></td>`;
+                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Driver</option>${opts}</select>${attachmentBtn}</div></td>`;
             } else if (c.type === 'dispatcher-select') {
                 const dispatchers = (state.companyDashboard && state.companyDashboard.users || []).filter(u => u.role === 'Dispatcher');
                 const opts = dispatchers.map(u =>
                     `<option value="${escapeHtml(u.name)}"${u.name === val ? ' selected' : ''}>${escapeHtml(u.name)}</option>`
                 ).join('');
-                html += `<td class="usheet-cell" data-key="${c.key}"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Dispatcher</option>${opts}</select></td>`;
+                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Dispatcher</option>${opts}</select>${attachmentBtn}</div></td>`;
+            } else if (c.type === 'safety-select') {
+                const safetyUsers = (state.companyDashboard && state.companyDashboard.users || []).filter(u => ['Owner','Admin','Safety Manager'].includes(u.role));
+                const opts = safetyUsers.map(u =>
+                    `<option value="${escapeHtml(u.name)}"${u.name === val ? ' selected' : ''}>${escapeHtml(u.name)}</option>`
+                ).join('');
+                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="">Unassigned</option>${opts}</select>${attachmentBtn}</div></td>`;
             } else if (c.type === 'date') {
-                html += `<td class="usheet-cell" data-key="${c.key}"><input type="date" data-key="${c.key}" value="${escapeHtml(val)}"${!val ? ' class="usheet-empty"' : ''}></td>`;
+                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><input type="date" data-key="${c.key}" value="${escapeHtml(val)}"${!val ? ' class="usheet-empty"' : ''}>${attachmentBtn}</div></td>`;
             } else if (c.type === 'computed') {
                 // Read-only computed cell (e.g. RPM)
                 let computed = '';
@@ -3084,7 +3755,7 @@
                 if (c.key === 'loadNumber' && data) computed = data.loadNumber || '';
                 html += `<td class="usheet-cell usheet-computed" data-key="${c.key}"><span data-key="${c.key}">${escapeHtml(computed)}</span></td>`;
             } else {
-                html += `<td class="usheet-cell" data-key="${c.key}"><input type="${c.type === 'number' ? 'number' : 'text'}" data-key="${c.key}" value="${escapeHtml(val)}" placeholder="${c.placeholder || ''}"${c.maxlength ? ' maxlength="' + c.maxlength + '"' : ''}></td>`;
+                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><input type="${c.type === 'number' ? 'number' : 'text'}" data-key="${c.key}" value="${escapeHtml(val)}" placeholder="${c.placeholder || ''}"${c.maxlength ? ' maxlength="' + c.maxlength + '"' : ''}>${attachmentBtn}</div></td>`;
             }
         });
         // Actions: per-row save + delete
@@ -3112,6 +3783,7 @@
         if (!tbody) return rows;
         Array.from(tbody.children).forEach(tr => {
             const data = {};
+            data.__rowToken = tr.dataset.rowToken || '';
             if (tr.dataset.id) data.id = tr.dataset.id;
             tr.querySelectorAll('input[data-key], select[data-key]').forEach(el => {
                 data[el.dataset.key] = el.value;
@@ -3178,6 +3850,7 @@
 
         try {
             const existingId = tr.dataset.id;
+            let entityId = existingId;
             if (mode === 'edit' && existingId) {
                 await col(cfg.collection).doc(existingId).update(payload);
             } else {
@@ -3187,7 +3860,9 @@
                 }
                 const docRef = await col(cfg.collection).add(payload);
                 tr.dataset.id = docRef.id; // Track new ID
+                entityId = docRef.id;
             }
+            await uUploadPendingDocs(tr, entityId);
             // Flash green then remove row in add/import mode
             tr.classList.add('usheet-saved');
             if (mode !== 'edit') {
@@ -3221,10 +3896,88 @@
         const btn = $('usheetSaveAll');
         if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
 
+        // ── Task special save path ──────────────────────────────────────────
+        if (type === 'task') {
+            try {
+                const currentUid = uid();
+                if (!currentUid) { showMsg('Not logged in', true); return; }
+                let count = 0;
+                const errors = [];
+                for (const tr of rows) {
+                    const data = uCollectRowData(tr);
+                    if (!data.description || !data.description.trim()) continue;
+                    const entityType = data.entityType;
+                    if (!entityType || !['drivers', 'trucks', 'trailers'].includes(entityType)) {
+                        errors.push('Row missing valid entity type');
+                        continue;
+                    }
+                    const entityVal = (data.entity || '').trim().toLowerCase();
+                    if (!entityVal) { errors.push('Row missing entity'); continue; }
+                    let entityId = null;
+                    if (entityType === 'trucks') {
+                        const found = (state.trucks || []).find(t => t.unit && t.unit.toLowerCase() === entityVal);
+                        if (found) entityId = found.id;
+                    } else if (entityType === 'trailers') {
+                        const found = (state.trailers || []).find(t => t.unit && t.unit.toLowerCase() === entityVal);
+                        if (found) entityId = found.id;
+                    } else if (entityType === 'drivers') {
+                        const found = (state.drivers || []).find(d => {
+                            const full = ((d.firstName || '') + ' ' + (d.lastName || '')).trim().toLowerCase();
+                            return full === entityVal || (d.unit && d.unit.toLowerCase() === entityVal);
+                        });
+                        if (found) entityId = found.id;
+                    }
+                    if (!entityId) {
+                        errors.push('"' + data.entity + '" not found in ' + entityType);
+                        continue;
+                    }
+                    const taskData = {
+                        text: data.description.trim(),
+                        type: data.taskType || '',
+                        priority: data.priority || '',
+                        dueDate: data.dueDate || null,
+                        status: data.status || 'Open',
+                        entityType,
+                        entityId,
+                        assignees: []
+                    };
+                    const result = await FirebaseDB.createTask(currentUid, entityType, entityId, taskData);
+                    if (result.success) {
+                        count++;
+                        tr.classList.add('usheet-saved');
+                        setTimeout(() => {
+                            tr.classList.add('usheet-row-out');
+                            tr.addEventListener('transitionend', () => tr.remove(), { once: true });
+                        }, 400);
+                    } else {
+                        errors.push('Error: ' + (result.error || 'unknown'));
+                    }
+                }
+                if (count === 0 && errors.length === 0) { showMsg('No rows to save', true); return; }
+                if (errors.length) showMsg(errors.join(' · '), true);
+                if (count > 0) {
+                    showMsg(count + ' task' + (count > 1 ? 's' : '') + ' created');
+                    uSheetState.dirty.clear();
+                    setTimeout(() => { uRenumberRows(); uUpdateRowCount(); uUpdateFooter(); uEnsureEmptyRow(); }, 800);
+                    uUpdateFooter();
+                    if (cfg && cfg.afterSave) await cfg.afterSave();
+                    if (!errors.length) uCloseAfterSave();
+                }
+            } catch (err) {
+                console.error('Task save error:', err);
+                showMsg('Error saving tasks: ' + (err.message || ''), true);
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Save All'; }
+            }
+            return;
+        }
+        // ── End task save path ──────────────────────────────────────────────
+
         try {
             const batch = firebase.firestore().batch();
             let count = 0;
             const savedRows = [];
+            const rowTargets = [];
 
             for (const tr of rows) {
                 const data = uCollectRowData(tr);
@@ -3259,12 +4012,16 @@
                 const existingId = tr.dataset.id;
                 if (mode === 'edit' && existingId) {
                     batch.update(col(cfg.collection).doc(existingId), payload);
+                    rowTargets.push({ tr, entityId: existingId });
                 } else {
                     payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                     if (cfg.defaults) {
                         Object.entries(cfg.defaults).forEach(([k, v]) => { if (!payload[k]) payload[k] = v; });
                     }
-                    batch.set(col(cfg.collection).doc(), payload);
+                    const docRef = col(cfg.collection).doc();
+                    batch.set(docRef, payload);
+                    tr.dataset.id = docRef.id;
+                    rowTargets.push({ tr, entityId: docRef.id });
                 }
                 savedRows.push(tr);
                 count++;
@@ -3276,6 +4033,9 @@
             }
 
             await batch.commit();
+            for (const target of rowTargets) {
+                await uUploadPendingDocs(target.tr, target.entityId);
+            }
             if (mode !== 'edit') {
                 savedRows.forEach(tr => {
                     tr.classList.add('usheet-saved');
@@ -3310,15 +4070,25 @@
         }
     }
 
-    function uAddRow() {
+    function uAddRow(autoFocus) {
         const tbody = $('usheetTbody');
         const visCols = uGetVisibleCols(uSheetState.type);
         const idx = tbody.children.length;
         const tr = uBuildRow(idx, {}, visCols, uSheetState.mode);
         tbody.appendChild(tr);
         uUpdateRowCount();
-        const firstInput = tr.querySelector('input, select');
-        if (firstInput) firstInput.focus();
+        if (autoFocus !== false) {
+            const firstInput = tr.querySelector('input, select');
+            if (firstInput) firstInput.focus();
+        }
+    }
+
+    function uRowHasData(tr) {
+        const inputs = tr.querySelectorAll('input[data-key], select[data-key]');
+        for (const el of inputs) {
+            if (el.value && el.value.trim()) return true;
+        }
+        return false;
     }
 
     function uEnsureEmptyRow() {
@@ -3334,8 +4104,15 @@
             // Clear the row instead of deleting
             tr.querySelectorAll('input').forEach(i => { i.value = ''; });
             tr.querySelectorAll('select').forEach(s => { s.selectedIndex = 0; });
+            uClearPendingDocs(tr.dataset.rowToken || '');
+            tr.querySelectorAll('.usheet-attach-btn').forEach(btn => {
+                btn.classList.remove('has-file');
+                const label = btn.querySelector('.usheet-attach-text')?.textContent || 'Attachment';
+                btn.title = 'Add ' + label;
+            });
             return;
         }
+        uClearPendingDocs(tr.dataset.rowToken || '');
         tr.remove();
         // Re-number rows
         Array.from(tbody.children).forEach((r, i) => {
@@ -3387,6 +4164,7 @@
         document.body.style.overflow = '';
         uSheetState.open = false;
         uSheetState.dirty.clear();
+        uSheetState.pendingDocs = new Map();
     }
 
     function uCloseAfterSave() {
@@ -3395,12 +4173,19 @@
         document.body.style.overflow = '';
         uSheetState.open = false;
         uSheetState.dirty.clear();
+        uSheetState.pendingDocs = new Map();
     }
 
     function initUnifiedSheet() {
         const modal = $('unifiedSheetModal');
         if (!modal) return;
         const tbody = $('usheetTbody');
+        const attachInput = document.createElement('input');
+        attachInput.type = 'file';
+        attachInput.accept = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx';
+        attachInput.hidden = true;
+        document.body.appendChild(attachInput);
+        let attachTarget = { rowToken: '', docType: '' };
 
         // Close / Cancel
         $('usheetClose').addEventListener('click', uCloseSheet);
@@ -3510,6 +4295,61 @@
 
         // Tbody click delegation: row save + row delete
         tbody.addEventListener('click', (e) => {
+            // Close any open usheet attach menus on outside click
+            const openMenu = e.target.closest('.usheet-attach-menu');
+            if (!openMenu) {
+                document.querySelectorAll('.usheet-attach-menu').forEach(m => m.remove());
+            }
+
+            const attachBtn = e.target.closest('.usheet-attach-btn');
+            if (attachBtn) {
+                attachTarget = {
+                    rowToken: attachBtn.dataset.rowToken,
+                    docType: attachBtn.dataset.docType
+                };
+                // If has a file attached, show View/Replace menu
+                if (attachBtn.classList.contains('has-file')) {
+                    e.stopPropagation();
+                    // Remove any existing menus
+                    document.querySelectorAll('.usheet-attach-menu').forEach(m => m.remove());
+                    const img = attachBtn.querySelector('img');
+                    const fileUrl = img ? img.src : (attachBtn.dataset.fileUrl || '');
+                    const isImage = img ? true : (attachBtn.dataset.fileIsImage === '1');
+                    const rect = attachBtn.getBoundingClientRect();
+                    const menu = document.createElement('div');
+                    menu.className = 'usheet-attach-menu';
+                    menu.style.position = 'fixed';
+                    menu.style.top = (rect.bottom + 4) + 'px';
+                    menu.style.right = (window.innerWidth - rect.right) + 'px';
+                    menu.style.zIndex = '200';
+                    menu.innerHTML = '<button class="entity-doc-action usheet-attach-view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ' + (isImage ? 'View' : 'Open') + '</button>' +
+                        '<button class="entity-doc-action usheet-attach-replace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Replace</button>';
+                    document.body.appendChild(menu);
+                    // Attach handlers directly
+                    menu.querySelector('.usheet-attach-view').addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        if (fileUrl) {
+                            if (isImage) {
+                                $('photoLightboxImg').src = fileUrl;
+                                $('photoLightbox').classList.add('active');
+                            } else {
+                                window.open(fileUrl, '_blank', 'noopener');
+                            }
+                        }
+                        menu.remove();
+                    });
+                    menu.querySelector('.usheet-attach-replace').addEventListener('click', (ev) => {
+                        ev.stopPropagation();
+                        attachInput.value = '';
+                        attachInput.click();
+                        menu.remove();
+                    });
+                    return;
+                }
+                attachInput.value = '';
+                attachInput.click();
+                return;
+            }
             const saveBtn = e.target.closest('.usheet-row-save');
             if (saveBtn) {
                 const tr = saveBtn.closest('tr');
@@ -3540,12 +4380,19 @@
             }
 
             // Auto-add row when typing in last row (add/import mode)
+            // Only add once — skip if the row right before last is still empty
             if (uSheetState.mode !== 'edit' && tr === tbody.lastElementChild) {
                 const cfg = SHEET_CONFIGS[uSheetState.type];
                 const reqKey = cfg && cfg.requiredKey;
                 if (reqKey) {
                     const reqInput = tr.querySelector('input[data-key="' + reqKey + '"], select[data-key="' + reqKey + '"]');
-                    if (reqInput && reqInput.value.trim()) uAddRow();
+                    if (reqInput && reqInput.value.trim()) {
+                        // Don't add if there's already an empty trailing row above
+                        const prev = tr.previousElementSibling;
+                        if (!prev || uRowHasData(prev)) {
+                            uAddRow(false);
+                        }
+                    }
                 }
             }
 
@@ -3561,6 +4408,32 @@
             }
         });
 
+        attachInput.addEventListener('change', () => {
+            const file = attachInput.files[0];
+            if (!file || !attachTarget.rowToken || !attachTarget.docType) return;
+            const maxSize = uSheetState.type === 'load' ? MAX_LOAD_DOC_SIZE : MAX_DOC_SIZE;
+            if (file.size > maxSize) {
+                showMsg('File too large (max 10 MB)', true);
+                return;
+            }
+            uSetPendingDoc(attachTarget.rowToken, attachTarget.docType, file);
+            const tr = tbody.querySelector('tr[data-row-token="' + attachTarget.rowToken + '"]');
+            const btn = tr?.querySelector('.usheet-attach-btn[data-doc-type="' + attachTarget.docType + '"]');
+            if (btn) {
+                btn.classList.add('has-file');
+                btn.title = (btn.title || '').split(':')[0] + ': ' + file.name;
+                const objUrl = URL.createObjectURL(file);
+                btn.dataset.fileUrl = objUrl;
+                btn.dataset.fileIsImage = file.type.startsWith('image/') ? '1' : '';
+                // Show circular photo preview for image attachments
+                if (attachTarget.docType === 'photo' && file.type.startsWith('image/')) {
+                    btn.innerHTML = '<img src="' + objUrl + '" class="usheet-attach-preview">';
+                    btn.classList.add('has-preview');
+                }
+            }
+            if (tr) uMarkDirty(tr);
+        });
+
         // Change on selects
         tbody.addEventListener('change', (e) => {
             const tr = e.target.closest('tr');
@@ -3571,14 +4444,28 @@
             }
         });
 
-        // Zip → City resolve + auto-mileage + route map for load rows
+        // Zip → City resolve for load origin/destination and inspection location
         tbody.addEventListener('focusout', async (e) => {
-            if (uSheetState.type !== 'load') return;
             const key = e.target.dataset && e.target.dataset.key;
-            if (key !== 'origin' && key !== 'destination') return;
             const input = e.target;
             const val = input.value.trim();
-            // Resolve zip code to City, ST
+
+            // Inspection / citation: resolve zip on location field
+            if (uSheetState.type === 'inspection' && key === 'location') {
+                if (/^\d{5}$/.test(val) && isGMaps()) {
+                    const resolved = await resolveZipToCity(val);
+                    if (resolved) {
+                        input.value = resolved;
+                        const tr = input.closest('tr');
+                        if (tr) uMarkDirty(tr);
+                    }
+                }
+                return;
+            }
+
+            // Load: resolve zip on origin/destination + auto-calc mileage
+            if (uSheetState.type !== 'load') return;
+            if (key !== 'origin' && key !== 'destination') return;
             if (/^\d{5}$/.test(val) && isGMaps()) {
                 const resolved = await resolveZipToCity(val);
                 if (resolved) {
@@ -3587,7 +4474,7 @@
                     if (tr) uMarkDirty(tr);
                 }
             }
-            // Auto-calc mileage + show route map
+            // Auto-calc mileage (no map preview)
             const tr = input.closest('tr');
             if (!tr) return;
             const originInput = tr.querySelector('input[data-key="origin"]');
@@ -3596,9 +4483,26 @@
             if (!originInput || !destInput || !mileInput) return;
             const o = originInput.value.trim();
             const d = destInput.value.trim();
-            if (!o || !d) { hideUsheetMap(); return; }
+            if (!o || !d) return;
             if (!isGMaps()) { console.warn('Google Maps not loaded'); return; }
-            showUsheetRoute(o, d, mileInput, tr);
+            // Calculate mileage via directions service without map
+            try {
+                const ds = new google.maps.DirectionsService();
+                ds.route({ origin: o, destination: d, travelMode: 'DRIVING' }, (result, status) => {
+                    if (status === 'OK' && result.routes[0]) {
+                        const miles = Math.round(result.routes[0].legs.reduce((s, l) => s + l.distance.value, 0) / 1609.34);
+                        mileInput.value = miles;
+                        uMarkDirty(tr);
+                        // Update RPM if rate exists
+                        const rateInput = tr.querySelector('input[data-key="rate"]');
+                        const rpmCell = tr.querySelector('[data-key="rpm"]');
+                        if (rateInput && rpmCell && miles > 0) {
+                            const rate = parseFloat(rateInput.value) || 0;
+                            rpmCell.textContent = rate > 0 ? '$' + (rate / miles).toFixed(2) : '';
+                        }
+                    }
+                });
+            } catch (err) { console.warn('Mileage calc failed:', err); }
         });
 
         // Keyboard: Tab/Enter/Escape navigation
@@ -3851,31 +4755,31 @@
     }
 
     async function uploadDriverDoc(driverId, file, docType) {
-        if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return null; }
+        if (file.size > MAX_DOC_SIZE) throw new Error('File too large (max 10 MB)');
         const path = driverStoragePath(driverId, file.name);
         const ref = storage.ref(path);
-        const task = ref.put(file);
-        try {
-            await task;
-            const url = await ref.getDownloadURL();
-            const docEntry = {
-                name: file.name,
-                type: docType,
-                storagePath: path,
-                url: url,
-                size: file.size,
-                contentType: file.type,
-                uploadedAt: new Date().toISOString()
-            };
-            await col('drivers').doc(driverId).collection('documents').add(docEntry);
-            await syncDriverDocSummary(driverId);
-            showMsg('Document uploaded');
-            return docEntry;
-        } catch (err) {
-            console.error('Upload error:', err);
-            showMsg('Upload failed: ' + (err.message || err), true);
-            return null;
+        await ref.put(file);
+        const url = await ref.getDownloadURL();
+        const docEntry = {
+            name: file.name,
+            type: docType,
+            storagePath: path,
+            url: url,
+            size: file.size,
+            contentType: file.type,
+            uploadedAt: new Date().toISOString()
+        };
+        await col('drivers').doc(driverId).collection('documents').add(docEntry);
+        if (file.type && file.type.startsWith('image/')) {
+            await col('drivers').doc(driverId).collection('photos').add({
+                caption: DOC_TYPE_LABELS[docType] || docType || '',
+                imageUrl: url,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAtIso: new Date().toISOString()
+            });
         }
+        await syncDriverDocSummary(driverId);
+        return docEntry;
     }
 
     async function deleteDriverDoc(driverId, docId, storagePath) {
@@ -3892,13 +4796,24 @@
     async function syncDriverDocSummary(driverId) {
         const docs = await loadDriverDocs(driverId);
         const types = [...new Set(docs.map(d => d.type).filter(Boolean))];
-        await col('drivers').doc(driverId).update({
+        const photoDoc = docs.find(d => d.type === 'photo' && d.url);
+        // Build per-docType URL map for all docs
+        const docUrls = {};
+        docs.forEach(d => {
+            if (d.type && d.url && !docUrls[d.type]) {
+                docUrls[d.type] = d.url;
+            }
+        });
+        const update = {
             docTypes: types,
             docCount: docs.length,
+            docUrls: docUrls,
+            photoUrl: photoDoc ? photoDoc.url : firebase.firestore.FieldValue.delete(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        };
+        await col('drivers').doc(driverId).update(update);
         const driver = state.drivers.find(d => d.id === driverId);
-        if (driver) { driver.docTypes = types; driver.docCount = docs.length; }
+        if (driver) { driver.docTypes = types; driver.docCount = docs.length; driver.photoUrl = photoDoc ? photoDoc.url : null; driver.docUrls = docUrls; }
     }
 
     async function loadDriverDocs(driverId) {
@@ -4061,6 +4976,7 @@
 
         // Render summary chips
         renderPanelSummary();
+        renderPanelStats();
 
         // Clear + load activity feed & tasks
         const notesFeed = $('detailNotesFeed');
@@ -4740,6 +5656,27 @@
         ).join('');
     }
 
+    function renderPanelStats() {
+        const bar = $('detailStatsBar');
+        if (!bar || !detailPanelDriverId) { if (bar) bar.innerHTML = ''; return; }
+        const d = state.drivers.find(x => x.id === detailPanelDriverId);
+        if (!d) { bar.innerHTML = ''; return; }
+        const driverName = [d.firstName, d.lastName].filter(Boolean).join(' ');
+        if (!driverName) { bar.innerHTML = ''; return; }
+        const loads = (state.loads || []).filter(l => l.driver === driverName && l.status !== 'canceled');
+        let totalMiles = 0, grossEarnings = 0;
+        loads.forEach(l => {
+            totalMiles += parseFloat(l.mileage) || 0;
+            grossEarnings += (parseFloat(l.rate) || 0) + (parseFloat(l.detention) || 0);
+        });
+        const avgRpm = totalMiles > 0 ? (grossEarnings / totalMiles) : 0;
+        bar.innerHTML =
+            '<div class="dp-stat"><span class="dp-stat-value">' + loads.length + '</span><span class="dp-stat-label">Loads</span></div>' +
+            '<div class="dp-stat"><span class="dp-stat-value">' + formatCurrency(grossEarnings) + '</span><span class="dp-stat-label">Earnings</span></div>' +
+            '<div class="dp-stat"><span class="dp-stat-value">' + totalMiles.toLocaleString() + '</span><span class="dp-stat-label">Miles</span></div>' +
+            '<div class="dp-stat"><span class="dp-stat-value">$' + avgRpm.toFixed(2) + '</span><span class="dp-stat-label">Avg RPM</span></div>';
+    }
+
     // ── Render Compliance Grid ──
     function renderPanelCompliance() {
         const grid = $('detailComplianceGrid');
@@ -4796,18 +5733,23 @@
     }
 
     async function uploadTruckDoc(truckId, file, docType) {
-        if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return null; }
+        if (file.size > MAX_DOC_SIZE) throw new Error('File too large (max 10 MB)');
         const path = truckStoragePath(truckId, file.name);
         const ref = storage.ref(path);
-        try {
-            await ref.put(file);
-            const url = await ref.getDownloadURL();
-            const docEntry = { name: file.name, type: docType, storagePath: path, url, size: file.size, contentType: file.type, uploadedAt: new Date().toISOString() };
-            await col('trucks').doc(truckId).collection('documents').add(docEntry);
-            await syncTruckDocSummary(truckId);
-            showMsg('Document uploaded');
-            return docEntry;
-        } catch (err) { console.error('Upload error:', err); showMsg('Upload failed', true); return null; }
+        await ref.put(file);
+        const url = await ref.getDownloadURL();
+        const docEntry = { name: file.name, type: docType, storagePath: path, url, size: file.size, contentType: file.type, uploadedAt: new Date().toISOString() };
+        await col('trucks').doc(truckId).collection('documents').add(docEntry);
+        if (file.type && file.type.startsWith('image/')) {
+            await col('trucks').doc(truckId).collection('photos').add({
+                caption: TRUCK_DOC_LABELS[docType] || docType || '',
+                imageUrl: url,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAtIso: new Date().toISOString()
+            });
+        }
+        await syncTruckDocSummary(truckId);
+        return docEntry;
     }
 
     async function deleteTruckDoc(truckId, docId, storagePath) {
@@ -4820,13 +5762,23 @@
     async function syncTruckDocSummary(truckId) {
         const docs = await loadTruckDocs(truckId);
         const types = [...new Set(docs.map(d => d.type).filter(Boolean))];
-        await col('trucks').doc(truckId).update({
+        const photoDoc = docs.find(d => d.type === 'photo' && d.url);
+        const docUrls = {};
+        docs.forEach(d => {
+            if (d.type && d.url && !docUrls[d.type]) {
+                docUrls[d.type] = d.url;
+            }
+        });
+        const update = {
             docTypes: types,
             docCount: docs.length,
+            docUrls: docUrls,
+            photoUrl: photoDoc ? photoDoc.url : firebase.firestore.FieldValue.delete(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        };
+        await col('trucks').doc(truckId).update(update);
         const truck = state.trucks.find(t => t.id === truckId);
-        if (truck) { truck.docTypes = types; truck.docCount = docs.length; }
+        if (truck) { truck.docTypes = types; truck.docCount = docs.length; truck.photoUrl = photoDoc ? photoDoc.url : null; truck.docUrls = docUrls; }
     }
 
     async function loadTruckDocs(truckId) {
@@ -5413,18 +6365,23 @@
     }
 
     async function uploadTrailerDoc(trailerId, file, docType) {
-        if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return null; }
+        if (file.size > MAX_DOC_SIZE) throw new Error('File too large (max 10 MB)');
         const path = trailerStoragePath(trailerId, file.name);
         const ref = storage.ref(path);
-        try {
-            await ref.put(file);
-            const url = await ref.getDownloadURL();
-            const docEntry = { name: file.name, type: docType, storagePath: path, url, size: file.size, contentType: file.type, uploadedAt: new Date().toISOString() };
-            await col('trailers').doc(trailerId).collection('documents').add(docEntry);
-            await syncTrailerDocSummary(trailerId);
-            showMsg('Document uploaded');
-            return docEntry;
-        } catch (err) { console.error('Upload error:', err); showMsg('Upload failed', true); return null; }
+        await ref.put(file);
+        const url = await ref.getDownloadURL();
+        const docEntry = { name: file.name, type: docType, storagePath: path, url, size: file.size, contentType: file.type, uploadedAt: new Date().toISOString() };
+        await col('trailers').doc(trailerId).collection('documents').add(docEntry);
+        if (file.type && file.type.startsWith('image/')) {
+            await col('trailers').doc(trailerId).collection('photos').add({
+                caption: TRAILER_DOC_LABELS[docType] || docType || '',
+                imageUrl: url,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                createdAtIso: new Date().toISOString()
+            });
+        }
+        await syncTrailerDocSummary(trailerId);
+        return docEntry;
     }
 
     async function deleteTrailerDoc(trailerId, docId, storagePath) {
@@ -5437,13 +6394,23 @@
     async function syncTrailerDocSummary(trailerId) {
         const docs = await loadTrailerDocs(trailerId);
         const types = [...new Set(docs.map(d => d.type).filter(Boolean))];
-        await col('trailers').doc(trailerId).update({
+        const photoDoc = docs.find(d => d.type === 'photo' && d.url);
+        const docUrls = {};
+        docs.forEach(d => {
+            if (d.type && d.url && !docUrls[d.type]) {
+                docUrls[d.type] = d.url;
+            }
+        });
+        const update = {
             docTypes: types,
             docCount: docs.length,
+            docUrls: docUrls,
+            photoUrl: photoDoc ? photoDoc.url : firebase.firestore.FieldValue.delete(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+        };
+        await col('trailers').doc(trailerId).update(update);
         const trailer = state.trailers.find(t => t.id === trailerId);
-        if (trailer) { trailer.docTypes = types; trailer.docCount = docs.length; }
+        if (trailer) { trailer.docTypes = types; trailer.docCount = docs.length; trailer.photoUrl = photoDoc ? photoDoc.url : null; trailer.docUrls = docUrls; }
     }
 
     async function loadTrailerDocs(trailerId) {
@@ -7600,7 +8567,7 @@
             requiredKey: 'date',
             defaults: { violations: 0 },
             afterSave: async () => { await loadInspections(); },
-            extraFields: ['driverName', 'truckUnit', 'location', 'violations', 'fineAmount', 'notes', 'inspStatus', 'paidStatus'],
+            extraFields: ['driverName', 'truckUnit', 'location', 'violations', 'fineAmount', 'notes', 'inspStatus', 'assignedTo'],
             csvAliases: {
                 date: ['date', 'inspectiondate', 'inspdate', 'dateofinspe', 'dateofinspection'],
                 type: ['type', 'level', 'inspectiontype', 'insplevel', 'insptype', 'category'],
@@ -7657,6 +8624,25 @@
                 dispatcher: ['dispatcher', 'dispatchername', 'dispatch', 'coordinator', 'rep'],
                 loadDate: ['loaddate', 'date', 'pickupdate', 'pudate', 'bookdate', 'bookeddate', 'created', 'createddate'],
                 comments: ['comments', 'comment', 'notes', 'note', 'remarks', 'memo', 'description']
+            }
+        },
+        task: {
+            collection: null,
+            label: 'task',
+            requiredKey: 'description',
+            afterSave: async () => {
+                if (window.TaskManager && typeof window.TaskManager.reload === 'function') {
+                    await window.TaskManager.reload();
+                }
+            },
+            csvAliases: {
+                description: ['description', 'task', 'text', 'tasktext', 'details', 'note', 'notes', 'taskdescription'],
+                entityType: ['entitytype', 'type', 'entity', 'category', 'for'],
+                entity: ['entity', 'unit', 'unitnumber', 'name', 'driver', 'truck', 'trailer', 'entityid', 'entityname'],
+                taskType: ['tasktype', 'kind', 'workkind', 'worktype'],
+                priority: ['priority', 'importance', 'urgency', 'level'],
+                dueDate: ['duedate', 'due', 'deadline', 'by', 'dueday'],
+                status: ['status', 'state', 'taskstatus']
             }
         }
     };
@@ -8293,16 +9279,16 @@
         const visCols = getVisibleTableCols('trailers');
         const widths = computeTableColWidths('trailers');
         if (thead) {
-            let h = '<th class="col-checkbox"><input type="checkbox" id="trailerSelectAll" title="Select all"></th><th class="col-validation"></th>';
-            visCols.forEach(c => { h += '<th style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
+            let h = '<th class="col-checkbox"><input type="checkbox" id="trailerSelectAll" title="Select all"></th>';
+            visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
             h += '<th style="width:7%"></th>';
             thead.innerHTML = h;
+            wireColDrag(thead, 'trailers');
         }
         const selAll = thead?.querySelector('#trailerSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('trailers', selAll);
         tbody.innerHTML = sorted.map(t => {
-            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + t.id + '" ' + (bulkSelection.trailers.has(t.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'trailers\',\'' + t.id + '\',this)"></td>';
-            cells += validationIndicator(t);
+            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + t.id + '" ' + (bulkSelection.trailers.has(t.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'trailers\',\'' + t.id + '\',this)">' + validationIndicator(t) + '</td>';
             visCols.forEach(c => { cells += trailerCell(t, c.key); });
             cells += '<td class="row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editTrailer(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button title="Delete" class="btn-delete" onclick="Dashboard.deleteTrailer(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>';
             return '<tr data-id="' + t.id + '" class="' + (bulkSelection.trailers.has(t.id) ? 'row-selected' : '') + ' ' + (t.doNotDispatch ? 'row-dnd' : '') + ' ' + (t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : '') + '">' + cells + '</tr>';
@@ -8411,16 +9397,16 @@
         const visCols = getVisibleTableCols('drivers');
         const widths = computeTableColWidths('drivers');
         if (thead) {
-            let h = '<th class="col-checkbox"><input type="checkbox" id="driverSelectAll" title="Select all"></th><th class="col-validation"></th>';
-            visCols.forEach(c => { h += '<th style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
+            let h = '<th class="col-checkbox"><input type="checkbox" id="driverSelectAll" title="Select all"></th>';
+            visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
             h += '<th style="width:8%"></th>';
             thead.innerHTML = h;
+            wireColDrag(thead, 'drivers');
         }
         const selAll = thead?.querySelector('#driverSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('drivers', selAll);
         tbody.innerHTML = sorted.map(d => {
-            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + d.id + '" ' + (bulkSelection.drivers.has(d.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'drivers\',\'' + d.id + '\',this)"></td>';
-            cells += validationIndicator(d);
+            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + d.id + '" ' + (bulkSelection.drivers.has(d.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'drivers\',\'' + d.id + '\',this)">' + validationIndicator(d) + '</td>';
             visCols.forEach(c => { cells += driverCell(d, c.key); });
             cells += '<td class="row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editDriver(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button title="Delete" class="btn-delete" onclick="Dashboard.deleteDriver(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>';
             return '<tr data-id="' + d.id + '" class="' + (bulkSelection.drivers.has(d.id) ? 'row-selected' : '') + ' ' + (d.doNotDispatch ? 'row-dnd' : '') + ' ' + (d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : '') + '">' + cells + '</tr>';
@@ -8553,20 +9539,18 @@
 
     // ── Validation Indicator Helpers ───────
     function validationIndicator(item) {
-        if (!item.validationStatus || item.validationStatus === 'valid') return '<td class="col-validation"></td>';
+        if (!item.validationStatus || item.validationStatus === 'valid') return '';
         const isError = item.validationStatus === 'error';
         const issues = item.validationIssues || [];
         const cls = isError ? 'error' : 'warning';
         const label = isError ? 'Error' : 'Warning';
-        return `<td class="col-validation">
-            <span class="validation-indicator vi-${cls}" aria-label="${label}" role="img">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        return `<span class="validation-indicator vi-${cls}" aria-label="${label}" role="img">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
                 <span class="vi-tooltip"><strong>${label}</strong>${issues.map(i => '<br>• ' + escapeHtml(i)).join('')}</span>
-            </span>
-        </td>`;
+            </span>`;
     }
 
     function issueDetailRow(item, colSpan) {
@@ -8964,11 +9948,8 @@
             console.warn('renderLoads: loadsTableBody not found');
             return;
         }
-        console.log('renderLoads: state.loads =', state.loads.length, 'items');
         const boardLoads = state.loads.filter(isLoadBoardItem);
-        console.log('renderLoads: boardLoads after filter =', boardLoads.length);
         if (boardLoads.length === 0) {
-            console.log('renderLoads: no board loads, showing empty state');
             if (table) table.style.display = 'none';
             if (empty) empty.style.display = 'block';
             renderLoadHistory();
@@ -8978,61 +9959,32 @@
         }
         if (empty) empty.style.display = 'none';
         if (table) table.style.display = 'table';
-        console.log('renderLoads: table element =', table, 'display =', table?.style.display);
-        // Track existing row IDs before re-render
         const existingIds = new Set(Array.from(tbody.querySelectorAll('tr[data-id]')).map(r => r.dataset.id));
         const filtered = state.loads.filter(l => isLoadBoardItem(l) && matchesFilter(l, 'load'));
-        console.log('renderLoads: filtered after matchesFilter =', filtered.length);
         const sorted = sortItems(filtered, sortState.loads, 'load');
-        console.log('renderLoads: sorted results =', sorted.length);
         bulkSelection.loads = new Set([...bulkSelection.loads].filter(id => sorted.some(l => l.id === id)));
         updateBulkBar('loads');
-        // Show/hide bulk edit button
         const bulkEditBtn = $('bulkEditLoadsBtn');
         if (bulkEditBtn) bulkEditBtn.style.display = bulkSelection.loads.size > 0 ? '' : 'none';
 
-        if (thead) thead.innerHTML = `<th class="col-checkbox"><input type="checkbox" id="loadSelectAll" title="Select all"></th><th style="width:5%">Load #</th><th style="width:5%">Unit</th><th style="width:11%">From</th><th style="width:11%">To</th><th style="width:7%">Broker</th><th style="width:6%">Rate</th><th style="width:5%">Mileage</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bonus</th><th style="width:7%">Status</th><th style="width:7%">DEL Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:7%">Dispatcher</th><th style="width:5%">Comments</th><th style="width:4%"></th>`;
+        const visCols = getVisibleTableCols('loads');
+        const widths = computeTableColWidths('loads');
+        if (thead) {
+            let h = '<th class="col-checkbox"><input type="checkbox" id="loadSelectAll" title="Select all"></th>';
+            visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
+            h += '<th style="width:4%"></th>';
+            thead.innerHTML = h;
+            wireColDrag(thead, 'loads');
+        }
         const selAll = thead?.querySelector('#loadSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('loads', selAll);
-        const rowsHtml = sorted.map((l, i) => {
-            const rpm = calcRPM(l.rate, l.mileage);
-            const total = calcTotal(l.rate, l.detention);
-            const rcIcon = l.rcUrl
-                ? '<button class="load-doc-btn uploaded" data-doc="rc" data-id="' + l.id + '" title="RC uploaded — click to replace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>'
-                : '<button class="load-doc-btn" data-doc="rc" data-id="' + l.id + '" title="Upload Rate Confirmation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>';
-            const podIcon = l.podUrl
-                ? '<button class="load-doc-btn uploaded" data-doc="pod" data-id="' + l.id + '" title="POD uploaded — click to replace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>'
-                : '<button class="load-doc-btn" data-doc="pod" data-id="' + l.id + '" title="Upload Proof of Delivery"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>';
-            return `<tr data-id="${l.id}" class="${bulkSelection.loads.has(l.id) ? 'row-selected' : ''}">
-            <td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="${l.id}" ${bulkSelection.loads.has(l.id) ? 'checked' : ''} onchange="Dashboard.toggleBulkSelect('loads','${l.id}',this)"></td>
-            <td><div class="cell cell-muted">${escapeHtml(l.loadNumber || '')}</div></td>
-            <td><div class="cell">${escapeHtml(l.unit || '')}</div></td>
-            <td><div class="cell load-cell-with-doc"><span>${escapeHtml(l.origin || '')}</span>${rcIcon}</div></td>
-            <td><div class="cell load-cell-with-doc"><span>${escapeHtml(l.destination || '')}</span>${podIcon}</div></td>
-            <td><div class="cell">${escapeHtml(l.broker || '')}</div></td>
-            <td><div class="cell">${l.rate ? formatCurrency(l.rate) : ''}</div></td>
-            <td><div class="cell">${escapeHtml(l.mileage ? String(l.mileage) : '')}</div></td>
-            <td><div class="cell load-rpm">${escapeHtml(rpm)}</div></td>
-            <td><div class="cell">${l.detention ? formatCurrency(l.detention) : ''}</div></td>
-            <td><div class="cell">${loadStatusBadge(l.status)}</div></td>
-            <td><div class="cell">${escapeHtml(l.deliveryDate || '')}</div></td>
-            <td><div class="cell"><strong>${total ? formatCurrency(total) : ''}</strong></div></td>
-            <td><div class="cell">${escapeHtml(l.driver || '')}</div></td>
-            <td><div class="cell">${escapeHtml(l.dispatcher || '')}</div></td>
-            <td><div class="cell cell-muted" title="${escapeHtml(l.comments || '')}">${escapeHtml((l.comments || '').substring(0, 30))}${(l.comments || '').length > 30 ? '…' : ''}</div></td>
-            <td class="row-actions"><div class="cell">
-                <button title="Edit" onclick="Dashboard.editLoad('${l.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                </button>
-                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteLoad('${l.id}')">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                </button>
-            </div></td>
-        </tr>`;
+        const rowsHtml = sorted.map(l => {
+            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + l.id + '" ' + (bulkSelection.loads.has(l.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'loads\',\'' + l.id + '\',this)"></td>';
+            visCols.forEach(c => { cells += loadCell(l, c.key); });
+            cells += '<td class="row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editLoad(\'' + l.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button title="Delete" class="btn-delete" onclick="Dashboard.deleteLoad(\'' + l.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>';
+            return '<tr data-id="' + l.id + '" class="' + (bulkSelection.loads.has(l.id) ? 'row-selected' : '') + '">' + cells + '</tr>';
         }).join('');
         tbody.innerHTML = rowsHtml;
-        console.log('renderLoads: tbody HTML length =', rowsHtml.length, 'tbody.innerHTML.length =', tbody.innerHTML.length, 'tbody rows count =', tbody.querySelectorAll('tr').length);
-        // Animate new rows sliding in
         if (existingIds.size > 0) {
             Array.from(tbody.querySelectorAll('tr[data-id]')).forEach(tr => {
                 if (!existingIds.has(tr.dataset.id)) {
@@ -9058,7 +10010,7 @@
 
     function renderLoadHistory() {
         const tbody = $('historyTableBody');
-        if (!tbody) return; // Exit early if history section not loaded yet
+        if (!tbody) return;
         
         const table = $('historyTable');
         const empty = $('historyEmpty');
@@ -9067,7 +10019,6 @@
         try {
             const historyLoads = state.loads.filter(l => !isLoadBoardItem(l) && matchesHistoryFilter(l));
             const sorted = sortItems(historyLoads, sortState_history, 'load');
-            console.log('renderLoadHistory: historyLoads =', historyLoads.length, 'sorted =', sorted.length);
             if (sorted.length === 0) {
                 if (table) table.style.display = 'none';
                 if (empty) empty.style.display = 'block';
@@ -9075,31 +10026,20 @@
             }
             if (empty) empty.style.display = 'none';
             if (table) table.style.display = 'table';
-            if (thead) thead.innerHTML = `<th style="width:5%">Load #</th><th style="width:5%">Unit</th><th style="width:12%">From</th><th style="width:12%">To</th><th style="width:8%">Broker</th><th style="width:7%">Rate</th><th style="width:5%">Mileage</th><th style="width:4%">RPM</th><th style="width:5%">Det/Bonus</th><th style="width:7%">Status</th><th style="width:7%">DEL Date</th><th style="width:6%">Total</th><th style="width:7%">Driver</th><th style="width:7%">Dispatcher</th><th style="width:4%"></th>`;
+            const visCols = getVisibleTableCols('history');
+            const widths = computeTableColWidths('history');
+            if (thead) {
+                let h = '';
+                visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
+                h += '<th style="width:4%"></th>';
+                thead.innerHTML = h;
+                wireColDrag(thead, 'history');
+            }
             tbody.innerHTML = sorted.map(l => {
-                const rpm = calcRPM(l.rate, l.mileage);
-                const total = calcTotal(l.rate, l.detention);
-                return `<tr data-id="${l.id}">
-                <td><div class="cell cell-muted">${escapeHtml(l.loadNumber || '')}</div></td>
-                <td><div class="cell">${escapeHtml(l.unit || '')}</div></td>
-                <td><div class="cell">${escapeHtml(l.origin || '')}</div></td>
-                <td><div class="cell">${escapeHtml(l.destination || '')}</div></td>
-                <td><div class="cell">${escapeHtml(l.broker || '')}</div></td>
-                <td><div class="cell">${l.rate ? formatCurrency(l.rate) : ''}</div></td>
-                <td><div class="cell">${escapeHtml(l.mileage ? String(l.mileage) : '')}</div></td>
-                <td><div class="cell load-rpm">${escapeHtml(rpm)}</div></td>
-                <td><div class="cell">${l.detention ? formatCurrency(l.detention) : ''}</div></td>
-                <td><div class="cell">${loadStatusBadge(l.status)}</div></td>
-                <td><div class="cell">${escapeHtml(l.deliveryDate || '')}</div></td>
-                <td><div class="cell"><strong>${total ? formatCurrency(total) : ''}</strong></div></td>
-                <td><div class="cell">${escapeHtml(l.driver || '')}</div></td>
-                <td><div class="cell">${escapeHtml(l.dispatcher || '')}</div></td>
-                <td class="row-actions"><div class="cell">
-                    <button title="Edit" onclick="Dashboard.editLoad('${l.id}')">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </button>
-                </div></td>
-            </tr>`;
+                let cells = '';
+                visCols.forEach(c => { cells += loadCell(l, c.key); });
+                cells += '<td class="row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editLoad(\'' + l.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div></td>';
+                return '<tr data-id="' + l.id + '">' + cells + '</tr>';
             }).join('');
         } catch (e) {
             console.error('Error rendering load history:', e);
@@ -9551,10 +10491,113 @@
         inlineDocFileInput.hidden = true;
         document.body.appendChild(inlineDocFileInput);
 
+        // Photo lightbox
+        const lb = document.createElement('div');
+        lb.id = 'photoLightbox';
+        lb.className = 'photo-lightbox';
+        lb.innerHTML = '<div class="photo-lightbox-backdrop"></div><div class="photo-lightbox-content"><img id="photoLightboxImg" src="" alt="Photo"/><button class="photo-lightbox-close" title="Close">&times;</button></div>';
+        document.body.appendChild(lb);
+        lb.addEventListener('click', (e) => {
+            if (e.target.closest('.photo-lightbox-backdrop') || e.target.closest('.photo-lightbox-close')) {
+                lb.classList.remove('active');
+            }
+        });
+
+        function closeDocMenus() {
+            document.querySelectorAll('.entity-doc-uploaded.open').forEach(el => el.classList.remove('open'));
+            document.querySelectorAll('body > .entity-doc-menu').forEach(m => {
+                m.style.display = 'none';
+                if (m._docWrap) { m._docWrap.appendChild(m); m._docWrap = null; }
+            });
+        }
+
         ['trucksTableBody', 'trailersTableBody', 'driversTableBody'].forEach(id => {
             const tbody = $(id);
             if (!tbody) return;
             tbody.addEventListener('click', (e) => {
+                // Click on check or photo thumb → toggle menu
+                const indicator = e.target.closest('.entity-doc-check') || e.target.closest('.entity-doc-thumb');
+                if (indicator) {
+                    e.stopPropagation();
+                    const wrap = indicator.closest('.entity-doc-uploaded');
+                    // Close any other open menus first
+                    document.querySelectorAll('.entity-doc-uploaded.open').forEach(el => { if (el !== wrap) el.classList.remove('open'); });
+                    document.querySelectorAll('body > .entity-doc-menu').forEach(m => { if (m._docWrap !== wrap) { m.style.display = 'none'; if (m._docWrap) { m._docWrap.appendChild(m); m._docWrap = null; } } });
+                    wrap.classList.toggle('open');
+                    // Position the fixed menu next to the indicator
+                    if (wrap.classList.contains('open')) {
+                        const menu = wrap.querySelector('.entity-doc-menu');
+                        if (menu) {
+                            document.body.appendChild(menu);
+                            menu.style.display = 'flex';
+                            const rect = indicator.getBoundingClientRect();
+                            menu.style.top = (rect.bottom + 4) + 'px';
+                            menu.style.left = (rect.left + rect.width / 2 - 50) + 'px';
+                            menu.style.right = 'auto';
+                            menu._docWrap = wrap;
+                            // Wire up View/Replace since menu is now on body
+                            const vBtn = menu.querySelector('.entity-doc-view-btn');
+                            if (vBtn) {
+                                vBtn.onclick = (ev) => {
+                                    ev.stopPropagation();
+                                    const url = vBtn.dataset.photoUrl;
+                                    if (url) {
+                                        if (vBtn.dataset.isImage) {
+                                            $('photoLightboxImg').src = url;
+                                            lb.classList.add('active');
+                                        } else {
+                                            window.open(url, '_blank', 'noopener');
+                                        }
+                                    }
+                                    closeDocMenus();
+                                };
+                            }
+                            const rBtn = menu.querySelector('.entity-doc-replace-btn');
+                            if (rBtn) {
+                                rBtn.onclick = (ev) => {
+                                    ev.stopPropagation();
+                                    inlineDocTarget.entityType = rBtn.dataset.entity;
+                                    inlineDocTarget.entityId = rBtn.dataset.id;
+                                    inlineDocTarget.docType = rBtn.dataset.doc || 'photo';
+                                    inlineDocFileInput.value = '';
+                                    inlineDocFileInput.click();
+                                    closeDocMenus();
+                                };
+                            }
+                        }
+                    }
+                    return;
+                }
+                // View button in menu → open lightbox or new tab
+                const viewBtn = e.target.closest('.entity-doc-view-btn');
+                if (viewBtn) {
+                    e.stopPropagation();
+                    const url = viewBtn.dataset.photoUrl;
+                    if (url) {
+                        if (viewBtn.dataset.isImage) {
+                            $('photoLightboxImg').src = url;
+                            lb.classList.add('active');
+                        } else {
+                            window.open(url, '_blank', 'noopener');
+                        }
+                    }
+                    viewBtn.closest('.entity-doc-uploaded').classList.remove('open');
+                    return;
+                }
+                // Replace button in menu → open file picker
+                const replaceBtn = e.target.closest('.entity-doc-replace-btn');
+                if (replaceBtn) {
+                    e.stopPropagation();
+                    const wrap = replaceBtn.closest('.entity-doc-uploaded');
+                    inlineDocTarget.entityType = (wrap || replaceBtn).dataset.entity;
+                    inlineDocTarget.entityId = (wrap || replaceBtn).dataset.id;
+                    inlineDocTarget.docType = (wrap || replaceBtn).dataset.doc || 'photo';
+                    inlineDocFileInput.value = '';
+                    inlineDocFileInput.click();
+                    if (wrap) wrap.classList.remove('open');
+                    return;
+                }
+                // Upload button (not yet uploaded)
                 const btn = e.target.closest('.entity-doc-btn');
                 if (!btn) return;
                 e.stopPropagation();
@@ -9566,19 +10609,41 @@
             });
         });
 
+        // Close doc menus on outside click
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.entity-doc-uploaded') && !e.target.closest('.entity-doc-menu')) {
+                closeDocMenus();
+            }
+            if (!e.target.closest('.usheet-attach-btn') && !e.target.closest('.usheet-attach-menu')) {
+                document.querySelectorAll('.usheet-attach-menu').forEach(m => m.remove());
+            }
+        });
+
+        const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+
         inlineDocFileInput.addEventListener('change', async () => {
             const file = inlineDocFileInput.files[0];
             if (!file) return;
             if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return; }
-            if (inlineDocTarget.entityType === 'driver') {
-                await uploadDriverDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
-                renderDrivers();
-            } else if (inlineDocTarget.entityType === 'truck') {
-                await uploadTruckDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
-                renderTrucks();
-            } else if (inlineDocTarget.entityType === 'trailer') {
-                await uploadTrailerDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
-                renderTrailers();
+            if (file.type && !ALLOWED_MIME_TYPES.includes(file.type) && !file.type.startsWith('image/')) {
+                showMsg('Unsupported file type. Please upload an image, PDF, or Word document.', true); return;
+            }
+            const uploadToast = showUploadToast(file.name);
+            try {
+                if (inlineDocTarget.entityType === 'driver') {
+                    await uploadDriverDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
+                    renderDrivers();
+                } else if (inlineDocTarget.entityType === 'truck') {
+                    await uploadTruckDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
+                    renderTrucks();
+                } else if (inlineDocTarget.entityType === 'trailer') {
+                    await uploadTrailerDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
+                    renderTrailers();
+                }
+                completeUploadToast(uploadToast, true, 'Document uploaded successfully');
+            } catch (err) {
+                console.error('Inline upload failed:', err);
+                completeUploadToast(uploadToast, false, 'Upload failed: ' + (err.message || err));
             }
         });
     }
@@ -9588,6 +10653,29 @@
         const alerts = [];
         const today = new Date().toISOString().split('T')[0];
         const soon = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
+
+        // IFTA quarterly deadline reminder
+        const now = new Date();
+        const y = now.getFullYear();
+        const deadlines = [
+            { q: 'Q4 ' + (y - 1), date: new Date(y, 0, 31) },
+            { q: 'Q1 ' + y, date: new Date(y, 3, 30) },
+            { q: 'Q2 ' + y, date: new Date(y, 6, 31) },
+            { q: 'Q3 ' + y, date: new Date(y, 9, 31) },
+            { q: 'Q4 ' + y, date: new Date(y + 1, 0, 31) }
+        ];
+        const nextDeadline = deadlines.find(d => d.date >= now);
+        if (nextDeadline) {
+            const daysLeft = Math.ceil((nextDeadline.date - now) / 86400000);
+            if (daysLeft <= 45) {
+                alerts.push({
+                    type: daysLeft <= 7 ? 'danger' : daysLeft <= 14 ? 'warning' : 'info',
+                    icon: 'calendar',
+                    text: 'IFTA ' + nextDeadline.q + ' filing due in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : ''),
+                    link: 'index.html'
+                });
+            }
+        }
 
         // Drivers with expiring CDL (within 30 days)
         const expiringCdl = state.drivers.filter(d => d.cdlExp && d.cdlExp >= today && d.cdlExp <= soon);
@@ -9624,40 +10712,38 @@
             });
         }
 
-        // IFTA quarterly filing deadlines
-        const nowDate = new Date();
-        const iftaAlertDeadlines = [
-            { q: 'Q1', month: 3, day: 30, label: 'Q1 (Jan\u2013Mar)' },
-            { q: 'Q2', month: 6, day: 31, label: 'Q2 (Apr\u2013Jun)' },
-            { q: 'Q3', month: 9, day: 31, label: 'Q3 (Jul\u2013Sep)' },
-            { q: 'Q4', month: 0, day: 31, label: 'Q4 (Oct\u2013Dec)', nextYear: true }
-        ];
-        iftaAlertDeadlines.forEach(dl => {
-            const yr = dl.nextYear && nowDate.getMonth() >= 10 ? nowDate.getFullYear() + 1 : nowDate.getFullYear();
-            const deadline = new Date(yr, dl.month, dl.day);
-            const daysLeft = Math.ceil((deadline - nowDate) / 86400000);
-            if (daysLeft >= 0 && daysLeft <= 30) {
-                alerts.push({
-                    type: daysLeft <= 7 ? 'danger' : 'warning',
-                    icon: 'clock', link: '/',
-                    text: 'IFTA ' + dl.label + ' filing due in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '')
-                });
-            }
-        });
+        // Unassigned active trucks (no driver assigned to them)
+        const assignedTruckIds = new Set(state.drivers.filter(d => d.truck).map(d => d.truck));
+        const unassignedTrucks = state.trucks.filter(t => t.status === 'active' && !assignedTruckIds.has(t.id));
+        if (unassignedTrucks.length) {
+            alerts.push({
+                type: 'info',
+                icon: 'truck',
+                kind: 'unassigned-trucks',
+                text: unassignedTrucks.length + ' active truck' + (unassignedTrucks.length > 1 ? 's' : '') + ' with no driver assigned',
+                items: unassignedTrucks.map(t => ({
+                    id: t.id,
+                    name: t.unit || t.id,
+                    meta: [t.year, t.make, t.model].filter(Boolean).join(' ')
+                }))
+            });
+        }
 
-        // MCS-150 biennial update alert
-        if (state.fmcsaSnapshot && state.fmcsaSnapshot.mcs150FormDate) {
-            const lastFiled = new Date(state.fmcsaSnapshot.mcs150FormDate);
-            if (!isNaN(lastFiled.getTime())) {
-                const nextDue = new Date(lastFiled);
-                nextDue.setFullYear(nextDue.getFullYear() + 2);
-                const daysMcs = Math.ceil((nextDue - nowDate) / 86400000);
-                if (daysMcs < 0) {
-                    alerts.push({ type: 'danger', icon: 'alert', text: 'MCS-150 biennial update is OVERDUE \u2014 file immediately' });
-                } else if (daysMcs <= 60) {
-                    alerts.push({ type: daysMcs <= 30 ? 'danger' : 'warning', icon: 'clock', text: 'MCS-150 biennial update due in ' + daysMcs + ' day' + (daysMcs !== 1 ? 's' : '') });
-                }
-            }
+        // Unassigned active trailers (not assigned to any truck)
+        const assignedTrailerIds = new Set(state.trucks.filter(t => t.trailer).map(t => t.trailer));
+        const unassignedTrailers = state.trailers.filter(t => t.status === 'active' && !assignedTrailerIds.has(t.id));
+        if (unassignedTrailers.length) {
+            alerts.push({
+                type: 'info',
+                icon: 'trailer',
+                kind: 'unassigned-trailers',
+                text: unassignedTrailers.length + ' active trailer' + (unassignedTrailers.length > 1 ? 's' : '') + ' with no truck assigned',
+                items: unassignedTrailers.map(t => ({
+                    id: t.id,
+                    name: t.unit || t.id,
+                    meta: [t.year, t.make, t.type ? trailerTypeLabel(t.type) : ''].filter(Boolean).join(' ')
+                }))
+            });
         }
 
         const container = $('overviewAlerts');
@@ -9667,22 +10753,34 @@
             clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
             alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
             wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+            calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+            truck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
+            trailer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="1" y="6" width="18" height="12" rx="1"/><circle cx="7" cy="18" r="2"/><circle cx="15" cy="18" r="2"/><path d="M19 12h4"/></svg>',
             user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
         };
 
-        // Split: unassigned drivers + IFTA → safety, rest → overview
-        const safetyAlerts = alerts.filter(a => a.kind === 'unassigned-drivers' || a.link);
-        const overviewAlerts = alerts.filter(a => a.kind !== 'unassigned-drivers' && !a.link);
+        // Show all alerts in both overview and safety containers
+        const safetyAlerts = alerts;
+        const overviewAlerts = alerts;
 
         function renderAlertsTo(target, list) {
             if (!target) return;
             if (list.length === 0) { target.innerHTML = ''; return; }
+
+            // Build assign-option lists for reuse
+            const activeTrucks = state.trucks.filter(t => t.status === 'active');
+            const truckOpts = activeTrucks.map(t =>
+                '<button type="button" class="alert-assign-option" data-truck-id="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit || t.id) + '</button>'
+            ).join('') || '<div style="padding:0.4rem 0.5rem;font-size:0.62rem;color:var(--gray-400)">No active trucks</div>';
+
+            const activeDrivers = state.drivers.filter(d => d.status === 'active');
+            const driverOpts = activeDrivers.map(d =>
+                '<button type="button" class="alert-assign-option" data-driver-id="' + escapeHtml(d.id) + '">' + escapeHtml([d.firstName, d.lastName].filter(Boolean).join(' ') || 'Unnamed') + '</button>'
+            ).join('') || '<div style="padding:0.4rem 0.5rem;font-size:0.62rem;color:var(--gray-400)">No active drivers</div>';
+
             target.innerHTML = list.map((a) => {
+                // Unassigned drivers — assign a truck
                 if (a.kind === 'unassigned-drivers') {
-                    const activeTrucks = state.trucks.filter(t => t.status === 'active');
-                    const truckBtns = activeTrucks.map(t =>
-                        '<button type="button" class="alert-assign-option" data-truck-id="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit) + '</button>'
-                    ).join('') || '<div style="padding:0.4rem 0.5rem;font-size:0.62rem;color:var(--gray-400)">No active trucks</div>';
                     const rows = (a.drivers || []).map((driver) => {
                         const meta = [driver.cdl ? ('CDL: ' + driver.cdl) : '', driver.phone].filter(Boolean).join(' \u00b7 ');
                         return `<li class="alert-unassigned-row">`
@@ -9690,17 +10788,49 @@
                             + (meta ? `<span class="alert-unassigned-meta">${escapeHtml(meta)}</span>` : '')
                             + `<div class="alert-assign-wrap" data-driver-id="${escapeHtml(driver.id)}">`
                             + `<button type="button" class="alert-assign-btn" title="Assign truck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></button>`
-                            + `<div class="alert-assign-popup">${truckBtns}</div>`
-                            + `</div>`
-                            + `</li>`;
+                            + `<div class="alert-assign-popup">${truckOpts}</div>`
+                            + `</div></li>`;
                     }).join('');
                     return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned">`
                         + `<div class="alert-unassigned-header">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
                         + `<svg class="alert-unassigned-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`
-                        + `</div>`
-                        + `<ul class="alert-unassigned-list">${rows}</ul>`
-                        + `</div>`;
+                        + `</div><ul class="alert-unassigned-list">${rows}</ul></div>`;
                 }
+
+                // Unassigned trucks — assign a driver
+                if (a.kind === 'unassigned-trucks') {
+                    const rows = (a.items || []).map((item) => {
+                        return `<li class="alert-unassigned-row">`
+                            + `<span class="alert-unassigned-name" data-truck-id="${escapeHtml(item.id)}">${escapeHtml(item.name)}</span>`
+                            + (item.meta ? `<span class="alert-unassigned-meta">${escapeHtml(item.meta)}</span>` : '')
+                            + `<div class="alert-assign-wrap" data-truck-id="${escapeHtml(item.id)}">`
+                            + `<button type="button" class="alert-assign-btn" title="Assign driver"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>`
+                            + `<div class="alert-assign-popup">${driverOpts}</div>`
+                            + `</div></li>`;
+                    }).join('');
+                    return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned">`
+                        + `<div class="alert-unassigned-header">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
+                        + `<svg class="alert-unassigned-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`
+                        + `</div><ul class="alert-unassigned-list">${rows}</ul></div>`;
+                }
+
+                // Unassigned trailers — assign to a truck
+                if (a.kind === 'unassigned-trailers') {
+                    const rows = (a.items || []).map((item) => {
+                        return `<li class="alert-unassigned-row">`
+                            + `<span class="alert-unassigned-name" data-trailer-id="${escapeHtml(item.id)}">${escapeHtml(item.name)}</span>`
+                            + (item.meta ? `<span class="alert-unassigned-meta">${escapeHtml(item.meta)}</span>` : '')
+                            + `<div class="alert-assign-wrap" data-trailer-id="${escapeHtml(item.id)}">`
+                            + `<button type="button" class="alert-assign-btn" title="Assign to truck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></button>`
+                            + `<div class="alert-assign-popup">${truckOpts}</div>`
+                            + `</div></li>`;
+                    }).join('');
+                    return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned">`
+                        + `<div class="alert-unassigned-header">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
+                        + `<svg class="alert-unassigned-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`
+                        + `</div><ul class="alert-unassigned-list">${rows}</ul></div>`;
+                }
+
                 if (a.link) {
                     return `<a href="${escapeHtml(a.link)}" onclick="sessionStorage.setItem('fromDashboard','true')" class="alert-item alert-${escapeHtml(a.type)} alert-link" title="Go to IFTA Wizard">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
                         + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="alert-link-arrow"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>`;
@@ -9711,6 +10841,7 @@
         }
 
         function wireAlertHandlers(target) {
+            // Collapsible headers
             target.querySelectorAll('.alert-unassigned').forEach((card) => {
                 let openTimer = null, closeTimer = null;
                 const hdr = card.querySelector('.alert-unassigned-header');
@@ -9718,9 +10849,19 @@
                 card.addEventListener('mouseenter', () => { clearTimeout(closeTimer); openTimer = setTimeout(() => card.classList.add('open'), 300); });
                 card.addEventListener('mouseleave', () => { clearTimeout(openTimer); closeTimer = setTimeout(() => card.classList.remove('open'), 400); });
             });
+
+            // Clickable names → open profile
             target.querySelectorAll('.alert-unassigned-name[data-driver-id]').forEach((el) => {
                 el.addEventListener('click', () => openDriverProfile(el.dataset.driverId));
             });
+            target.querySelectorAll('.alert-unassigned-name[data-truck-id]').forEach((el) => {
+                el.addEventListener('click', () => openTruckProfile(el.dataset.truckId));
+            });
+            target.querySelectorAll('.alert-unassigned-name[data-trailer-id]').forEach((el) => {
+                el.addEventListener('click', () => openTrailerProfile(el.dataset.trailerId));
+            });
+
+            // Toggle assign popups
             target.querySelectorAll('.alert-assign-btn').forEach((btn) => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -9730,12 +10871,15 @@
                     if (!wasOpen) wrap.classList.add('open');
                 });
             });
-            target.querySelectorAll('.alert-assign-option').forEach((opt) => {
+
+            // Assign truck to driver (from unassigned-drivers alert)
+            target.querySelectorAll('.alert-assign-option[data-truck-id]').forEach((opt) => {
                 opt.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     const wrap = opt.closest('.alert-assign-wrap');
                     const driverId = wrap.dataset.driverId;
                     const truckId = opt.dataset.truckId;
+                    if (!driverId) return;
                     wrap.classList.remove('open');
                     try {
                         await col('drivers').doc(driverId).update({ truck: truckId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
@@ -9746,6 +10890,50 @@
                         renderDrivers();
                         updateOverview();
                     } catch (err) { console.error(err); showMsg('Error assigning truck', true); }
+                });
+            });
+
+            // Assign driver to truck (from unassigned-trucks alert)
+            target.querySelectorAll('.alert-assign-wrap[data-truck-id] .alert-assign-option[data-driver-id]').forEach((opt) => {
+                opt.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const wrap = opt.closest('.alert-assign-wrap');
+                    const truckId = wrap.dataset.truckId;
+                    const driverId = opt.dataset.driverId;
+                    if (!truckId || !driverId) return;
+                    wrap.classList.remove('open');
+                    try {
+                        await col('drivers').doc(driverId).update({ truck: truckId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                        const d = state.drivers.find(x => x.id === driverId);
+                        if (d) d.truck = truckId;
+                        const driver = d ? [d.firstName, d.lastName].filter(Boolean).join(' ') : 'driver';
+                        showMsg(driver + ' assigned to truck');
+                        renderDrivers();
+                        renderTrucks();
+                        updateOverview();
+                    } catch (err) { console.error(err); showMsg('Error assigning driver', true); }
+                });
+            });
+
+            // Assign trailer to truck (from unassigned-trailers alert)
+            target.querySelectorAll('.alert-assign-wrap[data-trailer-id] .alert-assign-option[data-truck-id]').forEach((opt) => {
+                opt.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const wrap = opt.closest('.alert-assign-wrap');
+                    const trailerId = wrap.dataset.trailerId;
+                    const truckId = opt.dataset.truckId;
+                    if (!trailerId || !truckId) return;
+                    wrap.classList.remove('open');
+                    try {
+                        await col('trucks').doc(truckId).update({ trailer: trailerId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                        const t = state.trucks.find(x => x.id === truckId);
+                        if (t) t.trailer = trailerId;
+                        const truck = t ? t.unit : 'truck';
+                        showMsg('Trailer assigned to ' + truck);
+                        renderTrucks();
+                        renderTrailers();
+                        updateOverview();
+                    } catch (err) { console.error(err); showMsg('Error assigning trailer', true); }
                 });
             });
         }
@@ -9786,6 +10974,7 @@
         document.querySelectorAll('[data-dtt-count="drivers"]').forEach(el => el.textContent = state.drivers.length);
         populateOverviewDropdowns();
         updateAlerts();
+        renderExpirationAlerts();
     }
 
     /* ── Dispatch Overview aggregation ── */
@@ -10410,31 +11599,72 @@
         renderTeams();
     }
 
-    function showMsg(text, isError) {
-        if (typeof showToast === 'function') {
-            showToast(text, isError ? 'error' : 'success');
-            return;
-        }
-        const div = document.createElement('div');
-        div.textContent = text;
-        Object.assign(div.style, {
-            position: 'fixed', top: '1rem', right: '1rem', padding: '0.625rem 1.125rem',
-            background: isError ? 'rgba(254,226,226,0.95)' : 'rgba(220,252,231,0.95)',
-            color: isError ? '#dc2626' : '#16a34a',
-            fontSize: '0.8125rem', fontWeight: '600', zIndex: '9999',
-            border: '1px solid ' + (isError ? '#fca5a5' : '#86efac'),
-            borderRadius: '12px', backdropFilter: 'blur(12px)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-            transform: 'translateY(-8px)', opacity: '0',
-            transition: 'all 0.2s ease'
+    // ── Toast notification system (bottom-right) ──
+    const toastContainer = (() => {
+        const c = document.createElement('div');
+        c.id = 'toastContainer';
+        Object.assign(c.style, {
+            position: 'fixed', bottom: '1.25rem', right: '1.25rem',
+            display: 'flex', flexDirection: 'column-reverse', gap: '0.5rem',
+            zIndex: '10000', pointerEvents: 'none', maxWidth: '340px'
         });
-        document.body.appendChild(div);
-        requestAnimationFrame(() => { div.style.transform = 'translateY(0)'; div.style.opacity = '1'; });
-        setTimeout(() => {
-            div.style.transform = 'translateY(-8px)';
-            div.style.opacity = '0';
-            setTimeout(() => div.remove(), 200);
-        }, 2200);
+        document.body.appendChild(c);
+        return c;
+    })();
+
+    function showMsg(text, isError) {
+        const toast = document.createElement('div');
+        toast.className = 'dash-toast' + (isError ? ' dash-toast-error' : ' dash-toast-success');
+        const iconSvg = isError
+            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+        toast.innerHTML = '<span class="dash-toast-icon">' + iconSvg + '</span>'
+            + '<span class="dash-toast-text">' + escapeHtml(text) + '</span>'
+            + '<button class="dash-toast-close" title="Dismiss">&times;</button>'
+            + '<div class="dash-toast-progress"></div>';
+        toast.querySelector('.dash-toast-close').addEventListener('click', () => dismissToast(toast));
+        toast.style.pointerEvents = 'auto';
+        toastContainer.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('show'));
+        const timer = setTimeout(() => dismissToast(toast), 3500);
+        toast._timer = timer;
+        return toast;
+    }
+
+    function dismissToast(toast) {
+        if (toast._dismissed) return;
+        toast._dismissed = true;
+        clearTimeout(toast._timer);
+        toast.classList.remove('show');
+        toast.classList.add('hide');
+        setTimeout(() => toast.remove(), 300);
+    }
+
+    function showUploadToast(fileName) {
+        const toast = document.createElement('div');
+        toast.className = 'dash-toast dash-toast-upload';
+        toast.innerHTML = '<span class="dash-toast-icon dash-toast-spinner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><path d="M12 2v4"/><path d="M12 18v4" opacity=".3"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83" opacity=".3"/><path d="M2 12h4"/><path d="M18 12h4" opacity=".3"/><path d="M4.93 19.07l2.83-2.83" opacity=".3"/><path d="M16.24 7.76l2.83-2.83" opacity=".3"/></svg></span>'
+            + '<span class="dash-toast-text">Uploading <strong>' + escapeHtml(fileName) + '</strong></span>'
+            + '<div class="dash-toast-progress dash-toast-progress-loading"></div>';
+        toast.style.pointerEvents = 'auto';
+        toastContainer.appendChild(toast);
+        requestAnimationFrame(() => toast.classList.add('show'));
+        return toast;
+    }
+
+    function completeUploadToast(toast, success, message) {
+        if (!toast || toast._dismissed) return;
+        toast.className = 'dash-toast show ' + (success ? 'dash-toast-success' : 'dash-toast-error');
+        const iconSvg = success
+            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+        toast.innerHTML = '<span class="dash-toast-icon">' + iconSvg + '</span>'
+            + '<span class="dash-toast-text">' + escapeHtml(message) + '</span>'
+            + '<button class="dash-toast-close" title="Dismiss">&times;</button>'
+            + '<div class="dash-toast-progress"></div>';
+        toast.querySelector('.dash-toast-close').addEventListener('click', () => dismissToast(toast));
+        const timer = setTimeout(() => dismissToast(toast), 3500);
+        toast._timer = timer;
     }
 
     // ── Delete confirms ───────────────────
@@ -10542,11 +11772,9 @@
             trucksPanel.innerHTML = state.trucks.map(t => {
                 const label = t.unit || t.id;
                 const meta = [t.year, t.make, t.model].filter(Boolean).join(' ');
-                const initials = label.slice(0, 2);
                 const sCls = t.status === 'active' ? 'active' : t.status === 'maintenance' ? 'maintenance' : 'inactive';
                 const sLabel = t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : '';
                 return `<div class="overview-dropdown-item" data-id="${escapeHtml(t.id)}">
-                    <div class="overview-dropdown-item-icon">${escapeHtml(initials)}</div>
                     <div class="overview-dropdown-item-info">
                         <span class="overview-dropdown-item-name">${escapeHtml(label)}</span>
                         ${meta ? `<span class="overview-dropdown-item-meta">${escapeHtml(meta)}</span>` : ''}
@@ -10563,11 +11791,9 @@
             trailersPanel.innerHTML = state.trailers.map(t => {
                 const label = t.unit || ('Trailer ' + t.id);
                 const meta = [t.year, t.make, trailerTypeLabel(t.type)].filter(Boolean).join(' ');
-                const initials = label.slice(0, 2);
                 const sCls = t.status === 'active' ? 'active' : t.status === 'maintenance' ? 'maintenance' : 'inactive';
                 const sLabel = t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : '';
                 return `<div class="overview-dropdown-item" data-id="${escapeHtml(t.id)}">
-                    <div class="overview-dropdown-item-icon">${escapeHtml(initials)}</div>
                     <div class="overview-dropdown-item-info">
                         <span class="overview-dropdown-item-name">${escapeHtml(label)}</span>
                         ${meta ? `<span class="overview-dropdown-item-meta">${escapeHtml(meta)}</span>` : ''}
@@ -10584,11 +11810,9 @@
             driversPanel.innerHTML = state.drivers.map(d => {
                 const name = [d.firstName, d.lastName].filter(Boolean).join(' ') || ('Driver ' + d.id);
                 const meta = [d.cdl, d.cdlState].filter(Boolean).join(' ');
-                const initials = (d.firstName || '').charAt(0) + (d.lastName || '').charAt(0) || name.slice(0, 2);
                 const sCls = d.status === 'active' ? 'active' : 'inactive';
                 const sLabel = d.status ? d.status.charAt(0).toUpperCase() + d.status.slice(1) : '';
                 return `<div class="overview-dropdown-item" data-id="${escapeHtml(d.id)}">
-                    <div class="overview-dropdown-item-icon">${escapeHtml(initials.toUpperCase())}</div>
                     <div class="overview-dropdown-item-info">
                         <span class="overview-dropdown-item-name">${escapeHtml(name)}</span>
                         ${meta ? `<span class="overview-dropdown-item-meta">${escapeHtml(meta)}</span>` : ''}
@@ -10954,21 +12178,51 @@
         const connectBtn = $('samsaraConnectBtn');
         const disconnectBtn = $('samsaraDisconnectBtn');
         const desc = $('samsaraStatusDesc');
+        const dot = $('samsaraStatusDot');
+        const label = $('samsaraStatusLabel');
         if (!connectBtn || !disconnectBtn) return;
 
         if (samsaraData && samsaraData.connectedAt) {
             connectBtn.classList.add('hidden');
             disconnectBtn.classList.remove('hidden');
             const d = new Date(samsaraData.connectedAt);
-            if (desc) desc.textContent = 'Connected ' + d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            if (desc) desc.textContent = 'Connected since ' + dateStr + '. ELD and telematics data is syncing.';
+            if (dot) dot.classList.add('connected');
+            if (label) { label.textContent = 'Connected'; label.classList.add('connected'); }
         } else {
             connectBtn.classList.remove('hidden');
             disconnectBtn.classList.add('hidden');
-            if (desc) desc.textContent = 'Connect your Samsara fleet account for ELD and telematics data';
+            if (desc) desc.textContent = 'Connect your Samsara fleet account for ELD and telematics data.';
+            if (dot) dot.classList.remove('connected');
+            if (label) { label.textContent = 'Not connected'; label.classList.remove('connected'); }
         }
     }
 
     function initSamsara() {
+        // Collapse toggle
+        const toggle = $('samsaraWidgetToggle');
+        const widget = $('samsaraIntegrationRow');
+        const body = widget && widget.querySelector('.integration-widget-body');
+        if (toggle && widget && body) {
+            const openWidget = () => {
+                widget.classList.add('open');
+                body.classList.remove('hidden');
+                toggle.setAttribute('aria-expanded', 'true');
+            };
+            const closeWidget = () => {
+                widget.classList.remove('open');
+                body.classList.add('hidden');
+                toggle.setAttribute('aria-expanded', 'false');
+            };
+            toggle.addEventListener('click', () => {
+                widget.classList.contains('open') ? closeWidget() : openWidget();
+            });
+            toggle.addEventListener('keydown', e => {
+                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle.click(); }
+            });
+        }
+
         // Handle OAuth redirect result
         const params = new URLSearchParams(window.location.search);
         const samsaraResult = params.get('samsara');
@@ -10990,31 +12244,29 @@
             }
         }
 
-        // Connect button
+        // Connect button — build OAuth URL client-side (no Cloud Function needed)
         const connectBtn = $('samsaraConnectBtn');
         if (connectBtn) {
-            connectBtn.addEventListener('click', async () => {
-                connectBtn.disabled = true;
-                connectBtn.textContent = 'Connecting...';
-                try {
-                    const fn = firebase.functions().httpsCallable('samsaraAuthUrl');
-                    const result = await fn();
-                    if (result.data && result.data.url) {
-                        window.location.href = result.data.url;
-                    } else {
-                        showMsg('Failed to get Samsara authorization URL', true);
-                    }
-                } catch (err) {
-                    console.error('Samsara connect error:', err);
-                    showMsg(err.message || 'Failed to connect Samsara', true);
-                } finally {
-                    connectBtn.disabled = false;
-                    connectBtn.textContent = 'Connect';
-                }
+            connectBtn.addEventListener('click', () => {
+                const u = uid();
+                if (!u) { showMsg('Please sign in first', true); return; }
+                // Use a fixed redirect URI so it always matches the Samsara app registration.
+                // Both www.logistixnerd.com and ifta-wizard-a9061.web.app serve the same app;
+                // we canonicalise to www.logistixnerd.com as the registered redirect URI.
+                const REDIRECT_URI = 'https://www.logistixnerd.com/api/samsara/callback';
+                const state = btoa(JSON.stringify({ uid: u, ts: Date.now(), origin: 'https://www.logistixnerd.com' }))
+                    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+                const params = new URLSearchParams({
+                    client_id: 'd9cb1080-5971-4463-871c-bafc91121520',
+                    response_type: 'code',
+                    state,
+                    redirect_uri: REDIRECT_URI,
+                });
+                window.location.href = 'https://api.samsara.com/oauth2/authorize?' + params.toString();
             });
         }
 
-        // Disconnect button
+        // Disconnect button — delete from Firestore directly (no Cloud Function needed)
         const disconnectBtn = $('samsaraDisconnectBtn');
         if (disconnectBtn) {
             disconnectBtn.addEventListener('click', async () => {
@@ -11022,8 +12274,9 @@
                 disconnectBtn.disabled = true;
                 disconnectBtn.textContent = 'Disconnecting...';
                 try {
-                    const fn = firebase.functions().httpsCallable('samsaraDisconnect');
-                    await fn();
+                    await firebase.firestore().collection('users').doc(uid()).update({
+                        samsara: firebase.firestore.FieldValue.delete()
+                    });
                     updateSamsaraUI(null);
                     showMsg('Samsara disconnected');
                 } catch (err) {
@@ -11037,15 +12290,40 @@
         }
     }
 
+    // ── Section Collapse Toggles ─────────
+    function initSectionCollapseToggles() {
+        const chevronSvg = '<svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+        document.querySelectorAll('.dash-card-header').forEach(header => {
+            const card = header.closest('.dash-card');
+            if (!card || card.closest('.dept-grid') || card.closest('#detailPanel')) return;
+            const h = header.querySelector('h2');
+            if (!h) return;
+            if (!header.querySelector('.section-chevron')) {
+                h.insertAdjacentHTML('afterend', chevronSvg);
+            }
+        });
+        document.addEventListener('click', (e) => {
+            const header = e.target.closest('.dash-card-header');
+            if (!header) return;
+            if (e.target.closest('.dash-card-header-actions') || e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('a')) return;
+            const card = header.closest('.dash-card');
+            if (!card || card.closest('.dept-grid') || card.closest('#detailPanel')) return;
+            if (!header.querySelector('h2')) return;
+            card.classList.toggle('collapsed');
+        });
+    }
+
     // ── Init ──────────────────────────────
     function init() {
         initNav();
         initOverviewCards();
         initOverviewLookup();
         initExpandToggles();
+        initSectionCollapseToggles();
         initProfileForm();
         initCompanyTabs();
         initCompanyDashboard();
+        initCompanyTaskWidgets();
         initFmcsaLookup();
         initTruckForm();
         initSheetModals();
@@ -11101,6 +12379,7 @@
 
     // ── INSPECTIONS & CITATIONS ───────────
     async function loadInspections() {
+        if (!uid()) return;
         try {
             const snap = await col('inspections').orderBy('date', 'desc').get();
             state.inspections = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -11128,27 +12407,23 @@
         const widths = computeTableColWidths('inspections');
         if (thead) {
             let h = '<th class="col-checkbox"><input type="checkbox" id="inspectionSelectAll" title="Select all"></th>';
-            visCols.forEach(c => { h += '<th style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
+            visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
             h += '<th style="width:18%"></th>';
             thead.innerHTML = h;
+            wireColDrag(thead, 'inspections');
         }
         const selAll = thead?.querySelector('#inspectionSelectAll');
         if (selAll) selAll.onchange = () => toggleSelectAll('inspections', selAll);
         tbody.innerHTML = sorted.map(d => {
-            const resolved = d.inspStatus === 'resolved';
-            const paid = d.paidStatus === 'paid';
+            const st = d.inspStatus || 'open';
+            const dimmed = st === 'resolved' || st === 'paid' || st === 'waived';
             let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + d.id + '" ' + (bulkSelection.inspections.has(d.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'inspections\',\'' + d.id + '\',this)"></td>';
             visCols.forEach(c => { cells += inspectionCell(d, c.key); });
             cells += '<td class="row-actions"><div class="cell">';
-            cells += '<button title="' + (resolved ? 'Reopen' : 'Mark Resolved') + '" class="insp-action-btn ' + (resolved ? 'insp-btn-reopen' : 'insp-btn-resolve') + '" onclick="Dashboard.toggleInspResolved(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>';
-            if (d.fineAmount && parseFloat(d.fineAmount) > 0) {
-                cells += '<button title="' + (paid ? 'Mark Unpaid' : 'Mark Paid') + '" class="insp-action-btn ' + (paid ? 'insp-btn-paid' : 'insp-btn-unpaid') + '" onclick="Dashboard.toggleInspPaid(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></button>';
-            }
-            cells += '<button title="Create Task" class="insp-action-btn insp-btn-task" onclick="Dashboard.createInspTask(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></button>';
-            cells += '<button title="Edit" onclick="Dashboard.editInspection(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>';
-            cells += '<button title="Delete" class="btn-delete" onclick="Dashboard.deleteInspection(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
+            cells += '<button title="Edit" class="insp-action-btn" onclick="Dashboard.editInspection(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>';
+            cells += '<button title="Delete" class="insp-action-btn btn-delete" onclick="Dashboard.deleteInspection(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
             cells += '</div></td>';
-            return '<tr data-id="' + d.id + '" class="' + (resolved ? 'insp-resolved' : '') + '">' + cells + '</tr>';
+            return '<tr data-id="' + d.id + '" class="' + (dimmed ? 'insp-resolved' : '') + '">' + cells + '</tr>';
         }).join('');
     }
 
@@ -11238,6 +12513,40 @@
         const selectAll = $('inspectionSelectAll');
         if (selectAll) selectAll.addEventListener('change', () => toggleSelectAll('inspections', selectAll));
 
+        // Inline status change on inspections table
+        const tbody = $('inspectionsTableBody');
+        if (tbody) {
+            tbody.addEventListener('change', async (e) => {
+                const sel = e.target.closest('.insp-status-select');
+                if (sel) {
+                    const id = sel.dataset.id;
+                    const field = sel.dataset.field;
+                    const val = sel.value;
+                    try {
+                        await col('inspections').doc(id).update({ [field]: val });
+                        const d = state.inspections.find(x => x.id === id);
+                        if (d) d[field] = val;
+                        renderInspections();
+                        updateComplianceScoreCard();
+                        renderCompDropdown();
+                        showMsg('Status updated');
+                    } catch (err) { console.error(err); showMsg('Error updating status', true); }
+                    return;
+                }
+                const asel = e.target.closest('.insp-assign-select');
+                if (asel) {
+                    const id = asel.dataset.id;
+                    const val = asel.value;
+                    try {
+                        await col('inspections').doc(id).update({ assignedTo: val });
+                        const d = state.inspections.find(x => x.id === id);
+                        if (d) d.assignedTo = val;
+                        showMsg(val ? 'Assigned to ' + val : 'Unassigned');
+                    } catch (err) { console.error(err); showMsg('Error updating assignment', true); }
+                }
+            });
+        }
+
         loadInspections();
     }
 
@@ -11252,6 +12561,325 @@
         toggleSpreadsheet, ssChanged, ssSaveAll, ssDiscardAll,
         openUnifiedSheet
     };
+
+    /* ===========================================================
+       BULK DOCUMENT CENTER
+       =========================================================== */
+    (function initBulkDocs() {
+        const DOC_TYPES = {
+            drivers: ['cdl', 'medical', 'contract', 'mvr', 'psp', 'photo', 'other'],
+            trucks: ['registration', 'insurance', 'inspection', 'title', 'lease', 'photo', 'other'],
+            trailers: ['registration', 'insurance', 'inspection', 'title', 'lease', 'photo', 'other']
+        };
+        const TYPE_LABELS = {
+            cdl: 'CDL', medical: 'Medical', contract: 'Contract', mvr: 'MVR', psp: 'PSP',
+            registration: 'Registration', insurance: 'Insurance', inspection: 'Inspection',
+            title: 'Title', lease: 'Lease', photo: 'Photo', other: 'Other'
+        };
+
+        let bulkEntity = 'drivers';
+        let bulkDocType = '';
+        let bulkDocs = [];      // { entityName, entityId, doc }
+        let bulkSelected = new Set();
+
+        function bulkEl(id) { return document.getElementById(id); }
+
+        function entityName(entity, item) {
+            if (entity === 'drivers') return [item.firstName, item.lastName].filter(Boolean).join(' ') || item.id;
+            return item.unit || item.id;
+        }
+
+        function renderDocTypeChips() {
+            const container = bulkEl('bulkDocTypeFilter');
+            if (!container) return;
+            const types = DOC_TYPES[bulkEntity] || [];
+            container.innerHTML = '<button class="bulk-chip active" data-doctype="">All types</button>' +
+                types.map(t => `<button class="bulk-chip" data-doctype="${t}">${TYPE_LABELS[t] || t}</button>`).join('');
+            container.querySelectorAll('.bulk-chip').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    container.querySelectorAll('.bulk-chip').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    bulkDocType = btn.dataset.doctype;
+                    loadBulkDocs();
+                });
+            });
+        }
+
+        async function loadBulkDocs() {
+            const results = bulkEl('bulkResults');
+            if (!results) return;
+            results.innerHTML = '<p style="padding:1.5rem;text-align:center;color:var(--gray-400);font-size:0.8rem">Loading documents…</p>';
+            bulkDocs = [];
+            bulkSelected.clear();
+            updateSelectedCount();
+
+            const entities = state[bulkEntity] || [];
+            if (!entities.length) {
+                results.innerHTML = '<p style="padding:1.5rem;text-align:center;color:var(--gray-400);font-size:0.8rem">No ' + bulkEntity + ' found. Add some from the dashboard first.</p>';
+                return;
+            }
+
+            const search = (bulkEl('bulkSearch')?.value || '').trim().toLowerCase();
+
+            // Load documents for all entities in parallel
+            const promises = entities.map(async item => {
+                const name = entityName(bulkEntity, item);
+                if (search && !name.toLowerCase().includes(search)) return [];
+                try {
+                    const snap = await col(bulkEntity).doc(item.id).collection('documents').get();
+                    return snap.docs.map(d => ({
+                        entityName: name,
+                        entityId: item.id,
+                        doc: { id: d.id, ...d.data() }
+                    }));
+                } catch { return []; }
+            });
+
+            const allResults = await Promise.all(promises);
+            bulkDocs = allResults.flat();
+
+            if (bulkDocType) {
+                bulkDocs = bulkDocs.filter(r => r.doc.type === bulkDocType);
+            }
+
+            // Sort by entity name then upload date
+            bulkDocs.sort((a, b) => {
+                const cmp = a.entityName.localeCompare(b.entityName);
+                if (cmp !== 0) return cmp;
+                const at = new Date(a.doc.uploadedAt || 0).getTime();
+                const bt = new Date(b.doc.uploadedAt || 0).getTime();
+                return bt - at;
+            });
+
+            renderBulkResults();
+        }
+
+        function isImageUrl(doc) {
+            if (doc.contentType && doc.contentType.startsWith('image/')) return true;
+            if (doc.url) return /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(doc.url.split('?')[0]);
+            return false;
+        }
+
+        function renderBulkResults() {
+            const results = bulkEl('bulkResults');
+            if (!results) return;
+
+            if (!bulkDocs.length) {
+                results.innerHTML = `<div class="placeholder-content">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                    <p>No documents found</p>
+                    <span class="placeholder-hint">Try a different entity type, document type, or search term</span>
+                </div>`;
+                return;
+            }
+
+            const checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>';
+            let html = '<table class="bulk-table"><thead><tr>' +
+                '<th></th><th></th><th>Name</th><th>Type</th><th>File</th><th>Date</th><th></th>' +
+                '</tr></thead><tbody>';
+
+            bulkDocs.forEach((item, idx) => {
+                const d = item.doc;
+                const isImg = isImageUrl(d);
+                const checked = bulkSelected.has(idx) ? 'checked' : '';
+                const dateStr = d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+                const typeLabel = TYPE_LABELS[d.type] || d.type || 'Other';
+
+                html += `<tr class="${checked ? 'selected' : ''}" data-idx="${idx}">
+                    <td><label class="bulk-check"><input type="checkbox" data-idx="${idx}" ${checked}><span class="bulk-check-box">${checkSvg}</span></label></td>
+                    <td class="bulk-td-thumb">${isImg ? `<img src="${escapeHtml(d.url)}" alt="" loading="lazy">` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`}</td>
+                    <td class="bulk-td-entity">${escapeHtml(item.entityName)}</td>
+                    <td class="bulk-td-type"><span>${escapeHtml(typeLabel)}</span></td>
+                    <td class="bulk-td-name" title="${escapeHtml(d.name || '')}">${escapeHtml(d.name || 'Unnamed')}</td>
+                    <td class="bulk-td-date">${escapeHtml(dateStr)}</td>
+                    <td class="bulk-td-actions"><a href="${escapeHtml(d.url)}" target="_blank" rel="noopener" title="Open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></td>
+                </tr>`;
+            });
+            html += '</tbody></table>';
+            results.innerHTML = html;
+
+            // Row click toggles checkbox
+            results.querySelectorAll('tr[data-idx]').forEach(row => {
+                row.addEventListener('click', e => {
+                    if (e.target.closest('a') || e.target.closest('.bulk-check')) return;
+                    const cb = row.querySelector('input[type="checkbox"]');
+                    if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
+                });
+            });
+
+            // Bind checkboxes
+            results.querySelectorAll('input[type="checkbox"][data-idx]').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const idx = parseInt(cb.dataset.idx, 10);
+                    if (cb.checked) bulkSelected.add(idx);
+                    else bulkSelected.delete(idx);
+                    cb.closest('tr').classList.toggle('selected', cb.checked);
+                    updateSelectedCount();
+                });
+            });
+        }
+
+        function updateSelectedCount() {
+            const countEl = bulkEl('bulkSelectedCount');
+            if (countEl) countEl.textContent = bulkSelected.size + ' selected';
+            const zipBtn = bulkEl('bulkDownloadZip');
+            if (zipBtn) zipBtn.disabled = bulkSelected.size === 0;
+            // Update select-all checkbox
+            const allCb = bulkEl('bulkSelectAll');
+            if (allCb) {
+                allCb.checked = bulkDocs.length > 0 && bulkSelected.size === bulkDocs.length;
+                allCb.indeterminate = bulkSelected.size > 0 && bulkSelected.size < bulkDocs.length;
+            }
+        }
+
+        async function downloadZip() {
+            if (!bulkSelected.size) return;
+            if (typeof JSZip === 'undefined') {
+                alert('Zip library not loaded. Please refresh and try again.');
+                return;
+            }
+
+            const zipBtn = bulkEl('bulkDownloadZip');
+            const origText = zipBtn.innerHTML;
+            zipBtn.disabled = true;
+
+            try {
+                const zip = new JSZip();
+                const selected = [...bulkSelected].map(idx => bulkDocs[idx]).filter(Boolean);
+                const nameCount = {};
+                let added = 0;
+                const total = selected.length;
+
+                for (let i = 0; i < selected.length; i++) {
+                    const item = selected[i];
+                    const d = item.doc;
+                    if (!d.storagePath && !d.url) continue;
+
+                    zipBtn.innerHTML = '<svg class="spin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> ' + (i + 1) + '/' + total + '…';
+
+                    // Build folder/filename
+                    const folder = item.entityName.replace(/[^a-zA-Z0-9 _-]/g, '').trim() || 'Unknown';
+                    let fileName = d.name || ('document_' + d.id);
+                    const key = folder + '/' + fileName;
+                    nameCount[key] = (nameCount[key] || 0) + 1;
+                    if (nameCount[key] > 1) {
+                        const ext = fileName.lastIndexOf('.') > 0 ? fileName.slice(fileName.lastIndexOf('.')) : '';
+                        const base = ext ? fileName.slice(0, -ext.length) : fileName;
+                        fileName = base + '_' + nameCount[key] + ext;
+                    }
+
+                    try {
+                        // Get fresh download URL via Storage SDK
+                        let downloadUrl = d.url;
+                        if (d.storagePath) {
+                            try { downloadUrl = await storage.ref(d.storagePath).getDownloadURL(); }
+                            catch (e) { /* fall back to stored url */ }
+                        }
+                        if (!downloadUrl) continue;
+
+                        const blob = await new Promise((resolve, reject) => {
+                            const xhr = new XMLHttpRequest();
+                            xhr.open('GET', downloadUrl, true);
+                            xhr.responseType = 'blob';
+                            xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve(xhr.response) : reject(new Error('HTTP ' + xhr.status));
+                            xhr.onerror = () => reject(new Error('Network error'));
+                            xhr.send();
+                        });
+                        zip.folder(folder).file(fileName, blob);
+                        added++;
+                    } catch (err) {
+                        console.warn('Skipped file:', d.name, err);
+                    }
+                }
+
+                if (!added) {
+                    alert('Could not download any of the selected files. They may have been deleted from storage.');
+                    return;
+                }
+
+                zipBtn.innerHTML = '<svg class="spin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Zipping…';
+                const content = await zip.generateAsync({ type: 'blob' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(content);
+                a.download = 'documents_' + bulkEntity + '_' + new Date().toISOString().slice(0, 10) + '.zip';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+            } catch (err) {
+                console.error('Zip download error:', err);
+                alert('Failed to create zip file. ' + (err.message || ''));
+            } finally {
+                zipBtn.innerHTML = origText;
+                zipBtn.disabled = bulkSelected.size === 0;
+            }
+        }
+
+        function bindBulkDocs() {
+            // Entity filter chips
+            const entityFilter = bulkEl('bulkEntityFilter');
+            if (!entityFilter) return;
+            entityFilter.querySelectorAll('.bulk-chip').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    entityFilter.querySelectorAll('.bulk-chip').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    bulkEntity = btn.dataset.entity;
+                    bulkDocType = '';
+                    renderDocTypeChips();
+                    loadBulkDocs();
+                });
+            });
+
+            // Search
+            let searchTimer;
+            const searchInput = bulkEl('bulkSearch');
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => loadBulkDocs(), 350);
+                });
+            }
+
+            // Select-all
+            const allCb = bulkEl('bulkSelectAll');
+            if (allCb) {
+                allCb.addEventListener('change', () => {
+                    if (allCb.checked) {
+                        bulkDocs.forEach((_, idx) => bulkSelected.add(idx));
+                    } else {
+                        bulkSelected.clear();
+                    }
+                    renderBulkResults();
+                    updateSelectedCount();
+                });
+            }
+
+            // Zip download
+            const zipBtn = bulkEl('bulkDownloadZip');
+            if (zipBtn) zipBtn.addEventListener('click', downloadZip);
+
+            // Initial doc type chips
+            renderDocTypeChips();
+        }
+
+        // Bind when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bindBulkDocs);
+        } else {
+            bindBulkDocs();
+        }
+
+        // Auto-load when section becomes visible
+        const observer = new MutationObserver(() => {
+            const section = document.getElementById('section-bulk-docs');
+            if (section && section.classList.contains('active')) {
+                loadBulkDocs();
+            }
+        });
+        const target = document.getElementById('section-bulk-docs');
+        if (target) observer.observe(target, { attributes: true, attributeFilter: ['class'] });
+    })();
 
     // Start when DOM is ready
     if (document.readyState === 'loading') {

@@ -32,8 +32,8 @@ function initializeFirebase() {
         // Initialize Firestore
         db = firebase.firestore();
 
-        // Initialize Storage
-        storage = firebase.storage();
+        // Initialize Storage (may be unavailable in some environments)
+        try { storage = firebase.storage(); } catch (_) { storage = null; }
         
         console.log('Firebase initialized successfully');
         return true;

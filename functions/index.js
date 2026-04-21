@@ -54,12 +54,53 @@ function normaliseCarrier(carrier, requestedMc) {
 }
 
 exports.mcLookup = functions
-  .runWith({ secrets: ['FMCSA_API_KEY'], memory: '256MB', timeoutSeconds: 15 })
+  .runWith({ secrets: ['FMCSA_API_KEY'], memory: '256MB', timeoutSeconds: 20 })
   .https.onCall(async (data, context) => {
+    // When called via Firebase Hosting rewrite, the Authorization header is stripped.
+    // Accept idToken in data as a fallback.
     if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'Must be signed in to use this feature.');
+      if (!data.idToken) throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
+      try { await admin.auth().verifyIdToken(data.idToken); }
+      catch (_) { throw new functions.https.HttpsError('unauthenticated', 'Invalid authentication token.'); }
     }
 
+    // ── DOT lookup path — full carrier snapshot ──────────────────────────────
+    if (data.dot) {
+      const dot = String(data.dot).replace(/\D/g, '').trim();
+      if (!dot || dot.length > 9) throw new functions.https.HttpsError('invalid-argument', 'Invalid DOT number');
+      try {
+        const apiKey = process.env.FMCSA_API_KEY;
+        const base = FMCSA_BASE_URL;
+        const upstream = await fetch(`${base}/carriers/${encodeURIComponent(dot)}?webKey=${encodeURIComponent(apiKey)}`, {
+          headers: { Accept: 'application/json' },
+          signal: AbortSignal.timeout(12_000),
+        });
+        if (upstream.status === 404) throw new functions.https.HttpsError('not-found', `No carrier found for DOT number ${dot}`);
+        if (!upstream.ok) throw new functions.https.HttpsError('unavailable', 'Upstream FMCSA API error. Try again later.');
+        const body = await upstream.json();
+        const carrier = body?.content?.carrier;
+        if (!carrier) throw new functions.https.HttpsError('not-found', `No carrier data returned for DOT number ${dot}`);
+        let docketNumbers = [], operationClasses = [];
+        try {
+          const [docketRes, opsRes] = await Promise.all([
+            fetch(`${base}/carriers/${encodeURIComponent(dot)}/docket-numbers?webKey=${encodeURIComponent(apiKey)}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8_000) }),
+            fetch(`${base}/carriers/${encodeURIComponent(dot)}/operation-classification?webKey=${encodeURIComponent(apiKey)}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8_000) }),
+          ]);
+          if (docketRes.ok) { const d = await docketRes.json(); docketNumbers = d?.content || []; }
+          if (opsRes.ok) { const d = await opsRes.json(); operationClasses = d?.content || []; }
+        } catch (_) { /* non-critical */ }
+        return { success: true, data: normaliseCarrierFull(carrier), raw: carrier, docketNumbers, operationClasses };
+      } catch (err) {
+        if (err instanceof functions.https.HttpsError) throw err;
+        if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+          throw new functions.https.HttpsError('deadline-exceeded', 'FMCSA API request timed out. Try again.');
+        }
+        console.error('mcLookup DOT error:', err);
+        throw new functions.https.HttpsError('internal', 'Internal server error');
+      }
+    }
+
+    // ── MC lookup path ────────────────────────────────────────────────────────
     const mc = String(data.mc || '').replace(/\D/g, '').trim();
     if (!mc) throw new functions.https.HttpsError('invalid-argument', 'Missing required parameter: mc');
     if (mc.length < 3 || mc.length > 8) throw new functions.https.HttpsError('invalid-argument', 'MC number must be between 3 and 8 digits');
@@ -186,41 +227,66 @@ function normaliseCarrierFull(c) {
   };
 }
 
-exports.carrierLookup = functions
-  .runWith({ secrets: ['FMCSA_API_KEY'], memory: '256MB', timeoutSeconds: 20 })
-  .https.onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError('unauthenticated', 'Must be signed in to use this feature.');
-    }
-
+// ─────────────────────────────────────────────────────────
+// FMCSA DOT Lookup — Firestore-triggered (no public HTTP needed)
+// Client writes users/{uid}/fmcsaLookups/{id} with {dot, status:'pending'}
+// This function fetches FMCSA data and writes {status:'complete', raw, ...} back
+// ─────────────────────────────────────────────────────────
+exports.fmcsaLookup = functions
+  .runWith({ secrets: ['FMCSA_API_KEY'], memory: '256MB', timeoutSeconds: 25 })
+  .firestore.document('users/{uid}/fmcsaLookups/{lookupId}')
+  .onCreate(async (snap) => {
+    const data = snap.data();
+    if (data.status !== 'pending') return;
     const dot = String(data.dot || '').replace(/\D/g, '').trim();
-    if (!dot) throw new functions.https.HttpsError('invalid-argument', 'Missing required parameter: dot');
-    if (dot.length < 1 || dot.length > 9) throw new functions.https.HttpsError('invalid-argument', 'DOT number must be between 1 and 9 digits');
-
+    if (!dot || dot.length > 9) {
+      await snap.ref.update({ status: 'error', error: 'Invalid DOT number' });
+      return;
+    }
     try {
       const apiKey = process.env.FMCSA_API_KEY;
-      const url = `${FMCSA_BASE_URL}/carriers/${encodeURIComponent(dot)}?webKey=${encodeURIComponent(apiKey)}`;
-
-      const upstream = await fetch(url, {
+      const base = FMCSA_BASE_URL;
+      const upstream = await fetch(`${base}/carriers/${encodeURIComponent(dot)}?webKey=${encodeURIComponent(apiKey)}`, {
         headers: { Accept: 'application/json' },
         signal: AbortSignal.timeout(12_000),
       });
-
-      if (upstream.status === 404) throw new functions.https.HttpsError('not-found', `No carrier found for DOT number ${dot}`);
-      if (!upstream.ok) throw new functions.https.HttpsError('unavailable', 'Upstream FMCSA API error. Try again later.');
-
+      if (upstream.status === 404) {
+        await snap.ref.update({ status: 'error', error: `No carrier found for DOT number ${dot}` });
+        return;
+      }
+      if (!upstream.ok) {
+        await snap.ref.update({ status: 'error', error: 'Upstream FMCSA API error. Try again later.' });
+        return;
+      }
       const body = await upstream.json();
       const carrier = body?.content?.carrier;
-      if (!carrier) throw new functions.https.HttpsError('not-found', `No carrier data returned for DOT number ${dot}`);
-
-      return { success: true, data: normaliseCarrierFull(carrier) };
-    } catch (err) {
-      if (err instanceof functions.https.HttpsError) throw err;
-      if (err.name === 'TimeoutError' || err.name === 'AbortError') {
-        throw new functions.https.HttpsError('deadline-exceeded', 'FMCSA API request timed out. Try again.');
+      if (!carrier) {
+        await snap.ref.update({ status: 'error', error: `No carrier data returned for DOT number ${dot}` });
+        return;
       }
-      console.error('carrierLookup unexpected error:', err);
-      throw new functions.https.HttpsError('internal', 'Internal server error');
+      let docketNumbers = [], operationClasses = [];
+      try {
+        const [docketRes, opsRes] = await Promise.all([
+          fetch(`${base}/carriers/${encodeURIComponent(dot)}/docket-numbers?webKey=${encodeURIComponent(apiKey)}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8_000) }),
+          fetch(`${base}/carriers/${encodeURIComponent(dot)}/operation-classification?webKey=${encodeURIComponent(apiKey)}`, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(8_000) }),
+        ]);
+        if (docketRes.ok) { const d = await docketRes.json(); docketNumbers = d?.content || []; }
+        if (opsRes.ok) { const d = await opsRes.json(); operationClasses = d?.content || []; }
+      } catch (_) { /* non-critical */ }
+      await snap.ref.update({
+        status: 'complete',
+        raw: carrier,
+        docketNumbers,
+        operationClasses,
+        completedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    } catch (err) {
+      if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+        await snap.ref.update({ status: 'error', error: 'FMCSA API timed out. Try again.' });
+        return;
+      }
+      console.error('fmcsaLookup error:', err);
+      await snap.ref.update({ status: 'error', error: 'Internal error. Try again.' });
     }
   });
 
@@ -230,7 +296,13 @@ exports.carrierLookup = functions
 
 const SAMSARA_TOKEN_URL = 'https://api.samsara.com/oauth2/token';
 const SAMSARA_AUTH_URL = 'https://api.samsara.com/oauth2/authorize';
-const HOSTING_ORIGIN = 'https://ifta-wizard-a9061.web.app';
+// HOSTING_ORIGIN is no longer hardcoded — derived from the request or passed by the client.
+// Allowed redirect origins (must also be registered in Samsara developer portal).
+const ALLOWED_ORIGINS = new Set([
+  'https://www.logistixnerd.com',
+  'https://ifta-wizard-a9061.web.app',
+  'https://ifta-wizard-a9061.firebaseapp.com',
+]);
 
 /**
  * Callable: Start Samsara OAuth flow — returns the authorize URL.
@@ -246,14 +318,19 @@ exports.samsaraAuthUrl = functions
     const clientId = process.env.SAMSARA_CLIENT_ID;
     if (!clientId) throw new functions.https.HttpsError('failed-precondition', 'Samsara integration not configured.');
 
-    // Encode uid in state so the callback can associate tokens with the user
-    const state = Buffer.from(JSON.stringify({ uid: context.auth.uid, ts: Date.now() })).toString('base64url');
+    // Client passes its origin so the redirect_uri matches the domain the user is on.
+    const origin = data && data.origin && ALLOWED_ORIGINS.has(data.origin)
+      ? data.origin
+      : 'https://www.logistixnerd.com';
+
+    // Encode uid + origin in state so the callback can reconstruct the redirect_uri.
+    const state = Buffer.from(JSON.stringify({ uid: context.auth.uid, ts: Date.now(), origin })).toString('base64url');
 
     const params = new URLSearchParams({
       client_id: clientId,
       response_type: 'code',
       state,
-      redirect_uri: HOSTING_ORIGIN + '/api/samsara/callback',
+      redirect_uri: origin + '/api/samsara/callback',
     });
 
     return { url: `${SAMSARA_AUTH_URL}?${params.toString()}` };
@@ -270,13 +347,15 @@ exports.samsaraCallback = functions
     try {
       const { code, state, error } = req.query;
 
+      const FALLBACK_ORIGIN = 'https://www.logistixnerd.com';
+
       if (error) {
         console.warn('Samsara OAuth error:', error);
-        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=' + encodeURIComponent(error));
+        return res.redirect(FALLBACK_ORIGIN + '/dashboard.html?samsara=error&reason=' + encodeURIComponent(error));
       }
 
       if (!code || !state) {
-        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=missing_params');
+        return res.redirect(FALLBACK_ORIGIN + '/dashboard.html?samsara=error&reason=missing_params');
       }
 
       // Decode state to get uid
@@ -284,18 +363,23 @@ exports.samsaraCallback = functions
       try {
         parsed = JSON.parse(Buffer.from(state, 'base64url').toString());
       } catch {
-        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=invalid_state');
+        return res.redirect(FALLBACK_ORIGIN + '/dashboard.html?samsara=error&reason=invalid_state');
       }
 
       const uid = parsed.uid;
       if (!uid) {
-        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=no_uid');
+        return res.redirect(FALLBACK_ORIGIN + '/dashboard.html?samsara=error&reason=no_uid');
       }
 
       // Verify the state isn't stale (10 min window)
       if (Date.now() - parsed.ts > 600000) {
-        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=expired');
+        return res.redirect((parsed.origin || 'https://www.logistixnerd.com') + '/dashboard.html?samsara=error&reason=expired');
       }
+
+      // Recover the origin that was used when the OAuth flow started.
+      const callbackOrigin = parsed.origin && ALLOWED_ORIGINS.has(parsed.origin)
+        ? parsed.origin
+        : 'https://www.logistixnerd.com';
 
       const clientId = process.env.SAMSARA_CLIENT_ID;
       const clientSecret = process.env.SAMSARA_CLIENT_SECRET;
@@ -309,7 +393,7 @@ exports.samsaraCallback = functions
           grant_type: 'authorization_code',
           client_id: clientId,
           client_secret: clientSecret,
-          redirect_uri: HOSTING_ORIGIN + '/api/samsara/callback',
+          redirect_uri: callbackOrigin + '/api/samsara/callback',
         }).toString(),
         signal: AbortSignal.timeout(10000),
       });
@@ -317,7 +401,7 @@ exports.samsaraCallback = functions
       if (!tokenRes.ok) {
         const errBody = await tokenRes.text();
         console.error('Samsara token exchange failed:', tokenRes.status, errBody);
-        return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=token_exchange');
+        return res.redirect(callbackOrigin + '/dashboard.html?samsara=error&reason=token_exchange');
       }
 
       const tokens = await tokenRes.json();
@@ -332,10 +416,10 @@ exports.samsaraCallback = functions
         }
       }, { merge: true });
 
-      return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=connected');
+      return res.redirect(callbackOrigin + '/dashboard.html?samsara=connected');
     } catch (err) {
       console.error('samsaraCallback unexpected error:', err);
-      return res.redirect(HOSTING_ORIGIN + '/dashboard.html?samsara=error&reason=internal');
+      return res.redirect((callbackOrigin || 'https://www.logistixnerd.com') + '/dashboard.html?samsara=error&reason=internal');
     }
   });
 
@@ -357,28 +441,35 @@ exports.samsaraDisconnect = functions
   });
 
 /**
- * Callable: Seed sample inspections (temporary — remove after use)
+ * Callable: Download a file from Storage by path.
+ * Returns { base64, contentType } for the requested file.
+ * Validates the caller owns the file (path must start with users/{uid}/).
  */
-exports.seedInspections = functions
-  .runWith({ memory: '256MB', timeoutSeconds: 30 })
+exports.downloadFile = functions
+  .runWith({ memory: '512MB', timeoutSeconds: 60 })
   .https.onCall(async (data, context) => {
     if (!context.auth) {
       throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
     }
-    const uid = context.auth.uid;
-    const col = admin.firestore().collection('users').doc(uid).collection('inspections');
-    const inspections = [
-      { date:'2026-04-15', type:'level-1', reportNum:'TX2026041500012', driverName:'John Smith', truckUnit:'101', location:'Dallas, TX', result:'pass', violations:0, fineAmount:'', notes:'Full Level I inspection at weigh station. All systems passed.', inspStatus:'resolved', paidStatus:'' },
-      { date:'2026-04-12', type:'level-2', reportNum:'OK2026041200087', driverName:'Mike Johnson', truckUnit:'204', location:'Oklahoma City, OK', result:'warning', violations:1, fineAmount:'', notes:'Walk-around found minor tire tread wear on steer axle. Warning issued.', inspStatus:'open', paidStatus:'' },
-      { date:'2026-04-10', type:'level-1', reportNum:'AR2026041000034', driverName:'Carlos Rivera', truckUnit:'307', location:'Little Rock, AR', result:'fail', violations:3, fineAmount:'1250.00', notes:'Brake adjustment out of spec, ELD malfunction, expired fire extinguisher.', inspStatus:'open', paidStatus:'unpaid' },
-      { date:'2026-04-08', type:'citation', reportNum:'NM2026040800156', driverName:'John Smith', truckUnit:'101', location:'Albuquerque, NM', result:'fail', violations:1, fineAmount:'375.00', notes:'Speeding citation — 72 in a 55 construction zone.', inspStatus:'open', paidStatus:'unpaid' },
-      { date:'2026-04-05', type:'level-3', reportNum:'TX2026040500201', driverName:'David Lee', truckUnit:'155', location:'El Paso, TX', result:'pass', violations:0, fineAmount:'', notes:'Driver-only inspection. CDL, medical card, logbook all compliant.', inspStatus:'resolved', paidStatus:'' },
-      { date:'2026-03-28', type:'level-2', reportNum:'LA2026032800044', driverName:'Mike Johnson', truckUnit:'204', location:'Shreveport, LA', result:'oos', violations:2, fineAmount:'2100.00', notes:'Out of service — cracked brake drum, leaking air lines. Towed to repair.', inspStatus:'open', paidStatus:'unpaid' },
-      { date:'2026-03-22', type:'level-5', reportNum:'TX2026032200089', driverName:'', truckUnit:'307', location:'Houston, TX', result:'pass', violations:0, fineAmount:'', notes:'Vehicle-only inspection at terminal. Annual DOT check passed.', inspStatus:'resolved', paidStatus:'' },
-      { date:'2026-03-15', type:'level-1', reportNum:'MS2026031500112', driverName:'Carlos Rivera', truckUnit:'307', location:'Jackson, MS', result:'warning', violations:1, fineAmount:'', notes:'Loose mudflap bracket noted. Verbal warning only.', inspStatus:'resolved', paidStatus:'' }
-    ];
-    const batch = admin.firestore().batch();
-    inspections.forEach(insp => batch.set(col.doc(), insp));
-    await batch.commit();
-    return { success: true, count: inspections.length };
+    const storagePath = data.storagePath;
+    if (!storagePath || typeof storagePath !== 'string') {
+      throw new functions.https.HttpsError('invalid-argument', 'storagePath is required.');
+    }
+    // Verify the file belongs to the caller
+    if (!storagePath.startsWith('users/' + context.auth.uid + '/')) {
+      throw new functions.https.HttpsError('permission-denied', 'Access denied.');
+    }
+    try {
+      const bucket = admin.storage().bucket();
+      const file = bucket.file(storagePath);
+      const [contents] = await file.download();
+      const [metadata] = await file.getMetadata();
+      return {
+        base64: contents.toString('base64'),
+        contentType: metadata.contentType || 'application/octet-stream',
+      };
+    } catch (err) {
+      console.error('downloadFile error:', err);
+      throw new functions.https.HttpsError('not-found', 'File not found or inaccessible.');
+    }
   });

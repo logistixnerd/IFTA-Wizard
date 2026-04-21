@@ -1,0 +1,7 @@
+[
+  {
+    "origin": ["https://ifta-wizard-a9061.web.app", "http://localhost:5000"],
+    "method": ["GET"],
+    "maxAgeSeconds": 3600
+  }
+]

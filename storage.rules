@@ -1,29 +1,28 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /users/{userId}/drivers/{driverId}/docs/{fileName} {
-      allow read, write: if request.auth != null
+    // All user files live under /users/{userId}/...
+    match /users/{userId}/{allPaths=**} {
+      // Only the authenticated owner can read their own files
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Only the authenticated owner can write, with safety checks:
+      //  - Max 10 MB per file
+      //  - Only images, PDFs, and Word documents allowed
+      //  - Prevents executable/script uploads
+      allow write: if request.auth != null
         && request.auth.uid == userId
-        && (request.resource == null || (request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document')));
+        && (request.resource == null
+            || (request.resource.size < 10 * 1024 * 1024
+                && (request.resource.contentType.matches('image/.*')
+                    || request.resource.contentType == 'application/pdf'
+                    || request.resource.contentType == 'application/msword'
+                    || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')));
     }
-    match /users/{userId}/trucks/{truckId}/docs/{fileName} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId
-        && (request.resource == null || (request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document')));
-    }
-    match /users/{userId}/trailers/{trailerId}/docs/{fileName} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId
-        && (request.resource == null || (request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document')));
-    }
-    match /users/{userId}/loads/{loadId}/docs/{fileName} {
-      allow read, write: if request.auth != null
-        && request.auth.uid == userId
-        && (request.resource == null || (request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*|application/pdf|application/msword|application/vnd.openxmlformats-officedocument.wordprocessingml.document')));
+
+    // Deny all other paths by default
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

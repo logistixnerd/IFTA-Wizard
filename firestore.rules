@@ -81,10 +81,24 @@ service cloud.firestore {
       match /loads/{docId} {
         allow read, create, update, delete: if isOwner(userId);
       }
+      match /inspections/{docId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
 
       // User preferences (column visibility, UI settings, etc.)
       match /preferences/{prefId} {
         allow read, create, update, delete: if isOwner(userId);
+      }
+
+      // User settings (dispatcher teams, app config per user)
+      match /settings/{docId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      // FMCSA DOT lookup jobs — written by client, processed by Cloud Function trigger
+      match /fmcsaLookups/{lookupId} {
+        allow create: if isOwner(userId);
+        allow read, delete: if isOwner(userId);
       }
     }
     
@@ -259,6 +273,13 @@ service cloud.firestore {
       allow delete: if isOwner(userId) || isAdmin();
     }
     
+    // ==========================================
+    // SETTINGS COLLECTION (dispatcher teams, app config)
+    // ==========================================
+    match /settings/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // ==========================================
     // DEFAULT DENY
     // ==========================================

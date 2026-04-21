@@ -1,6 +1,8 @@
 (function () {
     'use strict';
 
+    const $ = id => document.getElementById(id);
+
     // ── State ──────────────────────────────
     const state = {
         user: null,
@@ -15,19 +17,12 @@
             entityType: '',
             searchQuery: ''
         },
+        bulkSelection: new Set(),
+        sort: { key: 'createdAt', dir: 'desc' },
         editingTaskId: null,
         editingTaskEntityType: null,
         editingTaskEntityId: null
     };
-
-    // ── Utilities ──────────────────────────
-    function $(id) {
-        return document.getElementById(id);
-    }
-
-    function col(name) {
-        return db.collection('users').doc(state.user.uid).collection(name);
-    }
 
     function escapeHtml(value) {
         if (value == null) return '';
@@ -208,29 +203,36 @@
             return true;
         });
 
-        // Sort by creation date (newest first) by default
-        state.filteredTasks.sort((a, b) => {
-            const aTime = a.createdAt?.toDate?.() || new Date(a.createdAtIso || 0);
-            const bTime = b.createdAt?.toDate?.() || new Date(b.createdAtIso || 0);
-            return bTime - aTime;
-        });
+        state.filteredTasks = sortTasks(state.filteredTasks);
     }
 
     function populateStatusFilters() {
+        // Status filter dropdown
         const statusFilter = $('statusFilter');
-        if (!statusFilter) return;
-
-        const currentValue = statusFilter.value;
-        statusFilter.innerHTML = '<option value="">All</option>';
-
-        state.customStatuses.forEach(status => {
-            const option = document.createElement('option');
-            option.value = status.name;
-            option.textContent = status.name;
-            statusFilter.appendChild(option);
-        });
-
-        statusFilter.value = currentValue;
+        if (statusFilter) {
+            const currentValue = statusFilter.value;
+            statusFilter.innerHTML = '<option value="">All</option>';
+            state.customStatuses.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status.name;
+                option.textContent = status.name;
+                statusFilter.appendChild(option);
+            });
+            statusFilter.value = currentValue;
+        }
+        // Form status select
+        const taskStatusEl = $('taskStatus');
+        if (taskStatusEl) {
+            const curVal = taskStatusEl.value;
+            taskStatusEl.innerHTML = '';
+            state.customStatuses.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status.name;
+                option.textContent = status.name;
+                taskStatusEl.appendChild(option);
+            });
+            if (state.customStatuses.some(s => s.name === curVal)) taskStatusEl.value = curVal;
+        }
     }
 
     // ── View Rendering ────────────────────
@@ -491,8 +493,14 @@
     // ── Task Management ───────────────────
     function openTaskForm(prefilledEntity = null) {
         $('taskFormTitle').textContent = 'Add Task';
+        const submitBtn = $('taskFormSubmitBtn');
+        if (submitBtn) submitBtn.textContent = 'Create Task';
         $('taskForm').reset();
+        $('taskEntityType').disabled = false;
+        $('taskEntityId').disabled = false;
         state.editingTaskId = null;
+        state.editingTaskEntityType = null;
+        state.editingTaskEntityId = null;
 
         if (prefilledEntity) {
             $('taskEntityType').value = prefilledEntity.type;
@@ -500,7 +508,6 @@
             $('taskEntityId').value = prefilledEntity.id;
         }
 
-        // Reset assignee picker
         $('taskAssignees').value = '';
         renderFormAssigneeTags([]);
 
@@ -509,19 +516,20 @@
 
     function closeTaskForm() {
         $('taskFormModal').classList.remove('open');
+        $('taskEntityType').disabled = false;
+        $('taskEntityId').disabled = false;
         closeAssigneeDropdown();
     }
 
-    function populateEntityDropdown(entityType) {
+    function populateEntityDropdown(entityType, preselectId = null) {
         const select = $('taskEntityId');
-        if (!select) return;
+        if (!select) return Promise.resolve();
 
         select.innerHTML = '<option value="">Loading...</option>';
 
-        if (!entityType) { select.innerHTML = '<option value="">Select...</option>'; return; }
+        if (!entityType) { select.innerHTML = '<option value="">Select...</option>'; return Promise.resolve(); }
 
-        // Load all entities from Firestore
-        db.collection('users').doc(state.user.uid).collection(entityType).get().then(snap => {
+        return db.collection('users').doc(state.user.uid).collection(entityType).get().then(snap => {
             select.innerHTML = '<option value="">Select...</option>';
             snap.forEach(doc => {
                 const d = doc.data();
@@ -534,6 +542,7 @@
                 }
                 select.appendChild(option);
             });
+            if (preselectId) select.value = preselectId;
         }).catch(err => {
             console.error('Error loading entities:', err);
             select.innerHTML = '<option value="">Error loading</option>';
@@ -545,6 +554,7 @@
         const entityId = $('taskEntityId').value;
         const text = $('taskText').value.trim();
         const type = $('taskType').value || null;
+        const priority = $('taskPriority').value || null;
         const assigneesText = $('taskAssignees').value.trim();
         const dueDate = $('taskDueDate').value;
         const status = $('taskStatus').value || 'Open';
@@ -559,25 +569,219 @@
             : [];
 
         try {
-            const taskData = {
-                text,
-                type,
-                assignedTo,
-                dueDate: dueDate || null,
-                status,
-                createdBy: state.user.email || state.user.uid
-            };
-
-            const result = await FirebaseDB.createTask(state.user.uid, entityType, entityId, taskData);
-            if (!result.success) throw new Error(result.error);
-
-            closeTaskForm();
-            await loadTasks();
-            showMsg('Task created successfully');
+            if (state.editingTaskId) {
+                // ── Edit mode ──
+                const updateData = { text, type, priority, assignedTo, dueDate: dueDate || null, status };
+                const result = await FirebaseDB.updateTask(
+                    state.user.uid, state.editingTaskEntityType, state.editingTaskEntityId,
+                    state.editingTaskId, updateData
+                );
+                if (!result.success) throw new Error(result.error);
+                const task = state.allTasks.find(t => t.id === state.editingTaskId);
+                if (task) Object.assign(task, updateData);
+                closeTaskForm();
+                applyFilters();
+                renderView();
+                showMsg('Task updated');
+            } else {
+                // ── Create mode ──
+                const taskData = {
+                    text, type, priority, assignedTo,
+                    dueDate: dueDate || null,
+                    status,
+                    createdBy: state.user.email || state.user.uid
+                };
+                const result = await FirebaseDB.createTask(state.user.uid, entityType, entityId, taskData);
+                if (!result.success) throw new Error(result.error);
+                closeTaskForm();
+                await loadTasks();
+                showMsg('Task created successfully');
+            }
         } catch (error) {
-            console.error('Error creating task:', error);
-            showMsg('Error creating task', true);
+            console.error('Error saving task:', error);
+            showMsg('Error saving task', true);
         }
+    }
+
+    async function editTask(taskId) {
+        const task = state.allTasks.find(t => t.id === taskId);
+        if (!task) return;
+
+        state.editingTaskId = taskId;
+        state.editingTaskEntityType = task.entityType;
+        state.editingTaskEntityId = task.entityId;
+
+        $('taskFormTitle').textContent = 'Edit Task';
+        const submitBtn = $('taskFormSubmitBtn');
+        if (submitBtn) submitBtn.textContent = 'Save Changes';
+        $('taskForm').reset();
+        $('taskEntityType').value = task.entityType;
+        $('taskEntityType').disabled = true;
+        $('taskEntityId').disabled = true;
+
+        await populateEntityDropdown(task.entityType, task.entityId);
+
+        $('taskText').value = task.text || '';
+        $('taskType').value = task.type || '';
+        const prioEl = $('taskPriority');
+        if (prioEl) prioEl.value = task.priority || '';
+        $('taskDueDate').value = task.dueDate || '';
+        $('taskStatus').value = task.status || 'Open';
+
+        const assignees = task.assignedTo || [];
+        $('taskAssignees').value = assignees.join(',');
+        renderFormAssigneeTags(assignees);
+
+        $('taskFormModal').classList.add('open');
+    }
+
+    async function deleteTask(taskId) {
+        const task = state.allTasks.find(t => t.id === taskId);
+        if (!task) return;
+        if (!confirm('Delete this task? This cannot be undone.')) return;
+        try {
+            const result = await FirebaseDB.deleteTask(state.user.uid, task.entityType, task.entityId, taskId);
+            if (!result.success) throw new Error(result.error);
+            state.allTasks = state.allTasks.filter(t => t.id !== taskId);
+            state.bulkSelection.delete(taskId);
+            applyFilters();
+            renderView();
+            showMsg('Task deleted');
+        } catch (err) {
+            console.error(err);
+            showMsg('Error deleting task', true);
+        }
+    }
+
+    // ── Bulk Selection ──────────────────────
+    function toggleSelectAllTasks(masterCb) {
+        const tbody = $('taskTableBody');
+        if (!tbody) return;
+        const cbs = tbody.querySelectorAll('.task-bulk-cb');
+        cbs.forEach(cb => {
+            cb.checked = masterCb.checked;
+            const id = cb.dataset.id;
+            if (masterCb.checked) state.bulkSelection.add(id);
+            else state.bulkSelection.delete(id);
+            const row = cb.closest('tr');
+            if (row) row.classList.toggle('row-selected', masterCb.checked);
+        });
+        updateTaskBulkBar();
+    }
+
+    function toggleBulkSelectTask(id, checkbox) {
+        if (checkbox.checked) state.bulkSelection.add(id);
+        else state.bulkSelection.delete(id);
+        updateTaskBulkBar();
+        const row = checkbox.closest('tr');
+        if (row) row.classList.toggle('row-selected', checkbox.checked);
+        // Update select-all state
+        const selAll = $('taskSelectAll');
+        if (selAll) {
+            const allCbs = document.querySelectorAll('.task-bulk-cb');
+            const allChecked = allCbs.length > 0 && [...allCbs].every(c => c.checked);
+            selAll.checked = allChecked;
+            selAll.indeterminate = !allChecked && state.bulkSelection.size > 0;
+        }
+    }
+
+    function updateTaskBulkBar() {
+        const count = state.bulkSelection.size;
+        const bar = $('taskBulkBar');
+        if (!bar) return;
+        if (count > 0) {
+            bar.classList.add('visible');
+            bar.querySelector('.bulk-count').textContent = count + ' selected';
+        } else {
+            bar.classList.remove('visible');
+        }
+    }
+
+    async function bulkDeleteTasks() {
+        const ids = [...state.bulkSelection];
+        if (!ids.length) return;
+        if (!confirm('Delete ' + ids.length + ' task' + (ids.length > 1 ? 's' : '') + '? This cannot be undone.')) return;
+        try {
+            const tasks = state.allTasks.filter(t => ids.includes(t.id));
+            const batch = firebase.firestore().batch();
+            tasks.forEach(t => {
+                const ref = db.collection('users').doc(state.user.uid)
+                    .collection(t.entityType).doc(t.entityId)
+                    .collection('history').doc(t.id);
+                batch.delete(ref);
+            });
+            await batch.commit();
+            state.allTasks = state.allTasks.filter(t => !ids.includes(t.id));
+            state.bulkSelection.clear();
+            applyFilters();
+            renderView();
+            showMsg(ids.length + ' task' + (ids.length > 1 ? 's' : '') + ' deleted');
+        } catch (err) {
+            console.error(err);
+            showMsg('Error deleting tasks', true);
+        }
+    }
+
+    async function bulkChangeStatusTasks() {
+        const ids = [...state.bulkSelection];
+        if (!ids.length) return;
+        const statusNames = state.customStatuses.map((s, i) => (i + 1) + '. ' + s.name).join('\n');
+        const choice = prompt('Choose new status:\n' + statusNames + '\n\nEnter number:');
+        if (!choice) return;
+        const idx = parseInt(choice) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= state.customStatuses.length) { showMsg('Invalid choice', true); return; }
+        const newStatus = state.customStatuses[idx].name;
+        try {
+            const tasks = state.allTasks.filter(t => ids.includes(t.id));
+            const batch = firebase.firestore().batch();
+            tasks.forEach(t => {
+                const ref = db.collection('users').doc(state.user.uid)
+                    .collection(t.entityType).doc(t.entityId)
+                    .collection('history').doc(t.id);
+                batch.update(ref, { status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            });
+            await batch.commit();
+            tasks.forEach(t => { t.status = newStatus; });
+            state.bulkSelection.clear();
+            applyFilters();
+            renderView();
+            showMsg(ids.length + ' status' + (ids.length > 1 ? 'es' : '') + ' updated to ' + newStatus);
+        } catch (err) {
+            console.error(err);
+            showMsg('Error updating status', true);
+        }
+    }
+
+    function bulkExportTasks() {
+        const ids = [...state.bulkSelection];
+        const source = ids.length > 0 ? state.allTasks.filter(t => ids.includes(t.id)) : state.filteredTasks;
+        if (!source.length) { showMsg('No tasks to export', true); return; }
+        const exclude = new Set(['id', 'createdAt', 'updatedAt', 'noteHistory', 'comments', 'resolvedAt']);
+        const allKeys = [...new Set(source.flatMap(r => Object.keys(r)))].filter(k => !exclude.has(k));
+        const headerLabels = {
+            text: 'Description', entityType: 'Entity Type', entityName: 'Entity',
+            entityId: 'Entity ID', status: 'Status', type: 'Type', priority: 'Priority',
+            assignedTo: 'Assigned To', dueDate: 'Due Date', createdAtIso: 'Created At',
+            createdBy: 'Created By', resolutionNotes: 'Resolution Notes', resolvedBy: 'Resolved By'
+        };
+        const header = allKeys.map(k => headerLabels[k] || k).join(',');
+        const rows = source.map(r => allKeys.map(k => {
+            let v = r[k];
+            if (Array.isArray(v)) v = v.join('; ');
+            else if (v == null) v = '';
+            else if (typeof v === 'object' && typeof v.toDate === 'function') v = formatDate(v);
+            else v = String(v);
+            return v.includes(',') || v.includes('"') || v.includes('\n') ? '"' + v.replace(/"/g, '""') + '"' : v;
+        }).join(','));
+        const csv = header + '\n' + rows.join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'tasks_export.csv';
+        a.click();
+        URL.revokeObjectURL(url);
+        showMsg(source.length + ' task' + (source.length !== 1 ? 's' : '') + ' exported');
     }
 
     async function changeTaskStatus(taskId, newStatus) {
@@ -909,9 +1113,9 @@
     // ── Event Listeners ────────────────────
     function initEventListeners() {
         // View toggle
-        document.querySelectorAll('.toggle-btn').forEach(btn => {
+        document.querySelectorAll('.task-view-toggle .toggle-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.task-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
                 const view = btn.dataset.view;
@@ -933,6 +1137,16 @@
 
         // Add task button
         $('addTaskBtn').addEventListener('click', () => openTaskForm());
+
+        // Add multiple tasks (paste from Excel via unified sheet)
+        const addMultipleBtn = $('addMultipleTasksBtn');
+        if (addMultipleBtn) {
+            addMultipleBtn.addEventListener('click', () => {
+                if (window.Dashboard && typeof window.Dashboard.openUnifiedSheet === 'function') {
+                    window.Dashboard.openUnifiedSheet('task', null, { mode: 'add' });
+                }
+            });
+        }
 
         // Task form
         $('closeTaskFormModal').addEventListener('click', closeTaskForm);
@@ -1161,8 +1375,8 @@
             state.user = user;
 
             // Sync view toggle buttons with state
-            document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-            const activeBtn = document.querySelector(`.toggle-btn[data-view="${state.currentView}"]`);
+            document.querySelectorAll('.task-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.querySelector(`.task-view-toggle .toggle-btn[data-view="${state.currentView}"]`);
             if (activeBtn) activeBtn.classList.add('active');
             document.querySelectorAll('.task-view-container').forEach(c => c.classList.remove('active'));
             const activeContainer = document.querySelector(state.currentView === 'kanban' ? '.task-view-kanban' : '.task-view-table');
@@ -1176,8 +1390,43 @@
     }
 
     // ── Init ───────────────────────────────
-    document.addEventListener('DOMContentLoaded', () => {
-        initAuth();
-    });
+
+    // Expose for dashboard integration
+    window.TaskManager = {
+        _ready: false,
+        initWithUser: function(user) {
+            state.user = user;
+            // Sync view toggle buttons with saved state
+            document.querySelectorAll('.task-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.querySelector(`.task-view-toggle .toggle-btn[data-view="${state.currentView}"]`);
+            if (activeBtn) activeBtn.classList.add('active');
+            document.querySelectorAll('.task-view-container').forEach(c => c.classList.remove('active'));
+            const activeContainer = document.querySelector(state.currentView === 'kanban' ? '.task-view-kanban' : '.task-view-table');
+            if (activeContainer) activeContainer.classList.add('active');
+            if (!this._ready) {
+                this._ready = true;
+                loadCustomStatuses()
+                    .then(() => loadCompanyUsers())
+                    .then(() => loadTasks())
+                    .then(() => initEventListeners());
+            } else {
+                loadTasks();
+            }
+        },
+        editTask: (id) => editTask(id),
+        deleteTask: (id) => deleteTask(id),
+        bulkDelete: () => bulkDeleteTasks(),
+        bulkExport: () => bulkExportTasks(),
+        bulkChangeStatus: () => bulkChangeStatusTasks(),
+        toggleBulkSelect: (id, cb) => toggleBulkSelectTask(id, cb),
+        reload: () => loadTasks()
+    };
+
+    // Standalone mode — only self-init when NOT embedded in the dashboard
+    if (!window.__tmDashboardMode) {
+        document.addEventListener('DOMContentLoaded', () => {
+            initAuth();
+        });
+    }
 
 })();

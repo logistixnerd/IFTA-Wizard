@@ -93,18 +93,27 @@
         <!-- Table View -->
         <div class="task-view-container task-view-table active">
             <div class="task-table-wrapper">
+                <div class="bulk-bar" id="taskBulkBar">
+                    <span class="bulk-count">0 selected</span>
+                    <button class="btn btn-sm bulk-btn bulk-btn-status" onclick="TaskManager.bulkChangeStatus()">Change Status</button>
+                    <button class="btn btn-sm bulk-btn bulk-btn-export" onclick="TaskManager.bulkExport()">Export CSV</button>
+                    <button class="btn btn-sm bulk-btn bulk-btn-delete" onclick="TaskManager.bulkDelete()">Delete</button>
+                </div>
                 <table class="task-table" id="taskTable">
                     <thead>
                         <tr>
-                            <th class="th-created">Created</th>
-                            <th class="th-due-date">Due Date</th>
+                            <th class="col-checkbox"><input type="checkbox" id="taskSelectAll" title="Select all"></th>
+                            <th class="th-created th-sortable" data-sort-key="createdAt">Created</th>
+                            <th class="th-due-date th-sortable" data-sort-key="dueDate">Due Date</th>
                             <th class="th-days">Days</th>
                             <th class="th-note">Note</th>
-                            <th class="th-owner">Owner</th>
+                            <th class="th-owner th-sortable" data-sort-key="entityName">Owner</th>
                             <th class="th-assigned">Assigned To</th>
-                            <th class="th-type">Type</th>
-                            <th class="th-status">Status</th>
+                            <th class="th-type th-sortable" data-sort-key="type">Type</th>
+                            <th class="th-priority th-sortable" data-sort-key="priority">Priority</th>
+                            <th class="th-status th-sortable" data-sort-key="status">Status</th>
                             <th class="th-comments">Comments</th>
+                            <th class="th-actions"></th>
                         </tr>
                     </thead>
                     <tbody id="taskTableBody">
@@ -168,6 +177,16 @@
                 </div>
 
                 <div class="form-field">
+                    <label for="taskPriority">Priority</label>
+                    <select id="taskPriority" class="form-select">
+                        <option value="">None</option>
+                        <option value="High">High</option>
+                        <option value="Medium">Medium</option>
+                        <option value="Low">Low</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
                     <label>Assign To</label>
                     <div class="form-assignee-picker" id="formAssigneePicker">
                         <button type="button" class="form-assignee-trigger" id="formAssigneeTrigger">Select users&hellip;</button>
@@ -189,7 +208,7 @@
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Create Task</button>
+                    <button type="submit" class="btn btn-primary" id="taskFormSubmitBtn">Create Task</button>
                     <button type="button" class="btn btn-secondary" id="cancelTaskForm">Cancel</button>
                 </div>
             </form>

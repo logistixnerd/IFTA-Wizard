@@ -265,6 +265,40 @@ body {
     font-size: 0.8rem;
 }
 
+/* Document compliance warnings */
+.doc-warnings {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+}
+.doc-warn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.3;
+}
+.doc-warn svg { flex-shrink: 0; }
+.doc-warn--expired {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #dc2626;
+}
+.doc-warn--expiring {
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    color: #b45309;
+}
+.doc-warn--missing {
+    background: rgba(107, 114, 128, 0.06);
+    border: 1px solid rgba(107, 114, 128, 0.15);
+    color: #6b7280;
+}
+
 .hidden { display: none !important; }
 
 /* -- Grid -- */
@@ -800,6 +834,343 @@ body {
 .up-photo-del:hover { background: rgba(220, 38, 38, 0.12); }
 
 /* ==============================================
+   HERO PHOTO CIRCLE
+   ============================================== */
+.up-hero-name-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.up-hero-photo {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(124, 58, 237, 0.08));
+    border: 2px solid rgba(79, 70, 229, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    color: var(--gray-400);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.up-hero-photo.has-photo {
+    border-color: rgba(79, 70, 229, 0.25);
+    cursor: pointer;
+}
+.up-hero-photo.has-photo:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+}
+.up-hero-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+
+/* ==============================================
+   FEED ITEMS (truck/trailer history)
+   ============================================== */
+.up-feed-item {
+    padding: 0.6rem 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+.up-feed-item:first-child { border-top: none; }
+.up-feed-item:hover { background: rgba(79, 70, 229, 0.015); margin: 0 -1.25rem; padding-left: 1.25rem; padding-right: 1.25rem; border-radius: 8px; }
+
+.up-feed-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.up-feed-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.up-feed-type {
+    display: inline-flex;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    background: rgba(79, 70, 229, 0.08);
+    color: var(--primary);
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.2rem;
+}
+
+.up-feed-text {
+    margin: 0.15rem 0 0;
+    font-size: 0.78rem;
+    line-height: 1.45;
+    color: var(--gray-700);
+    word-break: break-word;
+}
+
+.up-feed-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+    flex-shrink: 0;
+}
+
+.up-feed-date {
+    font-size: 0.62rem;
+    color: var(--gray-400);
+    white-space: nowrap;
+}
+
+/* -- Delete button (small icon) -- */
+.up-del-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--gray-300);
+    padding: 0.2rem;
+    border-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.12s, color 0.12s;
+}
+.up-feed-item:hover .up-del-btn,
+.up-photo-card:hover .up-del-btn { opacity: 1; }
+.up-del-btn:hover { color: #ef4444; background: rgba(239, 68, 68, 0.06); }
+
+/* ==============================================
+   TASK ITEMS (unit/trailer variant)
+   ============================================== */
+.up-task-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.65rem 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+.up-task-item:first-child { border-top: none; }
+
+.up-task-body { flex: 1; min-width: 0; }
+.up-task-body .up-task-text {
+    margin: 0 0 0.15rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--gray-800);
+}
+.up-task-body .up-task-due {
+    margin: 0;
+    font-size: 0.65rem;
+    color: var(--gray-400);
+}
+.up-overdue {
+    color: #dc2626;
+    font-weight: 700;
+}
+
+/* ==============================================
+   PHOTO CARDS (new pattern)
+   ============================================== */
+.up-photo-card {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.6);
+    transition: border-color 0.15s;
+}
+.up-photo-card:hover {
+    border-color: rgba(79, 70, 229, 0.15);
+}
+.up-photo-img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+}
+.up-photo-card .up-photo-info {
+    padding: 0.5rem 0.6rem;
+}
+.up-photo-caption {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 0.15rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.up-photo-card .up-photo-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.up-photo-card .up-photo-actions time {
+    font-size: 0.6rem;
+    color: var(--gray-400);
+}
+
+/* ==============================================
+   DOCUMENT GRID (from dashboard documents)
+   ============================================== */
+.up-doc-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.up-doc-group-title {
+    margin: 0 0 0.4rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-400);
+}
+
+.up-doc-group-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.up-doc-thumb {
+    width: 100px;
+    cursor: pointer;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.6);
+    transition: border-color 0.15s, box-shadow 0.15s;
+    text-align: center;
+}
+.up-doc-thumb:hover {
+    border-color: rgba(79, 70, 229, 0.2);
+    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.08);
+}
+.up-doc-thumb img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    background: rgba(0, 0, 0, 0.04);
+}
+.up-doc-thumb-label {
+    display: block;
+    font-size: 0.58rem;
+    font-weight: 600;
+    color: var(--gray-600);
+    padding: 0.25rem 0.3rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.up-doc-file {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.65rem;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--gray-600);
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.12s, border-color 0.12s, color 0.12s;
+}
+.up-doc-file:hover {
+    background: rgba(79, 70, 229, 0.04);
+    border-color: rgba(79, 70, 229, 0.15);
+    color: var(--primary);
+}
+
+/* ==============================================
+   LIGHTBOX
+   ============================================== */
+.up-lightbox {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+.up-lightbox.active {
+    pointer-events: auto;
+    opacity: 1;
+}
+
+.up-lightbox-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+}
+
+.up-lightbox-content {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+}
+.up-lightbox-content img {
+    display: block;
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.up-lightbox-close {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: #fff;
+    color: var(--gray-700);
+    font-size: 1.2rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    transition: background 0.12s;
+}
+.up-lightbox-close:hover {
+    background: #f3f4f6;
+}
+
+/* -- History form (truck/trailer) -- */
+.up-history-form {
+    width: 100%;
+}
+.up-history-form-row {
+    display: flex;
+    gap: 0.4rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+.up-input--grow {
+    flex: 1;
+    min-width: 180px;
+}
+
+/* ==============================================
    RESPONSIVE
    ============================================== */
 @media (max-width: 700px) {
@@ -811,6 +1182,8 @@ body {
     .up-compose-toolbar { flex-wrap: wrap; }
     .up-doc-form-row { flex-direction: column; align-items: stretch; }
     .dp-stats { grid-template-columns: repeat(2, 1fr); }
+    .up-history-form-row { flex-direction: column; }
+    .up-hero-photo { width: 42px; height: 42px; }
 }
 
 /* ==============================================
