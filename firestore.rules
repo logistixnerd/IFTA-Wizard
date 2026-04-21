@@ -100,6 +100,13 @@ service cloud.firestore {
         allow create: if isOwner(userId);
         allow read, delete: if isOwner(userId);
       }
+
+      // Samsara OAuth pending — client writes code+state, Firestore trigger exchanges tokens
+      match /samsara_oauth_pending/{docId} {
+        allow create: if isOwner(userId);
+        allow read: if isOwner(userId);
+        // Only Cloud Function (admin SDK) can update/delete
+      }
     }
     
     // ==========================================

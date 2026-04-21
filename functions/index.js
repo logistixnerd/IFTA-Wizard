@@ -299,10 +299,11 @@ const SAMSARA_AUTH_URL = 'https://api.samsara.com/oauth2/authorize';
 // HOSTING_ORIGIN is no longer hardcoded — derived from the request or passed by the client.
 // Allowed redirect origins (must also be registered in Samsara developer portal).
 const ALLOWED_ORIGINS = new Set([
-  'https://www.logistixnerd.com',
   'https://ifta-wizard-a9061.web.app',
+  'https://www.logistixnerd.com',
   'https://ifta-wizard-a9061.firebaseapp.com',
 ]);
+const CANONICAL_ORIGIN = 'https://ifta-wizard-a9061.web.app';
 
 /**
  * Callable: Start Samsara OAuth flow — returns the authorize URL.
@@ -321,7 +322,7 @@ exports.samsaraAuthUrl = functions
     // Client passes its origin so the redirect_uri matches the domain the user is on.
     const origin = data && data.origin && ALLOWED_ORIGINS.has(data.origin)
       ? data.origin
-      : 'https://www.logistixnerd.com';
+      : CANONICAL_ORIGIN;
 
     // Encode uid + origin in state so the callback can reconstruct the redirect_uri.
     const state = Buffer.from(JSON.stringify({ uid: context.auth.uid, ts: Date.now(), origin })).toString('base64url');
@@ -347,7 +348,7 @@ exports.samsaraCallback = functions
     try {
       const { code, state, error } = req.query;
 
-      const FALLBACK_ORIGIN = 'https://www.logistixnerd.com';
+      const FALLBACK_ORIGIN = CANONICAL_ORIGIN;
 
       if (error) {
         console.warn('Samsara OAuth error:', error);
@@ -379,7 +380,7 @@ exports.samsaraCallback = functions
       // Recover the origin that was used when the OAuth flow started.
       const callbackOrigin = parsed.origin && ALLOWED_ORIGINS.has(parsed.origin)
         ? parsed.origin
-        : 'https://www.logistixnerd.com';
+        : CANONICAL_ORIGIN;
 
       const clientId = process.env.SAMSARA_CLIENT_ID;
       const clientSecret = process.env.SAMSARA_CLIENT_SECRET;
@@ -420,6 +421,88 @@ exports.samsaraCallback = functions
     } catch (err) {
       console.error('samsaraCallback unexpected error:', err);
       return res.redirect((callbackOrigin || 'https://www.logistixnerd.com') + '/dashboard.html?samsara=error&reason=internal');
+    }
+  });
+
+/**
+ * Firestore trigger: Exchange Samsara OAuth code for tokens.
+ * The client writes {code, state} to users/{uid}/samsara_oauth_pending/{docId}.
+ * This function picks it up server-side — no HTTP IAM required.
+ */
+exports.samsaraOAuthCallback = functions
+  .runWith({ secrets: ['SAMSARA_CLIENT_ID', 'SAMSARA_CLIENT_SECRET'], memory: '256MB', timeoutSeconds: 30 })
+  .firestore.document('users/{uid}/samsara_oauth_pending/{docId}')
+  .onCreate(async (snap, context) => {
+    const { uid } = context.params;
+    const { code, state } = snap.data() || {};
+
+    if (!code || !state) {
+      await snap.ref.update({ status: 'error', error: 'missing_params' });
+      return;
+    }
+
+    // Decode and validate state
+    let parsed;
+    try {
+      parsed = JSON.parse(Buffer.from(state, 'base64url').toString());
+    } catch {
+      await snap.ref.update({ status: 'error', error: 'invalid_state' });
+      return;
+    }
+
+    if (parsed.uid !== uid) {
+      await snap.ref.update({ status: 'error', error: 'uid_mismatch' });
+      return;
+    }
+
+    if (Date.now() - parsed.ts > 600000) {
+      await snap.ref.update({ status: 'error', error: 'expired' });
+      return;
+    }
+
+    const REDIRECT_URI = CANONICAL_ORIGIN + '/samsara-callback.html';
+    const clientId = process.env.SAMSARA_CLIENT_ID;
+    const clientSecret = process.env.SAMSARA_CLIENT_SECRET;
+
+    try {
+      const tokenRes = await fetch(SAMSARA_TOKEN_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          code,
+          grant_type: 'authorization_code',
+          client_id: clientId,
+          client_secret: clientSecret,
+          redirect_uri: REDIRECT_URI,
+        }).toString(),
+        signal: AbortSignal.timeout(10000),
+      });
+
+      if (!tokenRes.ok) {
+        const errBody = await tokenRes.text();
+        console.error('Samsara token exchange failed:', tokenRes.status, errBody);
+        await snap.ref.update({ status: 'error', error: 'token_exchange_failed' });
+        return;
+      }
+
+      const tokens = await tokenRes.json();
+
+      // Store tokens in user doc
+      await admin.firestore().collection('users').doc(uid).set({
+        samsara: {
+          accessToken: tokens.access_token,
+          refreshToken: tokens.refresh_token || null,
+          expiresAt: Date.now() + ((tokens.expires_in || 3600) * 1000),
+          connectedAt: Date.now(),
+        }
+      }, { merge: true });
+
+      // Clean up the pending doc (signals success to the client listener)
+      await snap.ref.delete();
+
+    } catch (err) {
+      console.error('samsaraOAuthCallback error:', err);
+      await snap.ref.update({ status: 'error', error: 'internal' });
     }
   });
 

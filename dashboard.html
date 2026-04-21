@@ -1085,53 +1085,6 @@
                             </div>
                         </div>
 
-                        <div class="settings-group">
-                            <h3 class="settings-group-title">Integrations</h3>
-                            <div class="integration-widgets-row">
-                                <div class="integration-widget" id="samsaraIntegrationRow">
-                                    <div class="integration-widget-header" id="samsaraWidgetToggle" role="button" tabindex="0" aria-expanded="false">
-                                        <div class="integration-widget-brand">
-                                            <div class="integration-widget-icon">
-                                                <!-- Samsara barn owl mark -->
-                                                <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="20" height="23" aria-hidden="true">
-                                                    <ellipse cx="36" cy="10" rx="8" ry="10" fill="#1C1C1C"/>
-                                                    <ellipse cx="64" cy="10" rx="8" ry="10" fill="#1C1C1C"/>
-                                                    <ellipse cx="50" cy="62" rx="44" ry="50" fill="#1C1C1C"/>
-                                                    <path d="M50 22 Q31 29 27 48 Q23 66 34 79 Q42 89 50 91 Q58 89 66 79 Q77 66 73 48 Q69 29 50 22Z" fill="#2C2C2C"/>
-                                                    <circle cx="34" cy="54" r="13" fill="white"/>
-                                                    <circle cx="34" cy="54" r="7.5" fill="#1C1C1C"/>
-                                                    <circle cx="66" cy="54" r="13" fill="white"/>
-                                                    <circle cx="66" cy="54" r="7.5" fill="#1C1C1C"/>
-                                                    <path d="M43 68 L50 76 L57 68" fill="none" stroke="#5A5A5A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
-                                                    <ellipse cx="34" cy="93" rx="5.5" ry="8" fill="#121212"/>
-                                                    <ellipse cx="50" cy="98" rx="5.5" ry="8" fill="#121212"/>
-                                                    <ellipse cx="66" cy="93" rx="5.5" ry="8" fill="#121212"/>
-                                                </svg>
-                                            </div>
-                                            <div class="integration-widget-name-wrap">
-                                                <span class="integration-widget-name">Samsara</span>
-                                                <span class="integration-widget-sub">Telematics &amp; ELD</span>
-                                            </div>
-                                        </div>
-                                        <div class="integration-widget-right">
-                                            <span class="integration-status-dot" id="samsaraStatusDot"></span>
-                                            <span class="integration-status-label" id="samsaraStatusLabel">Not connected</span>
-                                            <svg class="integration-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="m6 9 6 6 6-6"/></svg>
-                                        </div>
-                                    </div>
-                                    <div class="integration-widget-body hidden">
-                                        <p class="integration-widget-desc" id="samsaraStatusDesc">Connect your Samsara fleet account for ELD and telematics data.</p>
-                                        <div class="integration-widget-actions">
-                                            <button class="btn btn-primary btn-sm" id="samsaraConnectBtn">
-                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-                                                Connect
-                                            </button>
-                                            <button class="btn btn-sm btn-danger hidden" id="samsaraDisconnectBtn">Disconnect</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </section>
@@ -1482,6 +1435,51 @@
 
                         </div>
 
+                    </div>
+                </div>
+
+                <!-- Samsara Integration Widget -->
+                <div class="integration-widgets-row">
+                    <div class="integration-widget" id="samsaraIntegrationRow">
+                        <div class="integration-widget-header" id="samsaraWidgetToggle" role="button" tabindex="0" aria-expanded="false">
+                            <div class="integration-widget-brand">
+                                <div class="integration-widget-icon">
+                                    <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="20" height="23" aria-hidden="true">
+                                        <ellipse cx="36" cy="10" rx="8" ry="10" fill="#1C1C1C"/>
+                                        <ellipse cx="64" cy="10" rx="8" ry="10" fill="#1C1C1C"/>
+                                        <ellipse cx="50" cy="62" rx="44" ry="50" fill="#1C1C1C"/>
+                                        <path d="M50 22 Q31 29 27 48 Q23 66 34 79 Q42 89 50 91 Q58 89 66 79 Q77 66 73 48 Q69 29 50 22Z" fill="#2C2C2C"/>
+                                        <circle cx="34" cy="54" r="13" fill="white"/>
+                                        <circle cx="34" cy="54" r="7.5" fill="#1C1C1C"/>
+                                        <circle cx="66" cy="54" r="13" fill="white"/>
+                                        <circle cx="66" cy="54" r="7.5" fill="#1C1C1C"/>
+                                        <path d="M43 68 L50 76 L57 68" fill="none" stroke="#5A5A5A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <ellipse cx="34" cy="93" rx="5.5" ry="8" fill="#121212"/>
+                                        <ellipse cx="50" cy="98" rx="5.5" ry="8" fill="#121212"/>
+                                        <ellipse cx="66" cy="93" rx="5.5" ry="8" fill="#121212"/>
+                                    </svg>
+                                </div>
+                                <div class="integration-widget-name-wrap">
+                                    <span class="integration-widget-name">Samsara</span>
+                                    <span class="integration-widget-sub">Telematics &amp; ELD</span>
+                                </div>
+                            </div>
+                            <div class="integration-widget-right">
+                                <span class="integration-status-dot" id="samsaraStatusDot"></span>
+                                <span class="integration-status-label" id="samsaraStatusLabel">Not connected</span>
+                                <svg class="integration-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="m6 9 6 6 6-6"/></svg>
+                            </div>
+                        </div>
+                        <div class="integration-widget-body hidden">
+                            <p class="integration-widget-desc" id="samsaraStatusDesc">Connect your Samsara fleet account for ELD and telematics data.</p>
+                            <div class="integration-widget-actions">
+                                <button class="btn btn-primary btn-sm" id="samsaraConnectBtn">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                    Connect
+                                </button>
+                                <button class="btn btn-sm btn-danger hidden" id="samsaraDisconnectBtn">Disconnect</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connecting Samsara — logistiXnerd</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 35%, #fef3f2 65%, #f0fdf4 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #374151;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.04);
+            padding: 2.5rem 2rem;
+            max-width: 380px;
+            width: 90%;
+            text-align: center;
+        }
+        .icon { margin-bottom: 1.25rem; }
+        h1 { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.5rem; color: #111827; }
+        p { font-size: 0.875rem; color: #6b7280; line-height: 1.5; }
+        .spinner {
+            width: 32px;
+            height: 32px;
+            border: 3px solid rgba(79, 70, 229, 0.15);
+            border-top-color: #4f46e5;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            margin: 1.25rem auto 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .btn {
+            display: inline-block;
+            margin-top: 1.5rem;
+            padding: 0.5rem 1.5rem;
+            background: #4f46e5;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.15s;
+        }
+        .btn:hover { background: #4338ca; }
+    </style>
+</head>
+<body>
+    <div class="card" id="card">
+        <div class="icon">
+            <svg viewBox="0 0 100 115" xmlns="http://www.w3.org/2000/svg" width="44" height="50" aria-hidden="true">
+                <ellipse cx="36" cy="10" rx="8" ry="10" fill="#1C1C1C"/>
+                <ellipse cx="64" cy="10" rx="8" ry="10" fill="#1C1C1C"/>
+                <ellipse cx="50" cy="62" rx="44" ry="50" fill="#1C1C1C"/>
+                <path d="M50 22 Q31 29 27 48 Q23 66 34 79 Q42 89 50 91 Q58 89 66 79 Q77 66 73 48 Q69 29 50 22Z" fill="#2C2C2C"/>
+                <circle cx="34" cy="54" r="13" fill="white"/>
+                <circle cx="34" cy="54" r="7.5" fill="#1C1C1C"/>
+                <circle cx="66" cy="54" r="13" fill="white"/>
+                <circle cx="66" cy="54" r="7.5" fill="#1C1C1C"/>
+                <path d="M43 68 L50 76 L57 68" fill="none" stroke="#5A5A5A" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+                <ellipse cx="34" cy="93" rx="5.5" ry="8" fill="#121212"/>
+                <ellipse cx="50" cy="98" rx="5.5" ry="8" fill="#121212"/>
+                <ellipse cx="66" cy="93" rx="5.5" ry="8" fill="#121212"/>
+            </svg>
+        </div>
+        <h1 id="title">Connecting Samsara…</h1>
+        <p id="desc">Please wait while we complete your connection.</p>
+        <div class="spinner" id="spinner"></div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="/firebase-config.js"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const code   = params.get('code');
+        const state  = params.get('state');
+        const oauthError = params.get('error');
+        const DASHBOARD = '/dashboard.html';
+
+        function showError(msg) {
+            const spinner = document.getElementById('spinner');
+            if (spinner) spinner.remove();
+            document.getElementById('title').textContent = 'Connection failed';
+            document.getElementById('desc').textContent = msg || 'Something went wrong. Please try again from the dashboard.';
+            const btn = document.createElement('a');
+            btn.className = 'btn';
+            btn.href = DASHBOARD;
+            btn.textContent = 'Back to Dashboard';
+            document.getElementById('card').appendChild(btn);
+        }
+
+        function showSuccess() {
+            const spinner = document.getElementById('spinner');
+            if (spinner) spinner.remove();
+            document.getElementById('title').textContent = 'Samsara connected!';
+            document.getElementById('desc').textContent = 'Your fleet data is now linked. Redirecting…';
+            setTimeout(() => { window.location.href = DASHBOARD + '?samsara=connected'; }, 1500);
+        }
+
+        if (oauthError) {
+            showError('Samsara authorization was denied: ' + oauthError);
+        } else if (!code || !state) {
+            showError('Missing authorization parameters.');
+        } else {
+            firebase.auth().onAuthStateChanged(async (user) => {
+                if (!user) {
+                    window.location.href = '/index.html';
+                    return;
+                }
+                try {
+                    const db = firebase.firestore();
+                    // Write pending doc — the samsaraOAuthCallback Firestore trigger
+                    // picks this up server-side and does the token exchange.
+                    const pendingRef = await db
+                        .collection('users').doc(user.uid)
+                        .collection('samsara_oauth_pending')
+                        .add({ code, state, createdAt: Date.now() });
+
+                    // Listen: doc deleted = success, doc updated with status=error = failure
+                    const unsub = pendingRef.onSnapshot((snap) => {
+                        if (!snap.exists) {
+                            // Function deleted the doc after successful exchange
+                            unsub();
+                            showSuccess();
+                        } else if (snap.data().status === 'error') {
+                            unsub();
+                            pendingRef.delete().catch(() => {});
+                            showError('Token exchange failed: ' + (snap.data().error || 'unknown error'));
+                        }
+                    }, (err) => {
+                        console.error('Firestore listen error:', err);
+                        showError('Connection error. Please try again.');
+                    });
+
+                    // Timeout after 30s
+                    setTimeout(() => {
+                        unsub();
+                        pendingRef.delete().catch(() => {});
+                        showError('Timed out waiting for connection. Please try again.');
+                    }, 30000);
+
+                } catch (err) {
+                    console.error('Samsara callback error:', err);
+                    showError(err.message || 'Failed to initiate connection. Please try again.');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

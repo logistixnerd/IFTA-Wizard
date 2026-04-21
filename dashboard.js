@@ -12250,11 +12250,11 @@
             connectBtn.addEventListener('click', () => {
                 const u = uid();
                 if (!u) { showMsg('Please sign in first', true); return; }
-                // Use a fixed redirect URI so it always matches the Samsara app registration.
-                // Both www.logistixnerd.com and ifta-wizard-a9061.web.app serve the same app;
-                // we canonicalise to www.logistixnerd.com as the registered redirect URI.
-                const REDIRECT_URI = 'https://www.logistixnerd.com/api/samsara/callback';
-                const state = btoa(JSON.stringify({ uid: u, ts: Date.now(), origin: 'https://www.logistixnerd.com' }))
+                // Use the .web.app domain as redirect URI — this is always Firebase Hosting
+                // and has the /api/samsara/callback rewrite. logistixnerd.com is GitHub Pages
+                // and will 404 on that path.
+                const REDIRECT_URI = 'https://ifta-wizard-a9061.web.app/samsara-callback.html';
+                const state = btoa(JSON.stringify({ uid: u, ts: Date.now(), origin: 'https://ifta-wizard-a9061.web.app' }))
                     .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
                 const params = new URLSearchParams({
                     client_id: 'd9cb1080-5971-4463-871c-bafc91121520',
