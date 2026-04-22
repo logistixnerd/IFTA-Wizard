@@ -10176,3 +10176,249 @@ tr:hover .entity-doc-btn {
     background: rgba(79, 70, 229, 0.04) !important;
 }
 
+/* ── Fullscreen Overview Fleet Map ─────────────────────────────────── */
+#section-overview.active {
+    display: flex;
+    flex: 1;
+    padding: 0 !important;
+    position: relative;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.overview-map-bg {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+}
+.overview-map-bg #overviewFleetMap {
+    width: 100%;
+    height: 100%;
+}
+.overview-map-bg .samsara-fleet-map-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(248, 250, 252, 0.92);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 2;
+    pointer-events: none;
+}
+
+/* Topbar floating above the map */
+.overview-map-topbar {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 304px;
+    z-index: 10;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+.overview-map-topbar.sidebar-hidden {
+    right: 12px;
+}
+.overview-map-chips {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: nowrap;
+    pointer-events: all;
+}
+/* Re-scope overview-card inside the map topbar so it floats cleanly */
+.overview-map-chips .overview-card {
+    pointer-events: all;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.14);
+}
+.overview-map-chips .overview-dropdown-panel {
+    min-width: 220px;
+    max-height: 280px;
+}
+.overview-map-controls {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: all;
+    flex-shrink: 0;
+}
+.samsara-fleet-sync-time {
+    font-size: 0.7rem;
+    color: rgba(30,41,59,0.65);
+    background: rgba(255,255,255,0.75);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.55);
+    border-radius: 20px;
+    padding: 0.2rem 0.65rem;
+    white-space: nowrap;
+}
+.overview-map-ctrl-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 20px;
+    border: 1px solid rgba(255,255,255,0.55);
+    background: rgba(255,255,255,0.75);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    color: var(--text, #1e293b);
+    cursor: pointer;
+    transition: background var(--dash-transition), box-shadow var(--dash-transition);
+    box-shadow: 0 1px 6px rgba(0,0,0,0.10);
+}
+.overview-map-ctrl-btn:hover {
+    background: rgba(255,255,255,0.92);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.14);
+}
+.overview-map-ctrl-btn.active {
+    background: rgba(99,102,241,0.15);
+    border-color: rgba(99,102,241,0.4);
+    color: #6366f1;
+}
+
+/* Floating right sidebar */
+.overview-map-sidebar {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: 280px;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    background: rgba(255,255,255,0.82);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+    overflow: hidden;
+    transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.overview-map-sidebar.collapsed {
+    transform: translateX(calc(100% + 16px));
+    opacity: 0;
+    pointer-events: none;
+}
+.overview-map-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text, #1e293b);
+    border-bottom: 1px solid rgba(226,232,240,0.6);
+    flex-shrink: 0;
+}
+.overview-map-sidebar-header span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.overview-sidebar-collapse-btn,
+.overview-sidebar-expand-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: 20px;
+    border: 1px solid rgba(226,232,240,0.7);
+    background: rgba(255,255,255,0.7);
+    color: var(--text, #1e293b);
+    cursor: pointer;
+    transition: background var(--dash-transition);
+}
+.overview-sidebar-collapse-btn:hover,
+.overview-sidebar-expand-btn:hover {
+    background: rgba(255,255,255,0.95);
+}
+.overview-sidebar-expand-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 11;
+    display: none;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+}
+.overview-map-sidebar .samsara-fleet-vehicle-list {
+    flex: 1;
+    width: 100%;
+    border: none;
+    background: transparent;
+    overflow-y: auto;
+}
+
+/* Task widgets inside sidebar */
+.overview-map-sidebar .overview-task-widget {
+    border-top: 1px solid rgba(226,232,240,0.6);
+    flex-shrink: 0;
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+/* Samsara telematics strip inside truck detail panel */
+.samsara-telematics-strip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    background: rgba(99,102,241,0.07);
+    border-radius: 8px;
+    margin: 6px 0 2px;
+    font-size: 0.72rem;
+    color: #4338ca;
+}
+.samsara-telematics-strip svg {
+    flex-shrink: 0;
+    opacity: 0.75;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+    .overview-map-topbar {
+        right: 12px;
+        flex-wrap: wrap;
+    }
+    .overview-map-sidebar {
+        width: 240px;
+    }
+    .overview-map-topbar:not(.sidebar-hidden) {
+        right: 256px;
+    }
+}
+@media (max-width: 640px) {
+    .overview-map-topbar {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+    }
+    .overview-map-chips {
+        gap: 0.25rem;
+    }
+    .overview-map-sidebar {
+        top: auto;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        height: 45%;
+        border-radius: 16px 16px 0 0;
+    }
+    .overview-sidebar-expand-btn {
+        bottom: 12px;
+        top: auto;
+        right: 12px;
+    }
+}
+

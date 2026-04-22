@@ -629,9 +629,10 @@
             setTopbarAccount(user.displayName || 'User', user.photoURL || localStorage.getItem('ifta_avatar') || null);
             await loadAll();
             document.querySelector('.dash-layout')?.classList.add('ready');
-            // Navigate to hash section if present, else stay on overview
+            _startFleetLiveSync();
+            // Navigate to hash section if present, else default to overview
             const hash = window.location.hash.replace('#', '');
-            if (hash) navigateToSection(hash, true);
+            navigateToSection(hash || 'overview', true);
         });
     }
 
@@ -10165,9 +10166,7 @@
     let _loadDirRenderer = null;
 
     function isGMaps() {
-        const ready = !!(window.google && google.maps && google.maps.DirectionsService);
-        if (!ready) console.warn('[LoadRoute] Google Maps API not available. Check API key and enabled APIs.');
-        return ready;
+        return !!(window.google && google.maps && google.maps.Map);
     }
 
     function resolveZipToCity(zip) {
@@ -12496,6 +12495,7 @@
         unsubFleet: null,
         lastSyncedAt: null,
         syncing: false,
+        syncInterval: null,
     };
 
     function _fleetSyncTime(ts) {
@@ -12540,7 +12540,6 @@
             const marker = new google.maps.Marker({
                 position: pos,
                 map: mapObj,
-                title: v.name,
                 icon: {
                     path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
                     scale: 5,
@@ -12561,9 +12560,12 @@
                     + '<span style="color:#94a3b8;font-size:11px">' + updatedTime + '</span>'
                     + '</div>',
             });
-            marker.addListener('click', () => {
+            marker.addListener('mouseover', () => {
                 samsaraFleet.infoWindows.forEach(w => w.close());
                 iw.open(mapObj, marker);
+            });
+            marker.addListener('mouseout', () => {
+                iw.close();
             });
             samsaraFleet.infoWindows.push(iw);
             markersArray.push(marker);
@@ -12650,7 +12652,24 @@
     function _ensureOverviewMap() {
         if (samsaraFleet.overviewMap) return true;
         const container = $('overviewFleetMap');
-        if (!container || !isGMaps()) return false;
+        if (!container) return false;
+        if (!isGMaps()) {
+            // Maps API not loaded yet — retry once it's available
+            const poll = setInterval(() => {
+                if (!isGMaps()) return;
+                clearInterval(poll);
+                _ensureOverviewMap();
+                if (samsaraFleet.overviewMap && uid()) {
+                    db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet').get().then(snap => {
+                        if (!snap.exists) return;
+                        const { vehicles, syncedAt } = snap.data();
+                        samsaraFleet.lastSyncedAt = syncedAt;
+                        _renderFleetData(vehicles || []);
+                    }).catch(() => {});
+                }
+            }, 200);
+            return false;
+        }
         samsaraFleet.overviewMap = new google.maps.Map(container, {
             center: { lat: 39.8283, lng: -98.5795 },
             zoom: 4,
@@ -12709,6 +12728,32 @@
         }
 
         _updateFleetSyncLabels();
+    }
+
+    // Start Firestore live listener + auto-poll (called once after auth)
+    function _startFleetLiveSync() {
+        if (!uid()) return;
+
+        // Firestore snapshot: re-renders whenever cache document updates
+        if (!samsaraFleet.unsubFleet) {
+            samsaraFleet.unsubFleet = db.collection('users').doc(uid())
+                .collection('samsara_cache').doc('fleet')
+                .onSnapshot(snap => {
+                    if (!snap.exists) return;
+                    const { vehicles, syncedAt } = snap.data();
+                    samsaraFleet.lastSyncedAt = syncedAt;
+                    _renderFleetData(vehicles || []);
+                }, err => console.warn('Fleet cache listener error:', err));
+        }
+
+        // Auto-poll every 2 minutes if Samsara is connected
+        if (!samsaraFleet.syncInterval) {
+            samsaraFleet.syncInterval = setInterval(() => {
+                if (state.profile?.samsara?.connectedAt && !samsaraFleet.syncing) {
+                    triggerFleetSync();
+                }
+            }, 120000);
+        }
     }
 
     async function triggerFleetSync() {
@@ -12794,17 +12839,6 @@
 
         // Wire telematics panel sync button
         initTelematicsSyncBtn();
-
-        // Subscribe to fleet cache — live updates whenever a sync completes
-        if (uid()) {
-            samsaraFleet.unsubFleet = db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet')
-                .onSnapshot(snap => {
-                    if (!snap.exists) return;
-                    const { vehicles, syncedAt } = snap.data();
-                    samsaraFleet.lastSyncedAt = syncedAt;
-                    _renderFleetData(vehicles || []);
-                }, err => console.warn('Fleet cache listener error:', err));
-        }
     }
 
     // ── Section Collapse Toggles ─────────
