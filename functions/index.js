@@ -602,11 +602,13 @@ exports.samsaraFleetSync = functions
 
       const bearerHeaders = { 'Authorization': 'Bearer ' + samsaraTokens.accessToken };
 
-      // Fetch vehicles list + GPS stats + extended stats in parallel
-      const [vehiclesRes, statsRes, extStatsRes] = await Promise.all([
+      // Fetch vehicles, trailers, GPS stats + extended stats in parallel
+      const [vehiclesRes, statsRes, extStatsRes, trailersRes, trailerStatsRes] = await Promise.all([
         fetch('https://api.samsara.com/fleet/vehicles?limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
         fetch('https://api.samsara.com/fleet/vehicles/stats?types=gps&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
         fetch('https://api.samsara.com/fleet/vehicles/stats?types=odometerMeters,engineSeconds,fuelPercents&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
+        fetch('https://api.samsara.com/fleet/trailers?limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
+        fetch('https://api.samsara.com/fleet/trailers/stats?types=gps&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
       ]);
 
       if (!vehiclesRes.ok) {
@@ -620,14 +622,21 @@ exports.samsaraFleetSync = functions
         return;
       }
 
-      const vehiclesText = await vehiclesRes.text();
-      const statsText    = await statsRes.text();
-      const extStatsText = extStatsRes.ok ? await extStatsRes.text() : '{"data":[]}';
+      const vehiclesText    = await vehiclesRes.text();
+      const statsText       = await statsRes.text();
+      const extStatsText    = extStatsRes.ok ? await extStatsRes.text() : '{"data":[]}';
+      const trailersText    = trailersRes.ok ? await trailersRes.text() : '{"data":[]}';
+      const trailerStatsText = trailerStatsRes.ok ? await trailerStatsRes.text() : '{"data":[]}';
 
-      let vehiclesData, statsData, extStatsData;
-      try { vehiclesData  = JSON.parse(vehiclesText);  } catch(e) { vehiclesData  = { data: [] }; }
-      try { statsData     = JSON.parse(statsText);     } catch(e) { statsData     = { data: [] }; }
-      try { extStatsData  = JSON.parse(extStatsText);  } catch(e) { extStatsData  = { data: [] }; }
+      let vehiclesData, statsData, extStatsData, trailersData, trailerStatsData;
+      try { vehiclesData     = JSON.parse(vehiclesText);     } catch(e) { vehiclesData     = { data: [] }; }
+      try { statsData        = JSON.parse(statsText);        } catch(e) { statsData        = { data: [] }; }
+      try { extStatsData     = JSON.parse(extStatsText);     } catch(e) { extStatsData     = { data: [] }; }
+      try { trailersData     = JSON.parse(trailersText);     } catch(e) { trailersData     = { data: [] }; }
+      try { trailerStatsData = JSON.parse(trailerStatsText); } catch(e) { trailerStatsData = { data: [] }; }
+
+      console.log('samsaraFleetSync diag: trailers count =', (trailersData.data || []).length,
+        '| trailer GPS count =', (trailerStatsData.data || []).length);
 
       // Diagnostic: log raw counts and first 500 chars of each response
       console.log('samsaraFleetSync diag: vehicles count =', (vehiclesData.data || []).length,
@@ -647,6 +656,12 @@ exports.samsaraFleetSync = functions
       for (const v of (statsData.data || [])) {
         if (!v.gps) continue;
         gpsById[v.id] = v.gps.value || v.gps; // unwrap .value if present
+      }
+      // Trailer GPS lookup
+      const trailerGpsById = {};
+      for (const t of (trailerStatsData.data || [])) {
+        if (!t.gps) continue;
+        trailerGpsById[t.id] = t.gps.value || t.gps;
       }
       console.log('samsaraFleetSync: GPS lookup built for', Object.keys(gpsById).length, 'vehicles (sample:', JSON.stringify(Object.values(gpsById)[0] || null), ')');
 
@@ -724,6 +739,7 @@ exports.samsaraFleetSync = functions
         const engineHours   = ext.engineSeconds  != null ? Math.round(ext.engineSeconds / 3600 * 10) / 10 : null;
         return {
           id:            v.id,
+          type:          'truck',
           name:          v.name           || '',
           vin:           (v.vin           || '').toUpperCase(),
           licensePlate:  v.licensePlate   || '',
@@ -735,7 +751,7 @@ exports.samsaraFleetSync = functions
           fuelLevel:     ext.fuelPercent  != null ? Math.round(ext.fuelPercent) : null,
           faults:        faultsByVehicle[v.id] || [],
           safetyEvents:  safetyByVehicle[v.id] || [],
-          safetyScore:   null, // populated when/if safety score endpoint is available
+          safetyScore:   null,
           gps: gps ? {
             lat:      gps.latitude,
             lng:      gps.longitude,
@@ -748,9 +764,37 @@ exports.samsaraFleetSync = functions
         };
       });
 
+      // Build normalized trailers array
+      const trailers = (trailersData.data || []).map(t => {
+        const gps = trailerGpsById[t.id];
+        return {
+          id:           t.id,
+          type:         'trailer',
+          name:         t.name          || '',
+          vin:          (t.vin          || '').toUpperCase(),
+          licensePlate: t.licensePlate  || '',
+          make:         t.make          || null,
+          model:        t.model         || null,
+          year:         t.year          || null,
+          gps: gps ? {
+            lat:      gps.latitude,
+            lng:      gps.longitude,
+            heading:  gps.headingDegrees || 0,
+            speed:    Math.round(gps.speedMilesPerHour || 0),
+            location: (gps.reverseGeo || {}).formattedLocation || '',
+            time:     gps.time || null,
+          } : null,
+          matchedTrailerId: null,
+        };
+      });
+
       // Match Samsara vehicles to our trucks by VIN; update trucks with samsara link + location
-      const trucksSnap = await admin.firestore().collection('users').doc(uid).collection('trucks').get();
+      const [trucksSnap, trailersSnap] = await Promise.all([
+        admin.firestore().collection('users').doc(uid).collection('trucks').get(),
+        admin.firestore().collection('users').doc(uid).collection('trailers').get(),
+      ]);
       const trucks = trucksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const ourTrailers = trailersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       const batch = admin.firestore().batch();
       for (const v of vehicles) {
@@ -760,26 +804,40 @@ exports.samsaraFleetSync = functions
           v.matchedTruckId = match.id;
           const truckRef = admin.firestore().collection('users').doc(uid).collection('trucks').doc(match.id);
           const updateData = { samsaraId: v.id };
-          if (v.gps)         updateData.samsaraLocation  = v.gps;
-          if (v.odometer)    updateData.samsaraOdometer  = v.odometer;
+          if (v.gps)         updateData.samsaraLocation    = v.gps;
+          if (v.odometer)    updateData.samsaraOdometer    = v.odometer;
           if (v.engineHours) updateData.samsaraEngineHours = v.engineHours;
           if (v.fuelLevel != null) updateData.samsaraFuelLevel = v.fuelLevel;
-          if (v.faults.length)   updateData.samsaraFaults = v.faults;
+          if (v.faults.length)       updateData.samsaraFaults       = v.faults;
           if (v.safetyEvents.length) updateData.samsaraSafetyEvents = v.safetyEvents;
           batch.update(truckRef, updateData);
         }
       }
+      for (const t of trailers) {
+        if (!t.vin) continue;
+        const match = ourTrailers.find(r => r.vin && r.vin.toUpperCase() === t.vin);
+        if (match) {
+          t.matchedTrailerId = match.id;
+          const trailerRef = admin.firestore().collection('users').doc(uid).collection('trailers').doc(match.id);
+          const updateData = { samsaraId: t.id };
+          if (t.gps) updateData.samsaraLocation = t.gps;
+          batch.update(trailerRef, updateData);
+        }
+      }
       await batch.commit();
+
+      // Merge vehicles + trailers into one array for the map cache
+      const allUnits = [...vehicles, ...trailers];
 
       // Cache fleet data (separate subcollection doc to avoid bloating user doc)
       await admin.firestore().collection('users').doc(uid).collection('samsara_cache').doc('fleet').set({
-        vehicles,
+        vehicles: allUnits,
         syncedAt: Date.now(),
       });
 
       // Delete request doc → signals success to client listener
       await snap.ref.delete();
-      console.log(`samsaraFleetSync: synced ${vehicles.length} vehicles for uid=${uid}`);
+      console.log(`samsaraFleetSync: synced ${vehicles.length} trucks + ${trailers.length} trailers for uid=${uid}`);
 
     } catch (err) {
       console.error('samsaraFleetSync error:', err);

@@ -12536,25 +12536,37 @@
 
         vehiclesWithGps.forEach(v => {
             const pos = { lat: v.gps.lat, lng: v.gps.lng };
+            const isTrailer = v.type === 'trailer';
             const isMoving = v.gps.speed > 2;
+            const icon = isTrailer ? {
+                // Square marker for trailers
+                path: 'M -4 -4 L 4 -4 L 4 4 L -4 4 Z',
+                scale: 1,
+                fillColor: isMoving ? '#f59e0b' : '#94a3b8',
+                fillOpacity: 1,
+                strokeColor: '#fff',
+                strokeWeight: 1.5,
+            } : {
+                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                scale: 5,
+                rotation: v.gps.heading || 0,
+                fillColor: isMoving ? '#6366f1' : '#64748b',
+                fillOpacity: 1,
+                strokeColor: '#fff',
+                strokeWeight: 1.5,
+            };
             const marker = new google.maps.Marker({
                 position: pos,
                 map: mapObj,
-                icon: {
-                    path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                    scale: 5,
-                    rotation: v.gps.heading || 0,
-                    fillColor: isMoving ? '#6366f1' : '#64748b',
-                    fillOpacity: 1,
-                    strokeColor: '#fff',
-                    strokeWeight: 1.5,
-                },
+                icon,
             });
 
             const updatedTime = v.gps.time ? new Date(v.gps.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—';
+            const unitLabel = v.type === 'trailer' ? 'Trailer' : 'Truck';
             const iw = new google.maps.InfoWindow({
                 content: '<div style="font:13px/1.5 -apple-system,sans-serif;min-width:160px">'
-                    + '<strong>' + (v.name || 'Vehicle') + '</strong><br>'
+                    + '<strong>' + (v.name || unitLabel) + '</strong>'
+                    + ' <span style="font-size:10px;color:#94a3b8;font-weight:400">' + unitLabel + '</span><br>'
                     + (v.gps.location ? '<span style="color:#64748b;font-size:12px">' + v.gps.location + '</span><br>' : '')
                     + (v.gps.speed ? '<span>' + v.gps.speed + ' mph</span> · ' : '')
                     + '<span style="color:#94a3b8;font-size:11px">' + updatedTime + '</span>'
@@ -12590,12 +12602,17 @@
         el.innerHTML = vehicles.map((v, i) => {
             const hasGps = v.gps && v.gps.lat;
             const isMoving = hasGps && v.gps.speed > 2;
+            const isTrailer = v.type === 'trailer';
             const speed = hasGps ? v.gps.speed + ' mph' : '';
             const loc = hasGps && v.gps.location ? v.gps.location.split(',').slice(0, 2).join(',') : 'No GPS data';
+            const dotClass = isTrailer
+                ? (hasGps ? (isMoving ? ' trailer moving' : ' trailer stopped') : ' trailer')
+                : (hasGps ? (isMoving ? ' moving' : ' stopped') : '');
             return '<div class="samsara-fleet-vehicle-item' + (hasGps ? '' : ' no-gps') + '" data-idx="' + i + '">'
-                + '<span class="samsara-fleet-vehicle-dot' + (hasGps ? (isMoving ? ' moving' : ' stopped') : '') + '"></span>'
+                + '<span class="samsara-fleet-vehicle-dot' + dotClass + '"></span>'
                 + '<div class="samsara-fleet-vehicle-info">'
-                + '<span class="samsara-fleet-vehicle-name">' + escapeHtml(v.name || 'Unit') + '</span>'
+                + '<span class="samsara-fleet-vehicle-name">' + escapeHtml(v.name || 'Unit')
+                + (isTrailer ? ' <span style="font-size:9px;color:#94a3b8;font-weight:500;text-transform:uppercase">TRL</span>' : '') + '</span>'
                 + '<span class="samsara-fleet-vehicle-loc">' + escapeHtml(loc) + (speed ? ' · ' + speed : '') + '</span>'
                 + '</div></div>';
         }).join('');
@@ -12635,18 +12652,13 @@
         return _nexradLayer;
     }
 
-    function _toggleWeather(map) {
+    function _enableWeather(map) {
         const layer = _getNexradLayer();
         if (!map || !layer) return;
-        if (weatherOn) {
-            map.overlayMapTypes.clear();
-            weatherOn = false;
-        } else {
+        if (!weatherOn) {
             map.overlayMapTypes.insertAt(0, layer);
             weatherOn = true;
         }
-        const btn = $('overviewWeatherToggle');
-        if (btn) btn.classList.toggle('weather-on', weatherOn);
     }
 
     function _ensureOverviewMap() {
@@ -12689,6 +12701,7 @@
                 { featureType: 'transit', stylers: [{ visibility: 'off' }] },
             ],
         });
+        _enableWeather(samsaraFleet.overviewMap);
         return true;
     }
 
@@ -12807,15 +12820,6 @@
         const liveBtn = $('liveMapSyncBtn');
         if (overviewBtn) overviewBtn.addEventListener('click', triggerFleetSync);
         if (liveBtn) liveBtn.addEventListener('click', triggerFleetSync);
-
-        // Wire weather toggle
-        const weatherBtn = $('overviewWeatherToggle');
-        if (weatherBtn) {
-            weatherBtn.addEventListener('click', () => {
-                if (!samsaraFleet.overviewMap) return;
-                _toggleWeather(samsaraFleet.overviewMap);
-            });
-        }
 
         // Wire sidebar collapse / expand
         const collapseBtn = $('overviewSidebarCollapse');
