@@ -3531,7 +3531,7 @@
             case 'plate': return '<td class="col-plate"><div class="cell">' + escapeHtml(t.plate) + (t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : '') + '</div></td>';
             case 'fuel': return '<td class="col-fuel"><div class="cell">' + fuelLabel(t.fuel) + '</div></td>';
             case 'odometer': {
-                const odo = t.samsaraOdometer != null ? t.samsaraOdometer : (t.odometerReading != null ? t.odometerReading : null);
+                const odo = t.samsaraOdometer != null ? t.samsaraOdometer : (t.odometerReading != null ? t.odometerReading : (t.mileage != null ? t.mileage : null));
                 const live = t.samsaraOdometer != null;
                 if (odo == null) return '<td class="col-odometer"><div class="cell text-muted">—</div></td>';
                 return '<td class="col-odometer"><div class="cell">' + new Intl.NumberFormat('en-US').format(Math.round(odo)) + ' <span class="text-muted" style="font-size:0.7em">mi' + (live ? '<span class="samsara-loc-badge" style="margin-left:3px">Live</span>' : '') + '</span></div></td>';

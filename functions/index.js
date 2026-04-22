@@ -606,7 +606,7 @@ exports.samsaraFleetSync = functions
       const [vehiclesRes, statsRes, extStatsRes, trailersRes, trailerStatsRes] = await Promise.all([
         fetch('https://api.samsara.com/fleet/vehicles?limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
         fetch('https://api.samsara.com/fleet/vehicles/stats?types=gps&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
-        fetch('https://api.samsara.com/fleet/vehicles/stats?types=odometerMeters,engineSeconds,fuelPercents&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
+        fetch('https://api.samsara.com/fleet/vehicles/stats?types=obdOdometerMeters,fuelPercents&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
         fetch('https://api.samsara.com/fleet/trailers?limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
         fetch('https://api.samsara.com/fleet/trailers/stats?types=gps&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
       ]);
@@ -624,7 +624,9 @@ exports.samsaraFleetSync = functions
 
       const vehiclesText    = await vehiclesRes.text();
       const statsText       = await statsRes.text();
-      const extStatsText    = extStatsRes.ok ? await extStatsRes.text() : '{"data":[]}';
+      const extStatsRawText = await extStatsRes.text();
+      console.log('samsaraFleetSync diag: extStats HTTP status =', extStatsRes.status, '| body (first 500) =', extStatsRawText.slice(0, 500));
+      const extStatsText    = extStatsRes.ok ? extStatsRawText : '{"data":[]}';
       const trailersText    = trailersRes.ok ? await trailersRes.text() : '{"data":[]}';
       const trailerStatsText = trailerStatsRes.ok ? await trailerStatsRes.text() : '{"data":[]}';
 
@@ -669,9 +671,9 @@ exports.samsaraFleetSync = functions
       const extById = {};
       for (const v of (extStatsData.data || [])) {
         extById[v.id] = {
-          odometerMeters: v.odometerMeters?.value ?? null,
-          engineSeconds:  v.engineSeconds?.value  ?? null,
-          fuelPercent:    v.fuelPercents?.value   ?? null,
+          odometerMeters: v.obdOdometerMeters?.value ?? null,
+          engineHours:    null,
+          fuelPercent:    v.fuelPercents?.value     ?? null,
         };
       }
 
@@ -736,7 +738,7 @@ exports.samsaraFleetSync = functions
         const gps = gpsById[v.id];
         const ext = extById[v.id] || {};
         const odometerMiles = ext.odometerMeters != null ? Math.round(ext.odometerMeters * 0.000621371) : null;
-        const engineHours   = ext.engineSeconds  != null ? Math.round(ext.engineSeconds / 3600 * 10) / 10 : null;
+        const engineHours   = ext.engineHours     != null ? Math.round(ext.engineHours * 10) / 10 : null;
         return {
           id:            v.id,
           type:          'truck',
@@ -797,25 +799,48 @@ exports.samsaraFleetSync = functions
       const ourTrailers = trailersSnap.docs.map(d => ({ id: d.id, ...d.data() }));
 
       const batch = admin.firestore().batch();
+      // Diagnostic: log extStats and how many vehicles have odometer data
+      console.log('samsaraFleetSync diag: extStats count =', (extStatsData.data || []).length,
+        '| vehicles with odometer =', vehicles.filter(v => v.odometer != null).length);
+      if ((extStatsData.data || []).length > 0) {
+        console.log('samsaraFleetSync diag: extStats[0] =', JSON.stringify(extStatsData.data[0]).slice(0, 300));
+      }
+      console.log('samsaraFleetSync diag: trucks in Firestore =', trucks.length,
+        '| trucks with VIN =', trucks.filter(t => t.vin).length,
+        '| trucks with samsaraId =', trucks.filter(t => t.samsaraId).length);
+
+      let truckMatchCount = 0;
       for (const v of vehicles) {
-        if (!v.vin) continue;
-        const match = trucks.find(t => t.vin && t.vin.toUpperCase() === v.vin);
+        // Match by VIN (preferred) → samsaraId (already linked) → name≈unit (fallback)
+        const normName = (v.name || '').trim().toLowerCase();
+        const match = trucks.find(t =>
+          (v.vin && t.vin && t.vin.toUpperCase() === v.vin) ||
+          (t.samsaraId && t.samsaraId === v.id) ||
+          (t.unit && normName && t.unit.trim().toLowerCase() === normName)
+        );
         if (match) {
+          truckMatchCount++;
           v.matchedTruckId = match.id;
           const truckRef = admin.firestore().collection('users').doc(uid).collection('trucks').doc(match.id);
           const updateData = { samsaraId: v.id };
-          if (v.gps)         updateData.samsaraLocation    = v.gps;
-          if (v.odometer)    updateData.samsaraOdometer    = v.odometer;
-          if (v.engineHours) updateData.samsaraEngineHours = v.engineHours;
-          if (v.fuelLevel != null) updateData.samsaraFuelLevel = v.fuelLevel;
+          if (v.gps)               updateData.samsaraLocation    = v.gps;
+          if (v.odometer    != null) updateData.samsaraOdometer    = v.odometer;
+          if (v.engineHours != null) updateData.samsaraEngineHours = v.engineHours;
+          if (v.fuelLevel   != null) updateData.samsaraFuelLevel   = v.fuelLevel;
           if (v.faults.length)       updateData.samsaraFaults       = v.faults;
           if (v.safetyEvents.length) updateData.samsaraSafetyEvents = v.safetyEvents;
           batch.update(truckRef, updateData);
         }
       }
+      console.log('samsaraFleetSync diag: matched', truckMatchCount, 'of', vehicles.length, 'Samsara vehicles to Firestore trucks');
       for (const t of trailers) {
-        if (!t.vin) continue;
-        const match = ourTrailers.find(r => r.vin && r.vin.toUpperCase() === t.vin);
+        // Match by VIN → samsaraId → name≈trailer name
+        const normName = (t.name || '').trim().toLowerCase();
+        const match = ourTrailers.find(r =>
+          (t.vin && r.vin && r.vin.toUpperCase() === t.vin) ||
+          (r.samsaraId && r.samsaraId === t.id) ||
+          (r.unit && normName && r.unit.trim().toLowerCase() === normName)
+        );
         if (match) {
           t.matchedTrailerId = match.id;
           const trailerRef = admin.firestore().collection('users').doc(uid).collection('trailers').doc(match.id);
