@@ -538,6 +538,15 @@
         }
         state.truck = { id: doc.id, ...doc.data() };
         renderTruck();
+
+        // Live-update telematics (odometer, fuel, engine hours) whenever Samsara syncs
+        if (!state._truckUnsub) {
+            state._truckUnsub = truckRef().onSnapshot(snap => {
+                if (!snap.exists) return;
+                state.truck = { id: snap.id, ...snap.data() };
+                renderTelematics(state.truck);
+            });
+        }
         return true;
     }
 

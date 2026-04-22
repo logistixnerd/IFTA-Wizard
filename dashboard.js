@@ -3233,6 +3233,7 @@
             { key: 'vin', label: 'VIN', w: 17, def: true },
             { key: 'plate', label: 'Plate', w: 12, def: true },
             { key: 'fuel', label: 'Fuel', w: 8, def: true },
+            { key: 'odometer', label: 'Odometer', w: 10, def: true },
             { key: 'color', label: 'Color', w: 8, def: false },
             { key: 'annualInspDate', label: 'Inspection Exp.', w: 12, def: false },
             { key: 'registrationExp', label: 'Registration Exp.', w: 13, def: false },
@@ -3529,6 +3530,12 @@
             case 'vin': return '<td class="col-vin"><div class="cell vin-cell" title="' + escapeHtml(t.vin) + '">' + escapeHtml(t.vin) + '</div></td>';
             case 'plate': return '<td class="col-plate"><div class="cell">' + escapeHtml(t.plate) + (t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : '') + '</div></td>';
             case 'fuel': return '<td class="col-fuel"><div class="cell">' + fuelLabel(t.fuel) + '</div></td>';
+            case 'odometer': {
+                const odo = t.samsaraOdometer != null ? t.samsaraOdometer : (t.odometerReading != null ? t.odometerReading : null);
+                const live = t.samsaraOdometer != null;
+                if (odo == null) return '<td class="col-odometer"><div class="cell text-muted">—</div></td>';
+                return '<td class="col-odometer"><div class="cell">' + new Intl.NumberFormat('en-US').format(Math.round(odo)) + ' <span class="text-muted" style="font-size:0.7em">mi' + (live ? '<span class="samsara-loc-badge" style="margin-left:3px">Live</span>' : '') + '</span></div></td>';
+            }
             case 'color': return '<td class="col-color"><div class="cell">' + escapeHtml(t.color || '') + '</div></td>';
             case 'annualInspDate': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.annualInspDate || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'inspection', 'Annual Inspection', hasInlineDoc(t, 'inspection'), du.inspection) + '</div></td>';
             case 'registrationExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.registrationExp || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'registration', 'Registration', hasInlineDoc(t, 'registration'), du.registration) + '</div></td>';
