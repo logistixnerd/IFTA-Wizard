@@ -1519,3 +1519,339 @@ body {
     .unit-details-list { grid-template-columns: 1fr; }
     .field-row { grid-template-columns: 1fr; }
 }
+
+/* ==============================================
+   KPI STRIP (between hero and grid)
+   ============================================== */
+.up-kpi-strip {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.85rem;
+}
+.up-kpi-strip-item {
+    flex: 1;
+    text-align: center;
+    padding: 0.6rem 0.75rem;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.65);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+}
+.up-kpi-strip-item strong {
+    display: block;
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--gray-800);
+    line-height: 1.2;
+}
+
+/* ==============================================
+   INFO PANEL (equipment + telematics)
+   ============================================== */
+.up-info-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+    margin-bottom: 0.85rem;
+}
+
+.up-equip-card,
+.up-telem-card {
+    background: rgba(255, 255, 255, 0.72);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.03);
+    padding: 1rem 1.25rem;
+}
+
+.up-equip-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-400);
+    margin-bottom: 0.75rem;
+}
+.up-equip-head svg { color: var(--gray-300); }
+
+.up-telem-sync {
+    margin-left: auto;
+    font-size: 0.58rem;
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--gray-400);
+}
+
+/* Equipment grid */
+.up-equip-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+    margin: 0;
+}
+.up-equip-cell {
+    padding: 0.5rem 0.65rem;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.025);
+    border: 1px solid rgba(0, 0, 0, 0.04);
+}
+.up-equip-cell dt {
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-400);
+    margin-bottom: 0.15rem;
+}
+.up-equip-cell dd {
+    margin: 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    word-break: break-all;
+}
+.up-vin {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.72rem !important;
+    letter-spacing: 0.03em;
+}
+
+/* Chip extras */
+.up-chip--hidden { display: none; }
+.up-chip--samsara {
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+    gap: 0.3rem;
+}
+
+/* Telematics rows */
+.up-telem-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.55rem 0;
+    border-top: 1px solid rgba(0,0,0,0.04);
+}
+.up-telem-row:first-of-type { border-top: none; }
+.up-telem-row--odo { align-items: flex-start; }
+
+.up-telem-ico {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.up-telem-ico--blue   { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
+.up-telem-ico--green  { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+.up-telem-ico--purple { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+.up-telem-ico--orange { background: rgba(249, 115, 22, 0.1); color: #f97316; }
+
+.up-telem-body { flex: 1; min-width: 0; }
+.up-telem-lbl {
+    display: block;
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-400);
+    margin-bottom: 0.1rem;
+}
+.up-telem-val {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--gray-800);
+}
+.up-telem-val--loc {
+    font-size: 0.78rem;
+    font-weight: 600;
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.up-telem-unit {
+    font-size: 0.62rem;
+    font-weight: 500;
+    color: var(--gray-400);
+    margin-left: 0.3rem;
+}
+.up-telem-sub {
+    display: block;
+    font-size: 0.62rem;
+    color: var(--gray-400);
+    margin-top: 0.1rem;
+}
+
+/* Fuel bar */
+.up-fuel-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.2rem;
+}
+.up-fuel-bar-wrap {
+    flex: 1;
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(0,0,0,0.07);
+    overflow: hidden;
+}
+.up-fuel-bar {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.5s ease, background 0.3s ease;
+}
+
+/* Odometer edit */
+.up-odo-display { display: flex; align-items: baseline; gap: 0.1rem; }
+.up-odo-edit {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+    flex-wrap: wrap;
+}
+.up-odo-input {
+    width: 120px;
+    border: 1px solid rgba(79, 70, 229, 0.25);
+    border-radius: 6px;
+    padding: 0.28rem 0.5rem;
+    font: inherit;
+    font-size: 0.78rem;
+    color: var(--gray-800);
+    background: rgba(255,255,255,0.9);
+    outline: none;
+}
+.up-odo-input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(79,70,229,0.08); }
+.up-odo-save {
+    padding: 0.28rem 0.65rem;
+    border-radius: 6px;
+    border: none;
+    background: var(--primary);
+    color: #fff;
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.up-odo-save:hover:not(:disabled) { background: var(--primary-dark, #4338ca); }
+.up-odo-save:disabled { opacity: 0.4; cursor: default; }
+.up-odo-cancel {
+    padding: 0.28rem 0.55rem;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.08);
+    background: transparent;
+    color: var(--gray-500);
+    font: inherit;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s;
+}
+.up-odo-cancel:hover { background: rgba(0,0,0,0.04); }
+.up-telem-edit-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: 1px solid rgba(0,0,0,0.07);
+    background: rgba(0,0,0,0.02);
+    color: var(--gray-400);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.12s, color 0.12s;
+}
+.up-telem-edit-btn:hover { background: rgba(79,70,229,0.06); color: var(--primary); }
+
+/* Fault codes */
+.up-telem-faults {
+    margin-top: 0.65rem;
+    border-top: 1px solid rgba(0,0,0,0.06);
+    padding-top: 0.65rem;
+}
+.up-telem-faults-head {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--gray-400);
+    margin-bottom: 0.45rem;
+}
+.up-telem-faults-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+.up-fault-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.75rem;
+}
+.up-fault--critical { background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.15); }
+.up-fault--major    { background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.15); }
+.up-fault--minor    { background: rgba(107,114,128,0.05); border: 1px solid rgba(107,114,128,0.1); }
+.up-fault-code {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.up-fault--critical .up-fault-code { color: #dc2626; }
+.up-fault--major    .up-fault-code { color: #d97706; }
+.up-fault--minor    .up-fault-code { color: #6b7280; }
+.up-fault-desc {
+    flex: 1;
+    font-size: 0.73rem;
+    color: var(--gray-700);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.up-fault-sev {
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+}
+.up-fault--critical .up-fault-sev { background: rgba(239,68,68,0.12); color: #dc2626; }
+.up-fault--major    .up-fault-sev { background: rgba(245,158,11,0.12); color: #d97706; }
+.up-fault--minor    .up-fault-sev { background: rgba(107,114,128,0.08); color: #6b7280; }
+.up-telem-no-faults {
+    font-size: 0.73rem;
+    color: var(--gray-400);
+    padding: 0.2rem 0.1rem;
+}
+
+/* Responsive */
+@media (max-width: 760px) {
+    .up-info-panel { grid-template-columns: 1fr; }
+    .up-hero { grid-template-columns: 1fr; }
+    .up-hero-kpis { flex-wrap: wrap; }
+    .up-equip-grid { grid-template-columns: 1fr; }
+    .up-kpi-strip { flex-wrap: wrap; }
+    .up-kpi-strip-item { min-width: 80px; }
+}

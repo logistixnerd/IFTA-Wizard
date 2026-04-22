@@ -132,28 +132,49 @@
                         .collection('samsara_oauth_pending')
                         .add({ code, state, createdAt: Date.now() });
 
-                    // Listen: doc deleted = success, doc updated with status=error = failure
+                    const statusMsgs = {
+                        processing: 'Server received request, validating…',
+                        exchanging: 'Exchanging authorization code with Samsara…'
+                    };
+
+                    // Listen: doc deleted = success, status updated = progress/error
                     const unsub = pendingRef.onSnapshot((snap) => {
                         if (!snap.exists) {
-                            // Function deleted the doc after successful exchange
                             unsub();
+                            clearTimeout(triggerWatchdog);
+                            clearTimeout(hardTimeout);
                             showSuccess();
-                        } else if (snap.data().status === 'error') {
+                            return;
+                        }
+                        const data = snap.data();
+                        if (data.status === 'error') {
                             unsub();
+                            clearTimeout(triggerWatchdog);
+                            clearTimeout(hardTimeout);
                             pendingRef.delete().catch(() => {});
-                            showError('Token exchange failed: ' + (snap.data().error || 'unknown error'));
+                            showError('Connection failed: ' + (data.error || 'unknown error'));
+                        } else if (statusMsgs[data.status]) {
+                            document.getElementById('desc').textContent = statusMsgs[data.status];
+                            clearTimeout(triggerWatchdog);
                         }
                     }, (err) => {
                         console.error('Firestore listen error:', err);
                         showError('Connection error. Please try again.');
                     });
 
-                    // Timeout after 30s
-                    setTimeout(() => {
+                    // If trigger hasn't fired within 60s, it's not going to
+                    const triggerWatchdog = setTimeout(() => {
                         unsub();
                         pendingRef.delete().catch(() => {});
-                        showError('Timed out waiting for connection. Please try again.');
-                    }, 30000);
+                        showError('Server did not respond. The background function may not be active — please contact support or try again.');
+                    }, 60000);
+
+                    // Hard timeout at 120s
+                    const hardTimeout = setTimeout(() => {
+                        unsub();
+                        pendingRef.delete().catch(() => {});
+                        showError('Timed out waiting for Samsara. Please try again.');
+                    }, 120000);
 
                 } catch (err) {
                     console.error('Samsara callback error:', err);

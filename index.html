@@ -26,7 +26,10 @@
             https://*.firebase.com
             https://*.firebaseapp.com
             https://api.emailjs.com
-            https://www.gstatic.com;
+            https://www.gstatic.com
+            https://cdnjs.cloudflare.com
+            https://cdn.jsdelivr.net
+            https://cdn.sheetjs.com;
         frame-src 'self'
             https://accounts.google.com
             https://apis.google.com
@@ -254,12 +257,12 @@
             
             <!-- TODO: replace with <template id="tpl-otp-inputs"> — identical 6-input OTP grid used in 4 places -->
             <div class="code-input-container" id="verifyCodeInputs">
-                <input type="text" class="code-input" maxlength="1" data-index="0" inputmode="numeric" autocomplete="one-time-code">
-                <input type="text" class="code-input" maxlength="1" data-index="1" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" data-index="2" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" data-index="3" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" data-index="4" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" data-index="5" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" data-index="0" inputmode="numeric" autocomplete="one-time-code" aria-label="Digit 1">
+                <input type="text" class="code-input" maxlength="1" data-index="1" inputmode="numeric" aria-label="Digit 2">
+                <input type="text" class="code-input" maxlength="1" data-index="2" inputmode="numeric" aria-label="Digit 3">
+                <input type="text" class="code-input" maxlength="1" data-index="3" inputmode="numeric" aria-label="Digit 4">
+                <input type="text" class="code-input" maxlength="1" data-index="4" inputmode="numeric" aria-label="Digit 5">
+                <input type="text" class="code-input" maxlength="1" data-index="5" inputmode="numeric" aria-label="Digit 6">
             </div>
             
             <div id="verifyError" class="verify-error" style="display: none;"></div>
@@ -295,16 +298,16 @@
                 <p class="totp-account">Account: <strong id="totpEmail">your@email.com</strong></p>
             </div>
             
-            <p class="verify-subtitle" style="margin-top: 1rem;">Enter the 6-digit code from your app:</p>
+            <p class="verify-subtitle totp-code-prompt">Enter the 6-digit code from your app:</p>
             
             <!-- TODO: replace with <template id="tpl-otp-inputs"> — identical 6-input OTP grid used in 4 places -->
             <div class="code-input-container" id="totpSetupCodeInputs">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 1">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 2">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 3">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 4">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 5">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 6">
             </div>
             
             <div id="totpSetupError" class="verify-error totp-error" style="display: none;"></div>
@@ -326,12 +329,12 @@
             
             <!-- TODO: replace with <template id="tpl-otp-inputs"> — identical 6-input OTP grid used in 4 places -->
             <div class="code-input-container" id="totpVerifyCodeInputs">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
-                <input type="text" class="code-input" maxlength="1" inputmode="numeric">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 1">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 2">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 3">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 4">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 5">
+                <input type="text" class="code-input" maxlength="1" inputmode="numeric" aria-label="Digit 6">
             </div>
             
             <div id="totpVerifyError" class="verify-error totp-error" style="display: none;"></div>
@@ -591,7 +594,7 @@
 
         <!-- Footer -->
         <footer class="footer">
-            <p>IFTA Wizard 2025 | <a href="https://www.iftach.org/taxmatrix4/" target="_blank">IFTA, Inc.</a></p>
+            <p>IFTA Wizard 2025 | <a href="https://www.iftach.org/taxmatrix4/" target="_blank" rel="noopener noreferrer">IFTA, Inc.</a></p>
             <p class="disclaimer">For estimation only. Verify rates before filing.</p>
         </footer>
     </div>
@@ -703,7 +706,7 @@
                 <div id="driveNotConnected" class="drive-connect">
                     <p>Connect your Google Drive to save reports</p>
                     <button class="btn btn-primary" id="connectDrive">
-                        <svg viewBox="0 0 24 24" width="16" height="16" style="margin-right: 6px;">
+                        <svg viewBox="0 0 24 24" width="16" height="16" class="drive-btn-icon">
                             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>

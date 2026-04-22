@@ -722,6 +722,61 @@
             loadCompanyTaskWidgets();
         }
 
+        // Resize + repaint overview fleet map when navigating to Company Workspace
+        if (section === 'overview') {
+            setTimeout(() => {
+                if (samsaraFleet.overviewMap) {
+                    google.maps.event.trigger(samsaraFleet.overviewMap, 'resize');
+                    // Re-render last known data so markers appear after resize
+                    if (uid()) db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet').get().then(snap => {
+                        if (!snap.exists) return;
+                        const { vehicles, syncedAt } = snap.data();
+                        samsaraFleet.lastSyncedAt = syncedAt;
+                        _buildFleetMarkers(vehicles || [], samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
+                        _renderFleetVehicleList(vehicles || [], 'overviewFleetVehicleList', samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
+                        _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', '');
+                        _updateFleetSyncLabels();
+                    }).catch(() => {});
+                } else {
+                    // Always init the map so it fills the background
+                    _ensureOverviewMap();
+                    if (samsaraFleet.overviewMap && uid()) {
+                        db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet').get().then(snap => {
+                            if (!snap.exists) return;
+                            const { vehicles, syncedAt } = snap.data();
+                            samsaraFleet.lastSyncedAt = syncedAt;
+                            _buildFleetMarkers(vehicles || [], samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
+                            _renderFleetVehicleList(vehicles || [], 'overviewFleetVehicleList', samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
+                            _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', '');
+                            _updateFleetSyncLabels();
+                        }).catch(() => {});
+                    }
+                }
+            }, 300);
+        }
+
+        // Init live map when navigating to it
+        if (section === 'live-map') {
+            setTimeout(() => {
+                if (_ensureLiveMap()) {
+                    google.maps.event.trigger(samsaraFleet.liveMap, 'resize');
+                    // Render last known fleet data into live map if available
+                    if (samsaraFleet.lastSyncedAt) {
+                        db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet').get().then(snap => {
+                            if (!snap.exists) return;
+                            const { vehicles } = snap.data();
+                            _fleetOverlay('liveMapOverlay', 'liveMapOverlayText', '');
+                            _buildFleetMarkers(vehicles || [], samsaraFleet.liveMap, samsaraFleet.liveMarkers);
+                            _renderFleetVehicleList(vehicles || [], 'liveMapVehicleList', samsaraFleet.liveMap, samsaraFleet.liveMarkers);
+                        }).catch(() => {});
+                    } else if (state.profile && state.profile.samsara) {
+                        _fleetOverlay('liveMapOverlay', 'liveMapOverlayText', 'Loading fleet data…');
+                        triggerFleetSync();
+                    }
+                }
+            }, 300);
+        }
+
         // Init task manager section when navigated to
         if (section === 'task-manager' && uid() && window.TaskManager) {
             window.TaskManager.initWithUser(state.user);
@@ -3466,7 +3521,7 @@
     function truckCell(t, key) {
         const du = t.docUrls || {};
         switch(key) {
-            case 'unit': return '<td class="col-unit"><div class="cell cell-primary cell-with-doc" title="Open truck profile for ' + escapeHtml(t.unit || t.id) + '"><span><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('truck', t.id, 'photo', 'Truck Photo', hasInlineDoc(t, 'photo'), t.photoUrl) + '</div></td>';
+            case 'unit': return '<td class="col-unit"><div class="cell cell-primary cell-with-doc" title="Open truck profile for ' + escapeHtml(t.unit || t.id) + '"><span><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + (t.samsaraLocation ? '<span class="samsara-loc-badge" title="' + escapeHtml(t.samsaraLocation.location || '') + ' · ' + (t.samsaraLocation.speed || 0) + ' mph">GPS</span>' : '') + '</span>' + inlineDocButton('truck', t.id, 'photo', 'Truck Photo', hasInlineDoc(t, 'photo'), t.photoUrl) + '</div></td>';
             case 'year': return '<td class="col-year"><div class="cell">' + escapeHtml(t.year) + '</div></td>';
             case 'make': return '<td class="col-make"><div class="cell">' + escapeHtml(t.make) + '</div></td>';
             case 'model': return '<td class="col-model"><div class="cell">' + escapeHtml(t.model) + '</div></td>';
@@ -5955,6 +6010,9 @@
         $('truckNotePriority').value = 'normal';
 
         if (!isCreate && id) { loadTruckPanelHistory(); loadTruckPanelTasks(); }
+
+        // Telematics section — show if truck has samsaraId, populate from cached data
+        renderTruckTelematics(t, id);
     }
 
     function closeTruckDetailPanel() {
@@ -11724,7 +11782,9 @@
     function initOverviewCards() {
         document.querySelectorAll('.overview-dropdown').forEach(dd => {
             let openTimer = null, closeTimer = null;
-            dd.querySelector('.overview-card').addEventListener('click', () => {
+            const cardTrigger = dd.querySelector('.overview-card, .overview-map-chip');
+            if (!cardTrigger) return;
+            cardTrigger.addEventListener('click', () => {
                 const wasOpen = dd.classList.contains('open');
                 document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
                 if (!wasOpen) dd.classList.add('open');
@@ -12174,12 +12234,140 @@
     }
 
     // ── Samsara Integration ───────────────
+    // ── Samsara Telematics Panel ──────────
+
+    function _fmtOdometer(miles) {
+        if (miles == null) return '—';
+        return miles.toLocaleString() + ' mi';
+    }
+    function _fmtEngineHours(h) {
+        if (h == null) return '—';
+        return h.toLocaleString() + ' hrs';
+    }
+    function _fmtGpsTime(isoStr) {
+        if (!isoStr) return '';
+        try {
+            const d = new Date(isoStr);
+            return d.toLocaleTimeString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+        } catch { return ''; }
+    }
+
+    function renderTruckTelematics(truck, truckId) {
+        const section = $('truckTelematicsSection');
+        if (!section) return;
+
+        // Hide for new trucks or no Samsara connection
+        const hasSamsara = truck && (truck.samsaraId || truck.samsaraLocation);
+        const samsaraConnected = state.profile && state.profile.samsara && state.profile.samsara.accessToken;
+        if (!truckId || !hasSamsara || !samsaraConnected) {
+            section.classList.add('hidden');
+            return;
+        }
+        section.classList.remove('hidden');
+
+        // GPS / location
+        const loc = truck.samsaraLocation || null;
+        $('tpTelemLocation').textContent  = loc && loc.location ? loc.location : '—';
+        $('tpTelemLocationTime').textContent = loc && loc.time ? _fmtGpsTime(loc.time) : '';
+        $('tpTelemSpeed').textContent     = loc && loc.speed != null ? loc.speed + ' mph' : '—';
+
+        // Odometer, engine hours
+        $('tpTelemOdometer').textContent    = _fmtOdometer(truck.samsaraOdometer);
+        $('tpTelemEngineHours').textContent = _fmtEngineHours(truck.samsaraEngineHours);
+
+        // Fuel level
+        const fuelEl  = $('tpTelemFuelLevel');
+        const fuelBar = $('tpTelemFuelBar');
+        const fuel    = truck.samsaraFuelLevel;
+        if (fuel != null) {
+            fuelEl.textContent = fuel + '%';
+            fuelEl.style.color = fuel < 15 ? '#dc2626' : fuel < 30 ? '#f59e0b' : '';
+            if (fuelBar) {
+                fuelBar.style.width = fuel + '%';
+                fuelBar.style.background = fuel < 15 ? '#dc2626' : fuel < 30 ? '#f59e0b' : '#22c55e';
+            }
+        } else {
+            fuelEl.textContent = '—';
+            if (fuelBar) fuelBar.style.width = '0%';
+        }
+
+        // Safety events
+        const safetyEvents = truck.samsaraSafetyEvents || [];
+        $('tpTelemSafetyCount').textContent = safetyEvents.length || '0';
+        $('tpTelemSafetyCount').style.color = safetyEvents.length > 5 ? '#dc2626' : safetyEvents.length > 0 ? '#f59e0b' : '';
+        const safetyWrap = $('tpTelemSafetyWrap');
+        const safetyList = $('tpTelemSafetyList');
+        if (safetyWrap && safetyList) {
+            if (safetyEvents.length) {
+                safetyWrap.style.display = '';
+                safetyList.innerHTML = safetyEvents.slice(0, 10).map(ev => {
+                    const label = (ev.type || 'event').replace(/_/g, ' ');
+                    const time  = ev.time ? ' <span class="tp-telem-fault-time">' + _fmtGpsTime(ev.time) + '</span>' : '';
+                    const sev   = ev.severity ? ' <span class="tp-telem-fault-sev tp-telem-sev-' + ev.severity.toLowerCase() + '">' + escapeHtml(ev.severity) + '</span>' : '';
+                    return '<li>' + escapeHtml(label) + sev + time + '</li>';
+                }).join('');
+            } else {
+                safetyWrap.style.display = 'none';
+            }
+        }
+
+        // Fault codes
+        const faults     = truck.samsaraFaults || [];
+        const faultsWrap = $('tpTelemFaultsWrap');
+        const faultsList = $('tpTelemFaultsList');
+        if (faultsWrap && faultsList) {
+            if (faults.length) {
+                faultsWrap.style.display = '';
+                faultsList.innerHTML = faults.slice(0, 10).map(f => {
+                    const code = f.code ? '<strong>' + escapeHtml(f.code) + '</strong> ' : '';
+                    const desc = f.description ? escapeHtml(f.description) : '';
+                    const sev  = f.severity ? ' <span class="tp-telem-fault-sev tp-telem-sev-' + f.severity.toLowerCase() + '">' + escapeHtml(f.severity) + '</span>' : '';
+                    return '<li>' + code + desc + sev + '</li>';
+                }).join('');
+            } else {
+                faultsWrap.style.display = 'none';
+            }
+        }
+
+        // Sync time + Sync Now button
+        const syncTimeEl = $('tpTelemSyncTime');
+        if (syncTimeEl) {
+            syncTimeEl.textContent = samsaraFleet.lastSyncedAt ? 'Synced ' + _fleetSyncTime(samsaraFleet.lastSyncedAt) : '';
+        }
+    }
+
+    function initTelematicsSyncBtn() {
+        const btn = $('tpTelemSyncBtn');
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+            if (!uid() || samsaraFleet.syncing) return;
+            btn.disabled = true;
+            btn.classList.add('syncing');
+            await triggerFleetSync();
+            // Reload truck from Firestore to get fresh samsara fields
+            if (truckPanelId) {
+                try {
+                    const snap = await db.collection('users').doc(uid()).collection('trucks').doc(truckPanelId).get();
+                    if (snap.exists) {
+                        const updated = { id: snap.id, ...snap.data() };
+                        const idx = state.trucks.findIndex(x => x.id === truckPanelId);
+                        if (idx >= 0) state.trucks[idx] = updated;
+                        renderTruckTelematics(updated, truckPanelId);
+                    }
+                } catch (e) { console.warn('Telematics reload error:', e); }
+            }
+            btn.disabled = false;
+            btn.classList.remove('syncing');
+        });
+    }
+
     function updateSamsaraUI(samsaraData) {
         const connectBtn = $('samsaraConnectBtn');
         const disconnectBtn = $('samsaraDisconnectBtn');
         const desc = $('samsaraStatusDesc');
         const dot = $('samsaraStatusDot');
         const label = $('samsaraStatusLabel');
+        const fleetCard = $('samsaraFleetCard');
         if (!connectBtn || !disconnectBtn) return;
 
         if (samsaraData && samsaraData.connectedAt) {
@@ -12190,12 +12378,20 @@
             if (desc) desc.textContent = 'Connected since ' + dateStr + '. ELD and telematics data is syncing.';
             if (dot) dot.classList.add('connected');
             if (label) { label.textContent = 'Connected'; label.classList.add('connected'); }
+            if (fleetCard) fleetCard.style.display = '';
+            // Auto-trigger fleet sync on first load if no cache yet
+            if (fleetCard && !samsaraFleet.lastSyncedAt && !samsaraFleet.syncing) {
+                _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', 'Loading fleet data…');
+                triggerFleetSync();
+            }
         } else {
             connectBtn.classList.remove('hidden');
             disconnectBtn.classList.add('hidden');
             if (desc) desc.textContent = 'Connect your Samsara fleet account for ELD and telematics data.';
             if (dot) dot.classList.remove('connected');
             if (label) { label.textContent = 'Not connected'; label.classList.remove('connected'); }
+            if (fleetCard) fleetCard.style.display = 'none';
+            _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', 'Connect Samsara to see fleet locations');
         }
     }
 
@@ -12290,6 +12486,327 @@
         }
     }
 
+    // ── Samsara Fleet Map ─────────────────
+    const samsaraFleet = {
+        overviewMap: null,
+        liveMap: null,
+        overviewMarkers: [],
+        liveMarkers: [],
+        infoWindows: [],
+        unsubFleet: null,
+        lastSyncedAt: null,
+        syncing: false,
+    };
+
+    function _fleetSyncTime(ts) {
+        if (!ts) return '';
+        const diff = Math.round((Date.now() - ts) / 60000);
+        if (diff < 1) return 'Just now';
+        if (diff < 60) return diff + ' min ago';
+        const h = Math.round(diff / 60);
+        return h + ' hr ago';
+    }
+
+    function _updateFleetSyncLabels() {
+        const t = _fleetSyncTime(samsaraFleet.lastSyncedAt);
+        const el1 = $('overviewFleetSyncTime');
+        const el2 = $('liveMapSyncTime');
+        if (el1) el1.textContent = t ? 'Synced ' + t : '';
+        if (el2) el2.textContent = t ? 'Synced ' + t : '';
+    }
+
+    function _fleetOverlay(overlayId, textId, text) {
+        const el = $(overlayId);
+        const txt = $(textId);
+        if (el) el.style.display = text ? 'flex' : 'none';
+        if (txt) txt.textContent = text || '';
+    }
+
+    function _buildFleetMarkers(vehicles, mapObj, markersArray) {
+        // Clear old markers
+        markersArray.forEach(m => m.setMap(null));
+        markersArray.length = 0;
+        samsaraFleet.infoWindows.forEach(w => w.close());
+        samsaraFleet.infoWindows.length = 0;
+
+        const vehiclesWithGps = vehicles.filter(v => v.gps && v.gps.lat && v.gps.lng);
+        if (!vehiclesWithGps.length) return;
+
+        const bounds = new google.maps.LatLngBounds();
+
+        vehiclesWithGps.forEach(v => {
+            const pos = { lat: v.gps.lat, lng: v.gps.lng };
+            const isMoving = v.gps.speed > 2;
+            const marker = new google.maps.Marker({
+                position: pos,
+                map: mapObj,
+                title: v.name,
+                icon: {
+                    path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                    scale: 5,
+                    rotation: v.gps.heading || 0,
+                    fillColor: isMoving ? '#6366f1' : '#64748b',
+                    fillOpacity: 1,
+                    strokeColor: '#fff',
+                    strokeWeight: 1.5,
+                },
+            });
+
+            const updatedTime = v.gps.time ? new Date(v.gps.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—';
+            const iw = new google.maps.InfoWindow({
+                content: '<div style="font:13px/1.5 -apple-system,sans-serif;min-width:160px">'
+                    + '<strong>' + (v.name || 'Vehicle') + '</strong><br>'
+                    + (v.gps.location ? '<span style="color:#64748b;font-size:12px">' + v.gps.location + '</span><br>' : '')
+                    + (v.gps.speed ? '<span>' + v.gps.speed + ' mph</span> · ' : '')
+                    + '<span style="color:#94a3b8;font-size:11px">' + updatedTime + '</span>'
+                    + '</div>',
+            });
+            marker.addListener('click', () => {
+                samsaraFleet.infoWindows.forEach(w => w.close());
+                iw.open(mapObj, marker);
+            });
+            samsaraFleet.infoWindows.push(iw);
+            markersArray.push(marker);
+            bounds.extend(pos);
+        });
+
+        if (vehiclesWithGps.length === 1) {
+            mapObj.setCenter(vehiclesWithGps[0].gps);
+            mapObj.setZoom(11);
+        } else {
+            mapObj.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
+        }
+    }
+
+    function _renderFleetVehicleList(vehicles, listId, mapObj, markersArray) {
+        const el = $(listId);
+        if (!el) return;
+        if (!vehicles || !vehicles.length) {
+            el.innerHTML = '<div class="samsara-fleet-vehicle-list-empty">No vehicles found</div>';
+            return;
+        }
+        el.innerHTML = vehicles.map((v, i) => {
+            const hasGps = v.gps && v.gps.lat;
+            const isMoving = hasGps && v.gps.speed > 2;
+            const speed = hasGps ? v.gps.speed + ' mph' : '';
+            const loc = hasGps && v.gps.location ? v.gps.location.split(',').slice(0, 2).join(',') : 'No GPS data';
+            return '<div class="samsara-fleet-vehicle-item' + (hasGps ? '' : ' no-gps') + '" data-idx="' + i + '">'
+                + '<span class="samsara-fleet-vehicle-dot' + (hasGps ? (isMoving ? ' moving' : ' stopped') : '') + '"></span>'
+                + '<div class="samsara-fleet-vehicle-info">'
+                + '<span class="samsara-fleet-vehicle-name">' + escapeHtml(v.name || 'Unit') + '</span>'
+                + '<span class="samsara-fleet-vehicle-loc">' + escapeHtml(loc) + (speed ? ' · ' + speed : '') + '</span>'
+                + '</div></div>';
+        }).join('');
+
+        el.querySelectorAll('.samsara-fleet-vehicle-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const idx = parseInt(item.dataset.idx, 10);
+                const v = vehicles[idx];
+                if (!v || !v.gps || !mapObj) return;
+                mapObj.panTo({ lat: v.gps.lat, lng: v.gps.lng });
+                mapObj.setZoom(12);
+                const marker = markersArray[markersArray.findIndex((m, mi) => {
+                    const vg = vehicles.filter(x => x.gps && x.gps.lat);
+                    return vg[mi] === v;
+                })];
+                if (marker) google.maps.event.trigger(marker, 'click');
+            });
+        });
+    }
+
+    // NOAA NEXRAD precipitation radar tile layer (free, no API key)
+    let _nexradLayer = null;
+    let weatherOn = false;
+
+    function _getNexradLayer() {
+        if (_nexradLayer) return _nexradLayer;
+        if (!isGMaps()) return null;
+        _nexradLayer = new google.maps.ImageMapType({
+            getTileUrl: (coord, zoom) =>
+                `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/${zoom}/${coord.x}/${coord.y}.png`,
+            tileSize: new google.maps.Size(256, 256),
+            maxZoom: 9,
+            minZoom: 0,
+            opacity: 0.55,
+            name: 'NEXRAD',
+        });
+        return _nexradLayer;
+    }
+
+    function _toggleWeather(map) {
+        const layer = _getNexradLayer();
+        if (!map || !layer) return;
+        if (weatherOn) {
+            map.overlayMapTypes.clear();
+            weatherOn = false;
+        } else {
+            map.overlayMapTypes.insertAt(0, layer);
+            weatherOn = true;
+        }
+        const btn = $('overviewWeatherToggle');
+        if (btn) btn.classList.toggle('weather-on', weatherOn);
+    }
+
+    function _ensureOverviewMap() {
+        if (samsaraFleet.overviewMap) return true;
+        const container = $('overviewFleetMap');
+        if (!container || !isGMaps()) return false;
+        samsaraFleet.overviewMap = new google.maps.Map(container, {
+            center: { lat: 39.8283, lng: -98.5795 },
+            zoom: 4,
+            disableDefaultUI: true,
+            zoomControl: true,
+            gestureHandling: 'greedy',
+            styles: [
+                { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
+                { elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
+                { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f5f5' }] },
+                { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+                { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+                { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#e0e0e0' }] },
+                { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] },
+                { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#c9e8f5' }] },
+                { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#9e9e9e' }] },
+                { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+            ],
+        });
+        return true;
+    }
+
+    function _ensureLiveMap() {
+        if (samsaraFleet.liveMap) return true;
+        const container = $('liveMapContainer');
+        if (!container || !isGMaps()) return false;
+        samsaraFleet.liveMap = new google.maps.Map(container, {
+            center: { lat: 39.8283, lng: -98.5795 },
+            zoom: 4,
+            disableDefaultUI: false,
+            zoomControl: true,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: true,
+            gestureHandling: 'greedy',
+            styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }],
+        });
+        return true;
+    }
+
+    function _renderFleetData(vehicles) {
+        const hasGps = vehicles.some(v => v.gps && v.gps.lat);
+
+        // Overview map
+        _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', hasGps ? '' : 'No GPS data available');
+        if (_ensureOverviewMap()) {
+            _buildFleetMarkers(vehicles, samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
+            _renderFleetVehicleList(vehicles, 'overviewFleetVehicleList', samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
+        }
+
+        // Live map (only update if initialized)
+        if (samsaraFleet.liveMap) {
+            _fleetOverlay('liveMapOverlay', 'liveMapOverlayText', hasGps ? '' : 'No GPS data available');
+            _buildFleetMarkers(vehicles, samsaraFleet.liveMap, samsaraFleet.liveMarkers);
+            _renderFleetVehicleList(vehicles, 'liveMapVehicleList', samsaraFleet.liveMap, samsaraFleet.liveMarkers);
+        }
+
+        _updateFleetSyncLabels();
+    }
+
+    async function triggerFleetSync() {
+        if (!uid() || samsaraFleet.syncing) return;
+        samsaraFleet.syncing = true;
+
+        // Show loading overlays
+        _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', 'Syncing fleet data…');
+        _fleetOverlay('liveMapOverlay', 'liveMapOverlayText', 'Syncing fleet data…');
+        [$('overviewFleetSyncBtn'), $('liveMapSyncBtn')].forEach(b => { if (b) { b.disabled = true; b.classList.add('syncing'); } });
+
+        try {
+            const reqRef = await db.collection('users').doc(uid()).collection('samsara_sync_requests').add({ requestedAt: Date.now() });
+            const timeoutMs = 55000;
+            const startMs = Date.now();
+
+            await new Promise((resolve, reject) => {
+                const unsub = reqRef.onSnapshot(snap => {
+                    if (Date.now() - startMs > timeoutMs) { unsub(); reject(new Error('timeout')); return; }
+                    if (!snap.exists) { unsub(); resolve(); return; } // deleted = success
+                    const d = snap.data() || {};
+                    if (d.status === 'error') { unsub(); reject(new Error(d.error || 'sync_error')); }
+                });
+                setTimeout(() => { unsub(); reject(new Error('timeout')); }, timeoutMs);
+            });
+
+            // Read fresh cache
+            const cacheDoc = await db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet').get();
+            if (cacheDoc.exists) {
+                const { vehicles, syncedAt } = cacheDoc.data();
+                samsaraFleet.lastSyncedAt = syncedAt;
+                // Also update truck table rows with samsara location badges
+                await loadTrucks();
+                renderTrucks();
+                _renderFleetData(vehicles || []);
+            }
+        } catch (err) {
+            console.error('Fleet sync error:', err);
+            const msg = err.message === 'timeout' ? 'Sync timed out' : ('Sync failed: ' + (err.message || 'unknown'));
+            _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', msg);
+            _fleetOverlay('liveMapOverlay', 'liveMapOverlayText', msg);
+        } finally {
+            samsaraFleet.syncing = false;
+            [$('overviewFleetSyncBtn'), $('liveMapSyncBtn')].forEach(b => { if (b) { b.disabled = false; b.classList.remove('syncing'); } });
+        }
+    }
+
+    function initFleetMap() {
+        // Wire sync buttons
+        const overviewBtn = $('overviewFleetSyncBtn');
+        const liveBtn = $('liveMapSyncBtn');
+        if (overviewBtn) overviewBtn.addEventListener('click', triggerFleetSync);
+        if (liveBtn) liveBtn.addEventListener('click', triggerFleetSync);
+
+        // Wire weather toggle
+        const weatherBtn = $('overviewWeatherToggle');
+        if (weatherBtn) {
+            weatherBtn.addEventListener('click', () => {
+                if (!samsaraFleet.overviewMap) return;
+                _toggleWeather(samsaraFleet.overviewMap);
+            });
+        }
+
+        // Wire sidebar collapse / expand
+        const collapseBtn = $('overviewSidebarCollapse');
+        const expandBtn   = $('overviewSidebarExpand');
+        const sidebar     = $('overviewMapSidebar');
+        const topbar      = $('overviewMapTopbar');
+        if (collapseBtn && sidebar) {
+            collapseBtn.addEventListener('click', () => {
+                sidebar.classList.add('collapsed');
+                if (topbar) topbar.classList.add('sidebar-hidden');
+                if (expandBtn) expandBtn.style.display = 'inline-flex';
+            });
+        }
+        if (expandBtn && sidebar) {
+            expandBtn.addEventListener('click', () => {
+                sidebar.classList.remove('collapsed');
+                if (topbar) topbar.classList.remove('sidebar-hidden');
+                expandBtn.style.display = 'none';
+            });
+        }
+
+        // Wire telematics panel sync button
+        initTelematicsSyncBtn();
+
+        // Subscribe to fleet cache — live updates whenever a sync completes
+        if (uid()) {
+            samsaraFleet.unsubFleet = db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet')
+                .onSnapshot(snap => {
+                    if (!snap.exists) return;
+                    const { vehicles, syncedAt } = snap.data();
+                    samsaraFleet.lastSyncedAt = syncedAt;
+                    _renderFleetData(vehicles || []);
+                }, err => console.warn('Fleet cache listener error:', err));
+        }
+    }
+
     // ── Section Collapse Toggles ─────────
     function initSectionCollapseToggles() {
         const chevronSvg = '<svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
@@ -12347,6 +12864,7 @@
         initTableColPickers();
         initGoogleDriveForImport();
         initSamsara();
+        initFleetMap();
         initAuth();
 
         // Handle URL params to open detail panel (e.g. from Task Manager)

@@ -6362,6 +6362,277 @@ tr.row-dnd td:first-child {
     border-left: 3px solid #dc2626;
 }
 
+/* Samsara GPS badge in truck unit cell */
+.samsara-loc-badge {
+    display: inline-block;
+    background: #6366f1;
+    color: #fff;
+    font-size: 0.5rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 1px 4px;
+    border-radius: 3px;
+    margin-left: 5px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    cursor: default;
+}
+
+/* Samsara telematics strip inside truck detail panel */
+.samsara-telematics-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px 2px;
+    padding: 6px 16px;
+    background: rgba(99, 102, 241, 0.06);
+    border-bottom: 1px solid rgba(99, 102, 241, 0.14);
+    font-size: 0.72rem;
+    color: var(--text, #1e293b);
+}
+.sam-strip-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #94a3b8;
+    margin-right: 3px;
+    flex-shrink: 0;
+}
+.sam-strip-dot.moving  { background: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.18); }
+.sam-strip-dot.stopped { background: #94a3b8; }
+.sam-strip-sep {
+    margin: 0 5px;
+    color: var(--text-muted, #cbd5e1);
+}
+.sam-strip-time { color: var(--text-muted, #94a3b8); }
+
+/* ── Samsara Fleet Map Card (Company Workspace) ── */
+.samsara-fleet-card {
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 20px;
+}
+.samsara-fleet-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+    background: var(--card-header-bg, #f8fafc);
+}
+.samsara-fleet-card-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text, #1e293b);
+}
+.samsara-fleet-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.samsara-fleet-sync-time {
+    font-size: 0.72rem;
+    color: var(--text-muted, #94a3b8);
+}
+.samsara-fleet-sync-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--text, #1e293b);
+    background: transparent;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+}
+.samsara-fleet-sync-btn:hover:not(:disabled) {
+    background: var(--sidebar-hover, #f1f5f9);
+    border-color: #94a3b8;
+}
+.samsara-fleet-sync-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+.samsara-fleet-sync-btn.syncing svg {
+    animation: fleet-spin 0.9s linear infinite;
+}
+@keyframes fleet-spin {
+    to { transform: rotate(360deg); }
+}
+
+.samsara-fleet-map-body {
+    display: flex;
+    height: 380px;
+}
+.samsara-fleet-map-container {
+    flex: 1;
+    position: relative;
+    min-width: 0;
+}
+#overviewFleetMap {
+    width: 100%;
+    height: 100%;
+}
+.samsara-fleet-map-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(248, 250, 252, 0.9);
+    z-index: 2;
+    pointer-events: none;
+}
+.samsara-fleet-map-overlay-text {
+    font-size: 0.8125rem;
+    color: var(--text-muted, #64748b);
+}
+.samsara-fleet-vehicle-list {
+    width: 220px;
+    border-left: 1px solid var(--border, #e2e8f0);
+    overflow-y: auto;
+    background: var(--card-bg, #fff);
+    display: flex;
+    flex-direction: column;
+}
+.samsara-fleet-vehicle-list-empty {
+    padding: 20px 14px;
+    font-size: 0.78rem;
+    color: var(--text-muted, #94a3b8);
+    text-align: center;
+}
+.samsara-fleet-vehicle-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 9px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border, #f1f5f9);
+    transition: background 0.12s;
+}
+.samsara-fleet-vehicle-item:hover {
+    background: var(--sidebar-hover, #f8fafc);
+}
+.samsara-fleet-vehicle-item.no-gps {
+    opacity: 0.55;
+    cursor: default;
+}
+.samsara-fleet-vehicle-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #cbd5e1;
+    flex-shrink: 0;
+    margin-top: 4px;
+}
+.samsara-fleet-vehicle-dot.moving {
+    background: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99,102,241,0.18);
+}
+.samsara-fleet-vehicle-dot.stopped {
+    background: #94a3b8;
+}
+.samsara-fleet-vehicle-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+.samsara-fleet-vehicle-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text, #1e293b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.samsara-fleet-vehicle-loc {
+    font-size: 0.7rem;
+    color: var(--text-muted, #64748b);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Live Map Section */
+.dash-card-body-map {
+    padding: 0 !important;
+    overflow: hidden;
+    flex: 1;
+    display: flex;
+}
+.samsara-live-map-wrap {
+    flex: 1;
+    position: relative;
+    min-width: 0;
+    min-height: 500px;
+}
+#liveMapContainer {
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+}
+.samsara-live-map-sidebar {
+    width: 240px;
+    border-left: 1px solid var(--border, #e2e8f0);
+    display: flex;
+    flex-direction: column;
+    background: var(--card-bg, #fff);
+    overflow: hidden;
+}
+.samsara-live-map-sidebar-header {
+    padding: 10px 14px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-muted, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border, #e2e8f0);
+    background: var(--card-header-bg, #f8fafc);
+    flex-shrink: 0;
+}
+.samsara-live-map-sidebar .samsara-fleet-vehicle-list {
+    flex: 1;
+    width: 100%;
+    border-left: none;
+}
+
+@media (max-width: 768px) {
+    .samsara-fleet-map-body {
+        flex-direction: column;
+        height: auto;
+    }
+    .samsara-fleet-map-container {
+        height: 280px;
+    }
+    .samsara-fleet-vehicle-list {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid var(--border, #e2e8f0);
+        max-height: 200px;
+    }
+    .samsara-live-map-sidebar {
+        width: 100%;
+        border-left: none;
+        border-top: 1px solid var(--border, #e2e8f0);
+        max-height: 200px;
+    }
+    .dash-card-body-map {
+        flex-direction: column;
+    }
+}
+
 /* DND toggle switch */
 .dnd-toggle {
     display: inline-flex;

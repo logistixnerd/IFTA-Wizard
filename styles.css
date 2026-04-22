@@ -6,6 +6,7 @@ input[type="number"]::-webkit-inner-spin-button {
 }
 input[type="number"] {
     -moz-appearance: textfield;
+    appearance: textfield;
 }
 
 /* CSS Variables - Clean Minimalist */
@@ -384,6 +385,7 @@ body {
 }
 
 .checkbox-label span {
+    -webkit-user-select: none;
     user-select: none;
 }
 
@@ -800,6 +802,10 @@ body {
     font-weight: 500;
 }
 
+.totp-code-prompt {
+    margin-top: 1rem;
+}
+
 /* 6-digit code input - Modern Style */
 .code-input-container {
     display: flex;
@@ -951,6 +957,7 @@ body {
     padding: 0.75rem 1rem;
     border-radius: 8px;
     border: 1px solid #e0e0e0;
+    -webkit-user-select: all;
     user-select: all;
     cursor: text;
 }
@@ -1069,9 +1076,9 @@ body {
 }
 
 .quarter-select {
-    appearance: none;
     -webkit-appearance: none;
     -moz-appearance: none;
+    appearance: none;
     background: var(--white);
     color: var(--gray-700);
     padding: 0.25rem 0.5rem;
@@ -1299,8 +1306,8 @@ input, select {
 }
 
 select {
-    appearance: none;
     -webkit-appearance: none;
+    appearance: none;
     cursor: pointer;
     padding-right: 20px;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -1431,6 +1438,7 @@ input::placeholder {
     border-bottom: 1px solid #e5e7eb;
     border-right: 1px solid #f3f4f6;
     white-space: nowrap;
+    -webkit-user-select: none;
     user-select: none;
 }
 
@@ -1486,8 +1494,8 @@ input::placeholder {
 }
 
 #dataTable select {
-    appearance: none;
     -webkit-appearance: none;
+    appearance: none;
     cursor: pointer;
     padding-right: 20px;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%239ca3af' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
@@ -2738,6 +2746,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     border-left: 3px solid var(--primary);
     cursor: pointer;
     transition: var(--transition);
+    -webkit-user-select: none;
     user-select: none;
     word-break: break-word;
 }
@@ -3123,6 +3132,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     border-radius: 6px;
     cursor: pointer;
     transition: background 0.1s;
+    -webkit-user-select: none;
     user-select: none;
 }
 
@@ -3230,8 +3240,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 
 /* Inline status select */
 .inline-status {
-    appearance: none;
     -webkit-appearance: none;
+    appearance: none;
     border: 1px solid transparent;
     font: inherit;
     font-size: 0.75rem;
@@ -3905,6 +3915,12 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     padding: 1rem 0;
 }
 
+.drive-btn-icon {
+    margin-right: 6px;
+    flex-shrink: 0;
+    vertical-align: middle;
+}
+
 .drive-connect p {
     font-size: 0.8125rem;
     color: var(--gray-600);
@@ -4092,6 +4108,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
     text-align: left;
     border-radius: 6px;
     border: 1px solid rgba(59, 130, 246, 0.2);
+    -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px);
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
 }
@@ -4195,7 +4212,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 
 .embedded .app-container {
-    min-height: auto;
+    min-height: 0;
 }
 
 /* Hide logo, profile dropdown, footer, auth modals when embedded */
@@ -4245,8 +4262,8 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 /* Cards — match dashboard glassmorphism */
 .embedded .card {
     background: rgba(255, 255, 255, 0.88);
-    backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.7);
     border-radius: 16px;
     box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.04), 0 0 0 1px rgba(0,0,0,0.02);
@@ -4308,6 +4325,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 /* Config panel — match card style */
 .embedded .config-panel {
     background: rgba(255,255,255,0.88);
+    -webkit-backdrop-filter: blur(24px);
     backdrop-filter: blur(24px);
     border: 1px solid rgba(255,255,255,0.7);
     border-radius: 16px;
@@ -4388,6 +4406,7 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 /* Rates section — match card */
 .embedded .rates-section {
     background: rgba(255,255,255,0.88);
+    -webkit-backdrop-filter: blur(24px);
     backdrop-filter: blur(24px);
     border: 1px solid rgba(255,255,255,0.7);
     border-radius: 16px;

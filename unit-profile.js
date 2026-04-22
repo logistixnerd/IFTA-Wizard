@@ -108,27 +108,54 @@
     }
 
     /* ---------- Render ---------- */
+    function formatOdometer(miles) {
+        if (miles == null) return '—';
+        return new Intl.NumberFormat('en-US').format(Math.round(miles)) + ' mi';
+    }
+
+    function getFuelColor(pct) {
+        if (pct <= 10) return '#ef4444';
+        if (pct <= 25) return '#f59e0b';
+        return '#10b981';
+    }
+
     function renderTruck() {
         const truck = state.truck;
         if (!truck) return;
         const unitLabel = truck.unit || state.truckId;
+
         $('unitTitle').textContent = unitLabel;
         $('unitSubtitle').textContent = [truck.year, truck.make, truck.model].filter(Boolean).join(' ') || 'No make/model details saved yet.';
         $('unitStatusChip').textContent = statusLabel(truck.status);
         $('unitFuelChip').textContent = fuelLabel(truck.fuel);
         $('unitPlateChip').textContent = truck.plate ? (truck.plateState ? truck.plate + ' (' + truck.plateState + ')' : truck.plate) : 'No plate';
 
+        // VIN chip
+        const vinChip = $('unitVinChip');
+        if (vinChip && truck.vin) {
+            vinChip.textContent = truck.vin;
+            vinChip.classList.remove('up-chip--hidden');
+        }
+
+        // Samsara chip
+        const samChip = $('unitSamsaraChip');
+        if (samChip && truck.samsaraId) samChip.classList.remove('up-chip--hidden');
+
+        // Equipment detail grid
         $('detailUnit').textContent = unitLabel;
-        $('detailYear').textContent = truck.year || '-';
-        $('detailMake').textContent = truck.make || '-';
-        $('detailModel').textContent = truck.model || '-';
-        $('detailVin').textContent = truck.vin || '-';
-        $('detailPlate').textContent = truck.plate ? (truck.plateState ? truck.plate + ' (' + truck.plateState + ')' : truck.plate) : '-';
+        $('detailYear').textContent = truck.year || '—';
+        $('detailMake').textContent = truck.make || '—';
+        $('detailModel').textContent = truck.model || '—';
+        $('detailVin').textContent = truck.vin || '—';
+        $('detailPlate').textContent = truck.plate ? (truck.plateState ? truck.plate + ' (' + truck.plateState + ')' : truck.plate) : '—';
         $('detailFuel').textContent = fuelLabel(truck.fuel);
-        $('detailColor').textContent = truck.color || '-';
+        $('detailColor').textContent = truck.color || '—';
         $('detailInspExp').textContent = formatShortDate(truck.inspExp || truck.inspectionExp);
         $('detailRegExp').textContent = formatShortDate(truck.regExp || truck.registrationExp);
         $('detailInsExp').textContent = formatShortDate(truck.insExp || truck.insuranceExp);
+
+        // Telematics
+        renderTelematics(truck);
 
         // Photo circle
         if (truck.photoUrl) {
@@ -143,6 +170,137 @@
         }
 
         document.title = unitLabel + ' - Unit Profile - IFTA Wizard';
+    }
+
+    function renderTelematics(truck) {
+        // Pick best odometer: Samsara > manual
+        const odo = truck.samsaraOdometer != null ? truck.samsaraOdometer : (truck.odometerReading != null ? truck.odometerReading : null);
+        const odoSource = truck.samsaraOdometer != null ? 'samsara' : 'manual';
+
+        // Hero KPIs
+        $('heroOdometer').textContent = odo != null ? new Intl.NumberFormat('en-US').format(Math.round(odo)) : '—';
+        $('heroEngHours').textContent = truck.samsaraEngineHours != null ? truck.samsaraEngineHours + 'h' : '—';
+        $('heroFuel').textContent = truck.samsaraFuelLevel != null ? truck.samsaraFuelLevel + '%' : '—';
+        const faultCount = (truck.samsaraFaults || []).length;
+        $('heroFaults').textContent = faultCount > 0 ? String(faultCount) : '0';
+        $('heroFaults').style.color = faultCount > 0 ? '#ef4444' : '';
+
+        // Odometer row
+        const telemOdo = $('telemOdometer');
+        const telemOdoUnit = $('telemOdometerUnit');
+        if (odo != null) {
+            telemOdo.textContent = new Intl.NumberFormat('en-US').format(Math.round(odo));
+            telemOdoUnit.textContent = odoSource === 'samsara' ? 'mi · Samsara' : 'mi · Manual';
+        } else {
+            telemOdo.textContent = '—';
+            telemOdoUnit.textContent = '';
+        }
+
+        // Fuel bar
+        const fuel = truck.samsaraFuelLevel;
+        const fuelBar = $('telemFuelBar');
+        const fuelVal = $('telemFuel');
+        if (fuel != null) {
+            fuelVal.textContent = fuel + '%';
+            fuelBar.style.width = Math.min(100, Math.max(0, fuel)) + '%';
+            fuelBar.style.background = getFuelColor(fuel);
+        } else {
+            fuelVal.textContent = '—';
+        }
+
+        // Engine hours
+        $('telemEngHours').textContent = truck.samsaraEngineHours != null ? truck.samsaraEngineHours + ' hrs' : '—';
+
+        // Location
+        const gps = truck.samsaraLocation;
+        const locEl = $('telemLocation');
+        const locTime = $('telemLocationTime');
+        if (gps && gps.location) {
+            locEl.textContent = gps.location;
+            if (gps.time) {
+                try {
+                    const d = new Date(gps.time);
+                    locTime.textContent = new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(d);
+                } catch { locTime.textContent = ''; }
+            }
+        } else {
+            locEl.textContent = '—';
+        }
+
+        // Sync time
+        const syncEl = $('telemSyncTime');
+        if (syncEl && gps && gps.time) {
+            try {
+                const d = new Date(gps.time);
+                syncEl.textContent = 'Updated ' + new Intl.RelativeTimeFormat('en', { numeric: 'auto' }).format(
+                    Math.round((d.getTime() - Date.now()) / 60000), 'minute');
+            } catch { syncEl.textContent = ''; }
+        }
+
+        // Fault codes
+        const faults = truck.samsaraFaults || [];
+        const faultsHead = $('telemFaultsHeadText');
+        const faultsList = $('telemFaultsList');
+        if (faultsHead) faultsHead.textContent = 'Fault Codes' + (faults.length ? ' (' + faults.length + ')' : '');
+        if (faultsList) {
+            if (!faults.length) {
+                faultsList.innerHTML = '<span class="up-telem-no-faults">No active faults</span>';
+            } else {
+                faultsList.innerHTML = faults.slice(0, 6).map(f => {
+                    const sev = (f.severity || '').toLowerCase();
+                    const sevClass = sev === 'critical' ? 'up-fault--critical' : sev === 'major' ? 'up-fault--major' : 'up-fault--minor';
+                    return `<div class="up-fault-row ${sevClass}">
+                        <span class="up-fault-code">${escapeHtml(f.code || 'DTC')}</span>
+                        <span class="up-fault-desc">${escapeHtml(f.description || 'Fault code')}</span>
+                        ${f.severity ? `<span class="up-fault-sev">${escapeHtml(f.severity)}</span>` : ''}
+                    </div>`;
+                }).join('');
+                if (faults.length > 6) faultsList.innerHTML += `<span class="up-telem-no-faults">+${faults.length - 6} more</span>`;
+            }
+        }
+    }
+
+    /* ---------- Odometer edit ---------- */
+    function initOdometerEdit() {
+        const editBtn = $('odoEditBtn');
+        const cancelBtn = $('odoCancelBtn');
+        const saveBtn = $('odoSaveBtn');
+        const editRow = $('odoEditRow');
+        const input = $('odoInput');
+        if (!editBtn) return;
+
+        editBtn.addEventListener('click', () => {
+            const current = state.truck?.samsaraOdometer ?? state.truck?.odometerReading ?? '';
+            input.value = current !== '' ? Math.round(current) : '';
+            editRow.classList.remove('hidden');
+            editBtn.classList.add('hidden');
+            input.focus();
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            editRow.classList.add('hidden');
+            editBtn.classList.remove('hidden');
+        });
+
+        saveBtn.addEventListener('click', async () => {
+            const val = parseFloat(input.value);
+            if (!Number.isFinite(val) || val < 0) { alert('Enter a valid odometer reading.'); return; }
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving…';
+            try {
+                await truckRef().update({ odometerReading: Math.round(val) });
+                state.truck.odometerReading = Math.round(val);
+                renderTelematics(state.truck);
+                editRow.classList.add('hidden');
+                editBtn.classList.remove('hidden');
+            } catch (err) {
+                console.error('Odometer save error:', err);
+                alert('Failed to save odometer: ' + (err.message || err));
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save';
+            }
+        });
     }
 
     function renderHistory() {
@@ -550,7 +708,7 @@
 
     function init() {
         initLightbox();
-        initCollapse();
+        initOdometerEdit();
         initAuth();
     }
 

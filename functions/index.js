@@ -436,6 +436,9 @@ exports.samsaraOAuthCallback = functions
     const { uid } = context.params;
     const { code, state } = snap.data() || {};
 
+    // Signal to client that the trigger fired
+    await snap.ref.update({ status: 'processing' });
+
     if (!code || !state) {
       await snap.ref.update({ status: 'error', error: 'missing_params' });
       return;
@@ -461,18 +464,32 @@ exports.samsaraOAuthCallback = functions
     }
 
     const REDIRECT_URI = CANONICAL_ORIGIN + '/samsara-callback.html';
-    const clientId = process.env.SAMSARA_CLIENT_ID;
-    const clientSecret = process.env.SAMSARA_CLIENT_SECRET;
+    // Trim in case secrets were stored with trailing newline characters
+    const clientId = (process.env.SAMSARA_CLIENT_ID || '').trim();
+    const clientSecret = (process.env.SAMSARA_CLIENT_SECRET || '').trim();
+
+    const codeAgeMs = Date.now() - parsed.ts;
+    console.log(`samsaraOAuthCallback: code age ${codeAgeMs}ms, uid=${uid}`);
+    console.log(`samsaraOAuthCallback: clientId prefix=${clientId.slice(0, 8) || 'MISSING'} len=${clientId.length}, secret len=${clientSecret.length}`);
+
+    if (!clientId || !clientSecret) {
+      await snap.ref.update({ status: 'error', error: 'missing_credentials' });
+      console.error('samsaraOAuthCallback: SAMSARA_CLIENT_ID or SAMSARA_CLIENT_SECRET not set');
+      return;
+    }
+
+    await snap.ref.update({ status: 'exchanging' });
 
     try {
       const tokenRes = await fetch(SAMSARA_TOKEN_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64'),
+        },
         body: new URLSearchParams({
           code,
           grant_type: 'authorization_code',
-          client_id: clientId,
-          client_secret: clientSecret,
           redirect_uri: REDIRECT_URI,
         }).toString(),
         signal: AbortSignal.timeout(10000),
@@ -521,6 +538,253 @@ exports.samsaraDisconnect = functions
     });
 
     return { success: true };
+  });
+
+/**
+ * Firestore trigger: Sync Samsara fleet data (vehicles + GPS locations).
+ * Client writes to users/{uid}/samsara_sync_requests/{docId}.
+ * Function fetches from Samsara API, stores fleet cache, updates truck records.
+ */
+exports.samsaraFleetSync = functions
+  .runWith({ secrets: ['SAMSARA_CLIENT_ID', 'SAMSARA_CLIENT_SECRET'], memory: '512MB', timeoutSeconds: 60 })
+  .firestore.document('users/{uid}/samsara_sync_requests/{docId}')
+  .onCreate(async (snap, context) => {
+    const { uid } = context.params;
+
+    await snap.ref.update({ status: 'syncing' });
+
+    try {
+      // Read stored Samsara tokens
+      const userDoc = await admin.firestore().collection('users').doc(uid).get();
+      const userData = userDoc.data() || {};
+      let samsaraTokens = userData.samsara;
+
+      if (!samsaraTokens || !samsaraTokens.accessToken) {
+        await snap.ref.update({ status: 'error', error: 'not_connected' });
+        return;
+      }
+
+      // Refresh token if expired (within 5 min of expiry)
+      if (Date.now() > (samsaraTokens.expiresAt - 300000)) {
+        if (!samsaraTokens.refreshToken) {
+          await snap.ref.update({ status: 'error', error: 'token_expired' });
+          return;
+        }
+        const clientId = (process.env.SAMSARA_CLIENT_ID || '').trim();
+        const clientSecret = (process.env.SAMSARA_CLIENT_SECRET || '').trim();
+        const refreshRes = await fetch(SAMSARA_TOKEN_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Authorization': 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64'),
+          },
+          body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: samsaraTokens.refreshToken }).toString(),
+          signal: AbortSignal.timeout(10000),
+        });
+        if (!refreshRes.ok) {
+          console.error('samsaraFleetSync token refresh failed:', refreshRes.status, await refreshRes.text());
+          await snap.ref.update({ status: 'error', error: 'token_refresh_failed' });
+          return;
+        }
+        const newT = await refreshRes.json();
+        samsaraTokens = {
+          ...samsaraTokens,
+          accessToken: newT.access_token,
+          refreshToken: newT.refresh_token || samsaraTokens.refreshToken,
+          expiresAt: Date.now() + ((newT.expires_in || 3600) * 1000),
+        };
+        await admin.firestore().collection('users').doc(uid).update({
+          'samsara.accessToken': samsaraTokens.accessToken,
+          'samsara.refreshToken': samsaraTokens.refreshToken,
+          'samsara.expiresAt': samsaraTokens.expiresAt,
+        });
+      }
+
+      const bearerHeaders = { 'Authorization': 'Bearer ' + samsaraTokens.accessToken };
+
+      // Fetch vehicles list + GPS stats + extended stats in parallel
+      const [vehiclesRes, statsRes, extStatsRes] = await Promise.all([
+        fetch('https://api.samsara.com/fleet/vehicles?limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
+        fetch('https://api.samsara.com/fleet/vehicles/stats?types=gps&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
+        fetch('https://api.samsara.com/fleet/vehicles/stats?types=odometerMeters,engineSeconds,fuelPercents&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
+      ]);
+
+      if (!vehiclesRes.ok) {
+        console.error('samsaraFleetSync vehicles API error:', vehiclesRes.status, await vehiclesRes.text());
+        await snap.ref.update({ status: 'error', error: 'api_error_vehicles' });
+        return;
+      }
+      if (!statsRes.ok) {
+        console.error('samsaraFleetSync stats API error:', statsRes.status, await statsRes.text());
+        await snap.ref.update({ status: 'error', error: 'api_error_stats' });
+        return;
+      }
+
+      const vehiclesText = await vehiclesRes.text();
+      const statsText    = await statsRes.text();
+      const extStatsText = extStatsRes.ok ? await extStatsRes.text() : '{"data":[]}';
+
+      let vehiclesData, statsData, extStatsData;
+      try { vehiclesData  = JSON.parse(vehiclesText);  } catch(e) { vehiclesData  = { data: [] }; }
+      try { statsData     = JSON.parse(statsText);     } catch(e) { statsData     = { data: [] }; }
+      try { extStatsData  = JSON.parse(extStatsText);  } catch(e) { extStatsData  = { data: [] }; }
+
+      // Diagnostic: log raw counts and first 500 chars of each response
+      console.log('samsaraFleetSync diag: vehicles count =', (vehiclesData.data || []).length,
+        '| stats count =', (statsData.data || []).length,
+        '| extStats count =', (extStatsData.data || []).length);
+      console.log('samsaraFleetSync diag: vehicles body (first 500) =', vehiclesText.slice(0, 500));
+      if ((statsData.data || []).length > 0) {
+        const sample = statsData.data[0];
+        console.log('samsaraFleetSync diag: stats sample keys =', Object.keys(sample).join(','),
+          '| gps field =', JSON.stringify(sample.gps));
+      }
+
+      // Build GPS lookup by vehicle ID
+      // The stats endpoint wraps each stat: { time, value: { latitude, longitude, ... } }
+      // Fall back to flat structure in case the API version differs.
+      const gpsById = {};
+      for (const v of (statsData.data || [])) {
+        if (!v.gps) continue;
+        gpsById[v.id] = v.gps.value || v.gps; // unwrap .value if present
+      }
+      console.log('samsaraFleetSync: GPS lookup built for', Object.keys(gpsById).length, 'vehicles (sample:', JSON.stringify(Object.values(gpsById)[0] || null), ')');
+
+      // Build extended stats lookup by vehicle ID (odometer, engineHours, fuelLevel)
+      const extById = {};
+      for (const v of (extStatsData.data || [])) {
+        extById[v.id] = {
+          odometerMeters: v.odometerMeters?.value ?? null,
+          engineSeconds:  v.engineSeconds?.value  ?? null,
+          fuelPercent:    v.fuelPercents?.value   ?? null,
+        };
+      }
+
+      // Fetch fault codes + safety events per vehicle (best-effort, parallel batch)
+      // Only fetch for up to 50 vehicles to stay within function timeout
+      const vehicleIds = (vehiclesData.data || []).map(v => v.id).slice(0, 50);
+      const faultsByVehicle = {};
+      const safetyByVehicle = {};
+
+      // Safety events: single paginated call filtered by vehicleIds
+      if (vehicleIds.length) {
+        const now = Date.now();
+        const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
+        try {
+          const safetyRes = await fetch(
+            'https://api.samsara.com/fleet/safety/events?startTime=' + new Date(sevenDaysAgo).toISOString() +
+            '&endTime=' + new Date(now).toISOString() + '&limit=512',
+            { headers: bearerHeaders, signal: AbortSignal.timeout(15000) }
+          );
+          if (safetyRes.ok) {
+            const safetyData = await safetyRes.json();
+            for (const ev of (safetyData.data || [])) {
+              const vid = ev.vehicle?.id;
+              if (!vid) continue;
+              if (!safetyByVehicle[vid]) safetyByVehicle[vid] = [];
+              safetyByVehicle[vid].push({
+                type:      ev.behaviorLabel || ev.type || 'unknown',
+                time:      ev.time || null,
+                severity:  ev.severity || null,
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('samsaraFleetSync safety events fetch failed (non-fatal):', e.message);
+        }
+
+        // Fault codes: single bulk stats call
+        try {
+          const faultRes = await fetch(
+            'https://api.samsara.com/fleet/vehicles/stats?types=faultCodes&limit=512',
+            { headers: bearerHeaders, signal: AbortSignal.timeout(15000) }
+          );
+          if (faultRes.ok) {
+            const faultData = await faultRes.json();
+            for (const v of (faultData.data || [])) {
+              if (!v.faultCodes) continue;
+              faultsByVehicle[v.id] = (v.faultCodes.value || []).map(fc => ({
+                code:         fc.faultCode   || fc.spn || fc.dtc || '',
+                description:  fc.description || '',
+                severity:     fc.severity    || null,
+                source:       fc.ecuType     || null,
+              }));
+            }
+          }
+        } catch (e) {
+          console.warn('samsaraFleetSync fault codes fetch failed (non-fatal):', e.message);
+        }
+      }
+
+      // Build normalized fleet vehicles array
+      const vehicles = (vehiclesData.data || []).map(v => {
+        const gps = gpsById[v.id];
+        const ext = extById[v.id] || {};
+        const odometerMiles = ext.odometerMeters != null ? Math.round(ext.odometerMeters * 0.000621371) : null;
+        const engineHours   = ext.engineSeconds  != null ? Math.round(ext.engineSeconds / 3600 * 10) / 10 : null;
+        return {
+          id:            v.id,
+          name:          v.name           || '',
+          vin:           (v.vin           || '').toUpperCase(),
+          licensePlate:  v.licensePlate   || '',
+          make:          v.make           || null,
+          model:         v.model          || null,
+          year:          v.year           || null,
+          odometer:      odometerMiles,
+          engineHours,
+          fuelLevel:     ext.fuelPercent  != null ? Math.round(ext.fuelPercent) : null,
+          faults:        faultsByVehicle[v.id] || [],
+          safetyEvents:  safetyByVehicle[v.id] || [],
+          safetyScore:   null, // populated when/if safety score endpoint is available
+          gps: gps ? {
+            lat:      gps.latitude,
+            lng:      gps.longitude,
+            heading:  gps.headingDegrees || 0,
+            speed:    Math.round(gps.speedMilesPerHour || 0),
+            location: (gps.reverseGeo || {}).formattedLocation || '',
+            time:     gps.time || null,
+          } : null,
+          matchedTruckId: null,
+        };
+      });
+
+      // Match Samsara vehicles to our trucks by VIN; update trucks with samsara link + location
+      const trucksSnap = await admin.firestore().collection('users').doc(uid).collection('trucks').get();
+      const trucks = trucksSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      const batch = admin.firestore().batch();
+      for (const v of vehicles) {
+        if (!v.vin) continue;
+        const match = trucks.find(t => t.vin && t.vin.toUpperCase() === v.vin);
+        if (match) {
+          v.matchedTruckId = match.id;
+          const truckRef = admin.firestore().collection('users').doc(uid).collection('trucks').doc(match.id);
+          const updateData = { samsaraId: v.id };
+          if (v.gps)         updateData.samsaraLocation  = v.gps;
+          if (v.odometer)    updateData.samsaraOdometer  = v.odometer;
+          if (v.engineHours) updateData.samsaraEngineHours = v.engineHours;
+          if (v.fuelLevel != null) updateData.samsaraFuelLevel = v.fuelLevel;
+          if (v.faults.length)   updateData.samsaraFaults = v.faults;
+          if (v.safetyEvents.length) updateData.samsaraSafetyEvents = v.safetyEvents;
+          batch.update(truckRef, updateData);
+        }
+      }
+      await batch.commit();
+
+      // Cache fleet data (separate subcollection doc to avoid bloating user doc)
+      await admin.firestore().collection('users').doc(uid).collection('samsara_cache').doc('fleet').set({
+        vehicles,
+        syncedAt: Date.now(),
+      });
+
+      // Delete request doc → signals success to client listener
+      await snap.ref.delete();
+      console.log(`samsaraFleetSync: synced ${vehicles.length} vehicles for uid=${uid}`);
+
+    } catch (err) {
+      console.error('samsaraFleetSync error:', err);
+      await snap.ref.update({ status: 'error', error: 'internal' });
+    }
   });
 
 /**

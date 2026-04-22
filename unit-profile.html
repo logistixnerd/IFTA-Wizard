@@ -7,7 +7,7 @@
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta name="referrer" content="strict-origin-when-cross-origin">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="unit-profile.css?v=11">
+    <link rel="stylesheet" href="unit-profile.css?v=12">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -27,37 +27,169 @@
             <!-- Hero -->
             <section class="up-hero">
                 <div class="up-hero-left">
-                    <span class="up-label">Truck profile</span>
+                    <span class="up-label">Unit Profile</span>
                     <div class="up-hero-name-row">
                         <div class="up-hero-photo" id="heroPhoto">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="23 7 16 12 16 3 23 7"/><circle cx="6" cy="20" r="2"/><circle cx="18" cy="20" r="2"/></svg>
                         </div>
-                        <h1 class="up-hero-name" id="unitTitle">Loading unit…</h1>
+                        <div>
+                            <h1 class="up-hero-name" id="unitTitle">Loading unit…</h1>
+                            <p class="up-hero-sub" id="unitSubtitle">Pulling truck details.</p>
+                        </div>
                     </div>
-                    <p class="up-hero-sub" id="unitSubtitle">Pulling truck details and history.</p>
-                    <div class="up-chips">
+                    <div class="up-chips" id="heroChips">
                         <span class="up-chip up-chip--accent" id="unitStatusChip">Status</span>
                         <span class="up-chip" id="unitFuelChip">Fuel</span>
                         <span class="up-chip" id="unitPlateChip">Plate</span>
+                        <span class="up-chip up-chip--hidden" id="unitVinChip"></span>
+                        <span class="up-chip up-chip--samsara up-chip--hidden" id="unitSamsaraChip">
+                            <svg viewBox="0 0 10 10" fill="currentColor" width="7" height="7"><circle cx="5" cy="5" r="5"/></svg>
+                            Samsara
+                        </span>
                     </div>
                 </div>
                 <div class="up-hero-kpis">
                     <div class="up-kpi">
-                        <span class="up-kpi-label">Notes</span>
-                        <strong id="historyCount">0</strong>
+                        <span class="up-kpi-label">Odometer</span>
+                        <strong id="heroOdometer">—</strong>
                     </div>
                     <div class="up-kpi">
-                        <span class="up-kpi-label">Documents</span>
-                        <strong id="docCount">0</strong>
+                        <span class="up-kpi-label">Eng. Hours</span>
+                        <strong id="heroEngHours">—</strong>
                     </div>
                     <div class="up-kpi">
-                        <span class="up-kpi-label">Reports</span>
-                        <strong id="reportCount">0</strong>
+                        <span class="up-kpi-label">Fuel</span>
+                        <strong id="heroFuel">—</strong>
+                    </div>
+                    <div class="up-kpi">
+                        <span class="up-kpi-label">Faults</span>
+                        <strong id="heroFaults">—</strong>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Telematics + Equipment Info Panel -->
+            <section class="up-info-panel" id="unitInfoPanel">
+                <!-- Left: Equipment Details -->
+                <div class="up-equip-card">
+                    <div class="up-equip-head">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14"><rect x="1" y="3" width="12" height="10" rx="1.5"/><polygon points="18 5.5 13 9 13 3 18 5.5"/><circle cx="5" cy="17" r="1.5"/><circle cx="14" cy="17" r="1.5"/></svg>
+                        <span>Equipment Details</span>
+                    </div>
+                    <dl class="up-equip-grid">
+                        <div class="up-equip-cell"><dt>Unit #</dt><dd id="detailUnit">—</dd></div>
+                        <div class="up-equip-cell"><dt>VIN</dt><dd id="detailVin" class="up-vin">—</dd></div>
+                        <div class="up-equip-cell"><dt>Year</dt><dd id="detailYear">—</dd></div>
+                        <div class="up-equip-cell"><dt>Make</dt><dd id="detailMake">—</dd></div>
+                        <div class="up-equip-cell"><dt>Model</dt><dd id="detailModel">—</dd></div>
+                        <div class="up-equip-cell"><dt>Color</dt><dd id="detailColor">—</dd></div>
+                        <div class="up-equip-cell"><dt>Fuel Type</dt><dd id="detailFuel">—</dd></div>
+                        <div class="up-equip-cell"><dt>License Plate</dt><dd id="detailPlate">—</dd></div>
+                        <div class="up-equip-cell"><dt>DOT Insp. Exp.</dt><dd id="detailInspExp">—</dd></div>
+                        <div class="up-equip-cell"><dt>Registration Exp.</dt><dd id="detailRegExp">—</dd></div>
+                        <div class="up-equip-cell"><dt>Insurance Exp.</dt><dd id="detailInsExp">—</dd></div>
+                    </dl>
+                </div>
+
+                <!-- Right: Live Telematics -->
+                <div class="up-telem-card">
+                    <div class="up-equip-head">
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" width="14" height="14"><circle cx="10" cy="10" r="8"/><polyline points="10 6 10 10 13 13"/></svg>
+                        <span>Live Status</span>
+                        <span class="up-telem-sync" id="telemSyncTime"></span>
+                    </div>
+
+                    <!-- Odometer row with edit -->
+                    <div class="up-telem-row up-telem-row--odo">
+                        <div class="up-telem-ico up-telem-ico--blue">
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" width="14" height="14"><circle cx="10" cy="10" r="7"/><polyline points="10 6 10 10 13 13"/></svg>
+                        </div>
+                        <div class="up-telem-body">
+                            <span class="up-telem-lbl">Odometer</span>
+                            <div class="up-odo-display">
+                                <span class="up-telem-val" id="telemOdometer">—</span>
+                                <span class="up-telem-unit" id="telemOdometerUnit"></span>
+                            </div>
+                            <div class="up-odo-edit hidden" id="odoEditRow">
+                                <input type="number" class="up-odo-input" id="odoInput" placeholder="e.g. 145000" min="0" max="9999999" step="1">
+                                <button class="up-odo-save" id="odoSaveBtn" type="button">Save</button>
+                                <button class="up-odo-cancel" id="odoCancelBtn" type="button">Cancel</button>
+                            </div>
+                        </div>
+                        <button class="up-telem-edit-btn" id="odoEditBtn" title="Edit odometer" type="button">
+                            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" width="12" height="12"><path d="M11.5 2.5l2 2L5 13H3v-2L11.5 2.5z"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Fuel Level -->
+                    <div class="up-telem-row">
+                        <div class="up-telem-ico up-telem-ico--green">
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" width="14" height="14"><rect x="3" y="2" width="10" height="14" rx="2"/><path d="M13 6h2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-2"/><line x1="6" y1="6" x2="10" y2="6"/></svg>
+                        </div>
+                        <div class="up-telem-body">
+                            <span class="up-telem-lbl">Fuel Level</span>
+                            <div class="up-fuel-row">
+                                <div class="up-fuel-bar-wrap">
+                                    <div class="up-fuel-bar" id="telemFuelBar" style="width:0%"></div>
+                                </div>
+                                <span class="up-telem-val" id="telemFuel">—</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Engine Hours -->
+                    <div class="up-telem-row">
+                        <div class="up-telem-ico up-telem-ico--purple">
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" width="14" height="14"><polygon points="13 2 3 14 10 14 7 18 17 6 10 6 13 2"/></svg>
+                        </div>
+                        <div class="up-telem-body">
+                            <span class="up-telem-lbl">Engine Hours</span>
+                            <span class="up-telem-val" id="telemEngHours">—</span>
+                        </div>
+                    </div>
+
+                    <!-- Location -->
+                    <div class="up-telem-row">
+                        <div class="up-telem-ico up-telem-ico--orange">
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" width="14" height="14"><path d="M10 2C7.24 2 5 4.24 5 7c0 4.25 5 11 5 11s5-6.75 5-11c0-2.76-2.24-5-5-5z"/><circle cx="10" cy="7" r="2"/></svg>
+                        </div>
+                        <div class="up-telem-body">
+                            <span class="up-telem-lbl">Last Location</span>
+                            <span class="up-telem-val up-telem-val--loc" id="telemLocation">—</span>
+                            <span class="up-telem-sub" id="telemLocationTime"></span>
+                        </div>
+                    </div>
+
+                    <!-- Faults / Warnings -->
+                    <div class="up-telem-faults" id="telemFaultsSection">
+                        <div class="up-telem-faults-head">
+                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" width="13" height="13"><path d="M10 2L2 17h16L10 2z"/><line x1="10" y1="9" x2="10" y2="12"/><circle cx="10" cy="14.5" r="0.75" fill="currentColor" stroke="none"/></svg>
+                            <span id="telemFaultsHeadText">Fault Codes</span>
+                        </div>
+                        <div class="up-telem-faults-list" id="telemFaultsList">
+                            <span class="up-telem-no-faults">No active faults</span>
+                        </div>
                     </div>
                 </div>
             </section>
 
             <section class="up-alert hidden" id="unitAlert"></section>
+
+            <!-- KPI strip -->
+            <div class="up-kpi-strip">
+                <div class="up-kpi-strip-item">
+                    <span class="up-kpi-label">Notes</span>
+                    <strong id="historyCount">0</strong>
+                </div>
+                <div class="up-kpi-strip-item">
+                    <span class="up-kpi-label">Documents</span>
+                    <strong id="docCount">0</strong>
+                </div>
+                <div class="up-kpi-strip-item">
+                    <span class="up-kpi-label">Reports</span>
+                    <strong id="reportCount">0</strong>
+                </div>
+            </div>
 
             <!-- Content Grid -->
             <section class="up-grid">
@@ -101,35 +233,6 @@
                         <a href="task-manager.html" class="up-link-btn">View all tasks</a>
                     </div>
                     <div class="up-tasks" id="profileTasksList"></div>
-                </div>
-
-                <!-- Unit Details (collapsible) -->
-                <div class="up-card up-card--wide up-section-collapse collapsed" id="unitDetailsCard">
-                    <button class="up-collapse-head" id="unitDetailsToggle" type="button" aria-expanded="false">
-                        <div class="up-collapse-lead">
-                            <svg class="up-collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="23 7 16 12 16 3 23 7"/></svg>
-                            <span class="up-collapse-label">Equipment Details</span>
-                        </div>
-                        <div class="up-collapse-trail">
-                            <span class="up-collapse-hint" id="collapseHint">Show</span>
-                            <svg class="up-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="6 9 12 15 18 9"/></svg>
-                        </div>
-                    </button>
-                    <div class="up-collapse-body" id="unitDetailsBody">
-                        <dl class="up-detail-grid">
-                            <div class="up-detail-cell"><dt>Unit #</dt><dd id="detailUnit">-</dd></div>
-                            <div class="up-detail-cell"><dt>Year</dt><dd id="detailYear">-</dd></div>
-                            <div class="up-detail-cell"><dt>Make</dt><dd id="detailMake">-</dd></div>
-                            <div class="up-detail-cell"><dt>Model</dt><dd id="detailModel">-</dd></div>
-                            <div class="up-detail-cell"><dt>VIN</dt><dd id="detailVin">-</dd></div>
-                            <div class="up-detail-cell"><dt>License plate</dt><dd id="detailPlate">-</dd></div>
-                            <div class="up-detail-cell"><dt>Fuel type</dt><dd id="detailFuel">-</dd></div>
-                            <div class="up-detail-cell"><dt>Color</dt><dd id="detailColor">-</dd></div>
-                            <div class="up-detail-cell"><dt>DOT inspection exp.</dt><dd id="detailInspExp">-</dd></div>
-                            <div class="up-detail-cell"><dt>Registration exp.</dt><dd id="detailRegExp">-</dd></div>
-                            <div class="up-detail-cell"><dt>Insurance exp.</dt><dd id="detailInsExp">-</dd></div>
-                        </dl>
-                    </div>
                 </div>
 
                 <!-- Documents from dashboard -->
@@ -194,7 +297,7 @@
     </div>
 
     <script src="firebase-config.js"></script>
-    <script src="unit-profile.js?v=11"></script>
+    <script src="unit-profile.js?v=12"></script>
 </body>
 </html>
 <!DOCTYPE html>

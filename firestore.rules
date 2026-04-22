@@ -107,6 +107,19 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         // Only Cloud Function (admin SDK) can update/delete
       }
+
+      // Samsara fleet sync requests — client writes, Cloud Function processes + deletes
+      match /samsara_sync_requests/{docId} {
+        allow create: if isOwner(userId);
+        allow read: if isOwner(userId);
+        // Only Cloud Function (admin SDK) can update/delete
+      }
+
+      // Samsara fleet cache — written by Cloud Function only, client can read
+      match /samsara_cache/{cacheId} {
+        allow read: if isOwner(userId);
+        // Only Cloud Function (admin SDK) can write
+      }
     }
     
     // ==========================================
