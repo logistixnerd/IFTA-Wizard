@@ -16,7 +16,9 @@
     ],
     "rewrites": [
       { "source": "/api/mclookup", "function": "mcLookup", "region": "us-central1" },
-      { "source": "/api/samsara/callback", "function": "samsaraCallback", "region": "us-central1" }
+      { "source": "/api/samsara/callback", "function": "samsaraCallback", "region": "us-central1" },
+      { "source": "/", "destination": "/dashboard.html" },
+      { "source": "**", "destination": "/dashboard.html" }
     ]
   },
   "functions": [

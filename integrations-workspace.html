@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Integrations Workspace - IFTA Wizard</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="integrations-workspace.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-functions-compat.js"></script>
+</head>
+<body>
+    <div class="int-page">
+
+        <!-- Header -->
+        <header class="int-header">
+            <div class="int-header-left">
+                <a href="dashboard.html" class="int-back-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M15 18l-6-6 6-6"/></svg>
+                    Dashboard
+                </a>
+                <div>
+                    <h1>Integrations</h1>
+                    <p>Connected systems, sync health, and API controls.</p>
+                </div>
+            </div>
+            <div class="int-header-actions">
+                <button class="btn btn-secondary" id="refreshIntBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <!-- Status Banner -->
+        <div class="int-status-banner" id="intStatusBanner" style="display:none;"></div>
+
+        <!-- KPI Strip -->
+        <section class="int-kpis">
+            <article class="int-kpi">
+                <div class="int-kpi-label">Connected</div>
+                <div class="int-kpi-value" id="kpiConnected">—</div>
+                <div class="int-kpi-sub">services</div>
+            </article>
+            <article class="int-kpi">
+                <div class="int-kpi-label">Last Sync</div>
+                <div class="int-kpi-value" id="kpiLastSync">—</div>
+                <div class="int-kpi-sub">Samsara</div>
+            </article>
+            <article class="int-kpi" id="kpiHealthCard">
+                <div class="int-kpi-label">API Health</div>
+                <div class="int-kpi-value" id="kpiHealth">—</div>
+                <div class="int-kpi-sub">token status</div>
+            </article>
+            <article class="int-kpi">
+                <div class="int-kpi-label">Scopes</div>
+                <div class="int-kpi-value" id="kpiScopes">—</div>
+                <div class="int-kpi-sub">authorized</div>
+            </article>
+        </section>
+
+        <!-- Main Content -->
+        <div class="int-body">
+
+            <!-- Active Integrations -->
+            <section class="int-section">
+                <div class="int-section-header">
+                    <h2>Active Connections</h2>
+                </div>
+                <div class="int-cards" id="activeCards">
+                    <!-- Samsara card -->
+                    <article class="int-card" id="samsaraCard">
+                        <div class="int-card-head">
+                            <div class="int-card-brand">
+                                <div class="int-brand-icon samsara-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                        <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="int-card-name">Samsara</div>
+                                    <div class="int-card-type">Fleet Telematics &amp; ELD</div>
+                                </div>
+                            </div>
+                            <div class="int-card-status-wrap">
+                                <span class="int-status-dot" id="samsaraStatusDot"></span>
+                                <span class="int-status-label" id="samsaraStatusLabel">Checking…</span>
+                            </div>
+                        </div>
+
+                        <div class="int-card-meta">
+                            <div class="int-meta-row">
+                                <span class="int-meta-key">Last Sync</span>
+                                <span class="int-meta-val" id="samsaraLastSync">—</span>
+                            </div>
+                            <div class="int-meta-row">
+                                <span class="int-meta-key">Next Auto-Sync</span>
+                                <span class="int-meta-val" id="samsaraNextSync">Every 30 min</span>
+                            </div>
+                            <div class="int-meta-row">
+                                <span class="int-meta-key">Token Expires</span>
+                                <span class="int-meta-val" id="samsaraTokenExpiry">—</span>
+                            </div>
+                            <div class="int-meta-row">
+                                <span class="int-meta-key">Sync Cursor</span>
+                                <span class="int-meta-val" id="samsaraCursor">—</span>
+                            </div>
+                        </div>
+
+                        <div class="int-scopes-section">
+                            <div class="int-scopes-label">Authorized Scopes</div>
+                            <div class="int-scopes-list" id="samsaraScopes">
+                                <span class="int-scope-tag skeleton">loading…</span>
+                            </div>
+                        </div>
+
+                        <div class="int-card-actions">
+                            <button class="btn btn-primary btn-sm" id="samsaraSyncBtn">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"/></svg>
+                                Sync Now
+                            </button>
+                            <a href="dashboard.html?section=integrations" class="btn btn-secondary btn-sm" id="samsaraManageBtn">Manage Connection</a>
+                        </div>
+
+                        <div class="int-sync-result" id="samsaraSyncResult" style="display:none;"></div>
+                    </article>
+                </div>
+            </section>
+
+            <!-- Sync Activity Log -->
+            <section class="int-section">
+                <div class="int-section-header">
+                    <h2>Recent Sync Activity</h2>
+                </div>
+                <div class="int-log" id="syncLog">
+                    <div class="int-log-empty">Loading sync history…</div>
+                </div>
+            </section>
+
+            <!-- Future Integrations -->
+            <section class="int-section">
+                <div class="int-section-header">
+                    <h2>Available Integrations</h2>
+                    <span class="int-section-badge">Coming Soon</span>
+                </div>
+                <div class="int-cards int-cards-future">
+
+                    <article class="int-card int-card-future">
+                        <div class="int-card-head">
+                            <div class="int-card-brand">
+                                <div class="int-brand-icon eld-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                        <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="int-card-name">KeepTruckin / Motive</div>
+                                    <div class="int-card-type">ELD &amp; Fleet Management</div>
+                                </div>
+                            </div>
+                            <span class="int-badge-future">Planned</span>
+                        </div>
+                        <p class="int-future-desc">Sync HOS logs, driver activity, and vehicle diagnostics from Motive ELD devices.</p>
+                    </article>
+
+                    <article class="int-card int-card-future">
+                        <div class="int-card-head">
+                            <div class="int-card-brand">
+                                <div class="int-brand-icon tms-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                        <path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="int-card-name">McLeod / TMW</div>
+                                    <div class="int-card-type">Transportation Management</div>
+                                </div>
+                            </div>
+                            <span class="int-badge-future">Planned</span>
+                        </div>
+                        <p class="int-future-desc">Import load data, settlements, and dispatch records directly from your TMS.</p>
+                    </article>
+
+                    <article class="int-card int-card-future">
+                        <div class="int-card-head">
+                            <div class="int-card-brand">
+                                <div class="int-brand-icon accounting-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="int-card-name">QuickBooks</div>
+                                    <div class="int-card-type">Accounting &amp; Payroll</div>
+                                </div>
+                            </div>
+                            <span class="int-badge-future">Planned</span>
+                        </div>
+                        <p class="int-future-desc">Push settlements, fuel expenses, and IFTA tax liabilities to QuickBooks automatically.</p>
+                    </article>
+
+                    <article class="int-card int-card-future">
+                        <div class="int-card-head">
+                            <div class="int-card-brand">
+                                <div class="int-brand-icon fuel-icon">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                        <path d="M3 22V8l9-6 9 6v14H3z"/><path d="M10 22V12h4v10"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <div class="int-card-name">OOIDA Fuel Card</div>
+                                    <div class="int-card-type">Fuel Card Network</div>
+                                </div>
+                            </div>
+                            <span class="int-badge-future">Planned</span>
+                        </div>
+                        <p class="int-future-desc">Automatically import fuel transactions for IFTA tracking and expense reporting.</p>
+                    </article>
+
+                </div>
+            </section>
+
+        </div><!-- /int-body -->
+    </div><!-- /int-page -->
+
+    <script src="firebase-config.js"></script>
+    <script src="integrations-workspace.js"></script>
+</body>
+</html>

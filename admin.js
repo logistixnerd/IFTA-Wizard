@@ -7,15 +7,6 @@ const AdminPanel = {
     selectedUserId: null,
     selectedApprovalId: null,
     
-    // Admin emails - use centralized list from firebase-config.js or fallback
-    get adminEmails() {
-        return window.ADMIN_EMAILS || [
-            'milan.pericic@logistixnerd.com',
-            'milanpericic@gmail.com',
-            'admin@iftawizard.com'
-        ];
-    },
-    
     // Initialize admin panel
     async init() {
         // Initialize Firebase first
@@ -26,14 +17,16 @@ const AdminPanel = {
             firebase.auth().onAuthStateChanged(async (user) => {
                 if (user) {
                     // User is signed in via Firebase Auth
+                    const userRole = await this.getUserRoleFromFirestore(user.uid);
                     this.currentUser = {
                         uid: user.uid,
                         email: user.email,
-                        name: user.displayName || 'Admin'
+                        name: user.displayName || 'Admin',
+                        role: userRole
                     };
                     
-                    // Check if user is admin
-                    if (this.isAdmin(user.email)) {
+                    // Canonical admin check uses Firestore user document role.
+                    if (userRole === 'admin') {
                         this.showAdminPanel();
                         this.loadUserProfileFromLocal();
                         this.setupEventListeners();
@@ -51,11 +44,17 @@ const AdminPanel = {
             this.showAccessDenied();
         }
     },
-    
-    // Check if email is admin
-    isAdmin(email) {
-        if (!email) return false;
-        return this.adminEmails.includes(email.toLowerCase());
+
+    async getUserRoleFromFirestore(uid) {
+        try {
+            if (!uid || typeof db === 'undefined') return 'user';
+            const snap = await db.collection('users').doc(uid).get();
+            if (!snap.exists) return 'user';
+            return String((snap.data() || {}).role || 'user').toLowerCase();
+        } catch (error) {
+            console.error('Error resolving user role:', error);
+            return 'user';
+        }
     },
     
     // Initialize Firebase if available
@@ -75,7 +74,7 @@ const AdminPanel = {
     loadUserProfileFromLocal() {
         if (this.currentUser) {
             document.getElementById('adminUserName').textContent = this.currentUser.name || 'Admin';
-            document.getElementById('adminUserRole').textContent = 'Administrator';
+            document.getElementById('adminUserRole').textContent = this.currentUser.role === 'admin' ? 'Administrator' : 'User';
         }
     },
     
@@ -110,10 +109,10 @@ const AdminPanel = {
                 // Clear any local storage auth data
                 localStorage.removeItem('ifta_user');
                 // Redirect to main app (will show login modal)
-                window.location.href = 'index.html';
+                window.location.href = 'dashboard.html';
             } catch (error) {
                 console.error('Logout error:', error);
-                window.location.href = 'index.html';
+                window.location.href = 'dashboard.html';
             }
         });
         
@@ -251,8 +250,8 @@ const AdminPanel = {
     async getUsersFromFirestore() {
         try {
             if (typeof db === 'undefined') {
-                console.warn('Firestore not available, falling back to localStorage');
-                return JSON.parse(localStorage.getItem('ifta_users') || '[]');
+                console.warn('Firestore not available, returning empty users list');
+                return [];
             }
             
             const snapshot = await db.collection('users').get();
@@ -274,7 +273,7 @@ const AdminPanel = {
             return users;
         } catch (error) {
             console.error('Error fetching users from Firestore:', error);
-            return JSON.parse(localStorage.getItem('ifta_users') || '[]');
+            return [];
         }
     },
     
@@ -1724,24 +1723,21 @@ const AdminPanel = {
         const newRole = document.getElementById('newRoleSelect').value;
         
         try {
-            // Update in localStorage
-            const users = JSON.parse(localStorage.getItem('ifta_users') || '[]');
-            const userIndex = users.findIndex(u => u.id === this.selectedUserId);
-            
-            if (userIndex !== -1) {
-                users[userIndex].role = newRole;
-                users[userIndex].updatedAt = new Date().toISOString();
-                localStorage.setItem('ifta_users', JSON.stringify(users));
-                
-                // Log activity
-                this.logActivity('role_change', `Changed ${users[userIndex].name || users[userIndex].email} role to ${newRole}`);
-                
-                this.closeRoleModal();
-                this.loadUsers();
-                this.loadDashboardData();
-            } else {
-                throw new Error('User not found');
+            if (typeof db === 'undefined') {
+                throw new Error('Firestore unavailable');
             }
+
+            const userRef = db.collection('users').doc(this.selectedUserId);
+            await userRef.update({
+                role: newRole,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            this.logActivity('role_change', `Changed user ${this.selectedUserId} role to ${newRole}`);
+
+            this.closeRoleModal();
+            this.loadUsers();
+            this.loadDashboardData();
         } catch (error) {
             console.error('Error updating role:', error);
             alert('Error updating role: ' + error.message);
@@ -1962,7 +1958,7 @@ const AdminPanel = {
         try {
             // Generate invite token
             const inviteToken = this.generateInviteToken();
-            const inviteLink = `${window.location.origin}/index.html?invite=${inviteToken}`;
+            const inviteLink = `${window.location.origin}/dashboard.html?invite=${inviteToken}`;
             
             // Store invite in localStorage (in production, use database)
             this.saveInvite({

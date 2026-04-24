@@ -78,47 +78,11 @@ service cloud.firestore {
       match /drivers/{driverId}/{document=**} {
         allow read, create, update, delete: if isOwner(userId);
       }
-      match /loads/{docId} {
+
+      // Catch-all for additional user-owned app subcollections
+      // (e.g. samsara_*, integration_sync, documents, ifta_*).
+      match /{document=**} {
         allow read, create, update, delete: if isOwner(userId);
-      }
-      match /inspections/{docId} {
-        allow read, create, update, delete: if isOwner(userId);
-      }
-
-      // User preferences (column visibility, UI settings, etc.)
-      match /preferences/{prefId} {
-        allow read, create, update, delete: if isOwner(userId);
-      }
-
-      // User settings (dispatcher teams, app config per user)
-      match /settings/{docId} {
-        allow read, create, update, delete: if isOwner(userId);
-      }
-
-      // FMCSA DOT lookup jobs — written by client, processed by Cloud Function trigger
-      match /fmcsaLookups/{lookupId} {
-        allow create: if isOwner(userId);
-        allow read, delete: if isOwner(userId);
-      }
-
-      // Samsara OAuth pending — client writes code+state, Firestore trigger exchanges tokens
-      match /samsara_oauth_pending/{docId} {
-        allow create: if isOwner(userId);
-        allow read: if isOwner(userId);
-        // Only Cloud Function (admin SDK) can update/delete
-      }
-
-      // Samsara fleet sync requests — client writes, Cloud Function processes + deletes
-      match /samsara_sync_requests/{docId} {
-        allow create: if isOwner(userId);
-        allow read: if isOwner(userId);
-        // Only Cloud Function (admin SDK) can update/delete
-      }
-
-      // Samsara fleet cache — written by Cloud Function only, client can read
-      match /samsara_cache/{cacheId} {
-        allow read: if isOwner(userId);
-        // Only Cloud Function (admin SDK) can write
       }
     }
     
@@ -293,13 +257,6 @@ service cloud.firestore {
       allow delete: if isOwner(userId) || isAdmin();
     }
     
-    // ==========================================
-    // SETTINGS COLLECTION (dispatcher teams, app config)
-    // ==========================================
-    match /settings/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
     // ==========================================
     // DEFAULT DENY
     // ==========================================

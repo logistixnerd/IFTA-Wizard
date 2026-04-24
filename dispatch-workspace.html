@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispatch Workspace - IFTA Wizard</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dispatch-workspace.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="dispatch-page">
+
+        <!-- Header -->
+        <header class="dispatch-header">
+            <div class="dispatch-header-left">
+                <a href="dashboard.html" class="dispatch-back-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M15 18l-6-6 6-6"/></svg>
+                    Dashboard
+                </a>
+                <div>
+                    <h1>Dispatch Workspace</h1>
+                    <p>Load board, active loads, and driver availability at a glance.</p>
+                </div>
+            </div>
+            <div class="dispatch-header-actions">
+                <button class="btn btn-secondary" id="refreshDispatchBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <!-- Summary cards -->
+        <section class="dispatch-summary-cards">
+            <article class="dispatch-summary-card">
+                <div class="dc-label">Total Loads</div>
+                <div class="dc-value" id="dcTotal">0</div>
+                <div class="dc-sub">all records</div>
+            </article>
+            <article class="dispatch-summary-card">
+                <div class="dc-label">Active / In Transit</div>
+                <div class="dc-value" id="dcActive">0</div>
+                <div class="dc-sub">moving right now</div>
+            </article>
+            <article class="dispatch-summary-card">
+                <div class="dc-label">Pending</div>
+                <div class="dc-value" id="dcPending">0</div>
+                <div class="dc-sub">awaiting assignment</div>
+            </article>
+            <article class="dispatch-summary-card">
+                <div class="dc-label">Available Drivers</div>
+                <div class="dc-value" id="dcAvailDrivers">0</div>
+                <div class="dc-sub">ready to dispatch</div>
+            </article>
+        </section>
+
+        <!-- Section nav -->
+        <nav class="dispatch-nav">
+            <button class="dispatch-nav-tab active" data-section="overview">Overview</button>
+            <button class="dispatch-nav-tab" data-section="board">Load Board</button>
+            <button class="dispatch-nav-tab" data-section="active-loads">Active Loads</button>
+        </nav>
+
+        <!-- Section: Overview -->
+        <section id="section-overview" class="dispatch-section active">
+            <div class="dispatch-overview-grid">
+                <div class="dsp-panel">
+                    <div class="dsp-panel-header">
+                        <h2>Recent Loads</h2>
+                    </div>
+                    <div class="dsp-panel-body">
+                        <div class="dsp-item-list" id="overviewLoadList"></div>
+                    </div>
+                </div>
+                <div class="dsp-panel">
+                    <div class="dsp-panel-header">
+                        <h2>Driver Availability</h2>
+                    </div>
+                    <div class="dsp-panel-body">
+                        <div id="overviewDriverList"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Load Board -->
+        <section id="section-board" class="dispatch-section">
+            <div class="dsp-panel">
+                <div class="dsp-panel-header">
+                    <h2>Load Board</h2>
+                    <input type="search" id="boardSearch" class="dsp-search" placeholder="Search loads…">
+                </div>
+                <div class="dsp-panel-body">
+                    <div class="dsp-table-wrap" id="boardTableWrap">
+                        <table class="dsp-table">
+                            <thead>
+                                <tr>
+                                    <th>Load #</th>
+                                    <th>Origin</th>
+                                    <th>Destination</th>
+                                    <th>Driver</th>
+                                    <th>Truck</th>
+                                    <th>Trailer</th>
+                                    <th>Pickup Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="boardTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="boardEmpty" class="dsp-empty" style="display:none">No loads found. Create loads to populate the board.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Active Loads -->
+        <section id="section-active-loads" class="dispatch-section">
+            <div class="dsp-panel">
+                <div class="dsp-panel-header">
+                    <h2>Active Loads</h2>
+                </div>
+                <div class="dsp-panel-body">
+                    <div class="dsp-item-list" id="activeLoadsList"></div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="dispatch-workspace.js"></script>
+</body>
+</html>

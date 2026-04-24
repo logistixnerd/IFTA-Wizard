@@ -12,14 +12,8 @@ const firebaseConfig = {
     measurementId: "G-D42MQDKFP2"
 };
 
-// FMCSA QCMobile API (free public key)
-const FMCSA_CONFIG = {
-    baseUrl: 'https://mobile.fmcsa.dot.gov/qc/services',
-    webKey: '76969b3c7d50d2d32324e7601514d5c4b5ff0f96'
-};
-
 // Initialize Firebase
-let app, auth, db, storage;
+let app, auth, db;
 
 function initializeFirebase() {
     try {
@@ -31,9 +25,6 @@ function initializeFirebase() {
         
         // Initialize Firestore
         db = firebase.firestore();
-
-        // Initialize Storage (may be unavailable in some environments)
-        try { storage = firebase.storage(); } catch (_) { storage = null; }
         
         console.log('Firebase initialized successfully');
         return true;
@@ -513,45 +504,48 @@ const FirebaseDB = {
     // Get all tasks across entities for task board
     async getAllTasks(userId, filters = {}) {
         try {
-            const entityTypes = ['drivers', 'trucks', 'trailers'];
-            const userRef = db.collection('users').doc(userId);
-
-            // Fetch all 3 entity collections in parallel
-            const entitySnapshots = await Promise.all(
-                entityTypes.map(t => userRef.collection(t).get())
-            );
-
-            // Build a flat list of { entityType, entityDoc } then fetch all history in parallel
-            const jobs = [];
-            entityTypes.forEach((entityType, i) => {
-                entitySnapshots[i].docs.forEach(entityDoc => {
-                    jobs.push(
-                        entityDoc.ref.collection('history')
-                            .orderBy('createdAt', 'desc').get()
-                            .then(tasksSnap => ({ entityType, entityDoc, tasksSnap }))
-                    );
-                });
-            });
-
-            const results = await Promise.all(jobs);
-
             const allTasks = [];
-            for (const { entityType, entityDoc, tasksSnap } of results) {
-                const nameKey = entityType === 'drivers' ? 'firstName' : 'unit';
-                const entityName = entityDoc.data()[nameKey] || entityDoc.id;
-                tasksSnap.forEach(taskDoc => {
-                    const data = taskDoc.data();
-                    if (!data.status) return;
-                    allTasks.push({
-                        id: taskDoc.id,
-                        entityType,
-                        entityId: entityDoc.id,
-                        entityName,
-                        ...data
+            const entityTypes = ['drivers', 'trucks', 'trailers'];
+            
+            for (const entityType of entityTypes) {
+                const entitiesSnapshot = await db.collection('users').doc(userId)
+                    .collection(entityType).get();
+                
+                for (const entityDoc of entitiesSnapshot.docs) {
+                    let query = entityDoc.ref.collection('history');
+                    
+                    // Filter by status if provided
+                    if (filters.status && filters.status.length > 0) {
+                        query = query.where('status', 'in', filters.status);
+                    }
+                    
+                    // Filter by assigned user if provided
+                    if (filters.assignedTo) {
+                        query = query.where('assignedTo', 'array-contains', filters.assignedTo);
+                    }
+                    
+                    // Filter by due date range if provided
+                    if (filters.dueDateFrom) {
+                        query = query.where('dueDate', '>=', filters.dueDateFrom);
+                    }
+                    if (filters.dueDateTo) {
+                        query = query.where('dueDate', '<=', filters.dueDateTo);
+                    }
+                    
+                    const tasksSnapshot = await query.orderBy('createdAt', 'desc').get();
+                    
+                    tasksSnapshot.forEach(taskDoc => {
+                        allTasks.push({
+                            id: taskDoc.id,
+                            entityType: entityType,
+                            entityId: entityDoc.id,
+                            entityName: entityDoc.data()[entityType === 'drivers' ? 'firstName' : 'unit'] || entityDoc.id,
+                            ...taskDoc.data()
+                        });
                     });
-                });
+                }
             }
-
+            
             // Sort by creation date
             allTasks.sort((a, b) => {
                 const aTime = a.createdAt?.toDate?.() || new Date(a.createdAtIso || 0);
@@ -644,45 +638,6 @@ const FirebaseDB = {
         }
     },
     
-    // Update task note with history
-    async updateTaskNote(userId, entityType, entityId, taskId, newText, oldText, editedBy) {
-        try {
-            const ref = db.collection('users').doc(userId)
-                .collection(entityType).doc(entityId)
-                .collection('history').doc(taskId);
-            await ref.update({
-                text: newText,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                noteHistory: firebase.firestore.FieldValue.arrayUnion({
-                    text: oldText,
-                    editedBy: editedBy,
-                    editedAt: new Date().toISOString()
-                })
-            });
-            return { success: true };
-        } catch (error) {
-            console.error('Error updating task note:', error);
-            return { success: false, error: error.message };
-        }
-    },
-
-    // Add a comment to a task
-    async addTaskComment(userId, entityType, entityId, taskId, comment) {
-        try {
-            const ref = db.collection('users').doc(userId)
-                .collection(entityType).doc(entityId)
-                .collection('history').doc(taskId);
-            await ref.update({
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                comments: firebase.firestore.FieldValue.arrayUnion(comment)
-            });
-            return { success: true };
-        } catch (error) {
-            console.error('Error adding comment:', error);
-            return { success: false, error: error.message };
-        }
-    },
-
     // Delete a task
     async deleteTask(userId, entityType, entityId, taskId) {
         try {
@@ -703,18 +658,6 @@ const FirebaseDB = {
 document.addEventListener('DOMContentLoaded', () => {
     initializeFirebase();
 });
-
-// ==========================================
-// CENTRALIZED ADMIN EMAILS - Single source of truth
-// ==========================================
-const ADMIN_EMAILS = [
-    'milan.pericic@logistixnerd.com',
-    'milanpericic@gmail.com',
-    'admin@iftawizard.com'
-].map(e => e.toLowerCase());
-
-// Export for other modules
-window.ADMIN_EMAILS = ADMIN_EMAILS;
 
 // ==========================================
 // ADMIN SETUP - Development only for security

@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fuel & IFTA Workspace - IFTA Wizard</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="fuel-ifta-workspace.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="fi-page">
+        <header class="fi-header">
+            <div class="fi-header-left">
+                <a href="dashboard.html" class="fi-back-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M15 18l-6-6 6-6"/></svg>
+                    Dashboard
+                </a>
+                <div>
+                    <h1>Fuel & IFTA Workspace</h1>
+                    <p>Fuel and energy consumption, idling, trip performance, and IFTA jurisdiction insights in one operational view.</p>
+                </div>
+            </div>
+            <div class="fi-header-actions">
+                <select id="fiWindowSelect" class="fi-control">
+                    <option value="30">Last 30 days</option>
+                    <option value="90" selected>Last 90 days</option>
+                    <option value="180">Last 180 days</option>
+                </select>
+                <button class="btn btn-secondary" id="fiRefreshBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <section class="fi-kpis">
+            <article class="fi-kpi">
+                <div class="fi-kpi-label">Fuel Used</div>
+                <div class="fi-kpi-value" id="fiFuelUsed">0 gal</div>
+                <div class="fi-kpi-sub" id="fiFuelSub">window total</div>
+            </article>
+            <article class="fi-kpi">
+                <div class="fi-kpi-label">Energy Used</div>
+                <div class="fi-kpi-value" id="fiEnergyUsed">0 kWh</div>
+                <div class="fi-kpi-sub" id="fiEnergySub">window total</div>
+            </article>
+            <article class="fi-kpi">
+                <div class="fi-kpi-label">Avg Efficiency</div>
+                <div class="fi-kpi-value" id="fiEfficiency">0 MPG</div>
+                <div class="fi-kpi-sub" id="fiEfficiencySub">fleet weighted avg</div>
+            </article>
+            <article class="fi-kpi warning">
+                <div class="fi-kpi-label">Idling Hours</div>
+                <div class="fi-kpi-value" id="fiIdlingHours">0 h</div>
+                <div class="fi-kpi-sub" id="fiIdlingSub">trip-derived estimate</div>
+            </article>
+            <article class="fi-kpi warning">
+                <div class="fi-kpi-label">IFTA Actions</div>
+                <div class="fi-kpi-value" id="fiIftaActions">0</div>
+                <div class="fi-kpi-sub" id="fiIftaSub">filings/reports needing action</div>
+            </article>
+        </section>
+
+        <section class="fi-main">
+            <div class="fi-columns">
+                <article class="fi-panel">
+                    <header class="fi-panel-header">
+                        <h2>Trends</h2>
+                        <span class="fi-meta" id="fiTrendMeta">8-week fuel/miles pattern</span>
+                    </header>
+                    <div class="fi-trend-wrap" id="fiTrendBars"></div>
+                </article>
+
+                <article class="fi-panel">
+                    <header class="fi-panel-header">
+                        <h2>Operations Snapshot</h2>
+                        <span class="fi-meta" id="fiOpsMeta">live roll-up</span>
+                    </header>
+                    <div class="fi-snapshot-grid" id="fiSnapshotGrid"></div>
+                </article>
+
+                <article class="fi-panel wide">
+                    <header class="fi-panel-header">
+                        <h2>Per-Vehicle Metrics</h2>
+                        <input type="text" id="fiVehicleSearch" class="fi-inline-search" placeholder="Search unit, VIN, plate">
+                    </header>
+                    <div class="fi-table-wrap">
+                        <table class="fi-table">
+                            <thead>
+                                <tr>
+                                    <th>Unit</th>
+                                    <th>Trips</th>
+                                    <th>Miles</th>
+                                    <th>Fuel (gal)</th>
+                                    <th>Energy (kWh)</th>
+                                    <th>Efficiency</th>
+                                    <th>Idling (h)</th>
+                                    <th>IFTA States</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fiVehicleTableBody"></tbody>
+                        </table>
+                    </div>
+                </article>
+
+                <article class="fi-panel wide">
+                    <header class="fi-panel-header">
+                        <h2>State-Level Mileage & Fuel Insights</h2>
+                        <span class="fi-meta" id="fiStateMeta">jurisdiction reconciliation view</span>
+                    </header>
+                    <div class="fi-table-wrap">
+                        <table class="fi-table">
+                            <thead>
+                                <tr>
+                                    <th>State</th>
+                                    <th>Miles</th>
+                                    <th>Fuel (gal)</th>
+                                    <th>Energy (kWh)</th>
+                                    <th>Avg MPG</th>
+                                    <th>Trip Count</th>
+                                    <th>IFTA Records</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fiStateTableBody"></tbody>
+                        </table>
+                    </div>
+                </article>
+            </div>
+
+            <aside class="fi-detail" id="fiDetailPane">
+                <header class="fi-detail-header">
+                    <h2 id="fiDetailTitle">Detail</h2>
+                    <button id="fiCloseDetail" class="fi-close-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </header>
+                <div class="fi-detail-body" id="fiDetailBody">
+                    <p class="fi-detail-empty">Click any vehicle or state row to inspect fuel, trip, and IFTA context.</p>
+                </div>
+            </aside>
+        </section>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="fuel-ifta-workspace.js"></script>
+</body>
+</html>

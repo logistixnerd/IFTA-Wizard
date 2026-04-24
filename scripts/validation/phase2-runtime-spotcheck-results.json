@@ -1,0 +1,85 @@
+{
+  "generatedAt": "2026-04-23T20:28:25.429Z",
+  "total": 6,
+  "pass": 6,
+  "fail": 0,
+  "flows": [
+    {
+      "flow": "non-admin user denied admin paths",
+      "pass": true,
+      "details": {
+        "panelShown": 0,
+        "deniedShown": 1,
+        "allowed": false,
+        "denied": true
+      }
+    },
+    {
+      "flow": "admin user allowed admin paths",
+      "pass": true,
+      "details": {
+        "panelShown": 1,
+        "deniedShown": 0,
+        "allowed": true,
+        "denied": false
+      }
+    },
+    {
+      "flow": "role transition user->admin reflected",
+      "pass": true,
+      "details": {
+        "first": {
+          "panelShown": 0,
+          "deniedShown": 1,
+          "allowed": false,
+          "denied": true
+        },
+        "second": {
+          "panelShown": 1,
+          "deniedShown": 0,
+          "allowed": true,
+          "denied": false
+        }
+      }
+    },
+    {
+      "flow": "role transition admin->user removes access",
+      "pass": true,
+      "details": {
+        "first": {
+          "panelShown": 1,
+          "deniedShown": 0,
+          "allowed": true,
+          "denied": false
+        },
+        "second": {
+          "panelShown": 0,
+          "deniedShown": 1,
+          "allowed": false,
+          "denied": true
+        }
+      }
+    },
+    {
+      "flow": "stale localStorage does not preserve admin access",
+      "pass": true,
+      "details": {
+        "panelShown": 0,
+        "deniedShown": 1,
+        "allowed": false,
+        "denied": true
+      }
+    },
+    {
+      "flow": "hardcoded-email-only user without Firestore role is denied",
+      "pass": true,
+      "details": {
+        "panelShown": 0,
+        "deniedShown": 1,
+        "allowed": false,
+        "denied": true
+      }
+    }
+  ],
+  "authorityLeaks": []
+}

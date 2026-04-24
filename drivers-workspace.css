@@ -1,0 +1,554 @@
+.drivers-page {
+    min-height: 100vh;
+    padding: 1rem 1rem 1.35rem;
+    background: #f4f5f7;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.drivers-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 0.9rem;
+}
+
+.drivers-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.drivers-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    width: fit-content;
+    text-decoration: none;
+    color: var(--gray-600);
+    font-size: 0.74rem;
+}
+
+.drivers-back-link:hover {
+    color: var(--primary);
+}
+
+.drivers-header h1 {
+    margin: 0;
+    font-size: 1.18rem;
+    color: var(--gray-900);
+}
+
+.drivers-header p {
+    margin: 0.1rem 0 0;
+    font-size: 0.77rem;
+    color: var(--gray-600);
+}
+
+.drivers-header-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+/* ── Section nav ─────────────────────────────────────────── */
+.drivers-nav {
+    display: flex;
+    gap: 0.18rem;
+    border-bottom: 1px solid var(--gray-200);
+    margin-bottom: 1rem;
+    background: #fff;
+    border-radius: 10px 10px 0 0;
+    padding: 0 0.6rem;
+}
+
+.drivers-nav-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.28rem;
+    padding: 0.6rem 0.72rem;
+    font-size: 0.74rem;
+    font-weight: 500;
+    color: var(--gray-500);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: color 0.12s, border-color 0.12s;
+    cursor: pointer;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    white-space: nowrap;
+}
+
+.drivers-nav-tab:hover {
+    color: var(--gray-800);
+}
+
+.drivers-nav-tab.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 600;
+}
+
+/* ── Summary cards ───────────────────────────────────────── */
+.drivers-summary-cards {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.7rem;
+    margin-bottom: 0.85rem;
+}
+
+.drivers-summary-card {
+    border: 1px solid rgba(79, 70, 229, 0.11);
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 14px;
+    padding: 0.74rem 0.84rem;
+    box-shadow: 0 2px 12px rgba(17, 24, 39, 0.04);
+}
+
+.ds-label {
+    font-size: 0.67rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-500);
+}
+
+.ds-value {
+    margin-top: 0.22rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--gray-900);
+}
+
+.ds-sub {
+    margin-top: 0.2rem;
+    font-size: 0.67rem;
+    color: var(--gray-500);
+}
+
+/* ── Section panels ──────────────────────────────────────── */
+.drivers-section {
+    display: none;
+}
+
+.drivers-section.active {
+    display: block;
+}
+
+/* ── Panel shell ─────────────────────────────────────────── */
+.dw-panel {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.dw-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.72rem 0.84rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.dw-panel-header h2 {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--gray-800);
+}
+
+.dw-panel-body {
+    padding: 0.82rem 0.84rem;
+}
+
+/* ── Inline search ───────────────────────────────────────── */
+.dw-search {
+    height: 28px;
+    border-radius: 8px;
+    border: 1px solid var(--gray-300);
+    font-size: 0.7rem;
+    padding: 0 0.5rem;
+    width: 160px;
+}
+
+/* ── Table ───────────────────────────────────────────────── */
+.dw-table-wrap {
+    overflow-x: auto;
+}
+
+.dw-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.72rem;
+}
+
+.dw-table th {
+    text-align: left;
+    padding: 0.4rem 0.5rem;
+    border-bottom: 1px solid var(--gray-200);
+    font-size: 0.67rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--gray-500);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.dw-table td {
+    padding: 0.48rem 0.5rem;
+    border-bottom: 1px solid var(--gray-100);
+    color: var(--gray-700);
+    vertical-align: middle;
+}
+
+.dw-table tr:last-child td {
+    border-bottom: none;
+}
+
+.dw-table tr:hover td {
+    background: rgba(238, 242, 255, 0.5);
+}
+
+.dw-table tr.row-dnd td {
+    background: rgba(254, 242, 242, 0.5);
+}
+
+.dw-doc-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--gray-700);
+    font-size: 0.64rem;
+    padding: 0.18rem 0.45rem;
+    cursor: pointer;
+}
+
+.dw-doc-indicator.warning {
+    border-color: rgba(245, 158, 11, 0.45);
+    color: #b45309;
+    background: rgba(254, 243, 199, 0.35);
+}
+
+.dw-doc-indicator.expired {
+    border-color: rgba(220, 38, 38, 0.45);
+    color: #b91c1c;
+    background: rgba(254, 226, 226, 0.45);
+}
+
+/* ── Status badge ────────────────────────────────────────── */
+.dw-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.14rem 0.5rem;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.dw-badge.active   { background: rgba(22, 163, 74, 0.14);  color: #15803d; }
+.dw-badge.inactive { background: rgba(107, 114, 128, 0.14); color: #374151; }
+.dw-badge.pending  { background: rgba(245, 158, 11, 0.14);  color: #b45309; }
+.dw-badge.dnd      { background: rgba(220, 38, 38, 0.14);   color: #b91c1c; }
+
+/* ── Empty state ─────────────────────────────────────────── */
+.dw-empty {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--gray-400);
+    font-size: 0.74rem;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* ── List rows (hiring / onboarding) ─────────────────────── */
+.dw-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.dw-item {
+    border-radius: 10px;
+    border: 1px solid var(--gray-200);
+    background: rgba(249, 250, 251, 0.88);
+    padding: 0.6rem 0.7rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.dw-item-main {
+    flex: 1;
+    min-width: 0;
+}
+
+.dw-item-title {
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dw-item-sub {
+    margin-top: 0.18rem;
+    font-size: 0.66rem;
+    color: var(--gray-500);
+}
+
+/* ── Pipeline kanban ──────────────────────────────────────── */
+.dw-kanban {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 0.7rem;
+}
+
+.dw-kanban-col {
+    background: rgba(249, 250, 251, 0.88);
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    padding: 0.6rem;
+}
+
+.dw-kanban-col-header {
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-500);
+    margin-bottom: 0.5rem;
+}
+
+.dw-kanban-card {
+    background: #fff;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    padding: 0.45rem 0.5rem;
+    font-size: 0.7rem;
+    color: var(--gray-700);
+    margin-bottom: 0.35rem;
+}
+
+/* ── Loading spinner ─────────────────────────────────────── */
+.dw-loading {
+    padding: 2.4rem 1rem;
+    text-align: center;
+    color: var(--gray-400);
+    font-size: 0.74rem;
+}
+
+/* ── Driver docs panel ───────────────────────────────────── */
+.dw-docs-panel {
+    margin-top: 0.8rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    background: #fff;
+}
+
+.dw-docs-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.7rem;
+    padding: 0.75rem 0.82rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+
+.dw-docs-panel-header h3 {
+    margin: 0;
+    font-size: 0.86rem;
+    color: var(--gray-900);
+}
+
+.dw-docs-panel-header p {
+    margin: 0.16rem 0 0;
+    font-size: 0.68rem;
+    color: var(--gray-500);
+}
+
+.dw-icon-btn {
+    border: 1px solid var(--gray-200);
+    background: #fff;
+    color: var(--gray-500);
+    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.dw-docs-warnings {
+    padding: 0.65rem 0.82rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.dw-doc-warning {
+    border-radius: 8px;
+    padding: 0.45rem 0.52rem;
+    font-size: 0.67rem;
+}
+
+.dw-doc-warning.missing {
+    background: rgba(245, 158, 11, 0.14);
+    color: #92400e;
+}
+
+.dw-doc-warning.expired {
+    background: rgba(220, 38, 38, 0.14);
+    color: #991b1b;
+}
+
+.dw-docs-message {
+    margin: 0.6rem 0.82rem 0;
+    padding: 0.48rem 0.56rem;
+    border-radius: 8px;
+    font-size: 0.67rem;
+    display: none;
+}
+
+.dw-docs-message.info {
+    display: block;
+    background: rgba(59, 130, 246, 0.14);
+    color: #1d4ed8;
+}
+
+.dw-docs-message.error {
+    display: block;
+    background: rgba(220, 38, 38, 0.14);
+    color: #991b1b;
+}
+
+.dw-docs-types {
+    padding: 0.75rem 0.82rem 0.82rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.62rem;
+}
+
+.dw-doc-type-card {
+    border: 1px solid var(--gray-200);
+    border-radius: 10px;
+    background: rgba(249, 250, 251, 0.72);
+    padding: 0.55rem;
+}
+
+.dw-doc-type-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.45rem;
+    margin-bottom: 0.45rem;
+}
+
+.dw-doc-type-head h4 {
+    margin: 0;
+    font-size: 0.73rem;
+    color: var(--gray-800);
+}
+
+.dw-doc-type-actions {
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.dw-mini-btn {
+    border: 1px solid var(--gray-300);
+    background: #fff;
+    color: var(--gray-700);
+    border-radius: 8px;
+    height: 24px;
+    padding: 0 0.42rem;
+    font-size: 0.62rem;
+    cursor: pointer;
+}
+
+.dw-mini-btn.danger {
+    border-color: rgba(220, 38, 38, 0.4);
+    color: #b91c1c;
+}
+
+.dw-doc-type-expires {
+    width: 128px;
+    height: 24px;
+    border: 1px solid var(--gray-300);
+    border-radius: 8px;
+    font-size: 0.62rem;
+    padding: 0 0.35rem;
+}
+
+.dw-doc-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.dw-doc-file-row {
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    background: #fff;
+    padding: 0.4rem 0.45rem;
+}
+
+.dw-doc-file-name {
+    font-size: 0.68rem;
+    color: var(--gray-800);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.dw-doc-file-meta {
+    margin-top: 0.16rem;
+    font-size: 0.61rem;
+    color: var(--gray-500);
+}
+
+.dw-doc-file-actions {
+    display: flex;
+    gap: 0.32rem;
+    margin-top: 0.35rem;
+}
+
+.dw-doc-type-empty {
+    margin: 0;
+    padding: 0.32rem 0;
+    font-size: 0.65rem;
+    color: var(--gray-500);
+}
+
+/* ── Responsive ─────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .drivers-summary-cards {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .drivers-summary-cards {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dw-search {
+        width: 110px;
+    }
+
+    .dw-docs-types {
+        grid-template-columns: 1fr;
+    }
+}

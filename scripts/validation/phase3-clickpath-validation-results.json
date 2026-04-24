@@ -1,0 +1,597 @@
+{
+  "generatedAt": "2026-04-23T21:43:54.937Z",
+  "total": 42,
+  "pass": 42,
+  "fail": 0,
+  "rows": [
+    {
+      "oldUrl": "pages/accidents.html",
+      "expectedCanonicalUrl": "safety-workspace.html?section=accidents",
+      "actualFinalUrl": "safety-workspace.html?section=accidents",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/accidents.html",
+          "to": "safety-workspace.html?section=accidents"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/accounting.html",
+      "expectedCanonicalUrl": "fuel-ifta-workspace.html?section=accounting",
+      "actualFinalUrl": "fuel-ifta-workspace.html?section=accounting",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/accounting.html",
+          "to": "fuel-ifta-workspace.html?section=accounting"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/active-loads.html",
+      "expectedCanonicalUrl": "dispatch-workspace.html?section=active-loads",
+      "actualFinalUrl": "dispatch-workspace.html?section=active-loads",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/active-loads.html",
+          "to": "dispatch-workspace.html?section=active-loads"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/afterhours.html",
+      "expectedCanonicalUrl": "documents-workspace.html?section=afterhours",
+      "actualFinalUrl": "documents-workspace.html?section=afterhours",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/afterhours.html",
+          "to": "documents-workspace.html?section=afterhours"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/applications.html",
+      "expectedCanonicalUrl": "documents-workspace.html?section=applications",
+      "actualFinalUrl": "documents-workspace.html?section=applications",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/applications.html",
+          "to": "documents-workspace.html?section=applications"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/bulk-docs.html",
+      "expectedCanonicalUrl": "documents-workspace.html?section=bulk-docs",
+      "actualFinalUrl": "documents-workspace.html?section=bulk-docs",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/bulk-docs.html",
+          "to": "documents-workspace.html?section=bulk-docs"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/cargo-claims.html",
+      "expectedCanonicalUrl": "documents-workspace.html?section=cargo-claims",
+      "actualFinalUrl": "documents-workspace.html?section=cargo-claims",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/cargo-claims.html",
+          "to": "documents-workspace.html?section=cargo-claims"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/claims.html",
+      "expectedCanonicalUrl": "compliance-workspace.html?section=claims",
+      "actualFinalUrl": "compliance-workspace.html?section=claims",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/claims.html",
+          "to": "compliance-workspace.html?section=claims"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/command-center.html",
+      "expectedCanonicalUrl": "integrations-workspace.html?section=command-center",
+      "actualFinalUrl": "integrations-workspace.html?section=command-center",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/command-center.html",
+          "to": "integrations-workspace.html?section=command-center"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/company.html",
+      "expectedCanonicalUrl": "dashboard.html?section=company",
+      "actualFinalUrl": "dashboard.html?section=company",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/company.html",
+          "to": "dashboard.html?section=company"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/compliance.html",
+      "expectedCanonicalUrl": "compliance-workspace.html?section=overview",
+      "actualFinalUrl": "compliance-workspace.html?section=overview",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/compliance.html",
+          "to": "compliance-workspace.html?section=overview"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/cross-dept-alerts.html",
+      "expectedCanonicalUrl": "safety-workspace.html?section=alerts",
+      "actualFinalUrl": "safety-workspace.html?section=alerts",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/cross-dept-alerts.html",
+          "to": "safety-workspace.html?section=alerts"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/dispatch-board.html",
+      "expectedCanonicalUrl": "dispatch-workspace.html?section=board",
+      "actualFinalUrl": "dispatch-workspace.html?section=board",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/dispatch-board.html",
+          "to": "dispatch-workspace.html?section=board"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/dispatch.html",
+      "expectedCanonicalUrl": "dispatch-workspace.html?section=overview",
+      "actualFinalUrl": "dispatch-workspace.html?section=overview",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/dispatch.html",
+          "to": "dispatch-workspace.html?section=overview"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/driver-assignments.html",
+      "expectedCanonicalUrl": "drivers-workspace.html?section=assignments",
+      "actualFinalUrl": "drivers-workspace.html?section=assignments",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/driver-assignments.html",
+          "to": "drivers-workspace.html?section=assignments"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/driver-support.html",
+      "expectedCanonicalUrl": "documents-workspace.html?section=driver-support",
+      "actualFinalUrl": "documents-workspace.html?section=driver-support",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/driver-support.html",
+          "to": "documents-workspace.html?section=driver-support"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/drivers.html",
+      "expectedCanonicalUrl": "drivers-workspace.html?section=overview",
+      "actualFinalUrl": "drivers-workspace.html?section=overview",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/drivers.html",
+          "to": "drivers-workspace.html?section=overview"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/emergency-contacts.html",
+      "expectedCanonicalUrl": "documents-workspace.html?section=emergency-contacts",
+      "actualFinalUrl": "documents-workspace.html?section=emergency-contacts",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/emergency-contacts.html",
+          "to": "documents-workspace.html?section=emergency-contacts"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/eta-tracking.html",
+      "expectedCanonicalUrl": "integrations-workspace.html?section=eta-tracking",
+      "actualFinalUrl": "integrations-workspace.html?section=eta-tracking",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/eta-tracking.html",
+          "to": "integrations-workspace.html?section=eta-tracking"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/expenses.html",
+      "expectedCanonicalUrl": "fuel-ifta-workspace.html?section=expenses",
+      "actualFinalUrl": "fuel-ifta-workspace.html?section=expenses",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/expenses.html",
+          "to": "fuel-ifta-workspace.html?section=expenses"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/hiring-pipeline.html",
+      "expectedCanonicalUrl": "drivers-workspace.html?section=hiring-pipeline",
+      "actualFinalUrl": "drivers-workspace.html?section=hiring-pipeline",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/hiring-pipeline.html",
+          "to": "drivers-workspace.html?section=hiring-pipeline"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/hiring.html",
+      "expectedCanonicalUrl": "drivers-workspace.html?section=hiring",
+      "actualFinalUrl": "drivers-workspace.html?section=hiring",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/hiring.html",
+          "to": "drivers-workspace.html?section=hiring"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/insurance.html",
+      "expectedCanonicalUrl": "compliance-workspace.html?section=insurance",
+      "actualFinalUrl": "compliance-workspace.html?section=insurance",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/insurance.html",
+          "to": "compliance-workspace.html?section=insurance"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/invoices.html",
+      "expectedCanonicalUrl": "fuel-ifta-workspace.html?section=invoices",
+      "actualFinalUrl": "fuel-ifta-workspace.html?section=invoices",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/invoices.html",
+          "to": "fuel-ifta-workspace.html?section=invoices"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/live-map.html",
+      "expectedCanonicalUrl": "integrations-workspace.html?section=live-map",
+      "actualFinalUrl": "integrations-workspace.html?section=live-map",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/live-map.html",
+          "to": "integrations-workspace.html?section=live-map"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/load-status.html",
+      "expectedCanonicalUrl": "integrations-workspace.html?section=load-status",
+      "actualFinalUrl": "integrations-workspace.html?section=load-status",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/load-status.html",
+          "to": "integrations-workspace.html?section=load-status"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/maintenance.html",
+      "expectedCanonicalUrl": "fleet-workspace.html?section=maintenance",
+      "actualFinalUrl": "fleet-workspace.html?section=maintenance",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/maintenance.html",
+          "to": "fleet-workspace.html?section=maintenance"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/on-call.html",
+      "expectedCanonicalUrl": "documents-workspace.html?section=on-call",
+      "actualFinalUrl": "documents-workspace.html?section=on-call",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/on-call.html",
+          "to": "documents-workspace.html?section=on-call"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/onboarding.html",
+      "expectedCanonicalUrl": "drivers-workspace.html?section=onboarding",
+      "actualFinalUrl": "drivers-workspace.html?section=onboarding",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/onboarding.html",
+          "to": "drivers-workspace.html?section=onboarding"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/operations.html",
+      "expectedCanonicalUrl": "safety-workspace.html?section=operations",
+      "actualFinalUrl": "safety-workspace.html?section=operations",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/operations.html",
+          "to": "safety-workspace.html?section=operations"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/overview.html",
+      "expectedCanonicalUrl": "dashboard.html?section=overview",
+      "actualFinalUrl": "dashboard.html?section=overview",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/overview.html",
+          "to": "dashboard.html?section=overview"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/parts-inventory.html",
+      "expectedCanonicalUrl": "fleet-workspace.html?section=parts-inventory",
+      "actualFinalUrl": "fleet-workspace.html?section=parts-inventory",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/parts-inventory.html",
+          "to": "fleet-workspace.html?section=parts-inventory"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/payroll.html",
+      "expectedCanonicalUrl": "fuel-ifta-workspace.html?section=payroll",
+      "actualFinalUrl": "fuel-ifta-workspace.html?section=payroll",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/payroll.html",
+          "to": "fuel-ifta-workspace.html?section=payroll"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/pm-schedules.html",
+      "expectedCanonicalUrl": "fleet-workspace.html?section=pm-schedules",
+      "actualFinalUrl": "fleet-workspace.html?section=pm-schedules",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/pm-schedules.html",
+          "to": "fleet-workspace.html?section=pm-schedules"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/reports.html",
+      "expectedCanonicalUrl": "fuel-ifta-workspace.html?section=reports",
+      "actualFinalUrl": "fuel-ifta-workspace.html?section=reports",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/reports.html",
+          "to": "fuel-ifta-workspace.html?section=reports"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/safety.html",
+      "expectedCanonicalUrl": "safety-workspace.html?section=overview",
+      "actualFinalUrl": "safety-workspace.html?section=overview",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/safety.html",
+          "to": "safety-workspace.html?section=overview"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/settings.html",
+      "expectedCanonicalUrl": "dashboard.html?section=settings",
+      "actualFinalUrl": "dashboard.html?section=settings",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/settings.html",
+          "to": "dashboard.html?section=settings"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/settlements.html",
+      "expectedCanonicalUrl": "fuel-ifta-workspace.html?section=settlements",
+      "actualFinalUrl": "fuel-ifta-workspace.html?section=settlements",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/settlements.html",
+          "to": "fuel-ifta-workspace.html?section=settlements"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/tracking.html",
+      "expectedCanonicalUrl": "integrations-workspace.html?section=tracking",
+      "actualFinalUrl": "integrations-workspace.html?section=tracking",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/tracking.html",
+          "to": "integrations-workspace.html?section=tracking"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/trailers.html",
+      "expectedCanonicalUrl": "fleet-workspace.html?section=trailers",
+      "actualFinalUrl": "fleet-workspace.html?section=trailers",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/trailers.html",
+          "to": "fleet-workspace.html?section=trailers"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/trucks.html",
+      "expectedCanonicalUrl": "fleet-workspace.html?section=trucks",
+      "actualFinalUrl": "fleet-workspace.html?section=trucks",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/trucks.html",
+          "to": "fleet-workspace.html?section=trucks"
+        }
+      ]
+    },
+    {
+      "oldUrl": "pages/work-orders.html",
+      "expectedCanonicalUrl": "fleet-workspace.html?section=work-orders",
+      "actualFinalUrl": "fleet-workspace.html?section=work-orders",
+      "pass": true,
+      "flags": [],
+      "stopped": "terminal-page",
+      "hops": [
+        {
+          "from": "pages/work-orders.html",
+          "to": "fleet-workspace.html?section=work-orders"
+        }
+      ]
+    }
+  ],
+  "architecturalDebt": []
+}

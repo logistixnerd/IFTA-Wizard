@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Workspace - IFTA Wizard</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="compliance-workspace.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="compliance-page">
+        <header class="compliance-header">
+            <div class="compliance-header-left">
+                <a href="dashboard.html" class="compliance-back-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M15 18l-6-6 6-6"/></svg>
+                    Dashboard
+                </a>
+                <div>
+                    <h1>Compliance Workspace</h1>
+                    <p>Driver qualification, document completeness, ELD compliance, and IFTA filing risks in one action board.</p>
+                </div>
+            </div>
+            <div class="compliance-header-actions">
+                <select id="windowSelect" class="compliance-control">
+                    <option value="14">14 days</option>
+                    <option value="30" selected>30 days</option>
+                    <option value="60">60 days</option>
+                    <option value="90">90 days</option>
+                </select>
+                <label class="compliance-toggle">
+                    <input type="checkbox" id="actionOnlyToggle">
+                    <span>Action Required Only</span>
+                </label>
+                <button class="btn btn-secondary" id="refreshComplianceBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <section class="compliance-kpis">
+            <article class="compliance-kpi danger">
+                <div class="kpi-label">Action Required</div>
+                <div class="kpi-value" id="actionRequiredValue">0</div>
+                <div class="kpi-sub" id="actionRequiredSub">overdue or missing records</div>
+            </article>
+            <article class="compliance-kpi warning">
+                <div class="kpi-label">Expiring Soon</div>
+                <div class="kpi-value" id="expiringSoonValue">0</div>
+                <div class="kpi-sub" id="expiringSoonSub">CDL, medical, MVR, TWIC</div>
+            </article>
+            <article class="compliance-kpi warning">
+                <div class="kpi-label">Missing DQ Docs</div>
+                <div class="kpi-value" id="missingDocsValue">0</div>
+                <div class="kpi-sub" id="missingDocsSub">required qualification files</div>
+            </article>
+            <article class="compliance-kpi warning">
+                <div class="kpi-label">ELD Flags</div>
+                <div class="kpi-value" id="eldFlagsValue">0</div>
+                <div class="kpi-sub" id="eldFlagsSub">HOS logs with exceptions</div>
+            </article>
+            <article class="compliance-kpi warning">
+                <div class="kpi-label">IFTA Flags</div>
+                <div class="kpi-value" id="iftaFlagsValue">0</div>
+                <div class="kpi-sub" id="iftaFlagsSub">filings and tax items</div>
+            </article>
+        </section>
+
+        <section class="compliance-main">
+            <div class="compliance-columns">
+                <article class="compliance-panel">
+                    <header class="compliance-panel-header">
+                        <h2>Action Queue</h2>
+                        <span class="panel-meta" id="actionQueueMeta">0 items</span>
+                    </header>
+                    <div class="signal-list" id="actionQueueList"></div>
+                </article>
+
+                <article class="compliance-panel">
+                    <header class="compliance-panel-header">
+                        <h2>Expiration Watchlist</h2>
+                        <span class="panel-meta" id="expirationMeta">0 records</span>
+                    </header>
+                    <div class="signal-list" id="expirationList"></div>
+                </article>
+
+                <article class="compliance-panel">
+                    <header class="compliance-panel-header">
+                        <h2>Missing Qualification Docs</h2>
+                        <span class="panel-meta" id="missingMeta">0 drivers</span>
+                    </header>
+                    <div class="signal-list" id="missingList"></div>
+                </article>
+
+                <article class="compliance-panel">
+                    <header class="compliance-panel-header">
+                        <h2>Samsara Documents</h2>
+                        <input type="text" id="docSearchInput" class="inline-search" placeholder="Search title or driver">
+                    </header>
+                    <div class="signal-list" id="samsaraDocsList"></div>
+                </article>
+
+                <article class="compliance-panel">
+                    <header class="compliance-panel-header">
+                        <h2>ELD Compliance</h2>
+                        <span class="panel-meta" id="eldMeta">0 flags</span>
+                    </header>
+                    <div class="signal-list" id="eldList"></div>
+                </article>
+
+                <article class="compliance-panel">
+                    <header class="compliance-panel-header">
+                        <h2>IFTA-Related Items</h2>
+                        <span class="panel-meta" id="iftaMeta">0 records</span>
+                    </header>
+                    <div class="signal-list" id="iftaList"></div>
+                </article>
+            </div>
+
+            <aside class="compliance-detail" id="complianceDetailPane">
+                <header class="compliance-detail-header">
+                    <h2 id="detailTitle">Record Detail</h2>
+                    <button id="closeDetailBtn" class="detail-close-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </header>
+                <div class="compliance-detail-body" id="detailBody">
+                    <p class="detail-empty">Select any card to inspect deadlines, missing fields, and recommended next steps.</p>
+                </div>
+            </aside>
+        </section>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="compliance-workspace.js"></script>
+</body>
+</html>

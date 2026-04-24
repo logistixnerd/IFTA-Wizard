@@ -1,5 +1,5 @@
 /* ==========================================
-   CARRIER DASHBOARD “ JavaScript
+   CARRIER DASHBOARD – JavaScript
    ========================================== */
 
 (function () {
@@ -11,8 +11,6 @@
         trucks: [],
         trailers: [],
         drivers: [],
-        loads: [],
-        inspections: [],
         profile: {},
         fmcsaSnapshot: null,
         dropdownOptions: {},
@@ -211,10 +209,7 @@
             defaults: [
                 { value: 'active', label: 'Active' },
                 { value: 'inactive', label: 'Out of Service' },
-                { value: 'maintenance', label: 'In Maintenance' },
-                { value: 'inshop', label: 'In Shop' },
-                { value: 'reserved', label: 'Reserved' },
-                { value: 'sold', label: 'Sold' }
+                { value: 'maintenance', label: 'In Maintenance' }
             ],
             formIds: ['truckStatus'],
             filterIds: ['truckStatusFilter'],
@@ -240,10 +235,7 @@
             defaults: [
                 { value: 'active', label: 'Active' },
                 { value: 'inactive', label: 'Out of Service' },
-                { value: 'maintenance', label: 'In Maintenance' },
-                { value: 'inshop', label: 'In Shop' },
-                { value: 'reserved', label: 'Reserved' },
-                { value: 'sold', label: 'Sold' }
+                { value: 'maintenance', label: 'In Maintenance' }
             ],
             formIds: ['trailerStatus'],
             filterIds: ['trailerStatusFilter'],
@@ -254,11 +246,7 @@
             defaults: [
                 { value: 'active', label: 'Active' },
                 { value: 'inactive', label: 'Inactive' },
-                { value: 'home-time', label: 'Home Time' },
-                { value: 'training', label: 'Training' },
-                { value: 'pending', label: 'Pending' },
-                { value: 'suspended', label: 'Suspended' },
-                { value: 'terminated', label: 'Terminated' }
+                { value: 'on-leave', label: 'On Leave' }
             ],
             formIds: ['driverStatus'],
             filterIds: ['driverStatusFilter'],
@@ -276,23 +264,6 @@
             formIds: ['dashFleetSize'],
             filterIds: [],
             sheetPath: null
-        },
-        loadStatus: {
-            label: 'Load Status',
-            defaults: [
-                { value: 'booked', label: 'Booked' },
-                { value: 'dispatched', label: 'Dispatched' },
-                { value: 'loaded', label: 'Loaded' },
-                { value: 'in-transit', label: 'In Transit' },
-                { value: 'delivered', label: 'Delivered' },
-                { value: 'invoiced', label: 'Invoiced' },
-                { value: 'paid', label: 'Paid' },
-                { value: 'canceled', label: 'Canceled' },
-                { value: 'issue', label: 'Issue' }
-            ],
-            formIds: ['loadStatus'],
-            filterIds: ['loadStatusFilter', 'historyStatusFilter'],
-            sheetPath: { type: 'load', colKey: 'status' }
         }
     };
 
@@ -381,7 +352,6 @@
     function $(id) { return document.getElementById(id); }
     function uid() { return state.user ? state.user.uid : null; }
     function col(name) { return db.collection('users').doc(uid()).collection(name); }
-    function titleCase(s) { return s ? s.replace(/\w\S*/g, w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()) : s; }
     function escapeHtml(str) {
         if (!str) return '';
         const div = document.createElement('div');
@@ -622,17 +592,12 @@
     function initAuth() {
         firebase.auth().onAuthStateChanged(async (user) => {
             if (!user) {
-                window.location.href = 'index.html';
+                window.location.href = 'dashboard.html';
                 return;
             }
             state.user = user;
             setTopbarAccount(user.displayName || 'User', user.photoURL || localStorage.getItem('ifta_avatar') || null);
             await loadAll();
-            document.querySelector('.dash-layout')?.classList.add('ready');
-            _startFleetLiveSync();
-            // Navigate to hash section if present, else default to overview
-            const hash = window.location.hash.replace('#', '');
-            navigateToSection(hash || 'overview', true);
         });
     }
 
@@ -652,38 +617,130 @@
         }
     }
 
-    function navigateToSection(section, skipHash) {
+    function navigateToSection(section) {
         if (!section) return;
-        
-        // Update URL hash (skip during popstate handling)
-        if (!skipHash) {
-            history.pushState(null, '', '#' + section);
+
+        const sectionAliases = {
+            // Legacy top-level sections
+            'safety': 'safety-workspace-page',
+            'dispatch': 'dispatch',
+            'operations': 'safety-workspace-page',
+            'claims': 'compliance-workspace-page',
+            'maintenance': 'fleet-workspace',
+            'reports': 'fuel-ifta-workspace-page',
+            'afterhours': 'documents-workspace-page',
+            'tracking': 'integrations-workspace-page',
+            'accounting': 'fuel-ifta-workspace-page',
+            'hiring': 'hiring',
+            // External aliases
+            'task-management': 'task-manager',
+            // Workflow-first integration aliases
+            'workflow-dispatch-visibility': 'live-map',
+            'workflow-execution-signals': 'load-status',
+            'workflow-service-eta': 'eta-tracking',
+            'workflow-incident-coordination': 'command-center'
+        };
+
+        section = sectionAliases[section] || section;
+
+        // Canonical workspace-first routing.
+        const externalRoutes = {
+            'task-manager': 'task-manager.html',
+
+            // Fleet workspace shell
+            'fleet-workspace': 'fleet-workspace.html?section=overview',
+            'fleet': 'fleet-workspace.html?section=overview',
+            'trucks': 'fleet-workspace.html?section=trucks',
+            'trailers': 'fleet-workspace.html?section=trailers',
+            'maintenance-workspace': 'fleet-workspace.html?section=maintenance',
+            'work-orders': 'fleet-workspace.html?section=work-orders',
+            'pm-schedules': 'fleet-workspace.html?section=pm-schedules',
+            'parts-inventory': 'fleet-workspace.html?section=parts-inventory',
+
+            // Safety workspace shell
+            'safety-workspace': 'safety-workspace.html?section=overview',
+            'safety-workspace-page': 'safety-workspace.html?section=overview',
+            'violations': 'safety-workspace.html?section=violations',
+            'accidents': 'safety-workspace.html?section=accidents',
+            'cross-dept-alerts': 'safety-workspace.html?section=alerts',
+            'operations': 'safety-workspace.html?section=operations',
+
+            // Compliance workspace shell
+            'compliance-workspace': 'compliance-workspace.html?section=overview',
+            'compliance-workspace-page': 'compliance-workspace.html?section=overview',
+            'compliance': 'compliance-workspace.html?section=overview',
+            'claims': 'compliance-workspace.html?section=claims',
+            'insurance': 'compliance-workspace.html?section=insurance',
+
+            // Fuel & IFTA workspace shell
+            'fuel-ifta': 'fuel-ifta-workspace.html?section=overview',
+            'fuel-ifta-workspace-page': 'fuel-ifta-workspace.html?section=overview',
+            'reports': 'fuel-ifta-workspace.html?section=reports',
+            'expenses': 'fuel-ifta-workspace.html?section=expenses',
+            'settlements': 'fuel-ifta-workspace.html?section=settlements',
+            'accounting': 'fuel-ifta-workspace.html?section=accounting',
+            'invoices': 'fuel-ifta-workspace.html?section=invoices',
+            'payroll': 'fuel-ifta-workspace.html?section=payroll',
+
+            // Documents workspace shell
+            'documents': 'documents-workspace.html?section=overview',
+            'documents-workspace-page': 'documents-workspace.html?section=overview',
+            'afterhours': 'documents-workspace.html?section=afterhours',
+            'applications': 'documents-workspace.html?section=applications',
+            'bulk-docs': 'documents-workspace.html?section=bulk-docs',
+            'cargo-claims': 'documents-workspace.html?section=cargo-claims',
+            'emergency-contacts': 'documents-workspace.html?section=emergency-contacts',
+            'on-call': 'documents-workspace.html?section=on-call',
+            'driver-support': 'documents-workspace.html?section=driver-support',
+
+            // Integrations workspace shell
+            'integrations': 'integrations-workspace.html?section=overview',
+            'integrations-workspace-page': 'integrations-workspace.html?section=overview',
+            'tracking': 'integrations-workspace.html?section=tracking',
+            'workflow-dispatch-visibility': 'integrations-workspace.html?section=live-map',
+            'live-map': 'integrations-workspace.html?section=live-map',
+            'workflow-execution-signals': 'integrations-workspace.html?section=load-status',
+            'load-status': 'integrations-workspace.html?section=load-status',
+            'workflow-service-eta': 'integrations-workspace.html?section=eta-tracking',
+            'eta-tracking': 'integrations-workspace.html?section=eta-tracking',
+            'workflow-incident-coordination': 'integrations-workspace.html?section=command-center',
+            'command-center': 'integrations-workspace.html?section=command-center',
+        };
+
+        if (externalRoutes[section]) {
+            window.location.href = externalRoutes[section];
+            return;
         }
         
-        // Map sections to their parent department groups
+        // Map sections to their parent workspace groups
         const sectionGroups = {
-            // Safety
-            'safety': 'safety', 'trucks': 'safety', 'trailers': 'safety', 'drivers': 'safety', 'compliance': 'safety', 'ifta-wizard': 'safety', 'bulk-docs': 'safety',
-            // Fleet Maintenance
-            'maintenance': 'maintenance', 'work-orders': 'maintenance', 'pm-schedules': 'maintenance', 'parts-inventory': 'maintenance',
-            // Dispatch
-            'dispatch': 'dispatch', 'dispatch-board': 'dispatch', 'load-history': 'dispatch', 'driver-assignments': 'dispatch',
-            // Track & Trace
-            'tracking': 'tracking', 'live-map': 'tracking', 'load-status': 'tracking', 'eta-tracking': 'tracking',
-            // Accounting
-            'accounting': 'accounting', 'invoices': 'accounting', 'settlements': 'accounting', 'expenses': 'accounting', 'payroll': 'accounting',
-            // Hiring
-            'hiring': 'hiring', 'applications': 'hiring', 'hiring-pipeline': 'hiring', 'onboarding': 'hiring',
-            // Claims
-            'claims': 'claims', 'accidents': 'claims', 'cargo-claims': 'claims', 'insurance': 'claims',
-            // Afterhours
-            'afterhours': 'afterhours', 'on-call': 'afterhours', 'emergency-contacts': 'afterhours', 'driver-support': 'afterhours',
-            // Operations
-            'operations': 'operations', 'command-center': 'operations', 'cross-dept-alerts': 'operations', 'reports': 'operations',
-            // Company Workspace
-            'overview': 'overview', 'task-manager': 'overview',
-            // Company (standalone)
-            'company': 'company'
+            // Fleet workspace
+            'fleet': 'fleet', 'fleet-workspace': 'fleet', 'trucks': 'fleet', 'trailers': 'fleet', 'maintenance-workspace': 'fleet',
+            // Drivers workspace
+            'drivers-workspace': 'drivers-workspace', 'drivers': 'drivers-workspace', 'driver-assignments': 'drivers-workspace', 'onboarding': 'drivers-workspace',
+            // Safety workspace
+            'safety-workspace': 'safety-workspace', 'safety-workspace-page': 'safety-workspace', 'violations': 'safety-workspace', 'accidents': 'safety-workspace', 'cross-dept-alerts': 'safety-workspace',
+            // Compliance workspace
+            'compliance-workspace': 'compliance-workspace', 'compliance-workspace-page': 'compliance-workspace', 'compliance': 'compliance-workspace', 'insurance': 'compliance-workspace',
+            // Maintenance workspace
+            'work-orders': 'maintenance-workspace', 'pm-schedules': 'maintenance-workspace', 'parts-inventory': 'maintenance-workspace',
+            // Fuel & IFTA workspace
+            'fuel-ifta': 'fuel-ifta', 'fuel-ifta-workspace-page': 'fuel-ifta', 'expenses': 'fuel-ifta', 'settlements': 'fuel-ifta', 'reports': 'fuel-ifta',
+            // Documents workspace
+            'documents': 'documents', 'documents-workspace-page': 'documents', 'applications': 'documents', 'cargo-claims': 'documents', 'emergency-contacts': 'documents',
+            // Integrations workspace
+            'integrations': 'integrations', 'integrations-workspace-page': 'integrations',
+            'workflow-dispatch-visibility': 'integrations', 'live-map': 'integrations',
+            'workflow-execution-signals': 'integrations', 'load-status': 'integrations',
+            'workflow-service-eta': 'integrations', 'eta-tracking': 'integrations',
+            'workflow-incident-coordination': 'integrations', 'command-center': 'integrations',
+            // Legacy detail sections preserved for compatibility
+            'dispatch-board': 'drivers-workspace', 'active-loads': 'drivers-workspace',
+            'invoices': 'fuel-ifta', 'payroll': 'fuel-ifta',
+            'hiring-pipeline': 'drivers-workspace',
+            'on-call': 'documents', 'driver-support': 'documents',
+            // Utility pages
+            'overview': null, 'company': null, 'settings': null, 'profile': null
         };
         
         const activeGroup = sectionGroups[section] || null;
@@ -713,74 +770,9 @@
             const span = btn.querySelector('span');
             $('pageTitle').textContent = span ? span.textContent : section;
         } else if (section === 'profile') {
-            $('pageTitle').textContent = 'User Profile';
+            $('pageTitle').textContent = 'Account';
         } else if (section === 'overview') {
-            $('pageTitle').textContent = 'Company Workspace';
-        }
-
-        // Refresh task widgets each time the company section is opened
-        if (section === 'company' && uid()) {
-            loadCompanyTaskWidgets();
-        }
-
-        // Resize + repaint overview fleet map when navigating to Company Workspace
-        if (section === 'overview') {
-            setTimeout(() => {
-                if (samsaraFleet.overviewMap) {
-                    google.maps.event.trigger(samsaraFleet.overviewMap, 'resize');
-                    // Re-render last known data so markers appear after resize
-                    if (uid()) db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet').get().then(snap => {
-                        if (!snap.exists) return;
-                        const { vehicles, syncedAt } = snap.data();
-                        samsaraFleet.lastSyncedAt = syncedAt;
-                        _buildFleetMarkers(vehicles || [], samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
-                        _renderFleetVehicleList(vehicles || [], 'overviewFleetVehicleList', samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
-                        _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', '');
-                        _updateFleetSyncLabels();
-                    }).catch(() => {});
-                } else {
-                    // Always init the map so it fills the background
-                    _ensureOverviewMap();
-                    if (samsaraFleet.overviewMap && uid()) {
-                        db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet').get().then(snap => {
-                            if (!snap.exists) return;
-                            const { vehicles, syncedAt } = snap.data();
-                            samsaraFleet.lastSyncedAt = syncedAt;
-                            _buildFleetMarkers(vehicles || [], samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
-                            _renderFleetVehicleList(vehicles || [], 'overviewFleetVehicleList', samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
-                            _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', '');
-                            _updateFleetSyncLabels();
-                        }).catch(() => {});
-                    }
-                }
-            }, 300);
-        }
-
-        // Init live map when navigating to it
-        if (section === 'live-map') {
-            setTimeout(() => {
-                if (_ensureLiveMap()) {
-                    google.maps.event.trigger(samsaraFleet.liveMap, 'resize');
-                    // Render last known fleet data into live map if available
-                    if (samsaraFleet.lastSyncedAt) {
-                        db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet').get().then(snap => {
-                            if (!snap.exists) return;
-                            const { vehicles } = snap.data();
-                            _fleetOverlay('liveMapOverlay', 'liveMapOverlayText', '');
-                            _buildFleetMarkers(vehicles || [], samsaraFleet.liveMap, samsaraFleet.liveMarkers);
-                            _renderFleetVehicleList(vehicles || [], 'liveMapVehicleList', samsaraFleet.liveMap, samsaraFleet.liveMarkers);
-                        }).catch(() => {});
-                    } else if (state.profile && state.profile.samsara) {
-                        _fleetOverlay('liveMapOverlay', 'liveMapOverlayText', 'Loading fleet data…');
-                        triggerFleetSync();
-                    }
-                }
-            }, 300);
-        }
-
-        // Init task manager section when navigated to
-        if (section === 'task-manager' && uid() && window.TaskManager) {
-            window.TaskManager.initWithUser(state.user);
+            $('pageTitle').textContent = 'Dashboard Overview';
         }
     }
 
@@ -869,70 +861,28 @@
         }
 
         const accountBtn = $('dashAccountBtn');
-        const accountDropdown = $('dashAccountDropdown');
-        if (accountBtn && accountDropdown) {
-            accountBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const open = !accountDropdown.hidden;
-                accountDropdown.hidden = open;
-                accountBtn.setAttribute('aria-expanded', String(!open));
-            });
-            document.addEventListener('click', () => {
-                if (!accountDropdown.hidden) {
-                    accountDropdown.hidden = true;
-                    accountBtn.setAttribute('aria-expanded', 'false');
-                }
-            });
+        if (accountBtn) {
+            accountBtn.addEventListener('click', () => navigateToSection('profile'));
         }
 
-        const settingsNavBtn = $('dashAccountSettingsBtn');
-        if (settingsNavBtn) {
-            settingsNavBtn.addEventListener('click', () => {
-                if (accountDropdown) accountDropdown.hidden = true;
-                navigateToSection('settings');
-            });
+        // Support section-deep-links coming from legacy wrappers or workspace handoffs.
+        const params = new URLSearchParams(window.location.search);
+        const deepLinkSection = params.get('section');
+        if (deepLinkSection) {
+            navigateToSection(deepLinkSection);
         }
-
-        const signOutBtn = $('dashSignOutBtn');
-        if (signOutBtn) {
-            signOutBtn.addEventListener('click', () => {
-                firebase.auth().signOut().then(() => {
-                    window.location.href = 'index.html';
-                });
-            });
-        }
-
-        // Back/forward browser navigation
-        window.addEventListener('popstate', () => {
-            const hash = window.location.hash.replace('#', '');
-            if (hash) navigateToSection(hash, true);
-            else navigateToSection('overview', true);
-        });
-
-        // Intercept hash links that target dashboard sections (e.g. "View all in Task Manager")
-        document.addEventListener('click', (e) => {
-            const a = e.target.closest('a[href^="#"]');
-            if (!a) return;
-            const target = a.getAttribute('href').slice(1);
-            if (target) {
-                e.preventDefault();
-                navigateToSection(target);
-            }
-        });
     }
 
     // ── Load All Data ─────────────────────
     async function loadAll() {
-        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers(), loadLoads(), loadInspections()]);
+        await Promise.all([loadProfile(), loadTrucks(), loadTrailers(), loadDrivers()]);
         renderTrucks();
         renderTrailers();
         renderDrivers();
-        renderLoads();
         updateOverview();
+        renderComplianceReminders(state.fmcsaSnapshot);
         initComplianceSection();
-        initExpirationTabs();
         lockCompanyIfSet();
-        loadCompanyTaskWidgets();
     }
 
     // ── PROFILE ───────────────────────────
@@ -971,7 +921,6 @@
 
             // Company fields
             $('dashCompany').value = data.company || '';
-            if (data.company) $('navCompanyLabel').textContent = titleCase(data.company);
             $('dashDotNumber').value = data.dotNumber || '';
             $('dashMcNumber').value = (data.mcNumber || '').replace(/\D/g, '');
             $('dashEin').value = data.ein || '';
@@ -998,7 +947,6 @@
 
             state.companyDashboard = normalizeCompanyDashboard(data.companyDashboard);
             state.fmcsaSnapshot = data.fmcsaSnapshot || null;
-            updateSamsaraUI(data.samsara || null);
             ensureCompanyOwnerMember();
             renderCompanyDashboard();
         } catch (e) {
@@ -1057,6 +1005,7 @@
             $('dashEin').value = '';
             state.fmcsaSnapshot = null;
             renderComplianceSection(null);
+            renderComplianceReminders(null);
             lockCompanyIfSet();
             showMsg('Company removed. You can now set up a new company.');
         } catch (err) {
@@ -1146,7 +1095,6 @@
             };
             try {
                 await db.collection('users').doc(uid()).set(payload, { merge: true });
-                $('navCompanyLabel').textContent = titleCase(payload.company) || 'Company';
                 showMsg('Company info saved');
             } catch (err) {
                 console.error('Save company error:', err);
@@ -1714,123 +1662,6 @@
         });
     }
 
-    // ── Company Task Widgets ───────────────
-    function initCompanyTaskWidgets() {
-        // Collapse toggles only — data is loaded in loadAll() after auth
-        [
-            { toggleId: 'generalTasksToggle', widgetId: 'generalTasksWidget' },
-            { toggleId: 'myTasksToggle',      widgetId: 'myTasksWidget' }
-        ].forEach(({ toggleId, widgetId }) => {
-            const toggle = $(toggleId);
-            const widget = $(widgetId);
-            if (!toggle || !widget) return;
-            toggle.addEventListener('click', () => widget.classList.toggle('collapsed'));
-            toggle.addEventListener('keydown', e => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); widget.classList.toggle('collapsed'); }
-            });
-        });
-    }
-
-    async function loadCompanyTaskWidgets() {
-        const u = uid();
-        if (!u) return;
-
-        const userEmail = (state.user && state.user.email || '').toLowerCase();
-
-        // Show loading state while fetching
-        ['generalTasksList', 'myTasksList'].forEach(id => {
-            const el = $(id);
-            if (el) el.innerHTML = '<li class="company-task-empty">Loading…</li>';
-        });
-        ['generalTasksCount', 'myTasksCount'].forEach(id => {
-            const el = $(id);
-            if (el) el.textContent = '—';
-        });
-
-        // Use the same FirebaseDB helper that task-manager.js uses — guaranteed correct structure
-        let allTasks = [];
-        try {
-            const result = await FirebaseDB.getAllTasks(u);
-            if (result.success) {
-                // Filter out Resolved; use task.text as the display title
-                allTasks = (result.data || [])
-                    .filter(t => t.status && t.status !== 'Resolved')
-                    .map(t => ({
-                        ...t,
-                        title: t.text || t.title || t.description || 'Task',
-                        dueDate: t.dueDate
-                            ? (typeof t.dueDate.toDate === 'function' ? t.dueDate.toDate() : new Date(t.dueDate))
-                            : null,
-                        assignedTo: t.assignedTo || []
-                    }));
-            } else {
-                console.error('Task widgets load error:', result.error);
-            }
-        } catch (err) {
-            console.error('Task widgets load error:', err);
-        }
-
-        // Sort by due date ascending (nulls last)
-        allTasks.sort((a, b) => {
-            const ad = a.dueDate ? a.dueDate.getTime() : Infinity;
-            const bd = b.dueDate ? b.dueDate.getTime() : Infinity;
-            return ad - bd;
-        });
-
-        const myTasks = userEmail
-            ? allTasks.filter(t => t.assignedTo.some(e => e.toLowerCase() === userEmail))
-            : [];
-
-        renderTaskWidget('generalTasksList', 'generalTasksCount', allTasks.slice(0, 10));
-        renderTaskWidget('myTasksList', 'myTasksCount', myTasks.slice(0, 10));
-    }
-
-    function renderTaskWidget(listId, countId, tasks) {
-        const list = $(listId);
-        const countEl = $(countId);
-        if (!list) return;
-
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-
-        if (countEl) {
-            countEl.textContent = tasks.length || '0';
-            const hasOverdue = tasks.some(t => t.dueDate && t.dueDate < now);
-            countEl.classList.toggle('has-overdue', hasOverdue);
-        }
-
-        if (!tasks.length) {
-            list.innerHTML = '<li class="company-task-empty">No open tasks — add tasks from a driver, truck, or trailer profile.</li>';
-            return;
-        }
-
-        const statusColors = { 'Open': '#ef4444', 'In Progress': '#f59e0b', 'Pending': '#f59e0b', 'Resolved': '#10b981' };
-
-        list.innerHTML = tasks.map(t => {
-            const color = statusColors[t.status] || '#94a3b8';
-            let dueHtml = '';
-            if (t.dueDate) {
-                const due = new Date(t.dueDate);
-                due.setHours(0, 0, 0, 0);
-                const diff = Math.ceil((due - now) / 86400000);
-                const cls = diff < 0 ? 'overdue' : diff <= 3 ? 'soon' : 'ok';
-                const label = diff < 0 ? `${Math.abs(diff)}d overdue` : diff === 0 ? 'Due today' : `${diff}d left`;
-                dueHtml = `<span class="company-task-due ${cls}">${label}</span>`;
-            }
-            const entity = `${t.entityType.replace(/s$/, '')} · ${escapeHtml(t.entityName)}`;
-            return `<li class="company-task-item">
-                <span class="company-task-dot" style="background:${color}"></span>
-                <div class="company-task-info">
-                    <div class="company-task-title-text">${escapeHtml(t.title)}</div>
-                    <div class="company-task-meta-row">
-                        <span class="company-task-entity">${entity}</span>
-                        ${dueHtml}
-                    </div>
-                </div>
-            </li>`;
-        }).join('');
-    }
-
     function initCompanyTabs() {
         const tabs = Array.from(document.querySelectorAll('.company-tab'));
         const panels = Array.from(document.querySelectorAll('.company-tab-panel'));
@@ -1876,7 +1707,7 @@
         });
     }
 
-    // ── FMCSA Company Lookup (MC or DOT) ” direct browser calls ──────
+    // ── FMCSA Company Lookup (MC or DOT) — direct browser calls ──────
     async function fmcsaFetchMc(mc) {
         const url = `${FMCSA_CONFIG.baseUrl}/carriers/docket-number/${encodeURIComponent(mc)}?webKey=${encodeURIComponent(FMCSA_CONFIG.webKey)}`;
         const resp = await fetch(url, { headers: { Accept: 'application/json' } });
@@ -1906,27 +1737,24 @@
     async function fmcsaFetchDot(dot) {
         const base = FMCSA_CONFIG.baseUrl;
         const key = FMCSA_CONFIG.webKey;
-
-        const upstream = await fetch(`${base}/carriers/${encodeURIComponent(dot)}?webKey=${encodeURIComponent(key)}`, {
-            headers: { Accept: 'application/json' },
-        });
-        if (upstream.status === 404) throw new Error(`No carrier found for DOT number ${dot}`);
-        if (!upstream.ok) throw new Error('FMCSA API error. Try again later.');
-        const body = await upstream.json();
+        const mainUrl = `${base}/carriers/${encodeURIComponent(dot)}?webKey=${encodeURIComponent(key)}`;
+        const resp = await fetch(mainUrl, { headers: { Accept: 'application/json' } });
+        if (resp.status === 404) throw new Error(`No carrier found for DOT number ${dot}`);
+        if (!resp.ok) throw new Error('FMCSA API error. Try again later.');
+        const body = await resp.json();
         const c = body?.content?.carrier;
         if (!c) throw new Error(`No carrier data returned for DOT number ${dot}`);
 
+        // Fetch docket numbers & operation classification in parallel (non-blocking)
         let docketNumbers = [], operationClasses = [];
         try {
-            const [docketRes, opsRes] = await Promise.all([
+            const [docketResp, opsResp] = await Promise.all([
                 fetch(`${base}/carriers/${encodeURIComponent(dot)}/docket-numbers?webKey=${encodeURIComponent(key)}`, { headers: { Accept: 'application/json' } }),
                 fetch(`${base}/carriers/${encodeURIComponent(dot)}/operation-classification?webKey=${encodeURIComponent(key)}`, { headers: { Accept: 'application/json' } }),
             ]);
-            if (docketRes.ok) { const d = await docketRes.json(); docketNumbers = d?.content || []; }
-            if (opsRes.ok) { const d = await opsRes.json(); operationClasses = d?.content || []; }
+            if (docketResp.ok) { const d = await docketResp.json(); docketNumbers = d?.content || []; }
+            if (opsResp.ok) { const d = await opsResp.json(); operationClasses = d?.content || []; }
         } catch (_) { /* non-critical */ }
-
-        if (!c) throw new Error(`No carrier data returned for DOT number ${dot}`);
 
         const fmt = (v) => (v != null && v !== '' ? String(v) : null);
         const fmtP = (v) => { if (!v) return null; const d = String(v).replace(/\D/g, ''); return d.length === 10 ? d.replace(/(\d{3})(\d{3})(\d{4})/, '($1) $2-$3') : String(v); };
@@ -2166,10 +1994,9 @@
         try {
             await db.collection('users').doc(uid()).set(payload, { merge: true });
             showMsg('Company profile created from FMCSA');
-            $('navCompanyLabel').textContent = titleCase(payload.company) || 'Company';
             if (state.fmcsaSnapshot) {
                 renderComplianceSection(state.fmcsaSnapshot);
-                updateComplianceScoreCard();
+                renderComplianceReminders(state.fmcsaSnapshot);
             }
             lockCompanyIfSet();
         } catch (err) {
@@ -2197,11 +2024,13 @@
         hint.style.display = 'none';
         snap.style.display = 'flex';
 
-        // Company name heading
-        const titleEl = $('complianceTitle');
-        const authEl = $('complianceAuthority');
-        if (titleEl && d.legalName) titleEl.textContent = d.legalName;
-        if (authEl) authEl.textContent = d.operationType || '';
+        // Status bar
+        const authorised = d.allowedToOperate === 'Authorized';
+        const statusBar = $('complianceStatusBar');
+        statusBar.className = 'fmcsa-status-bar ' + (authorised ? 'fmcsa-status-ok' : 'fmcsa-status-bad');
+        statusBar.innerHTML = '<span class="fmcsa-status-dot"></span><strong>'
+            + escapeHtml(d.allowedToOperate || 'Unknown') + '</strong>'
+            + (d.operationType ? ' &mdash; ' + escapeHtml(d.operationType) : '');
 
         // Summary stat cards
         const totalInsp = (d.driverInsp || 0) + (d.vehicleInsp || 0) + (d.hazmatInsp || 0);
@@ -2304,323 +2133,100 @@
         }
     }
 
-    /* ── Expiration Alerts Card (Safety Dashboard) ── */
-    function renderExpirationAlerts() {
-        const today = new Date().toISOString().split('T')[0];
-        const soon30 = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
-        const soon60 = new Date(Date.now() + 60 * 86400000).toISOString().split('T')[0];
-
-        function daysUntil(dateStr) {
-            return Math.ceil((new Date(dateStr) - new Date()) / 86400000);
-        }
-
-        function gatherItems(entities, fields, nameAccessor) {
-            const items = [];
-            entities.forEach(e => {
-                const name = nameAccessor(e);
-                fields.forEach(f => {
-                    const val = e[f.key];
-                    if (!val) {
-                        items.push({ name, field: f.label, date: null, status: 'missing', sort: 99999 });
-                    } else if (val < today) {
-                        items.push({ name, field: f.label, date: val, status: 'expired', sort: -9999 + daysUntil(val) });
-                    } else if (val <= soon30) {
-                        items.push({ name, field: f.label, date: val, status: 'critical', sort: daysUntil(val) });
-                    } else if (val <= soon60) {
-                        items.push({ name, field: f.label, date: val, status: 'warning', sort: daysUntil(val) });
-                    }
-                });
-            });
-            items.sort((a, b) => a.sort - b.sort);
-            return items;
-        }
-
-        function statusBadge(item) {
-            if (item.status === 'expired') return '<span class="exp-badge exp-badge--expired">Expired</span>';
-            if (item.status === 'critical') return '<span class="exp-badge exp-badge--critical">' + daysUntil(item.date) + 'd left</span>';
-            if (item.status === 'warning') return '<span class="exp-badge exp-badge--warning">' + daysUntil(item.date) + 'd left</span>';
-            return '<span class="exp-badge exp-badge--missing">Not on file</span>';
-        }
-
-        function renderPanel(panelId, items) {
-            const el = document.getElementById(panelId);
-            if (!el) return;
-            if (!items.length) {
-                el.innerHTML = '<div class="exp-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="28" height="28"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span>All documents current</span></div>';
-                return;
-            }
-            el.innerHTML = '<div class="exp-list">' + items.map(it =>
-                '<div class="exp-row exp-row--' + it.status + '">'
-                + '<div class="exp-row-name">' + escapeHtml(it.name) + '</div>'
-                + '<div class="exp-row-field">' + escapeHtml(it.field) + '</div>'
-                + '<div class="exp-row-date">' + (it.date ? escapeHtml(it.date) : '—') + '</div>'
-                + statusBadge(it)
-                + '</div>'
-            ).join('') + '</div>';
-        }
-
-        const activeDrivers = state.drivers.filter(d => d.status === 'active');
-        const activeTrucks = state.trucks.filter(t => t.status === 'active');
-        const activeTrailers = state.trailers.filter(t => t.status === 'active');
-
-        const driverItems = gatherItems(activeDrivers,
-            [{ key: 'cdlExp', label: 'CDL' }, { key: 'medExp', label: 'Medical Card' }, { key: 'mvrExp', label: 'MVR' }],
-            d => [d.firstName, d.lastName].filter(Boolean).join(' ') || 'Unnamed'
-        );
-        const truckItems = gatherItems(activeTrucks,
-            [{ key: 'annualInspDate', label: 'DOT Inspection' }, { key: 'registrationExp', label: 'Registration' }, { key: 'insuranceExp', label: 'Insurance' }],
-            t => t.unit || t.id
-        );
-        const trailerItems = gatherItems(activeTrailers,
-            [{ key: 'annualInspDate', label: 'DOT Inspection' }, { key: 'registrationExp', label: 'Registration' }, { key: 'insuranceExp', label: 'Insurance' }],
-            t => t.unit || t.id
-        );
-
-        renderPanel('expPanelDrivers', driverItems);
-        renderPanel('expPanelTrucks', truckItems);
-        renderPanel('expPanelTrailers', trailerItems);
-
-        // Update tab badges
-        document.querySelectorAll('.exp-tab').forEach(tab => {
-            const key = tab.dataset.expTab;
-            const count = key === 'drivers' ? driverItems.length : key === 'trucks' ? truckItems.length : trailerItems.length;
-            const badge = tab.querySelector('.exp-tab-count');
-            if (badge) badge.textContent = count || '';
-            else if (count) {
-                const b = document.createElement('span');
-                b.className = 'exp-tab-count';
-                b.textContent = count;
-                tab.appendChild(b);
-            }
-        });
-
-        // Update collapsed header count
-        const totalAlerts = driverItems.length + truckItems.length + trailerItems.length;
-        const hc = $('expHeaderCount');
-        if (hc) hc.textContent = totalAlerts ? totalAlerts : '';
-    }
-
-    function initExpirationTabs() {
-        document.querySelectorAll('.exp-tab').forEach(tab => {
-            tab.addEventListener('click', (e) => {
-                e.stopPropagation();
-                document.querySelectorAll('.exp-tab').forEach(t => t.classList.remove('active'));
-                document.querySelectorAll('.exp-panel').forEach(p => p.classList.remove('active'));
-                tab.classList.add('active');
-                const panel = document.getElementById('expPanel' + tab.dataset.expTab.charAt(0).toUpperCase() + tab.dataset.expTab.slice(1));
-                if (panel) panel.classList.add('active');
-            });
-        });
-        // Header click toggles collapse
-        document.querySelectorAll('.exp-header-toggle').forEach(h => {
-            h.addEventListener('click', (e) => {
-                if (e.target.closest('.exp-tab')) return;
-                h.closest('.exp-alerts-card').classList.toggle('exp-collapsed');
-            });
-        });
-    }
-
-    function updateComplianceScoreCard() {
-        const arc = $('compScoreArc');
-        const valEl = $('compScoreValue');
-        const labelEl = $('compScoreLabel');
-        const metaEl = $('compScoreMeta');
-        const statsEl = $('compScoreStats');
-        if (!arc || !valEl) return;
-
-        const d = state.fmcsaSnapshot;
-        if (!d) {
-            arc.style.strokeDashoffset = '326.73';
-            arc.style.stroke = 'var(--gray-300)';
-            valEl.textContent = '\u2014';
-            if (labelEl) labelEl.textContent = 'No FMCSA data';
-            if (metaEl) metaEl.textContent = 'Fetch DOT data in Company Settings';
-            if (statsEl) statsEl.innerHTML = '';
-            // Still show unresolved badge
-            const notif = $('compNotif');
-            if (notif) {
-                const unresolved = (state.inspections || []).filter(i => !['resolved','paid','waived'].includes(i.inspStatus)).length;
-                notif.textContent = unresolved > 0 ? unresolved : '';
-            }
-            return;
-        }
-
-        // Calculate composite score (100 = perfect)
-        const totalInsp = (d.driverInsp || 0) + (d.vehicleInsp || 0) + (d.hazmatInsp || 0);
-        const totalOos = (d.driverOosInsp || 0) + (d.vehicleOosInsp || 0) + (d.hazmatOosInsp || 0);
-        const oosRate = totalInsp > 0 ? (totalOos / totalInsp) * 100 : 0;
-        const crashes = d.crashTotal || 0;
-        const rating = (d.safetyRating || '').toLowerCase();
-
-        // Score: start at 100, deduct for OOS rate, crashes, and bad rating
-        let score = 100;
-        score -= Math.min(oosRate * 1.5, 40);  // up to -40 for OOS
-        score -= Math.min(crashes * 5, 30);     // up to -30 for crashes
-        if (rating === 'unsatisfactory') score -= 25;
-        else if (rating === 'conditional') score -= 10;
-        score = Math.max(0, Math.min(100, Math.round(score)));
-
-        // Ring animation
-        const circumference = 326.73;
-        const offset = circumference - (circumference * score / 100);
-        arc.style.strokeDashoffset = String(offset);
-        arc.style.stroke = score >= 80 ? '#10b981' : score >= 60 ? '#f59e0b' : '#ef4444';
-
-        valEl.textContent = score;
-        valEl.style.color = score >= 80 ? '#059669' : score >= 60 ? '#b45309' : '#dc2626';
-
-        // Label
-        if (labelEl) {
-            labelEl.textContent = score >= 90 ? 'Excellent' : score >= 80 ? 'Good' : score >= 60 ? 'Needs Attention' : 'Critical';
-        }
-        if (metaEl) {
-            metaEl.textContent = d.safetyRating ? 'FMCSA Rating: ' + d.safetyRating : '';
-        }
-
-        // Stat chips
-        if (statsEl) {
-            const chipColor = (val, thresholdWarn, thresholdBad) => val >= thresholdBad ? 'red' : val >= thresholdWarn ? 'yellow' : 'green';
-            const chips = [];
-            chips.push({ label: 'OOS ' + oosRate.toFixed(1) + '%', color: chipColor(oosRate, 15, 25) });
-            chips.push({ label: totalInsp + ' Insp', color: 'gray' });
-            if (crashes > 0) chips.push({ label: crashes + ' Crash' + (crashes !== 1 ? 'es' : ''), color: chipColor(crashes, 2, 5) });
-            statsEl.innerHTML = chips.map(c =>
-                '<span class="comp-score-chip comp-score-chip--' + c.color + '">' + escapeHtml(c.label) + '</span>'
-            ).join('');
-        }
-
-        // Update unresolved notification badge
-        const notif = $('compNotif');
-        if (notif) {
-            const unresolved = (state.inspections || []).filter(i => !['resolved','paid','waived'].includes(i.inspStatus)).length;
-            notif.textContent = unresolved > 0 ? unresolved : '';
-        }
-    }
-
-    function renderCompDropdown() {
-        const panel = $('compDropdownPanel');
-        if (!panel) return;
-        const items = (state.inspections || []).slice(0, 15);
-        if (!items.length) {
-            panel.innerHTML = '<div class="comp-card-dropdown-inner"><div class="comp-dropdown-empty">No inspections or citations recorded</div></div>';
-            return;
-        }
-        const resultIcons = {
-            pass: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>',
-            fail: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>',
-            warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
-            oos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>'
-        };
-        const chevronSvg = '<svg class="comp-dropdown-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
-        const typeLabels = { 'level-1': 'Level I', 'level-2': 'Level II', 'level-3': 'Level III', 'level-4': 'Level IV', 'level-5': 'Level V', citation: 'Citation' };
-        let html = '<div class="comp-card-dropdown-inner"><div class="comp-card-dropdown-list">';
-        items.forEach(d => {
-            const iconClass = d.type === 'citation' ? 'citation' : (d.result || 'pass');
-            const icon = resultIcons[d.result] || resultIcons.pass;
-            const typeLabel = typeLabels[d.type] || d.type || 'Inspection';
-            const dateStr = d.date ? new Date(d.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-            const loc = d.location || '';
-            const driver = d.driverName || '';
-            const sub = [dateStr, driver, loc].filter(Boolean).join(' · ');
-            const status = d.inspStatus || 'open';
-            const violations = d.violations ? d.violations + ' violation' + (d.violations != 1 ? 's' : '') : '';
-            const fine = d.fineAmount && parseFloat(d.fineAmount) > 0 ? '$' + parseFloat(d.fineAmount).toLocaleString() : '';
-            const extra = [violations, fine].filter(Boolean).join(' · ');
-            html += '<div class="comp-dropdown-item" data-insp-id="' + d.id + '">' +
-                '<div class="comp-dropdown-icon ' + iconClass + '">' + icon + '</div>' +
-                '<div class="comp-dropdown-detail">' +
-                '<span class="comp-dropdown-title">' + escapeHtml(typeLabel) + (extra ? ' — ' + escapeHtml(extra) : '') + '</span>' +
-                '<span class="comp-dropdown-sub">' + escapeHtml(sub) + '</span>' +
-                '</div>' +
-                '<span class="comp-dropdown-badge ' + status + '">' + escapeHtml(status) + '</span>' +
-                chevronSvg +
-                '</div>';
-        });
-        html += '</div></div>';
-        panel.innerHTML = html;
-    }
-
-    // Wire compliance card interactions
-    (function () {
-        document.addEventListener('click', function (e) {
-            // Score ring click → navigate to compliance
-            if (e.target.closest('.comp-card-nav')) {
-                e.preventDefault();
-                e.stopPropagation();
-                navigateToSection('compliance');
-                return;
-            }
-            // Click on card-inner (excluding score ring) → toggle dropdown
-            const inner = e.target.closest('.comp-card-inner');
-            if (inner && inner.closest('.comp-card')) {
-                e.preventDefault();
-                e.stopPropagation();
-                const card = inner.closest('.comp-card');
-                const opening = !card.classList.contains('open');
-                card.classList.toggle('open');
-                if (opening) renderCompDropdown();
-                return;
-            }
-            // Click on dropdown item → open inspection detail
-            const item = e.target.closest('.comp-dropdown-item');
-            if (item && item.closest('.comp-card-dropdown')) {
-                e.preventDefault();
-                e.stopPropagation();
-                const id = item.dataset.inspId;
-                if (id) editInspection(id);
-                return;
-            }
-        });
-    })();
-
-    async function refreshComplianceFromFmcsa() {
-        const dot = (state.profile?.dotNumber || $('dashDotNumber')?.value || '').replace(/\D/g, '').trim();
-        const btn = $('complianceRefreshBtn');
-        const hintText = $('complianceHintText');
-        if (!dot) {
-            if (hintText) hintText.textContent = 'No DOT number found. Go to Company Settings and save your DOT number first.';
-            return;
-        }
-        if (btn) { btn.disabled = true; btn.textContent = 'Fetching\u2026'; }
+    async function initComplianceSection() {
+        renderComplianceSection(state.fmcsaSnapshot || null);
+        const dot = ($('dashDotNumber')?.value || '').replace(/\D/g, '').trim();
+        if (!dot) return;
         try {
             const data = await fmcsaFetchDot(dot);
-            if (!data) throw new Error('No data returned');
+            if (!data) return;
             state.fmcsaSnapshot = data;
             await db.collection('users').doc(uid()).set({
                 fmcsaSnapshot: data,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
             renderComplianceSection(data);
-            updateComplianceScoreCard();
+            renderComplianceReminders(data);
         } catch (err) {
-            console.error('Compliance refresh error:', err);
-            const msg = err?.message || 'FMCSA fetch failed. Check your DOT number and try again.';
-            if (hintText) hintText.textContent = msg;
-            renderComplianceSection(state.fmcsaSnapshot || null);
-        } finally {
-            if (btn) {
-                btn.disabled = false;
-                btn.innerHTML = '<svg id="complianceRefreshIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M23 4v6h-6"/><path d="M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg> Refresh from FMCSA';
-            }
+            console.error('Compliance auto-refresh error:', err);
         }
     }
 
-    async function initComplianceSection() {
-        renderComplianceSection(state.fmcsaSnapshot || null);
-        updateComplianceScoreCard();
-        // Collapsible block toggles
-        document.querySelectorAll('.compliance-collapsible .compliance-block-toggle').forEach(toggle => {
-            toggle.addEventListener('click', () => toggle.closest('.compliance-collapsible').classList.toggle('open'));
+    function renderComplianceReminders(fmcsaData) {
+        const container = $('fmcsaReminders');
+        const block = $('complianceRemindersBlock');
+        if (!container) return;
+        const reminders = [];
+        const today = new Date();
+
+        const iftaDeadlines = [
+            { q: 'Q1', month: 3, day: 30, label: 'Q1 (Jan\u2013Mar)' },
+            { q: 'Q2', month: 6, day: 31, label: 'Q2 (Apr\u2013Jun)' },
+            { q: 'Q3', month: 9, day: 31, label: 'Q3 (Jul\u2013Sep)' },
+            { q: 'Q4', month: 0, day: 31, label: 'Q4 (Oct\u2013Dec)', nextYear: true }
+        ];
+
+        iftaDeadlines.forEach(dl => {
+            const yr = dl.nextYear && today.getMonth() >= 10 ? today.getFullYear() + 1 : today.getFullYear();
+            const deadline = new Date(yr, dl.month, dl.day);
+            const daysUntil = Math.ceil((deadline - today) / 86400000);
+
+            if (daysUntil >= 0 && daysUntil <= 60) {
+                const type = daysUntil <= 7 ? 'danger' : daysUntil <= 30 ? 'warning' : 'info';
+                reminders.push({
+                    type, icon: 'calendar',
+                    text: `IFTA ${dl.label} filing due ${deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} \u2014 ${daysUntil} day${daysUntil !== 1 ? 's' : ''} left`
+                });
+            }
         });
-        // Wire up Refresh button
-        const refreshBtn = $('complianceRefreshBtn');
-        if (refreshBtn) refreshBtn.addEventListener('click', () => refreshComplianceFromFmcsa());
-        // Auto-fetch if we have a DOT number but no cached snapshot
-        const dot = (state.profile?.dotNumber || $('dashDotNumber')?.value || '').replace(/\D/g, '').trim();
-        if (!dot) return;
-        if (!state.fmcsaSnapshot) {
-            refreshComplianceFromFmcsa();
+
+        if (fmcsaData && fmcsaData.mcs150FormDate) {
+            const lastFiled = new Date(fmcsaData.mcs150FormDate);
+            if (!isNaN(lastFiled.getTime())) {
+                const nextDue = new Date(lastFiled);
+                nextDue.setFullYear(nextDue.getFullYear() + 2);
+                const daysUntilMcs = Math.ceil((nextDue - today) / 86400000);
+
+                if (daysUntilMcs < 0) {
+                    reminders.push({
+                        type: 'danger', icon: 'alert',
+                        text: `MCS-150 biennial update is OVERDUE \u2014 last filed ${lastFiled.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}. File immediately at FMCSA.`
+                    });
+                } else if (daysUntilMcs <= 90) {
+                    reminders.push({
+                        type: daysUntilMcs <= 30 ? 'danger' : 'warning', icon: 'calendar',
+                        text: `MCS-150 biennial update due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} \u2014 ${daysUntilMcs} day${daysUntilMcs !== 1 ? 's' : ''} left`
+                    });
+                } else {
+                    reminders.push({
+                        type: 'info', icon: 'check',
+                        text: `MCS-150 up to date \u2014 next due ${nextDue.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                    });
+                }
+            }
+        } else {
+            reminders.push({
+                type: 'warning', icon: 'alert',
+                text: 'MCS-150 filing date unknown \u2014 fetch FMCSA data or verify your biennial update is filed'
+            });
         }
+
+        if (reminders.length === 0) {
+            container.innerHTML = '<p class="fmcsa-no-reminders">No upcoming deadlines.</p>';
+            return;
+        }
+
+        const iconMap = {
+            calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+            alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
+            check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+        };
+
+        container.innerHTML = reminders.map(r =>
+            `<div class="fmcsa-reminder fmcsa-reminder-${escapeHtml(r.type)}">`
+            + `${iconMap[r.icon] || ''}  <span>${escapeHtml(r.text)}</span></div>`
+        ).join('');
+        if (block) block.style.display = '';
     }
 
     // ── TRUCKS ────────────────────────────
@@ -2637,7 +2243,6 @@
         const tbody = $('trucksTableBody');
         const table = $('trucksTable');
         const empty = $('trucksEmpty');
-        const thead = table?.querySelector('thead tr');
         if (state.trucks.length === 0) {
             table.style.display = 'none';
             empty.style.display = '';
@@ -2646,36 +2251,35 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.trucks.filter(t => matchesFilter(t, 'truck'));
-        const sorted = sortItems(filtered, sortState.trucks, 'truck');
-        bulkSelection.trucks = new Set([...bulkSelection.trucks].filter(id => sorted.some(t => t.id === id)));
-        updateBulkBar('trucks');
-        const visCols = getVisibleTableCols('trucks');
-        const widths = computeTableColWidths('trucks');
-        if (thead) {
-            let h = '<th class="col-checkbox"><input type="checkbox" id="truckSelectAll" title="Select all"></th>';
-            visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
-            h += '<th style="width:8%"></th>';
-            thead.innerHTML = h;
-            wireColDrag(thead, 'trucks');
-        }
-        const selAll = thead?.querySelector('#truckSelectAll');
-        if (selAll) selAll.onchange = () => toggleSelectAll('trucks', selAll);
-        tbody.innerHTML = sorted.map(t => {
-            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + t.id + '" ' + (bulkSelection.trucks.has(t.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'trucks\',\'' + t.id + '\',this)">' + validationIndicator(t) + '</td>';
-            visCols.forEach(c => { cells += truckCell(t, c.key); });
-            cells += '<td class="col-actions row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editTruck(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button title="Delete" class="btn-delete" onclick="Dashboard.deleteTruck(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>';
-            return '<tr data-id="' + t.id + '" class="' + (bulkSelection.trucks.has(t.id) ? 'row-selected' : '') + ' ' + (t.doNotDispatch ? 'row-dnd' : '') + ' ' + (t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : '') + '">' + cells + '</tr>';
-        }).join('');
+        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+            ${validationIndicator(t)}
+            <td class="col-unit"><div class="cell cell-primary" title="Open unit profile for ${escapeHtml(t.unit || t.id)}"><strong>${escapeHtml(t.unit || t.id)}</strong></div></td>
+            <td class="col-year"><div class="cell">${escapeHtml(t.year)}</div></td>
+            <td class="col-make"><div class="cell">${escapeHtml(t.make)}</div></td>
+            <td class="col-model"><div class="cell">${escapeHtml(t.model)}</div></td>
+            <td class="col-vin" data-col="vin"><div class="cell vin-cell" title="${escapeHtml(t.vin)}">${escapeHtml(t.vin)}</div></td>
+            <td class="col-plate"><div class="cell">${escapeHtml(t.plate)}${t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : ''}</div></td>
+            <td class="col-fuel"><div class="cell">${fuelLabel(t.fuel)}</div></td>
+            <td class="col-status"><div class="cell">${statusSelect(t.status, t.id, 'trucks', 'truck')}</div></td>
+            <td class="col-actions row-actions"><div class="cell">
+                <button title="Edit" onclick="Dashboard.editTruck('${t.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTruck('${t.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </div></td>
+        </tr>`).join('');
     }
 
     function openTruckProfile(id) {
         if (!id) return;
-        openTruckDetailPanel(id);
+        window.location.href = 'unit-profile.html?truck=' + encodeURIComponent(id);
     }
 
     function openTrailerProfile(id) {
         if (!id) return;
-        openTrailerDetailPanel(id);
+        window.location.href = 'trailer-profile.html?trailer=' + encodeURIComponent(id);
     }
 
     function openDriverProfile(id) {
@@ -2706,2105 +2310,6 @@
         return val.replace(/\D/g, '');
     }
 
-    // ── Data Normalization (consistent format across all save paths) ──
-    const DATE_FIELDS = ['cdlExp', 'medExp', 'mvrExp', 'drugTestDate', 'twicExp', 'hireDate', 'terminationDate', 'dob', 'annualInspDate', 'registrationExp', 'insuranceExp', 'dotInspDate', 'loadDate', 'deliveryDate'];
-    function normalizePayload(data, type) {
-        if (data.vin) data.vin = data.vin.toUpperCase().replace(/[^A-Z0-9]/g, '');
-        if (data.cdl) data.cdl = data.cdl.toUpperCase().replace(/[^A-Z0-9\-]/g, '');
-        if (data.plateState) data.plateState = data.plateState.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
-        if (data.cdlState) data.cdlState = data.cdlState.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
-        if (data.plate) data.plate = data.plate.toUpperCase().trim();
-        if (data.phone) data.phone = stripPhone(data.phone);
-        if (data.emergencyPhone) data.emergencyPhone = stripPhone(data.emergencyPhone);
-        if (data.email) data.email = data.email.toLowerCase().trim();
-        DATE_FIELDS.forEach(f => { if (data[f]) data[f] = normalizeDate(data[f]); });
-        return data;
-    }
-
-    async function checkDuplicate(collection, field, value, excludeId) {
-        if (!value) return null;
-        try {
-            const snap = await col(collection).where(field, '==', value).get();
-            const matches = snap.docs.filter(d => d.id !== excludeId);
-            return matches.length ? matches[0] : null;
-        } catch (e) { console.warn('Duplicate check failed:', e); return null; }
-    }
-
-    // ── Bulk Selection State ──
-    const bulkSelection = { trucks: new Set(), trailers: new Set(), drivers: new Set(), loads: new Set(), inspections: new Set() };
-
-    function toggleBulkSelect(collection, id, checkbox) {
-        if (checkbox.checked) bulkSelection[collection].add(id);
-        else bulkSelection[collection].delete(id);
-        updateBulkBar(collection);
-        const row = checkbox.closest('tr');
-        if (row) row.classList.toggle('row-selected', checkbox.checked);
-    }
-
-    function toggleSelectAll(collection, masterCheckbox) {
-        const tbodyId = { trucks: 'trucksTableBody', trailers: 'trailersTableBody', drivers: 'driversTableBody', inspections: 'inspectionsTableBody', loads: 'loadsTableBody' }[collection] || 'driversTableBody';
-        const tbody = $(tbodyId);
-        const checkboxes = tbody.querySelectorAll('.bulk-cb');
-        checkboxes.forEach(cb => {
-            cb.checked = masterCheckbox.checked;
-            const id = cb.dataset.id;
-            if (masterCheckbox.checked) bulkSelection[collection].add(id);
-            else bulkSelection[collection].delete(id);
-            const row = cb.closest('tr');
-            if (row) row.classList.toggle('row-selected', masterCheckbox.checked);
-        });
-        updateBulkBar(collection);
-    }
-
-    function updateBulkBar(collection) {
-        const count = bulkSelection[collection].size;
-        const barId = { trucks: 'truckBulkBar', trailers: 'trailerBulkBar', drivers: 'driverBulkBar', inspections: 'inspectionBulkBar', loads: 'loadsBulkBar' }[collection];
-        const bar = $(barId);
-        if (!bar) return;
-        if (count > 0) {
-            bar.classList.add('visible');
-            bar.querySelector('.bulk-count').textContent = count + ' selected';
-        } else {
-            bar.classList.remove('visible');
-        }
-    }
-
-    async function bulkDelete(collection) {
-        const ids = [...bulkSelection[collection]];
-        if (!ids.length) return;
-        const label = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : collection === 'loads' ? 'load' : 'driver';
-        if (!confirm('Delete ' + ids.length + ' ' + label + (ids.length > 1 ? 's' : '') + '? This cannot be undone.')) return;
-        try {
-            const batch = firebase.firestore().batch();
-            ids.forEach(id => batch.delete(col(collection).doc(id)));
-            await batch.commit();
-            bulkSelection[collection].clear();
-            if (collection === 'trucks') { await loadTrucks(); populateTruckDropdown(); }
-            else if (collection === 'trailers') await loadTrailers();
-            else if (collection === 'loads') await loadLoads();
-            else if (collection === 'inspections') await loadInspections();
-            else await loadDrivers();
-            updateOverview();
-            showMsg(ids.length + ' ' + label + (ids.length > 1 ? 's' : '') + ' deleted');
-        } catch (err) { console.error(err); showMsg('Error deleting', true); }
-    }
-
-    async function bulkChangeStatus(collection) {
-        const ids = [...bulkSelection[collection]];
-        if (!ids.length) return;
-        const key = collection === 'trucks' ? 'truckStatus' : collection === 'trailers' ? 'trailerStatus' : collection === 'loads' ? 'loadStatus' : 'driverStatus';
-        const options = getDropdownOptions(key);
-        const statusStr = options.map((o, i) => (i + 1) + '. ' + o.label).join('\n');
-        const choice = prompt('Choose new status:\n' + statusStr + '\n\nEnter number:');
-        if (!choice) return;
-        const idx = parseInt(choice) - 1;
-        if (isNaN(idx) || idx < 0 || idx >= options.length) { showMsg('Invalid choice', true); return; }
-        const newStatus = options[idx].value;
-        try {
-            const batch = firebase.firestore().batch();
-            ids.forEach(id => batch.update(col(collection).doc(id), { status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }));
-            await batch.commit();
-            const stateArr = state[collection] || [];
-            ids.forEach(id => { const item = stateArr.find(x => x.id === id); if (item) item.status = newStatus; });
-            bulkSelection[collection].clear();
-            if (collection === 'trucks') renderTrucks();
-            else if (collection === 'trailers') renderTrailers();
-            else if (collection === 'loads') renderLoads();
-            else renderDrivers();
-            updateOverview();
-            showMsg(ids.length + ' status' + (ids.length > 1 ? 'es' : '') + ' updated to ' + options[idx].label);
-        } catch (err) { console.error(err); showMsg('Error updating status', true); }
-    }
-
-    function bulkExport(collection) {
-        const ids = [...bulkSelection[collection]];
-        if (!ids.length) return;
-        const stateArr = state[collection] || [];
-        const selected = stateArr.filter(x => ids.includes(x.id));
-        if (!selected.length) return;
-        const exclude = ['id', 'createdAt', 'updatedAt', 'validationStatus', 'validationIssues'];
-        const allKeys = [...new Set(selected.flatMap(r => Object.keys(r)))].filter(k => !exclude.includes(k));
-        const header = allKeys.join(',');
-        const rows = selected.map(r => allKeys.map(k => {
-            let v = r[k] || '';
-            if (typeof v === 'object') v = JSON.stringify(v);
-            v = String(v);
-            return v.includes(',') || v.includes('"') || v.includes('\n') ? '"' + v.replace(/"/g, '""') + '"' : v;
-        }).join(','));
-        const csv = header + '\n' + rows.join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = collection + '_export.csv';
-        a.click();
-        URL.revokeObjectURL(url);
-        showMsg(selected.length + ' ' + collection.slice(0, -1) + (selected.length > 1 ? 's' : '') + ' exported');
-    }
-
-    // ── Sort State ──
-    const sortState = { trucks: 'unit-az', trailers: 'unit-az', drivers: 'name-az', loads: 'date-desc', inspections: 'date-new' };
-    let sortState_history = 'date-desc';
-
-    // ── Load Board vs History Filter ──
-    const ACTIVE_STATUSES = new Set(['booked', 'dispatched', 'loaded', 'in-transit', 'issue']);
-
-    function isLoadBoardItem(l) {
-        // Active loads always show
-        if (ACTIVE_STATUSES.has(l.status)) {
-            return true;
-        }
-        // Closed loads: show if delivery date is today or yesterday
-        const d = l.deliveryDate ? new Date(l.deliveryDate + 'T00:00:00') : l.loadDate ? new Date(l.loadDate + 'T00:00:00') : null;
-        if (!d || isNaN(d.getTime())) {
-            return true; // no date = show on board
-        }
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
-        const result = d >= yesterday;
-        return result;
-    }
-
-    function sortItems(arr, sortKey, type) {
-        const cmp = (a, b, field, dir) => {
-            const va = (a[field] || '').toString().toLowerCase();
-            const vb = (b[field] || '').toString().toLowerCase();
-            return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va);
-        };
-        const dateCmp = (a, b, field, soonestFirst) => {
-            const da = a[field] || '';
-            const db = b[field] || '';
-            if (!da && !db) return 0;
-            if (!da) return 1;
-            if (!db) return -1;
-            return soonestFirst ? da.localeCompare(db) : db.localeCompare(da);
-        };
-        const sorted = [...arr];
-        switch (sortKey) {
-            // Shared
-            case 'unit-az': sorted.sort((a, b) => cmp(a, b, 'unit', 'asc')); break;
-            case 'unit-za': sorted.sort((a, b) => cmp(a, b, 'unit', 'desc')); break;
-            case 'year-new': sorted.sort((a, b) => (parseInt(b.year) || 0) - (parseInt(a.year) || 0)); break;
-            case 'year-old': sorted.sort((a, b) => (parseInt(a.year) || 0) - (parseInt(b.year) || 0)); break;
-            case 'make-az': sorted.sort((a, b) => cmp(a, b, 'make', 'asc')); break;
-            case 'status': sorted.sort((a, b) => cmp(a, b, 'status', 'asc')); break;
-            case 'insp-exp': sorted.sort((a, b) => dateCmp(a, b, 'annualInspDate', true)); break;
-            case 'reg-exp': sorted.sort((a, b) => dateCmp(a, b, 'registrationExp', true)); break;
-            // Trailer
-            case 'type-az': sorted.sort((a, b) => cmp(a, b, 'type', 'asc')); break;
-            // Driver
-            case 'name-az': sorted.sort((a, b) => { const r = cmp(a, b, 'firstName', 'asc'); return r !== 0 ? r : cmp(a, b, 'lastName', 'asc'); }); break;
-            case 'name-za': sorted.sort((a, b) => { const r = cmp(a, b, 'firstName', 'desc'); return r !== 0 ? r : cmp(a, b, 'lastName', 'desc'); }); break;
-            case 'hired-new': sorted.sort((a, b) => dateCmp(a, b, 'hireDate', false)); break;
-            case 'cdl-exp': sorted.sort((a, b) => dateCmp(a, b, 'cdlExp', true)); break;
-            case 'med-exp': sorted.sort((a, b) => dateCmp(a, b, 'medExp', true)); break;
-            case 'mvr-exp': sorted.sort((a, b) => dateCmp(a, b, 'mvrExp', true)); break;
-            case 'drug-test': sorted.sort((a, b) => dateCmp(a, b, 'drugTestDate', true)); break;
-            case 'twic-exp': sorted.sort((a, b) => dateCmp(a, b, 'twicExp', true)); break;
-            case 'truck-assigned': sorted.sort((a, b) => (a.truck ? 0 : 1) - (b.truck ? 0 : 1)); break;
-            case 'unassigned': sorted.sort((a, b) => (b.truck ? 0 : 1) - (a.truck ? 0 : 1)); break;
-            case 'dob-oldest': sorted.sort((a, b) => dateCmp(a, b, 'dob', true)); break;
-            // Loads
-            case 'date-desc': sorted.sort((a, b) => dateCmp(a, b, 'loadDate', false)); break;
-            case 'date-asc': sorted.sort((a, b) => dateCmp(a, b, 'loadDate', true)); break;
-            case 'load-az': sorted.sort((a, b) => cmp(a, b, 'loadNumber', 'asc')); break;
-            case 'load-za': sorted.sort((a, b) => cmp(a, b, 'loadNumber', 'desc')); break;
-            case 'rate-high': sorted.sort((a, b) => (parseFloat(b.rate) || 0) - (parseFloat(a.rate) || 0)); break;
-            case 'rate-low': sorted.sort((a, b) => (parseFloat(a.rate) || 0) - (parseFloat(b.rate) || 0)); break;
-            case 'rpm-high': sorted.sort((a, b) => { const ra = (parseFloat(a.rate)||0)/(parseFloat(a.mileage)||1); const rb = (parseFloat(b.rate)||0)/(parseFloat(b.mileage)||1); return rb - ra; }); break;
-            case 'broker-az': sorted.sort((a, b) => cmp(a, b, 'broker', 'asc')); break;
-            case 'del-date': sorted.sort((a, b) => dateCmp(a, b, 'deliveryDate', true)); break;
-            // Inspections
-            case 'date-new': sorted.sort((a, b) => dateCmp(a, b, 'date', false)); break;
-            case 'date-old': sorted.sort((a, b) => dateCmp(a, b, 'date', true)); break;
-            case 'driver-az': sorted.sort((a, b) => cmp(a, b, 'driverName', 'asc')); break;
-            case 'truck-az': sorted.sort((a, b) => cmp(a, b, 'truckUnit', 'asc')); break;
-            case 'type': sorted.sort((a, b) => cmp(a, b, 'type', 'asc')); break;
-            case 'result': sorted.sort((a, b) => cmp(a, b, 'result', 'asc')); break;
-        }
-        return sorted;
-    }
-
-    // ── Inline Truck Assignment ──
-    function truckSelectHtml(driverId, currentTruckId, isDnd) {
-        const activeTrucks = state.trucks.filter(t => t.status === 'active');
-        const opts = '<option value="">”</option>' + activeTrucks.map(t =>
-            '<option value="' + escapeHtml(t.id) + '"' + (t.id === currentTruckId ? ' selected' : '') + '>' + escapeHtml(t.unit) + '</option>'
-        ).join('');
-        return '<select class="inline-truck-select" data-id="' + driverId + '" onchange="Dashboard.inlineTruckAssign(this)"' + (isDnd ? ' disabled title="DND ” cannot assign"' : '') + '>' + opts + '</select>';
-    }
-
-    async function inlineTruckAssign(select) {
-        const id = select.dataset.id;
-        const newTruck = select.value;
-        const d = state.drivers.find(x => x.id === id);
-        if (d && d.doNotDispatch) {
-            showMsg('Cannot assign truck ” driver is on Do Not Dispatch', true);
-            select.value = d.truck || '';
-            return;
-        }
-        try {
-            await col('drivers').doc(id).update({ truck: newTruck, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-            if (d) d.truck = newTruck;
-            showMsg('Truck ' + (newTruck ? 'assigned' : 'unassigned'));
-        } catch (err) { console.error(err); showMsg('Error assigning truck', true); }
-    }
-
-    // ══════════════════════════════════════════════
-    // ── Unified Spreadsheet Popup ────────────────
-    // ══════════════════════════════════════════════
-
-    const UNIFIED_COLS = {
-        truck: [
-            { key: 'unit', label: 'Truck #', type: 'text', width: '72px', placeholder: 'e.g., 101', required: true, default: true },
-            { key: 'year', label: 'Year', type: 'number', width: '58px', placeholder: '2024', min: 1900, max: 2099, default: true },
-            { key: 'make', label: 'Make', type: 'text', width: '96px', placeholder: 'Freightliner', default: true },
-            { key: 'model', label: 'Model', type: 'text', width: '90px', placeholder: 'Cascadia', default: true },
-            { key: 'vin', label: 'VIN', type: 'text', width: '160px', placeholder: '17-char VIN', maxlength: 17, default: true },
-            { key: 'plate', label: 'Plate', type: 'text', width: '82px', placeholder: 'ABC 1234', default: true },
-            { key: 'plateState', label: 'Plate State', type: 'text', width: '84px', placeholder: 'TX', maxlength: 2, default: true },
-            { key: 'fuel', label: 'Fuel', type: 'select', width: '80px', default: true, options: [
-                { value: 'diesel', label: 'Diesel' }, { value: 'gasoline', label: 'Gasoline' },
-                { value: 'cng', label: 'CNG' }, { value: 'lng', label: 'LNG' }
-            ]},
-            { key: 'status', label: 'Status', type: 'select', width: '92px', default: true, options: [
-                { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Out of Service' },
-                { value: 'maintenance', label: 'Maintenance' }, { value: 'inshop', label: 'In Shop' },
-                { value: 'reserved', label: 'Reserved' }, { value: 'sold', label: 'Sold' }
-            ]},
-            { key: 'color', label: 'Color', type: 'text', width: '72px', placeholder: 'White', default: false },
-            { key: 'annualInspDate', label: 'DOT Insp. Exp.', type: 'date', width: '110px', expiry: true, default: true },
-            { key: 'registrationExp', label: 'Registration Exp.', type: 'date', width: '118px', expiry: true, default: true },
-            { key: 'insuranceExp', label: 'Insurance Exp.', type: 'date', width: '112px', expiry: true, default: false }
-        ],
-        trailer: [
-            { key: 'unit', label: 'Trailer #', type: 'text', width: '80px', placeholder: 'T-201', required: true, default: true },
-            { key: 'year', label: 'Year', type: 'number', width: '58px', placeholder: '2020', min: 1900, max: 2099, default: true },
-            { key: 'make', label: 'Make', type: 'text', width: '96px', placeholder: 'Utility', default: true },
-            { key: 'type', label: 'Type', type: 'select', width: '96px', default: true, options: [
-                { value: 'dry-van', label: 'Dry Van' }, { value: 'reefer', label: 'Reefer' },
-                { value: 'flatbed', label: 'Flatbed' }, { value: 'step-deck', label: 'Step Deck' },
-                { value: 'tanker', label: 'Tanker' }, { value: 'lowboy', label: 'Lowboy' },
-                { value: 'other', label: 'Other' }
-            ]},
-            { key: 'vin', label: 'VIN', type: 'text', width: '160px', placeholder: '17-char VIN', maxlength: 17, default: true },
-            { key: 'plate', label: 'Plate', type: 'text', width: '86px', placeholder: 'ABC 1234', default: true },
-            { key: 'status', label: 'Status', type: 'select', width: '92px', default: true, options: [
-                { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Out of Service' },
-                { value: 'maintenance', label: 'Maintenance' }, { value: 'inshop', label: 'In Shop' },
-                { value: 'reserved', label: 'Reserved' }, { value: 'sold', label: 'Sold' }
-            ]},
-            { key: 'model', label: 'Model', type: 'text', width: '90px', placeholder: 'Model', default: false },
-            { key: 'annualInspDate', label: 'DOT Insp. Exp.', type: 'date', width: '110px', expiry: true, default: true },
-            { key: 'registrationExp', label: 'Registration Exp.', type: 'date', width: '118px', expiry: true, default: true },
-            { key: 'insuranceExp', label: 'Insurance Exp.', type: 'date', width: '112px', expiry: true, default: false }
-        ],
-        driver: [
-            { key: 'name', label: 'Driver Name', type: 'text', width: '150px', placeholder: 'John Smith', required: true, default: true },
-            { key: 'phone', label: 'Phone', type: 'text', width: '110px', placeholder: '(555) 123-4567', default: true },
-            { key: 'cdl', label: 'CDL Number', type: 'text', width: '110px', placeholder: 'CDL number', default: true },
-            { key: 'cdlState', label: 'CDL State', type: 'text', width: '76px', placeholder: 'TX', maxlength: 2, default: true },
-            { key: 'email', label: 'Email', type: 'text', width: '148px', placeholder: 'john@example.com', default: true },
-            { key: 'status', label: 'Status', type: 'select', width: '96px', default: true, options: [
-                { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' },
-                { value: 'home-time', label: 'Home Time' }, { value: 'training', label: 'Training' },
-                { value: 'pending', label: 'Pending' }, { value: 'suspended', label: 'Suspended' },
-                { value: 'terminated', label: 'Terminated' }
-            ]},
-            { key: 'dob', label: 'Birth Date', type: 'date', width: '100px', default: false },
-            { key: 'cdlExp', label: 'CDL Expiration', type: 'date', width: '126px', expiry: true, default: false },
-            { key: 'medExp', label: 'Medical Expiration', type: 'date', width: '142px', expiry: true, default: false },
-            { key: 'mvrExp', label: 'MVR Expiration', type: 'date', width: '126px', expiry: true, default: false },
-            { key: 'hireDate', label: 'Hire Date', type: 'date', width: '100px', default: false },
-            { key: 'truck', label: 'Truck', type: 'truck-select', width: '90px', default: false }
-        ],
-        inspection: [
-            { key: 'date', label: 'Date', type: 'date', width: '100px', required: true, default: true },
-            { key: 'type', label: 'Level', type: 'select', width: '110px', default: true, options: [
-                { value: 'level-1', label: 'Level I – Full' },
-                { value: 'level-2', label: 'Level II – Walk-Around' },
-                { value: 'level-3', label: 'Level III – Driver' },
-                { value: 'level-4', label: 'Level IV – Special' },
-                { value: 'level-5', label: 'Level V – Vehicle' },
-                { value: 'citation', label: 'Citation' }
-            ]},
-            { key: 'reportNum', label: 'Report #', type: 'text', width: '130px', placeholder: 'Report number', default: true },
-            { key: 'driverName', label: 'Driver', type: 'driver-select', width: '130px', default: true },
-            { key: 'truckUnit', label: 'Truck', type: 'truck-select', width: '90px', default: true },
-            { key: 'result', label: 'Result', type: 'select', width: '90px', default: true, options: [
-                { value: 'pass', label: 'Pass' },
-                { value: 'fail', label: 'Fail' },
-                { value: 'warning', label: 'Warning' },
-                { value: 'oos', label: 'Out of Service' }
-            ]},
-            { key: 'violations', label: 'Violations', type: 'number', width: '72px', placeholder: '0', default: true },
-            { key: 'location', label: 'Location', type: 'text', width: '120px', placeholder: 'Zip or City, ST', default: true },
-            { key: 'fineAmount', label: 'Fine $', type: 'number', width: '72px', placeholder: '0.00', default: false },
-            { key: 'notes', label: 'Notes', type: 'text', width: '160px', placeholder: 'Details...', default: false },
-            { key: 'inspStatus', label: 'Status', type: 'select', width: '120px', default: false, options: [
-                { value: 'open', label: 'Open' }, { value: 'under-review', label: 'Under Review' }, { value: 'disputed', label: 'Disputed' }, { value: 'resolved', label: 'Resolved' }, { value: 'pending-payment', label: 'Pending Payment' }, { value: 'paid', label: 'Paid' }, { value: 'payment-disputed', label: 'Payment Disputed' }, { value: 'waived', label: 'Waived' }
-            ]},
-            { key: 'assignedTo', label: 'Assigned To', type: 'safety-select', width: '130px', default: false }
-        ],
-        load: [
-            { key: 'loadNumber', label: 'Load #', type: 'computed', width: '70px', default: true },
-            { key: 'unit', label: 'Unit', type: 'truck-select', width: '90px', default: true },
-            { key: 'origin', label: 'Origin', type: 'text', width: '130px', placeholder: 'Zip or City, ST', default: true },
-            { key: 'destination', label: 'Destination', type: 'text', width: '130px', placeholder: 'Zip or City, ST', default: true },
-            { key: 'broker', label: 'Broker', type: 'text', width: '120px', placeholder: 'Broker name', default: true },
-            { key: 'rate', label: 'Rate', type: 'number', width: '90px', placeholder: '0.00', default: true },
-            { key: 'mileage', label: 'Mileage', type: 'number', width: '80px', placeholder: '0', default: true },
-            { key: 'rpm', label: 'RPM', type: 'computed', width: '70px', default: true },
-            { key: 'detention', label: 'Det/Bonus', type: 'number', width: '90px', placeholder: '0.00', default: true },
-            { key: 'status', label: 'Status', type: 'select', width: '100px', default: true, options: [
-                { value: 'booked', label: 'Booked' }, { value: 'dispatched', label: 'Dispatched' },
-                { value: 'loaded', label: 'Loaded' }, { value: 'in-transit', label: 'In Transit' },
-                { value: 'delivered', label: 'Delivered' }, { value: 'invoiced', label: 'Invoiced' },
-                { value: 'paid', label: 'Paid' }, { value: 'canceled', label: 'Canceled' },
-                { value: 'issue', label: 'Issue' }
-            ]},
-            { key: 'deliveryDate', label: 'DEL Date', type: 'date', width: '110px', default: true },
-            { key: 'driver', label: 'Driver', type: 'driver-select', width: '120px', default: true },
-            { key: 'dispatcher', label: 'Dispatcher', type: 'dispatcher-select', width: '130px', default: true },
-            { key: 'loadDate', label: 'Load Date', type: 'date', width: '110px', default: false },
-            { key: 'comments', label: 'Comments', type: 'text', width: '160px', placeholder: 'Notes...', default: false }
-        ],
-        task: [
-            { key: 'description', label: 'Description', type: 'text', width: '240px', placeholder: 'Task description...', required: true, default: true },
-            { key: 'entityType', label: 'Entity Type', type: 'select', width: '100px', required: true, default: true, options: [
-                { value: 'drivers', label: 'Driver' },
-                { value: 'trucks', label: 'Truck' },
-                { value: 'trailers', label: 'Trailer' }
-            ]},
-            { key: 'entity', label: 'Entity (Unit # or Name)', type: 'text', width: '140px', placeholder: 'e.g. 101 or John Smith', required: true, default: true },
-            { key: 'taskType', label: 'Type', type: 'select', width: '110px', default: true, options: [
-                { value: '', label: 'None' },
-                { value: 'maintenance', label: 'Maintenance' },
-                { value: 'safety', label: 'Safety' },
-                { value: 'training', label: 'Training' },
-                { value: 'incident', label: 'Incident' },
-                { value: 'general', label: 'General' },
-                { value: 'inspection', label: 'Inspection' }
-            ]},
-            { key: 'priority', label: 'Priority', type: 'select', width: '90px', default: true, options: [
-                { value: '', label: 'None' },
-                { value: 'High', label: 'High' },
-                { value: 'Medium', label: 'Medium' },
-                { value: 'Low', label: 'Low' }
-            ]},
-            { key: 'dueDate', label: 'Due Date', type: 'date', width: '110px', default: true },
-            { key: 'status', label: 'Status', type: 'select', width: '100px', default: true, options: [
-                { value: 'Open', label: 'Open' },
-                { value: 'In Progress', label: 'In Progress' },
-                { value: 'Pending', label: 'Pending' },
-                { value: 'Closed', label: 'Closed' }
-            ]}
-        ]
-    };
-
-    const uSheetState = {
-        open: false,
-        type: null,        // 'truck' | 'trailer' | 'driver' | 'load'
-        mode: null,         // 'add' | 'edit' | 'import'
-        items: [],          // original items (for edit mode)
-        visibleCols: {},    // { truck: Set(['unit','year',...]), trailer: Set([...]), driver: Set([...]) }
-        dirty: new Set(),   // row indices with unsaved changes
-        pendingDocs: new Map()
-    };
-
-    function uCellAttachmentSpec(type, key) {
-        const specs = {
-            truck: {
-                unit: { docType: 'photo', label: 'Photo', shortLabel: 'Photo' },
-                annualInspDate: { docType: 'inspection', label: 'Inspection', shortLabel: 'Insp' },
-                registrationExp: { docType: 'registration', label: 'Registration', shortLabel: 'Reg' },
-                insuranceExp: { docType: 'insurance', label: 'Insurance', shortLabel: 'Ins' }
-            },
-            trailer: {
-                unit: { docType: 'photo', label: 'Photo', shortLabel: 'Photo' },
-                annualInspDate: { docType: 'inspection', label: 'Inspection', shortLabel: 'Insp' },
-                registrationExp: { docType: 'registration', label: 'Registration', shortLabel: 'Reg' },
-                insuranceExp: { docType: 'insurance', label: 'Insurance', shortLabel: 'Ins' }
-            },
-            driver: {
-                name: { docType: 'photo', label: 'Photo', shortLabel: 'Photo' },
-                cdl: { docType: 'cdl', label: 'CDL', shortLabel: 'CDL' },
-                medExp: { docType: 'medical', label: 'Medical Card', shortLabel: 'Med' },
-                mvrExp: { docType: 'mvr', label: 'MVR Report', shortLabel: 'MVR' }
-            },
-            load: {
-                origin: { docType: 'rc', label: 'Rate Confirmation', shortLabel: 'RC' },
-                destination: { docType: 'pod', label: 'Proof of Delivery', shortLabel: 'POD' }
-            }
-        };
-        return specs[type]?.[key] || null;
-    }
-
-    function uEnsureRowToken(data) {
-        return data?.__rowToken || ('us_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8));
-    }
-
-    function uGetPendingDocs(rowToken) {
-        return uSheetState.pendingDocs.get(rowToken) || {};
-    }
-
-    function uSetPendingDoc(rowToken, docType, file) {
-        const next = { ...uGetPendingDocs(rowToken), [docType]: file };
-        uSheetState.pendingDocs.set(rowToken, next);
-    }
-
-    function uClearPendingDocs(rowToken) {
-        uSheetState.pendingDocs.delete(rowToken);
-    }
-
-    function uRowHasExistingDoc(type, data, docType) {
-        if (type === 'load') return Boolean(data && data[docType + 'Url']);
-        return Array.isArray(data?.docTypes) && data.docTypes.includes(docType);
-    }
-
-    function uAttachmentButtonHtml(rowToken, spec, uploaded, fileName) {
-        const title = fileName
-            ? spec.label + ': ' + fileName
-            : uploaded
-                ? spec.label + ' attached'
-                : 'Add ' + spec.label;
-        const icon = uploaded
-            ? '<polyline points="20 6 9 17 4 12"/>'
-            : '<path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>';
-        return '<button type="button" class="usheet-attach-btn' + (uploaded ? ' has-file' : '') + '" data-row-token="' + rowToken + '" data-doc-type="' + spec.docType + '" title="' + escapeHtml(title) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">' + icon + '</svg></button>';
-    }
-
-    async function uUploadPendingDocs(tr, entityId) {
-        const rowToken = tr?.dataset?.rowToken;
-        if (!rowToken || !entityId) return;
-        const pending = uGetPendingDocs(rowToken);
-        const entries = Object.entries(pending);
-        if (!entries.length) return;
-        for (const [docType, file] of entries) {
-            if (!file) continue;
-            if (uSheetState.type === 'driver') await uploadDriverDoc(entityId, file, docType);
-            else if (uSheetState.type === 'truck') await uploadTruckDoc(entityId, file, docType);
-            else if (uSheetState.type === 'trailer') await uploadTrailerDoc(entityId, file, docType);
-            else if (uSheetState.type === 'load') await uploadLoadDoc(entityId, docType, file);
-        }
-        uClearPendingDocs(rowToken);
-    }
-
-    function uDefaultVisibleColKeys(type) {
-        return UNIFIED_COLS[type]
-            .filter(c => c.default || c.required)
-            .map(c => c.key);
-    }
-
-    function uSanitizeVisibleCols(type, keys) {
-        const validKeys = new Set(UNIFIED_COLS[type].map(c => c.key));
-        const requiredKeys = UNIFIED_COLS[type].filter(c => c.required).map(c => c.key);
-        const next = new Set((keys || []).filter(key => validKeys.has(key)));
-        requiredKeys.forEach(key => next.add(key));
-        if (!next.size) {
-            uDefaultVisibleColKeys(type).forEach(key => next.add(key));
-        }
-        return next;
-    }
-
-    // Initialize visible cols with defaults or from localStorage
-    Object.keys(UNIFIED_COLS).forEach(type => {
-        const saved = localStorage.getItem('dash_sheet_cols_' + type);
-        if (saved) {
-            try {
-                uSheetState.visibleCols[type] = uSanitizeVisibleCols(type, JSON.parse(saved));
-            }
-            catch {
-                uSheetState.visibleCols[type] = uSanitizeVisibleCols(type, uDefaultVisibleColKeys(type));
-            }
-        } else {
-            uSheetState.visibleCols[type] = uSanitizeVisibleCols(type, uDefaultVisibleColKeys(type));
-        }
-    });
-
-    // ── Table Column Configuration (display tables) ──
-    const TABLE_COLS = {
-        trucks: [
-            { key: 'unit', label: 'Unit #', w: 9, req: true, def: true },
-            { key: 'year', label: 'Year', w: 7, def: true },
-            { key: 'make', label: 'Make', w: 11, def: true },
-            { key: 'model', label: 'Model', w: 11, def: true },
-            { key: 'vin', label: 'VIN', w: 17, def: true },
-            { key: 'plate', label: 'Plate', w: 12, def: true },
-            { key: 'fuel', label: 'Fuel', w: 8, def: true },
-            { key: 'odometer', label: 'Odometer', w: 10, def: true },
-            { key: 'color', label: 'Color', w: 8, def: false },
-            { key: 'annualInspDate', label: 'Inspection Exp.', w: 12, def: false },
-            { key: 'registrationExp', label: 'Registration Exp.', w: 13, def: false },
-            { key: 'insuranceExp', label: 'Insurance Exp.', w: 12, def: false },
-            { key: 'status', label: 'Status', w: 10, def: true }
-        ],
-        trailers: [
-            { key: 'unit', label: 'Unit #', w: 11, req: true, def: true },
-            { key: 'year', label: 'Year', w: 9, def: true },
-            { key: 'make', label: 'Make', w: 12, def: true },
-            { key: 'type', label: 'Type', w: 12, def: true },
-            { key: 'model', label: 'Model', w: 10, def: false },
-            { key: 'vin', label: 'VIN', w: 18, def: true },
-            { key: 'plate', label: 'Plate', w: 12, def: true },
-            { key: 'annualInspDate', label: 'Inspection Exp.', w: 12, def: false },
-            { key: 'registrationExp', label: 'Registration Exp.', w: 13, def: false },
-            { key: 'insuranceExp', label: 'Insurance Exp.', w: 12, def: false },
-            { key: 'status', label: 'Status', w: 10, def: true }
-        ],
-        drivers: [
-            { key: 'name', label: 'Name', w: 14, req: true, def: true },
-            { key: 'cdl', label: 'CDL #', w: 9, def: true },
-            { key: 'cdlState', label: 'State', w: 5, def: true },
-            { key: 'cdlExp', label: 'CDL Expiration', w: 12, def: true },
-            { key: 'phone', label: 'Phone', w: 10, def: true },
-            { key: 'email', label: 'Email', w: 11, def: true },
-            { key: 'truck', label: 'Truck', w: 12, def: true },
-            { key: 'dob', label: 'Date of Birth', w: 10, def: false },
-            { key: 'medExp', label: 'Medical Exp.', w: 11, def: false },
-            { key: 'mvrExp', label: 'MVR Expiration', w: 12, def: false },
-            { key: 'hireDate', label: 'Hire Date', w: 9, def: false },
-            { key: 'status', label: 'Status', w: 10, def: true }
-        ],
-        inspections: [
-            { key: 'date', label: 'Date', w: 9, req: true, def: true },
-            { key: 'type', label: 'Level', w: 9, def: true },
-            { key: 'reportNum', label: 'Report #', w: 10, def: true },
-            { key: 'driverName', label: 'Driver', w: 11, def: true },
-            { key: 'truckUnit', label: 'Truck', w: 7, def: true },
-            { key: 'location', label: 'Location', w: 10, def: true },
-            { key: 'result', label: 'Result', w: 7, def: true },
-            { key: 'violations', label: 'Viol.', w: 6, def: true },
-            { key: 'fineAmount', label: 'Fine $', w: 7, def: false },
-            { key: 'notes', label: 'Notes', w: 12, def: false },
-            { key: 'assignedTo', label: 'Assigned', w: 10, def: true },
-            { key: 'status', label: 'Status', w: 8, def: true }
-        ],
-        loads: [
-            { key: 'loadNumber', label: 'Load #', w: 6, req: true, def: true },
-            { key: 'unit', label: 'Unit', w: 6, def: true },
-            { key: 'origin', label: 'From', w: 11, def: true },
-            { key: 'destination', label: 'To', w: 11, def: true },
-            { key: 'broker', label: 'Broker', w: 7, def: true },
-            { key: 'rate', label: 'Rate', w: 6, def: true },
-            { key: 'mileage', label: 'Mileage', w: 5, def: true },
-            { key: 'rpm', label: 'RPM', w: 4, def: true },
-            { key: 'detention', label: 'Det/Bonus', w: 5, def: false },
-            { key: 'status', label: 'Status', w: 7, def: true },
-            { key: 'deliveryDate', label: 'DEL Date', w: 7, def: true },
-            { key: 'total', label: 'Total', w: 6, def: true },
-            { key: 'driver', label: 'Driver', w: 7, def: true },
-            { key: 'dispatcher', label: 'Dispatcher', w: 7, def: false },
-            { key: 'comments', label: 'Comments', w: 5, def: false }
-        ],
-        history: [
-            { key: 'loadNumber', label: 'Load #', w: 6, req: true, def: true },
-            { key: 'unit', label: 'Unit', w: 6, def: true },
-            { key: 'origin', label: 'From', w: 12, def: true },
-            { key: 'destination', label: 'To', w: 12, def: true },
-            { key: 'broker', label: 'Broker', w: 8, def: true },
-            { key: 'rate', label: 'Rate', w: 7, def: true },
-            { key: 'mileage', label: 'Mileage', w: 5, def: true },
-            { key: 'rpm', label: 'RPM', w: 4, def: true },
-            { key: 'detention', label: 'Det/Bonus', w: 5, def: false },
-            { key: 'status', label: 'Status', w: 7, def: true },
-            { key: 'deliveryDate', label: 'DEL Date', w: 7, def: true },
-            { key: 'total', label: 'Total', w: 6, def: true },
-            { key: 'driver', label: 'Driver', w: 7, def: true },
-            { key: 'dispatcher', label: 'Dispatcher', w: 7, def: false }
-        ]
-    };
-
-    // ── Table Column State (persisted in localStorage) ──
-    const tableColState = {};
-    const tableColOrder = {};
-    Object.keys(TABLE_COLS).forEach(type => {
-        const saved = localStorage.getItem('dash_cols_' + type);
-        if (saved) {
-            try { tableColState[type] = new Set(JSON.parse(saved)); }
-            catch { tableColState[type] = new Set(TABLE_COLS[type].filter(c => c.def).map(c => c.key)); }
-        } else {
-            tableColState[type] = new Set(TABLE_COLS[type].filter(c => c.def).map(c => c.key));
-        }
-        const savedOrder = localStorage.getItem('dash_col_order_' + type);
-        if (savedOrder) {
-            try { tableColOrder[type] = JSON.parse(savedOrder); }
-            catch { tableColOrder[type] = TABLE_COLS[type].map(c => c.key); }
-        } else {
-            tableColOrder[type] = TABLE_COLS[type].map(c => c.key);
-        }
-    });
-
-    function saveTableCols(type) {
-        localStorage.setItem('dash_cols_' + type, JSON.stringify([...tableColState[type]]));
-    }
-
-    function saveTableColOrder(type) {
-        localStorage.setItem('dash_col_order_' + type, JSON.stringify(tableColOrder[type]));
-    }
-
-    function getVisibleTableCols(type) {
-        const vis = TABLE_COLS[type].filter(c => tableColState[type].has(c.key) || c.req);
-        const order = tableColOrder[type];
-        if (order) {
-            vis.sort((a, b) => {
-                const ai = order.indexOf(a.key);
-                const bi = order.indexOf(b.key);
-                return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
-            });
-        }
-        return vis;
-    }
-
-    function computeTableColWidths(type) {
-        const vis = getVisibleTableCols(type);
-        const totalW = vis.reduce((s, c) => s + c.w, 0);
-        const fixedW = type === 'inspections' ? 21 : type === 'loads' ? 8 : type === 'history' ? 4 : 13;
-        const avail = 100 - fixedW;
-        const widths = {};
-        vis.forEach(c => { widths[c.key] = ((c.w / totalW) * avail).toFixed(1); });
-        return widths;
-    }
-
-    function buildTableColPicker(type, dropdown) {
-        const vis = tableColState[type];
-        dropdown.innerHTML = TABLE_COLS[type].map(c => {
-            const active = vis.has(c.key);
-            const locked = c.req;
-            return '<button type="button" class="usheet-card' + (active ? ' active' : '') + (locked ? ' locked' : '') + '" data-col="' + c.key + '" data-table-type="' + type + '"' + (locked ? ' disabled' : '') + '>' + escapeHtml(c.label) + '</button>';
-        }).join('');
-        dropdown.querySelectorAll('.usheet-card:not(.locked)').forEach(card => {
-            card.addEventListener('click', (e) => {
-                e.stopPropagation();
-                toggleTableCol(card.dataset.tableType, card.dataset.col, card);
-            });
-        });
-    }
-
-    function toggleTableCol(type, key, card) {
-        if (tableColState[type].has(key)) {
-            tableColState[type].delete(key);
-            card.classList.remove('active');
-        } else {
-            tableColState[type].add(key);
-            card.classList.add('active');
-        }
-        card.classList.add('usheet-card-vanish');
-        setTimeout(() => card.classList.remove('usheet-card-vanish'), 250);
-        saveTableCols(type);
-        const tableId = { trucks: 'trucksTable', trailers: 'trailersTable', drivers: 'driversTable', inspections: 'inspectionsTable', loads: 'loadsTable', history: 'historyTable' }[type];
-        const tableWrap = $(tableId)?.closest('.dash-table-wrap');
-        if (tableWrap) {
-            tableWrap.classList.add('col-transitioning');
-            setTimeout(() => {
-                const renderFn = { trucks: renderTrucks, trailers: renderTrailers, drivers: renderDrivers, inspections: renderInspections, loads: renderLoads, history: renderLoadHistory }[type];
-                if (renderFn) renderFn();
-                requestAnimationFrame(() => tableWrap.classList.remove('col-transitioning'));
-            }, 150);
-        }
-    }
-
-    function initTableColPickers() {
-        let activeDropdownEl = null;
-        let activePickerBtn = null;
-
-        function closeColPicker() {
-            if (activeDropdownEl) { activeDropdownEl.remove(); activeDropdownEl = null; }
-            activePickerBtn = null;
-        }
-
-        document.querySelectorAll('.table-col-picker-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopImmediatePropagation();
-                if (activePickerBtn === btn) { closeColPicker(); return; }
-                closeColPicker();
-                const type = btn.dataset.tableType;
-                const floater = document.createElement('div');
-                floater.className = 'table-col-dropdown';
-                document.body.appendChild(floater);
-                buildTableColPicker(type, floater);
-                const rect = btn.getBoundingClientRect();
-                floater.style.top = (rect.bottom + 6) + 'px';
-                floater.style.right = (window.innerWidth - rect.right) + 'px';
-                activeDropdownEl = floater;
-                activePickerBtn = btn;
-            }, true);
-        });
-
-        document.addEventListener('click', (e) => {
-            if (activeDropdownEl && !e.target.closest('.table-col-picker-btn') && !activeDropdownEl.contains(e.target)) {
-                closeColPicker();
-            }
-        }, true);
-    }
-
-    // ── Column Drag-Reorder ──
-    const colDrag = { type: null, dragKey: null, overKey: null };
-    const TABLE_TYPE_MAP = { trucksTable: 'trucks', trailersTable: 'trailers', driversTable: 'drivers', inspectionsTable: 'inspections', loadsTable: 'loads', historyTable: 'history' };
-    const RENDER_MAP_FN = () => ({ trucks: renderTrucks, trailers: renderTrailers, drivers: renderDrivers, inspections: renderInspections, loads: renderLoads, history: renderLoadHistory });
-
-    function wireColDrag(thead, tableType) {
-        if (!thead) return;
-        thead.querySelectorAll('th[data-col-key]').forEach(th => {
-            th.draggable = true;
-            th.addEventListener('dragstart', (e) => {
-                colDrag.type = tableType;
-                colDrag.dragKey = th.dataset.colKey;
-                th.classList.add('th-dragging');
-                e.dataTransfer.effectAllowed = 'move';
-                e.dataTransfer.setData('text/plain', th.dataset.colKey);
-            });
-            th.addEventListener('dragend', () => {
-                th.classList.remove('th-dragging');
-                thead.querySelectorAll('.th-drag-over').forEach(el => el.classList.remove('th-drag-over'));
-                colDrag.type = null;
-                colDrag.dragKey = null;
-                colDrag.overKey = null;
-            });
-            th.addEventListener('dragover', (e) => {
-                if (colDrag.type !== tableType) return;
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-                if (colDrag.overKey !== th.dataset.colKey) {
-                    thead.querySelectorAll('.th-drag-over').forEach(el => el.classList.remove('th-drag-over'));
-                    th.classList.add('th-drag-over');
-                    colDrag.overKey = th.dataset.colKey;
-                }
-            });
-            th.addEventListener('dragleave', () => {
-                th.classList.remove('th-drag-over');
-            });
-            th.addEventListener('drop', (e) => {
-                e.preventDefault();
-                th.classList.remove('th-drag-over');
-                const fromKey = colDrag.dragKey;
-                const toKey = th.dataset.colKey;
-                if (!fromKey || !toKey || fromKey === toKey) return;
-                const order = tableColOrder[tableType];
-                const fi = order.indexOf(fromKey);
-                const ti = order.indexOf(toKey);
-                if (fi === -1 || ti === -1) return;
-                order.splice(fi, 1);
-                order.splice(order.indexOf(toKey) + (fi < ti ? 1 : 0), 0, fromKey);
-                saveTableColOrder(tableType);
-                const renderFn = RENDER_MAP_FN()[tableType];
-                if (renderFn) renderFn();
-            });
-        });
-    }
-
-    // ── Table Cell Renderers ──
-    function hasInlineDoc(entity, docType) {
-        return Array.isArray(entity?.docTypes) && entity.docTypes.includes(docType);
-    }
-
-    function inlineDocButton(entityType, entityId, docType, label, uploaded, docUrl) {
-        if (uploaded) {
-            var viewBtn = '';
-            if (docUrl) {
-                var isImage = docType === 'photo';
-                var viewLabel = isImage ? 'View' : 'Open';
-                viewBtn = '<button class="entity-doc-action entity-doc-view-btn" data-photo-url="' + escapeHtml(docUrl) + '" data-is-image="' + (isImage ? '1' : '') + '" title="' + viewLabel + ' ' + escapeHtml(label) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ' + viewLabel + '</button>';
-            }
-            var indicator = (docType === 'photo' && docUrl)
-                ? '<span class="entity-doc-thumb"><img src="' + escapeHtml(docUrl) + '" alt="' + escapeHtml(label) + '"/></span>'
-                : '<span class="entity-doc-check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>';
-            return '<span class="entity-doc-uploaded" data-entity="' + entityType + '" data-id="' + entityId + '" data-doc="' + docType + '">' +
-                indicator +
-                '<span class="entity-doc-menu">' + viewBtn +
-                '<button class="entity-doc-action entity-doc-replace-btn" data-entity="' + entityType + '" data-id="' + entityId + '" data-doc="' + docType + '" title="Replace ' + escapeHtml(label) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Replace</button>' +
-                '</span></span>';
-        }
-        return '<button class="entity-doc-btn" data-entity="' + entityType + '" data-id="' + entityId + '" data-doc="' + docType + '" title="Upload ' + escapeHtml(label) + '"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>';
-    }
-
-    function truckCell(t, key) {
-        const du = t.docUrls || {};
-        switch(key) {
-            case 'unit': return '<td class="col-unit"><div class="cell cell-primary cell-with-doc" title="Open truck profile for ' + escapeHtml(t.unit || t.id) + '"><span><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + (t.samsaraLocation ? '<span class="samsara-loc-badge" title="' + escapeHtml(t.samsaraLocation.location || '') + ' · ' + (t.samsaraLocation.speed || 0) + ' mph">GPS</span>' : '') + '</span>' + inlineDocButton('truck', t.id, 'photo', 'Truck Photo', hasInlineDoc(t, 'photo'), t.photoUrl) + '</div></td>';
-            case 'year': return '<td class="col-year"><div class="cell">' + escapeHtml(t.year) + '</div></td>';
-            case 'make': return '<td class="col-make"><div class="cell">' + escapeHtml(t.make) + '</div></td>';
-            case 'model': return '<td class="col-model"><div class="cell">' + escapeHtml(t.model) + '</div></td>';
-            case 'vin': return '<td class="col-vin"><div class="cell vin-cell" title="' + escapeHtml(t.vin) + '">' + escapeHtml(t.vin) + '</div></td>';
-            case 'plate': return '<td class="col-plate"><div class="cell">' + escapeHtml(t.plate) + (t.plateState ? ' <span class="text-muted">(' + escapeHtml(t.plateState) + ')</span>' : '') + '</div></td>';
-            case 'fuel': return '<td class="col-fuel"><div class="cell">' + fuelLabel(t.fuel) + '</div></td>';
-            case 'odometer': {
-                const odo = t.samsaraOdometer != null ? t.samsaraOdometer : (t.odometerReading != null ? t.odometerReading : (t.mileage != null ? t.mileage : null));
-                const live = t.samsaraOdometer != null;
-                if (odo == null) return '<td class="col-odometer"><div class="cell text-muted">—</div></td>';
-                return '<td class="col-odometer"><div class="cell">' + new Intl.NumberFormat('en-US').format(Math.round(odo)) + ' <span class="text-muted" style="font-size:0.7em">mi' + (live ? '<span class="samsara-loc-badge" style="margin-left:3px">Live</span>' : '') + '</span></div></td>';
-            }
-            case 'color': return '<td class="col-color"><div class="cell">' + escapeHtml(t.color || '') + '</div></td>';
-            case 'annualInspDate': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.annualInspDate || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'inspection', 'Annual Inspection', hasInlineDoc(t, 'inspection'), du.inspection) + '</div></td>';
-            case 'registrationExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.registrationExp || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'registration', 'Registration', hasInlineDoc(t, 'registration'), du.registration) + '</div></td>';
-            case 'insuranceExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.insuranceExp || '\u2014') + '</span>' + inlineDocButton('truck', t.id, 'insurance', 'Insurance', hasInlineDoc(t, 'insurance'), du.insurance) + '</div></td>';
-            case 'status': return '<td class="col-status"><div class="cell">' + statusSelect(t.status, t.id, 'trucks', 'truck') + '</div></td>';
-            default: return '<td><div class="cell">' + escapeHtml(t[key] || '') + '</div></td>';
-        }
-    }
-
-    function trailerCell(t, key) {
-        const du = t.docUrls || {};
-        switch(key) {
-            case 'unit': return '<td><div class="cell cell-primary cell-with-doc" title="Open trailer profile for ' + escapeHtml(t.unit || t.id) + '"><span><strong>' + escapeHtml(t.unit || t.id) + '</strong>' + (t.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('trailer', t.id, 'photo', 'Trailer Photo', hasInlineDoc(t, 'photo'), t.photoUrl) + '</div></td>';
-            case 'year': return '<td><div class="cell">' + escapeHtml(t.year) + '</div></td>';
-            case 'make': return '<td><div class="cell">' + escapeHtml(t.make) + '</div></td>';
-            case 'type': return '<td><div class="cell">' + trailerTypeLabel(t.type) + '</div></td>';
-            case 'model': return '<td><div class="cell">' + escapeHtml(t.model || '') + '</div></td>';
-            case 'vin': return '<td><div class="cell vin-cell">' + escapeHtml(t.vin) + '</div></td>';
-            case 'plate': return '<td><div class="cell">' + escapeHtml(t.plate) + '</div></td>';
-            case 'annualInspDate': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.annualInspDate || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'inspection', 'Annual Inspection', hasInlineDoc(t, 'inspection'), du.inspection) + '</div></td>';
-            case 'registrationExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.registrationExp || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'registration', 'Registration', hasInlineDoc(t, 'registration'), du.registration) + '</div></td>';
-            case 'insuranceExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(t.insuranceExp || '\u2014') + '</span>' + inlineDocButton('trailer', t.id, 'insurance', 'Insurance', hasInlineDoc(t, 'insurance'), du.insurance) + '</div></td>';
-            case 'status': return '<td><div class="cell">' + statusSelect(t.status, t.id, 'trailers', 'trailer') + '</div></td>';
-            default: return '<td><div class="cell">' + escapeHtml(t[key] || '') + '</div></td>';
-        }
-    }
-
-    function driverCell(d, key) {
-        const du = d.docUrls || {};
-        switch(key) {
-            case 'name': return '<td><div class="cell cell-primary cell-with-doc" title="Open driver profile for ' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '"><span><strong>' + escapeHtml(d.firstName) + ' ' + escapeHtml(d.lastName) + '</strong>' + (d.doNotDispatch ? '<span class="dnd-tag">DND</span>' : '') + '</span>' + inlineDocButton('driver', d.id, 'photo', 'Driver Photo', hasInlineDoc(d, 'photo'), d.photoUrl) + '</div></td>';
-            case 'cdl': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(d.cdl) + '</span>' + inlineDocButton('driver', d.id, 'cdl', 'CDL', hasInlineDoc(d, 'cdl'), du.cdl) + '</div></td>';
-            case 'cdlState': return '<td><div class="cell">' + escapeHtml(d.cdlState) + '</div></td>';
-            case 'cdlExp': return '<td><div class="cell">' + escapeHtml(d.cdlExp) + '</div></td>';
-            case 'phone': return '<td><div class="cell">' + escapeHtml(d.phone ? formatPhone(d.phone) : '') + '</div></td>';
-            case 'email': return '<td><div class="cell">' + escapeHtml(d.email) + '</div></td>';
-            case 'truck': return '<td><div class="cell">' + truckSelectHtml(d.id, d.truck, d.doNotDispatch) + '</div></td>';
-            case 'dob': return '<td><div class="cell">' + escapeHtml(d.dob || '\u2014') + '</div></td>';
-            case 'medExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(d.medExp || '\u2014') + '</span>' + inlineDocButton('driver', d.id, 'medical', 'Medical Card', hasInlineDoc(d, 'medical'), du.medical) + '</div></td>';
-            case 'mvrExp': return '<td><div class="cell cell-with-doc"><span>' + escapeHtml(d.mvrExp || '\u2014') + '</span>' + inlineDocButton('driver', d.id, 'mvr', 'MVR Report', hasInlineDoc(d, 'mvr'), du.mvr) + '</div></td>';
-            case 'hireDate': return '<td><div class="cell">' + escapeHtml(d.hireDate || '\u2014') + '</div></td>';
-            case 'status': return '<td><div class="cell">' + statusSelect(d.status, d.id, 'drivers', 'driver') + '</div></td>';
-            default: return '<td><div class="cell">' + escapeHtml(d[key] || '') + '</div></td>';
-        }
-    }
-
-    function inspResultBadge(r) {
-        const cls = r === 'pass' ? 'badge-green' : r === 'fail' || r === 'oos' ? 'badge-red' : r === 'warning' ? 'badge-yellow' : 'badge-gray';
-        const label = r === 'oos' ? 'OOS' : r ? r.charAt(0).toUpperCase() + r.slice(1) : '\u2014';
-        return '<span class="insp-badge ' + cls + '">' + escapeHtml(label) + '</span>';
-    }
-
-    function inspTypeFmt(t) {
-        const map = {'level-1':'Level I','level-2':'Level II','level-3':'Level III','level-4':'Level IV','level-5':'Level V','citation':'Citation'};
-        return map[t] || t || '\u2014';
-    }
-
-    function inspectionCell(d, key) {
-        switch(key) {
-            case 'date': return '<td><div class="cell">' + escapeHtml(d.date || '\u2014') + '</div></td>';
-            case 'type': return '<td><div class="cell">' + escapeHtml(inspTypeFmt(d.type)) + '</div></td>';
-            case 'reportNum': return '<td><div class="cell">' + escapeHtml(d.reportNum || '\u2014') + '</div></td>';
-            case 'driverName': return '<td><div class="cell">' + escapeHtml(d.driverName || '\u2014') + '</div></td>';
-            case 'truckUnit': return '<td><div class="cell">' + escapeHtml(d.truckUnit || '\u2014') + '</div></td>';
-            case 'location': return '<td><div class="cell">' + escapeHtml(d.location || '\u2014') + '</div></td>';
-            case 'result': return '<td><div class="cell">' + inspResultBadge(d.result) + '</div></td>';
-            case 'violations': return '<td><div class="cell">' + (d.violations != null ? escapeHtml(String(d.violations)) : '0') + '</div></td>';
-            case 'fineAmount': return '<td><div class="cell">' + (d.fineAmount ? '$' + parseFloat(d.fineAmount).toFixed(2) : '\u2014') + '</div></td>';
-            case 'notes': return '<td><div class="cell">' + escapeHtml(d.notes || '\u2014') + '</div></td>';
-            case 'assignedTo': {
-                const users = (state.companyDashboard && state.companyDashboard.users || []).filter(u => ['Owner','Admin','Safety Manager'].includes(u.role));
-                const cur = d.assignedTo || '';
-                let html = '<td><div class="cell"><select class="insp-assign-select" data-id="' + d.id + '">';
-                html += '<option value=""' + (!cur ? ' selected' : '') + '>Unassigned</option>';
-                users.forEach(u => { html += '<option value="' + escapeHtml(u.name) + '"' + (cur === u.name ? ' selected' : '') + '>' + escapeHtml(u.name) + '</option>'; });
-                html += '</select></div></td>';
-                return html;
-            }
-            case 'status': {
-                const st = d.inspStatus || 'open';
-                const cls = { open: 'is-open', 'under-review': 'is-under-review', disputed: 'is-disputed', resolved: 'is-resolved', 'pending-payment': 'is-pending', paid: 'is-paid', 'payment-disputed': 'is-pay-disputed', waived: 'is-waived' }[st] || 'is-open';
-                const opts = [['open','Open'],['under-review','Under Review'],['disputed','Disputed'],['resolved','Resolved'],['pending-payment','Pending Payment'],['paid','Paid'],['payment-disputed','Payment Disputed'],['waived','Waived']];
-                let html = '<td><div class="cell insp-status-cell">';
-                html += '<select class="insp-status-select ' + cls + '" data-id="' + d.id + '" data-field="inspStatus">';
-                opts.forEach(([v, l]) => { html += '<option value="' + v + '"' + (st === v ? ' selected' : '') + '>' + l + '</option>'; });
-                html += '</select></div></td>';
-                return html;
-            }
-            default: return '<td><div class="cell">' + escapeHtml(d[key] || '') + '</div></td>';
-        }
-    }
-
-    function loadCell(l, key) {
-        const rpm = calcRPM(l.rate, l.mileage);
-        const total = calcTotal(l.rate, l.detention);
-        switch(key) {
-            case 'loadNumber': return '<td><div class="cell cell-muted">' + escapeHtml(l.loadNumber || '') + '</div></td>';
-            case 'unit': return '<td><div class="cell">' + escapeHtml(l.unit || '') + '</div></td>';
-            case 'origin': {
-                const rcIcon = l.rcUrl
-                    ? '<button class="load-doc-btn uploaded" data-doc="rc" data-id="' + l.id + '" title="RC uploaded — click to replace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>'
-                    : '<button class="load-doc-btn" data-doc="rc" data-id="' + l.id + '" title="Upload Rate Confirmation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>';
-                return '<td><div class="cell load-cell-with-doc"><span>' + escapeHtml(l.origin || '') + '</span>' + rcIcon + '</div></td>';
-            }
-            case 'destination': {
-                const podIcon = l.podUrl
-                    ? '<button class="load-doc-btn uploaded" data-doc="pod" data-id="' + l.id + '" title="POD uploaded — click to replace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>'
-                    : '<button class="load-doc-btn" data-doc="pod" data-id="' + l.id + '" title="Upload Proof of Delivery"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></button>';
-                return '<td><div class="cell load-cell-with-doc"><span>' + escapeHtml(l.destination || '') + '</span>' + podIcon + '</div></td>';
-            }
-            case 'broker': return '<td><div class="cell">' + escapeHtml(l.broker || '') + '</div></td>';
-            case 'rate': return '<td><div class="cell">' + (l.rate ? formatCurrency(l.rate) : '') + '</div></td>';
-            case 'mileage': return '<td><div class="cell">' + escapeHtml(l.mileage ? String(l.mileage) : '') + '</div></td>';
-            case 'rpm': return '<td><div class="cell load-rpm">' + escapeHtml(rpm) + '</div></td>';
-            case 'detention': return '<td><div class="cell">' + (l.detention ? formatCurrency(l.detention) : '') + '</div></td>';
-            case 'status': return '<td><div class="cell">' + loadStatusBadge(l.status) + '</div></td>';
-            case 'deliveryDate': return '<td><div class="cell">' + escapeHtml(l.deliveryDate || '') + '</div></td>';
-            case 'total': return '<td><div class="cell"><strong>' + (total ? formatCurrency(total) : '') + '</strong></div></td>';
-            case 'driver': return '<td><div class="cell">' + escapeHtml(l.driver || '') + '</div></td>';
-            case 'dispatcher': return '<td><div class="cell">' + escapeHtml(l.dispatcher || '') + '</div></td>';
-            case 'comments': return '<td><div class="cell cell-muted" title="' + escapeHtml(l.comments || '') + '">' + escapeHtml((l.comments || '').substring(0, 30)) + ((l.comments || '').length > 30 ? '\u2026' : '') + '</div></td>';
-            default: return '<td><div class="cell">' + escapeHtml(l[key] || '') + '</div></td>';
-        }
-    }
-
-    function uGetVisibleCols(type) {
-        uSheetState.visibleCols[type] = uSanitizeVisibleCols(type, [...(uSheetState.visibleCols[type] || [])]);
-        return UNIFIED_COLS[type].filter(c => uSheetState.visibleCols[type].has(c.key));
-    }
-
-    function openUnifiedSheet(type, items, options) {
-        const mode = options?.mode || 'add';
-        uSheetState.open = true;
-        uSheetState.type = type;
-        uSheetState.mode = mode;
-        uSheetState.items = items || [];
-        uSheetState.dirty = new Set();
-        uSheetState.pendingDocs = new Map();
-
-        // Title
-        const titleMap = { truck: 'Trucks', trailer: 'Trailers', driver: 'Drivers', inspection: 'Inspections', load: 'Loads', task: 'Tasks' };
-        const titleEl = $('usheetTitle');
-        if (mode === 'add') titleEl.textContent = 'Add ' + titleMap[type];
-        else if (mode === 'import') titleEl.textContent = 'Import ' + titleMap[type];
-        else titleEl.textContent = 'Edit ' + titleMap[type] + (items.length > 1 ? ' (' + items.length + ')' : '');
-
-        uBuildColPicker(type);
-        uBuildTable(type, items, mode);
-        uUpdateFooter();
-
-        // Show import button only in add mode
-        const importBtn = $('usheetImportFile');
-        if (importBtn) importBtn.style.display = mode === 'add' ? '' : 'none';
-
-        // Hide route map for non-load types
-        if (type !== 'load') hideUsheetMap();
-        // Reset flip state
-        const body = $('usheetBody');
-        if (body) body.classList.remove('flipped');
-        const flipBtn = $('usheetFlipBtn');
-        if (flipBtn) flipBtn.classList.remove('visible');
-
-        $('unifiedSheetModal').classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-        // Focus first input after render
-        setTimeout(() => {
-            const first = $('usheetTbody').querySelector('input, select');
-            if (first) first.focus();
-        }, 60);
-    }
-
-    function uBuildColPicker(type) {
-        const dropdown = $('usheetColDropdown');
-        const cols = UNIFIED_COLS[type];
-        const vis = uSheetState.visibleCols[type];
-        dropdown.innerHTML = cols.map(c => {
-            const active = vis.has(c.key);
-            const locked = c.required;
-            return `<button type="button" class="usheet-card${active ? ' active' : ''}${locked ? ' locked' : ''}" data-col="${c.key}"${locked ? ' disabled' : ''}>${escapeHtml(c.label)}</button>`;
-        }).join('');
-    }
-
-    function uToggleCol(type, key, show) {
-        if (show) uSheetState.visibleCols[type].add(key);
-        else uSheetState.visibleCols[type].delete(key);
-        uSheetState.visibleCols[type] = uSanitizeVisibleCols(type, [...uSheetState.visibleCols[type]]);
-        localStorage.setItem('dash_sheet_cols_' + type, JSON.stringify([...uSheetState.visibleCols[type]]));
-        uBuildTable(type, null, uSheetState.mode);
-    }
-
-    function uBuildTable(type, items, mode) {
-        const visCols = uGetVisibleCols(type);
-        const thead = $('usheetThead');
-        const tbody = $('usheetTbody');
-
-        // Build header
-        thead.innerHTML = '<th class="usheet-num-col">#</th>' +
-            visCols.map(c => `<th style="min-width:${c.width}">${escapeHtml(c.label)}</th>`).join('') +
-            '<th class="usheet-action-col"></th>';
-
-        // Build rows ” reuse existing tbody data if no new items
-        if (items !== null || mode === 'add') {
-            tbody.innerHTML = '';
-            const rows = (items && items.length) ? items : [{}];
-            rows.forEach((item, i) => {
-                tbody.appendChild(uBuildRow(i, item, visCols, mode));
-            });
-            // Always add one empty row at the end for add/import modes
-            if (mode !== 'edit') {
-                tbody.appendChild(uBuildRow(rows.length === 1 && !Object.keys(rows[0]).length ? 0 : rows.length, {}, visCols, mode));
-                if (rows.length === 1 && !Object.keys(rows[0]).length) tbody.removeChild(tbody.firstChild);
-            }
-        } else {
-            // Rebuild from existing row data
-            const existingData = uCollectAllRowData();
-            tbody.innerHTML = '';
-            existingData.forEach((item, i) => {
-                tbody.appendChild(uBuildRow(i, item, visCols, mode));
-            });
-            if (mode !== 'edit' && existingData.length === 0) {
-                tbody.appendChild(uBuildRow(0, {}, visCols, mode));
-            }
-        }
-        uUpdateRowCount();
-    }
-
-    function uBuildRow(index, data, visCols, mode) {
-        const tr = document.createElement('tr');
-        tr.className = 'usheet-row';
-        if (data && data.id) tr.dataset.id = data.id;
-        const rowToken = uEnsureRowToken(data);
-        tr.dataset.rowToken = rowToken;
-        // For drivers in edit mode, combine firstName + lastName into name
-        if (uSheetState.type === 'driver' && data && data.firstName) {
-            data.name = ((data.firstName || '') + ' ' + (data.lastName || '')).trim();
-        }
-
-        let html = `<td class="usheet-num">${index + 1}</td>`;
-        visCols.forEach(c => {
-            let val = data ? (data[c.key] || '') : '';
-            const attachSpec = uCellAttachmentSpec(uSheetState.type, c.key);
-            const pending = uGetPendingDocs(rowToken);
-            const hasPendingDoc = Boolean(attachSpec && pending[attachSpec.docType]);
-            const hasExistingDoc = Boolean(attachSpec && uRowHasExistingDoc(uSheetState.type, data, attachSpec.docType));
-            const attachmentBtn = attachSpec ? uAttachmentButtonHtml(rowToken, attachSpec, hasPendingDoc || hasExistingDoc, pending[attachSpec.docType]?.name || '') : '';
-            if (c.type === 'select') {
-                const opts = c.options.map(o =>
-                    `<option value="${escapeHtml(o.value)}"${o.value === val ? ' selected' : ''}>${escapeHtml(o.label)}</option>`
-                ).join('');
-                const placeholder = c.placeholder || 'Select';
-                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>${placeholder}</option>${opts}</select>${attachmentBtn}</div></td>`;
-            } else if (c.type === 'truck-select') {
-                const opts = state.trucks.map(t =>
-                    `<option value="${escapeHtml(t.unit)}"${t.unit === val ? ' selected' : ''}>${escapeHtml(t.unit)}</option>`
-                ).join('');
-                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Truck</option>${opts}</select>${attachmentBtn}</div></td>`;
-            } else if (c.type === 'driver-select') {
-                const opts = state.drivers.map(d =>
-                    `<option value="${escapeHtml(d.firstName + ' ' + d.lastName)}"${(d.firstName + ' ' + d.lastName) === val ? ' selected' : ''}>${escapeHtml(d.firstName + ' ' + d.lastName)}</option>`
-                ).join('');
-                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Driver</option>${opts}</select>${attachmentBtn}</div></td>`;
-            } else if (c.type === 'dispatcher-select') {
-                const dispatchers = (state.companyDashboard && state.companyDashboard.users || []).filter(u => u.role === 'Dispatcher');
-                const opts = dispatchers.map(u =>
-                    `<option value="${escapeHtml(u.name)}"${u.name === val ? ' selected' : ''}>${escapeHtml(u.name)}</option>`
-                ).join('');
-                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="" disabled${!val ? ' selected' : ''}>Dispatcher</option>${opts}</select>${attachmentBtn}</div></td>`;
-            } else if (c.type === 'safety-select') {
-                const safetyUsers = (state.companyDashboard && state.companyDashboard.users || []).filter(u => ['Owner','Admin','Safety Manager'].includes(u.role));
-                const opts = safetyUsers.map(u =>
-                    `<option value="${escapeHtml(u.name)}"${u.name === val ? ' selected' : ''}>${escapeHtml(u.name)}</option>`
-                ).join('');
-                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><select data-key="${c.key}"${!val ? ' class="usheet-empty"' : ''}><option value="">Unassigned</option>${opts}</select>${attachmentBtn}</div></td>`;
-            } else if (c.type === 'date') {
-                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><input type="date" data-key="${c.key}" value="${escapeHtml(val)}"${!val ? ' class="usheet-empty"' : ''}>${attachmentBtn}</div></td>`;
-            } else if (c.type === 'computed') {
-                // Read-only computed cell (e.g. RPM)
-                let computed = '';
-                if (c.key === 'rpm' && data) computed = calcRPM(data.rate, data.mileage);
-                if (c.key === 'loadNumber' && data) computed = data.loadNumber || '';
-                html += `<td class="usheet-cell usheet-computed" data-key="${c.key}"><span data-key="${c.key}">${escapeHtml(computed)}</span></td>`;
-            } else {
-                html += `<td class="usheet-cell${attachSpec ? ' usheet-cell-attach' : ''}" data-key="${c.key}"><div class="usheet-input-with-attach"><input type="${c.type === 'number' ? 'number' : 'text'}" data-key="${c.key}" value="${escapeHtml(val)}" placeholder="${c.placeholder || ''}"${c.maxlength ? ' maxlength="' + c.maxlength + '"' : ''}>${attachmentBtn}</div></td>`;
-            }
-        });
-        // Actions: per-row save + delete
-        html += `<td class="usheet-actions">
-            <button class="usheet-row-save" title="Save this row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14"><polyline points="20 6 9 17 4 12"/></svg></button>
-            <button class="usheet-row-delete" title="Remove row"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
-        </td>`;
-        tr.innerHTML = html;
-
-        // Store extra fields from import as data attributes
-        if (data && uSheetState.type) {
-            const cfg = SHEET_CONFIGS[uSheetState.type];
-            if (cfg && cfg.extraFields) {
-                cfg.extraFields.forEach(key => {
-                    if (data[key]) tr.dataset['extra_' + key] = data[key];
-                });
-            }
-        }
-        return tr;
-    }
-
-    function uCollectAllRowData() {
-        const rows = [];
-        const tbody = $('usheetTbody');
-        if (!tbody) return rows;
-        Array.from(tbody.children).forEach(tr => {
-            const data = {};
-            data.__rowToken = tr.dataset.rowToken || '';
-            if (tr.dataset.id) data.id = tr.dataset.id;
-            tr.querySelectorAll('input[data-key], select[data-key]').forEach(el => {
-                data[el.dataset.key] = el.value;
-            });
-            // Carry over extra fields
-            Object.keys(tr.dataset).forEach(k => {
-                if (k.startsWith('extra_')) data[k.replace('extra_', '')] = tr.dataset[k];
-            });
-            rows.push(data);
-        });
-        return rows;
-    }
-
-    function uCollectRowData(tr) {
-        const data = {};
-        if (tr.dataset.id) data.id = tr.dataset.id;
-        tr.querySelectorAll('input[data-key], select[data-key]').forEach(el => {
-            data[el.dataset.key] = el.value.trim();
-        });
-        // Carry over extra fields stored as data attributes
-        Object.keys(tr.dataset).forEach(k => {
-            if (k.startsWith('extra_') && !data[k.replace('extra_', '')]) {
-                data[k.replace('extra_', '')] = tr.dataset[k];
-            }
-        });
-        return data;
-    }
-
-    async function uSaveRow(tr) {
-        const type = uSheetState.type;
-        const mode = uSheetState.mode;
-        const data = uCollectRowData(tr);
-        const cfg = SHEET_CONFIGS[type];
-        const reqKey = cfg.requiredKey;
-
-        // For drivers, name is the required key
-        if (type === 'driver' && !data.name) { showMsg('Name is required', true); return; }
-        if (type !== 'driver' && type !== 'load' && reqKey && !data[reqKey]) { showMsg(cfg.cols[0].placeholder ? reqKey + ' is required' : 'Required field missing', true); return; }
-
-        // Prepare payload
-        const payload = { ...data };
-        delete payload.id;
-
-        // Driver name splitting
-        if (type === 'driver' && payload.name) {
-            const parts = payload.name.trim().split(/\s+/);
-            payload.firstName = parts[0] || '';
-            payload.lastName = parts.slice(1).join(' ') || '';
-            delete payload.name;
-        }
-        // Normalization
-        if (payload.plateState) payload.plateState = payload.plateState.toUpperCase();
-        if (payload.cdlState) payload.cdlState = payload.cdlState.toUpperCase();
-        // Load-specific normalization
-        if (type === 'load') {
-            if (payload.rate) payload.rate = parseFloat(payload.rate) || 0;
-            if (payload.mileage) payload.mileage = parseFloat(payload.mileage) || 0;
-            if (payload.detention) payload.detention = parseFloat(payload.detention) || 0;
-            if (!payload.loadDate) payload.loadDate = new Date().toISOString().split('T')[0];
-            if (!payload.loadNumber) payload.loadNumber = nextLoadNumber();
-        }
-        normalizePayload(payload, type);
-        payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-
-        try {
-            const existingId = tr.dataset.id;
-            let entityId = existingId;
-            if (mode === 'edit' && existingId) {
-                await col(cfg.collection).doc(existingId).update(payload);
-            } else {
-                payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                if (cfg.defaults) {
-                    Object.entries(cfg.defaults).forEach(([k, v]) => { if (!payload[k]) payload[k] = v; });
-                }
-                const docRef = await col(cfg.collection).add(payload);
-                tr.dataset.id = docRef.id; // Track new ID
-                entityId = docRef.id;
-            }
-            await uUploadPendingDocs(tr, entityId);
-            // Flash green then remove row in add/import mode
-            tr.classList.add('usheet-saved');
-            if (mode !== 'edit') {
-                setTimeout(() => {
-                    tr.classList.add('usheet-row-out');
-                    tr.addEventListener('transitionend', () => {
-                        tr.remove();
-                        uRenumberRows();
-                        uUpdateRowCount();
-                        uUpdateFooter();
-                        uEnsureEmptyRow();
-                    }, { once: true });
-                }, 600);
-            } else {
-                setTimeout(() => tr.classList.remove('usheet-saved'), 1200);
-            }
-            uSheetState.dirty.delete(Array.from($('usheetTbody').children).indexOf(tr));
-            uUpdateFooter();
-        } catch (err) {
-            console.error('Row save error:', err);
-            showMsg('Error saving row', true);
-        }
-    }
-
-    async function uSaveAll() {
-        const type = uSheetState.type;
-        const mode = uSheetState.mode;
-        const cfg = SHEET_CONFIGS[type];
-        const tbody = $('usheetTbody');
-        const rows = Array.from(tbody.children);
-        const btn = $('usheetSaveAll');
-        if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
-
-        // ── Task special save path ──────────────────────────────────────────
-        if (type === 'task') {
-            try {
-                const currentUid = uid();
-                if (!currentUid) { showMsg('Not logged in', true); return; }
-                let count = 0;
-                const errors = [];
-                for (const tr of rows) {
-                    const data = uCollectRowData(tr);
-                    if (!data.description || !data.description.trim()) continue;
-                    const entityType = data.entityType;
-                    if (!entityType || !['drivers', 'trucks', 'trailers'].includes(entityType)) {
-                        errors.push('Row missing valid entity type');
-                        continue;
-                    }
-                    const entityVal = (data.entity || '').trim().toLowerCase();
-                    if (!entityVal) { errors.push('Row missing entity'); continue; }
-                    let entityId = null;
-                    if (entityType === 'trucks') {
-                        const found = (state.trucks || []).find(t => t.unit && t.unit.toLowerCase() === entityVal);
-                        if (found) entityId = found.id;
-                    } else if (entityType === 'trailers') {
-                        const found = (state.trailers || []).find(t => t.unit && t.unit.toLowerCase() === entityVal);
-                        if (found) entityId = found.id;
-                    } else if (entityType === 'drivers') {
-                        const found = (state.drivers || []).find(d => {
-                            const full = ((d.firstName || '') + ' ' + (d.lastName || '')).trim().toLowerCase();
-                            return full === entityVal || (d.unit && d.unit.toLowerCase() === entityVal);
-                        });
-                        if (found) entityId = found.id;
-                    }
-                    if (!entityId) {
-                        errors.push('"' + data.entity + '" not found in ' + entityType);
-                        continue;
-                    }
-                    const taskData = {
-                        text: data.description.trim(),
-                        type: data.taskType || '',
-                        priority: data.priority || '',
-                        dueDate: data.dueDate || null,
-                        status: data.status || 'Open',
-                        entityType,
-                        entityId,
-                        assignees: []
-                    };
-                    const result = await FirebaseDB.createTask(currentUid, entityType, entityId, taskData);
-                    if (result.success) {
-                        count++;
-                        tr.classList.add('usheet-saved');
-                        setTimeout(() => {
-                            tr.classList.add('usheet-row-out');
-                            tr.addEventListener('transitionend', () => tr.remove(), { once: true });
-                        }, 400);
-                    } else {
-                        errors.push('Error: ' + (result.error || 'unknown'));
-                    }
-                }
-                if (count === 0 && errors.length === 0) { showMsg('No rows to save', true); return; }
-                if (errors.length) showMsg(errors.join(' · '), true);
-                if (count > 0) {
-                    showMsg(count + ' task' + (count > 1 ? 's' : '') + ' created');
-                    uSheetState.dirty.clear();
-                    setTimeout(() => { uRenumberRows(); uUpdateRowCount(); uUpdateFooter(); uEnsureEmptyRow(); }, 800);
-                    uUpdateFooter();
-                    if (cfg && cfg.afterSave) await cfg.afterSave();
-                    if (!errors.length) uCloseAfterSave();
-                }
-            } catch (err) {
-                console.error('Task save error:', err);
-                showMsg('Error saving tasks: ' + (err.message || ''), true);
-            } finally {
-                if (btn) { btn.disabled = false; btn.textContent = 'Save All'; }
-            }
-            return;
-        }
-        // ── End task save path ──────────────────────────────────────────────
-
-        try {
-            const batch = firebase.firestore().batch();
-            let count = 0;
-            const savedRows = [];
-            const rowTargets = [];
-
-            for (const tr of rows) {
-                const data = uCollectRowData(tr);
-                const reqKey = type === 'driver' ? 'name' : cfg.requiredKey;
-                // Skip empty rows: for loads check if origin or destination filled, otherwise check reqKey
-                if (type === 'load') {
-                    if (!data.origin && !data.destination && !data.broker) continue;
-                } else if (reqKey && !data[reqKey]) continue;
-
-                const payload = { ...data };
-                delete payload.id;
-
-                if (type === 'driver' && payload.name) {
-                    const parts = payload.name.trim().split(/\s+/);
-                    payload.firstName = parts[0] || '';
-                    payload.lastName = parts.slice(1).join(' ') || '';
-                    delete payload.name;
-                }
-                if (payload.plateState) payload.plateState = payload.plateState.toUpperCase();
-                if (payload.cdlState) payload.cdlState = payload.cdlState.toUpperCase();
-                // Load-specific normalization
-                if (type === 'load') {
-                    if (payload.rate) payload.rate = parseFloat(payload.rate) || 0;
-                    if (payload.mileage) payload.mileage = parseFloat(payload.mileage) || 0;
-                    if (payload.detention) payload.detention = parseFloat(payload.detention) || 0;
-                    if (!payload.loadDate) payload.loadDate = new Date().toISOString().split('T')[0];
-                    if (!payload.loadNumber) payload.loadNumber = nextLoadNumber();
-                }
-                normalizePayload(payload, type);
-                payload.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-
-                const existingId = tr.dataset.id;
-                if (mode === 'edit' && existingId) {
-                    batch.update(col(cfg.collection).doc(existingId), payload);
-                    rowTargets.push({ tr, entityId: existingId });
-                } else {
-                    payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    if (cfg.defaults) {
-                        Object.entries(cfg.defaults).forEach(([k, v]) => { if (!payload[k]) payload[k] = v; });
-                    }
-                    const docRef = col(cfg.collection).doc();
-                    batch.set(docRef, payload);
-                    tr.dataset.id = docRef.id;
-                    rowTargets.push({ tr, entityId: docRef.id });
-                }
-                savedRows.push(tr);
-                count++;
-            }
-
-            if (count === 0) {
-                showMsg('No rows to save', true);
-                return;
-            }
-
-            await batch.commit();
-            for (const target of rowTargets) {
-                await uUploadPendingDocs(target.tr, target.entityId);
-            }
-            if (mode !== 'edit') {
-                savedRows.forEach(tr => {
-                    tr.classList.add('usheet-saved');
-                    setTimeout(() => {
-                        tr.classList.add('usheet-row-out');
-                        tr.addEventListener('transitionend', () => tr.remove(), { once: true });
-                    }, 400);
-                });
-                // Renumber after animation
-                setTimeout(() => { uRenumberRows(); uUpdateRowCount(); uUpdateFooter(); uEnsureEmptyRow(); }, 800);
-            } else {
-                savedRows.forEach(tr => {
-                    tr.classList.add('usheet-saved');
-                    setTimeout(() => tr.classList.remove('usheet-saved'), 1200);
-                });
-            }
-            uSheetState.dirty.clear();
-            uUpdateFooter();
-            showMsg(count + ' ' + cfg.label + (count > 1 ? 's' : '') + ' saved');
-
-            // Reload the collection
-            if (cfg.afterSave) await cfg.afterSave();
-            updateOverview();
-
-            // Close the sheet
-            uCloseAfterSave();
-        } catch (err) {
-            console.error('Save all error:', err);
-            showMsg('Error saving: ' + (err.message || ''), true);
-        } finally {
-            if (btn) { btn.disabled = false; btn.textContent = 'Save All'; }
-        }
-    }
-
-    function uAddRow(autoFocus) {
-        const tbody = $('usheetTbody');
-        const visCols = uGetVisibleCols(uSheetState.type);
-        const idx = tbody.children.length;
-        const tr = uBuildRow(idx, {}, visCols, uSheetState.mode);
-        tbody.appendChild(tr);
-        uUpdateRowCount();
-        if (autoFocus !== false) {
-            const firstInput = tr.querySelector('input, select');
-            if (firstInput) firstInput.focus();
-        }
-    }
-
-    function uRowHasData(tr) {
-        const inputs = tr.querySelectorAll('input[data-key], select[data-key]');
-        for (const el of inputs) {
-            if (el.value && el.value.trim()) return true;
-        }
-        return false;
-    }
-
-    function uEnsureEmptyRow() {
-        if (uSheetState.mode === 'edit') return;
-        const tbody = $('usheetTbody');
-        if (!tbody || tbody.children.length > 0) return;
-        uAddRow();
-    }
-
-    function uDeleteRow(tr) {
-        const tbody = $('usheetTbody');
-        if (tbody.children.length <= 1) {
-            // Clear the row instead of deleting
-            tr.querySelectorAll('input').forEach(i => { i.value = ''; });
-            tr.querySelectorAll('select').forEach(s => { s.selectedIndex = 0; });
-            uClearPendingDocs(tr.dataset.rowToken || '');
-            tr.querySelectorAll('.usheet-attach-btn').forEach(btn => {
-                btn.classList.remove('has-file');
-                const label = btn.querySelector('.usheet-attach-text')?.textContent || 'Attachment';
-                btn.title = 'Add ' + label;
-            });
-            return;
-        }
-        uClearPendingDocs(tr.dataset.rowToken || '');
-        tr.remove();
-        // Re-number rows
-        Array.from(tbody.children).forEach((r, i) => {
-            const num = r.querySelector('.usheet-num');
-            if (num) num.textContent = i + 1;
-        });
-        uUpdateRowCount();
-    }
-
-    function uUpdateRowCount() {
-        const tbody = $('usheetTbody');
-        const count = tbody ? tbody.children.length : 0;
-        const el = $('usheetRowCount');
-        if (el) el.textContent = count + ' row' + (count !== 1 ? 's' : '');
-    }
-
-    function uRenumberRows() {
-        const tbody = $('usheetTbody');
-        if (!tbody) return;
-        Array.from(tbody.children).forEach((tr, i) => {
-            const numCell = tr.querySelector('.usheet-num');
-            if (numCell) numCell.textContent = i + 1;
-        });
-    }
-
-    function uUpdateFooter() {
-        const dirtyCount = uSheetState.dirty.size;
-        const el = $('usheetDirtyCount');
-        if (el) el.textContent = dirtyCount > 0 ? dirtyCount + ' unsaved' : '';
-    }
-
-    function uMarkDirty(tr) {
-        const tbody = $('usheetTbody');
-        const idx = Array.from(tbody.children).indexOf(tr);
-        if (idx >= 0) {
-            uSheetState.dirty.add(idx);
-            tr.classList.add('usheet-dirty');
-            uUpdateFooter();
-        }
-    }
-
-    function uCloseSheet() {
-        const modal = $('unifiedSheetModal');
-        if (uSheetState.dirty.size > 0) {
-            if (!confirm('You have unsaved changes. Discard?')) return;
-        }
-        modal.classList.add('hidden');
-        $('usheetColDropdown').classList.add('hidden');
-        document.body.style.overflow = '';
-        uSheetState.open = false;
-        uSheetState.dirty.clear();
-        uSheetState.pendingDocs = new Map();
-    }
-
-    function uCloseAfterSave() {
-        $('unifiedSheetModal').classList.add('hidden');
-        $('usheetColDropdown').classList.add('hidden');
-        document.body.style.overflow = '';
-        uSheetState.open = false;
-        uSheetState.dirty.clear();
-        uSheetState.pendingDocs = new Map();
-    }
-
-    function initUnifiedSheet() {
-        const modal = $('unifiedSheetModal');
-        if (!modal) return;
-        const tbody = $('usheetTbody');
-        const attachInput = document.createElement('input');
-        attachInput.type = 'file';
-        attachInput.accept = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx';
-        attachInput.hidden = true;
-        document.body.appendChild(attachInput);
-        let attachTarget = { rowToken: '', docType: '' };
-
-        // Close / Cancel
-        $('usheetClose').addEventListener('click', uCloseSheet);
-        $('usheetCancel').addEventListener('click', uCloseSheet);
-
-        // Backdrop click
-        modal.addEventListener('mousedown', (e) => {
-            if (e.target === modal) uCloseSheet();
-        });
-
-        // Add Row
-        $('usheetAddRow').addEventListener('click', uAddRow);
-
-        // Save All
-        $('usheetSaveAll').addEventListener('click', uSaveAll);
-
-        // Route card navigation
-        const prevBtn = $('usheetRoutePrev');
-        const nextBtn = $('usheetRouteNext');
-        if (prevBtn) prevBtn.addEventListener('click', () => uNavigateRoute(-1));
-        if (nextBtn) nextBtn.addEventListener('click', () => uNavigateRoute(1));
-
-        // Flip button — toggle between table and map
-        const flipBtn = $('usheetFlipBtn');
-        if (flipBtn) flipBtn.addEventListener('click', () => {
-            const body = $('usheetBody');
-            if (!body) return;
-            body.classList.toggle('flipped');
-            // Trigger map resize after transition
-            if (body.classList.contains('flipped') && _usheetMap) {
-                setTimeout(() => {
-                    google.maps.event.trigger(_usheetMap, 'resize');
-                    if (_usheetDirRenderer && _usheetDirRenderer.getDirections()) {
-                        const route = _usheetDirRenderer.getDirections().routes[0];
-                        if (route) {
-                            const bounds = new google.maps.LatLngBounds();
-                            route.overview_path.forEach(p => bounds.extend(p));
-                            _usheetMap.fitBounds(bounds, { top: 10, right: 20, bottom: 10, left: 20 });
-                        }
-                    }
-                }, 520);
-            }
-        });
-
-        // Import from file (inside unified sheet)
-        const usheetImport = $('usheetImportFile');
-        if (usheetImport) {
-            usheetImport.addEventListener('click', () => {
-                const type = uSheetState.type;
-                const smartFn = { truck: smartImportTrucks, trailer: smartImportTrailers, driver: smartImportDrivers, inspection: smartImportInspections }[type];
-                if (!smartFn) return;
-                showImportDropdown(usheetImport, smartFn);
-            });
-        }
-
-        // Column picker toggle
-        const colPickerBtn = $('usheetColPicker');
-        const colDropdown = $('usheetColDropdown');
-        // Move dropdown to body so it's not clipped by modal overflow
-        document.body.appendChild(colDropdown);
-
-        colPickerBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const wasHidden = colDropdown.classList.contains('hidden');
-            colDropdown.classList.toggle('hidden');
-            if (wasHidden) {
-                const rect = colPickerBtn.getBoundingClientRect();
-                colDropdown.style.top = (rect.bottom + 4) + 'px';
-                // Right-align: position so right edge aligns with button right edge
-                colDropdown.style.left = '';
-                colDropdown.style.right = '';
-                // First place it, then adjust after measuring
-                colDropdown.style.top = (rect.bottom + 4) + 'px';
-                colDropdown.style.left = rect.left + 'px';
-                // After reflow, right-align
-                requestAnimationFrame(() => {
-                    const ddW = colDropdown.offsetWidth;
-                    const left = Math.max(8, rect.right - ddW);
-                    colDropdown.style.left = left + 'px';
-                });
-            }
-        });
-
-        // Column picker change — card click
-        colDropdown.addEventListener('click', (e) => {
-            const card = e.target.closest('.usheet-card');
-            if (!card || card.disabled) return;
-            const key = card.dataset.col;
-            const isActive = card.classList.contains('active');
-
-            // Vanish animation
-            card.classList.add('usheet-card-vanish');
-            card.addEventListener('animationend', function handler() {
-                card.removeEventListener('animationend', handler);
-                card.classList.remove('usheet-card-vanish');
-                card.classList.toggle('active');
-                uToggleCol(uSheetState.type, key, !isActive);
-            }, { once: true });
-        });
-
-        // Close column picker on outside click
-        document.addEventListener('click', (e) => {
-            if (!colDropdown.classList.contains('hidden') && !colDropdown.contains(e.target) && !colPickerBtn.contains(e.target)) {
-                colDropdown.classList.add('hidden');
-            }
-        });
-
-        // Tbody click delegation: row save + row delete
-        tbody.addEventListener('click', (e) => {
-            // Close any open usheet attach menus on outside click
-            const openMenu = e.target.closest('.usheet-attach-menu');
-            if (!openMenu) {
-                document.querySelectorAll('.usheet-attach-menu').forEach(m => m.remove());
-            }
-
-            const attachBtn = e.target.closest('.usheet-attach-btn');
-            if (attachBtn) {
-                attachTarget = {
-                    rowToken: attachBtn.dataset.rowToken,
-                    docType: attachBtn.dataset.docType
-                };
-                // If has a file attached, show View/Replace menu
-                if (attachBtn.classList.contains('has-file')) {
-                    e.stopPropagation();
-                    // Remove any existing menus
-                    document.querySelectorAll('.usheet-attach-menu').forEach(m => m.remove());
-                    const img = attachBtn.querySelector('img');
-                    const fileUrl = img ? img.src : (attachBtn.dataset.fileUrl || '');
-                    const isImage = img ? true : (attachBtn.dataset.fileIsImage === '1');
-                    const rect = attachBtn.getBoundingClientRect();
-                    const menu = document.createElement('div');
-                    menu.className = 'usheet-attach-menu';
-                    menu.style.position = 'fixed';
-                    menu.style.top = (rect.bottom + 4) + 'px';
-                    menu.style.right = (window.innerWidth - rect.right) + 'px';
-                    menu.style.zIndex = '200';
-                    menu.innerHTML = '<button class="entity-doc-action usheet-attach-view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> ' + (isImage ? 'View' : 'Open') + '</button>' +
-                        '<button class="entity-doc-action usheet-attach-replace"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="12" height="12"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg> Replace</button>';
-                    document.body.appendChild(menu);
-                    // Attach handlers directly
-                    menu.querySelector('.usheet-attach-view').addEventListener('click', (ev) => {
-                        ev.stopPropagation();
-                        if (fileUrl) {
-                            if (isImage) {
-                                $('photoLightboxImg').src = fileUrl;
-                                $('photoLightbox').classList.add('active');
-                            } else {
-                                window.open(fileUrl, '_blank', 'noopener');
-                            }
-                        }
-                        menu.remove();
-                    });
-                    menu.querySelector('.usheet-attach-replace').addEventListener('click', (ev) => {
-                        ev.stopPropagation();
-                        attachInput.value = '';
-                        attachInput.click();
-                        menu.remove();
-                    });
-                    return;
-                }
-                attachInput.value = '';
-                attachInput.click();
-                return;
-            }
-            const saveBtn = e.target.closest('.usheet-row-save');
-            if (saveBtn) {
-                const tr = saveBtn.closest('tr');
-                if (tr) uSaveRow(tr);
-                return;
-            }
-            const deleteBtn = e.target.closest('.usheet-row-delete');
-            if (deleteBtn) {
-                const tr = deleteBtn.closest('tr');
-                if (tr) uDeleteRow(tr);
-                return;
-            }
-        });
-
-        // Mark dirty on input
-        tbody.addEventListener('input', (e) => {
-            const tr = e.target.closest('tr');
-            if (tr) uMarkDirty(tr);
-
-            // Live RPM update when rate or mileage changes
-            if (uSheetState.type === 'load' && tr && (e.target.dataset.key === 'rate' || e.target.dataset.key === 'mileage')) {
-                const rateEl = tr.querySelector('input[data-key="rate"]');
-                const mileEl = tr.querySelector('input[data-key="mileage"]');
-                const rpmEl = tr.querySelector('span[data-key="rpm"]');
-                if (rpmEl && rateEl && mileEl) {
-                    rpmEl.textContent = calcRPM(rateEl.value, mileEl.value);
-                }
-            }
-
-            // Auto-add row when typing in last row (add/import mode)
-            // Only add once — skip if the row right before last is still empty
-            if (uSheetState.mode !== 'edit' && tr === tbody.lastElementChild) {
-                const cfg = SHEET_CONFIGS[uSheetState.type];
-                const reqKey = cfg && cfg.requiredKey;
-                if (reqKey) {
-                    const reqInput = tr.querySelector('input[data-key="' + reqKey + '"], select[data-key="' + reqKey + '"]');
-                    if (reqInput && reqInput.value.trim()) {
-                        // Don't add if there's already an empty trailing row above
-                        const prev = tr.previousElementSibling;
-                        if (!prev || uRowHasData(prev)) {
-                            uAddRow(false);
-                        }
-                    }
-                }
-            }
-
-            // Live VIN decode
-            if ((uSheetState.type === 'truck' || uSheetState.type === 'trailer') && e.target.dataset.key === 'vin') {
-                const val = e.target.value.trim();
-                if (val.length === 17 && !tr.dataset.vinDecoded) {
-                    tr.dataset.vinDecoded = val;
-                    uTriggerVinDecode(tr, val);
-                } else if (val.length < 17) {
-                    delete tr.dataset.vinDecoded;
-                }
-            }
-        });
-
-        attachInput.addEventListener('change', () => {
-            const file = attachInput.files[0];
-            if (!file || !attachTarget.rowToken || !attachTarget.docType) return;
-            const maxSize = uSheetState.type === 'load' ? MAX_LOAD_DOC_SIZE : MAX_DOC_SIZE;
-            if (file.size > maxSize) {
-                showMsg('File too large (max 10 MB)', true);
-                return;
-            }
-            uSetPendingDoc(attachTarget.rowToken, attachTarget.docType, file);
-            const tr = tbody.querySelector('tr[data-row-token="' + attachTarget.rowToken + '"]');
-            const btn = tr?.querySelector('.usheet-attach-btn[data-doc-type="' + attachTarget.docType + '"]');
-            if (btn) {
-                btn.classList.add('has-file');
-                btn.title = (btn.title || '').split(':')[0] + ': ' + file.name;
-                const objUrl = URL.createObjectURL(file);
-                btn.dataset.fileUrl = objUrl;
-                btn.dataset.fileIsImage = file.type.startsWith('image/') ? '1' : '';
-                // Show circular photo preview for image attachments
-                if (attachTarget.docType === 'photo' && file.type.startsWith('image/')) {
-                    btn.innerHTML = '<img src="' + objUrl + '" class="usheet-attach-preview">';
-                    btn.classList.add('has-preview');
-                }
-            }
-            if (tr) uMarkDirty(tr);
-        });
-
-        // Change on selects
-        tbody.addEventListener('change', (e) => {
-            const tr = e.target.closest('tr');
-            if (tr) uMarkDirty(tr);
-            // Remove empty placeholder styling when value selected
-            if (e.target.tagName === 'SELECT' || e.target.type === 'date') {
-                e.target.classList.toggle('usheet-empty', !e.target.value);
-            }
-        });
-
-        // Zip → City resolve for load origin/destination and inspection location
-        tbody.addEventListener('focusout', async (e) => {
-            const key = e.target.dataset && e.target.dataset.key;
-            const input = e.target;
-            const val = input.value.trim();
-
-            // Inspection / citation: resolve zip on location field
-            if (uSheetState.type === 'inspection' && key === 'location') {
-                if (/^\d{5}$/.test(val) && isGMaps()) {
-                    const resolved = await resolveZipToCity(val);
-                    if (resolved) {
-                        input.value = resolved;
-                        const tr = input.closest('tr');
-                        if (tr) uMarkDirty(tr);
-                    }
-                }
-                return;
-            }
-
-            // Load: resolve zip on origin/destination + auto-calc mileage
-            if (uSheetState.type !== 'load') return;
-            if (key !== 'origin' && key !== 'destination') return;
-            if (/^\d{5}$/.test(val) && isGMaps()) {
-                const resolved = await resolveZipToCity(val);
-                if (resolved) {
-                    input.value = resolved;
-                    const tr = input.closest('tr');
-                    if (tr) uMarkDirty(tr);
-                }
-            }
-            // Auto-calc mileage (no map preview)
-            const tr = input.closest('tr');
-            if (!tr) return;
-            const originInput = tr.querySelector('input[data-key="origin"]');
-            const destInput = tr.querySelector('input[data-key="destination"]');
-            const mileInput = tr.querySelector('input[data-key="mileage"]');
-            if (!originInput || !destInput || !mileInput) return;
-            const o = originInput.value.trim();
-            const d = destInput.value.trim();
-            if (!o || !d) return;
-            if (!isGMaps()) { console.warn('Google Maps not loaded'); return; }
-            // Calculate mileage via directions service without map
-            try {
-                const ds = new google.maps.DirectionsService();
-                ds.route({ origin: o, destination: d, travelMode: 'DRIVING' }, (result, status) => {
-                    if (status === 'OK' && result.routes[0]) {
-                        const miles = Math.round(result.routes[0].legs.reduce((s, l) => s + l.distance.value, 0) / 1609.34);
-                        mileInput.value = miles;
-                        uMarkDirty(tr);
-                        // Update RPM if rate exists
-                        const rateInput = tr.querySelector('input[data-key="rate"]');
-                        const rpmCell = tr.querySelector('[data-key="rpm"]');
-                        if (rateInput && rpmCell && miles > 0) {
-                            const rate = parseFloat(rateInput.value) || 0;
-                            rpmCell.textContent = rate > 0 ? '$' + (rate / miles).toFixed(2) : '';
-                        }
-                    }
-                });
-            } catch (err) { console.warn('Mileage calc failed:', err); }
-        });
-
-        // Keyboard: Tab/Enter/Escape navigation
-        tbody.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                const inputs = Array.from(tbody.querySelectorAll('input, select'));
-                const idx = inputs.indexOf(e.target);
-                const next = e.shiftKey ? idx - 1 : idx + 1;
-                if (next >= 0 && next < inputs.length) inputs[next].focus();
-            } else if (e.key === 'Enter') {
-                e.preventDefault();
-                const cell = e.target.closest('td');
-                const tr = cell?.closest('tr');
-                if (!tr) return;
-                const cellIdx = Array.from(tr.children).indexOf(cell);
-                let nextRow = tr.nextElementSibling;
-                // If on last row, add a new row first
-                if (!nextRow && uSheetState.mode !== 'edit') {
-                    uAddRow();
-                    nextRow = tr.nextElementSibling;
-                }
-                if (nextRow) {
-                    const nextCell = nextRow.children[cellIdx];
-                    const nextInput = nextCell?.querySelector('input, select');
-                    if (nextInput) nextInput.focus();
-                }
-            } else if (e.key === 'Escape') {
-                e.target.blur();
-            }
-        });
-
-        // Paste from Excel
-        tbody.addEventListener('paste', (e) => {
-            const clipText = (e.clipboardData || window.clipboardData).getData('text');
-            if (!clipText) return;
-            const pasteRows = clipText.replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n');
-            if (pasteRows.length <= 1 && pasteRows[0].indexOf('\t') === -1) return;
-            e.preventDefault();
-
-            const visCols = uGetVisibleCols(uSheetState.type);
-            const activeCell = e.target.closest('td.usheet-cell');
-            const activeTr = activeCell?.closest('tr');
-            let startRow = 0, startCol = 0;
-            if (activeTr) {
-                startRow = Array.from(tbody.children).indexOf(activeTr);
-                startCol = Array.from(activeTr.querySelectorAll('.usheet-cell')).indexOf(activeCell);
-            }
-
-            pasteRows.forEach((line, ri) => {
-                const vals = line.split('\t');
-                const rowIdx = startRow + ri;
-                while (tbody.children.length <= rowIdx) {
-                    uAddRow();
-                }
-                const tr = tbody.children[rowIdx];
-                const cells = tr.querySelectorAll('.usheet-cell');
-                vals.forEach((raw, ci) => {
-                    const colIdx = startCol + ci;
-                    if (colIdx >= cells.length) return;
-                    const cell = cells[colIdx];
-                    const input = cell.querySelector('input');
-                    const select = cell.querySelector('select');
-                    const val = raw.trim();
-                    if (select && visCols[colIdx]?.type === 'select') {
-                        const match = visCols[colIdx].options.find(o =>
-                            o.value.toLowerCase() === val.toLowerCase() || o.label.toLowerCase() === val.toLowerCase()
-                        );
-                        if (match) select.value = match.value;
-                    } else if (input) {
-                        input.value = val;
-                    }
-                });
-                uMarkDirty(tr);
-            });
-            uUpdateRowCount();
-            showMsg(pasteRows.length + ' row' + (pasteRows.length > 1 ? 's' : '') + ' pasted');
-        });
-    }
-
-    async function uTriggerVinDecode(tr, vin) {
-        try {
-            const resp = await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVin/' + vin + '?format=json');
-            const json = await resp.json();
-            const results = json.Results || [];
-            const get = (id) => { const r = results.find(v => v.VariableId === id); return (r && r.Value && r.Value !== 'Not Applicable') ? r.Value.trim() : ''; };
-            const year = get(29);
-            const make = get(26);
-            const model = get(28);
-            const fillField = (key, val) => {
-                if (!val) return;
-                const input = tr.querySelector('input[data-key="' + key + '"], select[data-key="' + key + '"]');
-                if (input && !input.value) input.value = val;
-            };
-            fillField('year', year);
-            fillField('make', make);
-            fillField('model', model);
-            uMarkDirty(tr);
-        } catch (e) { /* silently fail */ }
-    }
-
-    // Bulk edit entry point
-    function bulkEdit(collection) {
-        const ids = [...bulkSelection[collection]];
-        if (!ids.length) return;
-        const type = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : collection === 'inspections' ? 'inspection' : collection === 'loads' ? 'load' : 'driver';
-        const stateArr = state[collection];
-        const items = stateArr.filter(x => ids.includes(x.id));
-        openUnifiedSheet(type, items, { mode: 'edit' });
-    }
-
-    // ── Spreadsheet Edit Mode ──────────────────────
-    const spreadsheetMode = { loads: false };
-    const spreadsheetDirty = { loads: new Map() };
-
-    const SPREADSHEET_COLS = {
-        loads: [
-            { key: 'loadDate', label: 'Date', type: 'date', width: '110px' },
-            { key: 'loadNumber', label: 'Load #', type: 'text', width: '100px' },
-            { key: 'unit', label: 'Unit', type: 'truck-select', width: '90px' },
-            { key: 'origin', label: 'Origin', type: 'text', width: '150px' },
-            { key: 'destination', label: 'Destination', type: 'text', width: '150px' },
-            { key: 'broker', label: 'Broker', type: 'text', width: '130px' },
-            { key: 'rate', label: 'Rate', type: 'number', width: '90px' },
-            { key: 'mileage', label: 'Miles', type: 'number', width: '80px' },
-            { key: 'detention', label: 'Det/Bonus', type: 'number', width: '90px' },
-            { key: 'status', label: 'Status', type: 'select', optionsKey: 'loadStatus', width: '110px' },
-            { key: 'deliveryDate', label: 'Del Date', type: 'date', width: '110px' },
-            { key: 'driver', label: 'Driver', type: 'text', width: '120px' },
-            { key: 'dispatcher', label: 'Dispatcher', type: 'text', width: '110px' },
-            { key: 'comments', label: 'Comments', type: 'text', width: '160px' }
-        ]
-    };
-
-    function toggleSpreadsheet(collection) {
-        spreadsheetMode[collection] = !spreadsheetMode[collection];
-        spreadsheetDirty[collection].clear();
-        const section = $('section-' + collection);
-        if (section) section.classList.toggle('spreadsheet-active', spreadsheetMode[collection]);
-        const btn = $(collection + 'SpreadsheetBtn') || $(collection + 'SpreadsheetToggle');
-        if (btn) {
-            btn.classList.toggle('active', spreadsheetMode[collection]);
-            btn.title = spreadsheetMode[collection] ? 'Exit spreadsheet mode' : 'Spreadsheet edit mode';
-        }
-        const saveBar = $(collection + 'SpreadsheetSave');
-        if (saveBar) saveBar.style.display = 'none';
-        if (collection === 'loads') renderLoads();
-    }
-
-    function ssExpiryClass(val) {
-        if (!val) return '';
-        const d = new Date(val + 'T00:00:00');
-        if (isNaN(d)) return '';
-        const diff = Math.ceil((d - new Date()) / 86400000);
-        if (diff < 0) return ' ss-expired';
-        if (diff <= 30) return ' ss-expiring';
-        return '';
-    }
-
-    function ssInput(col, item, collection) {
-        const val = item[col.key] || '';
-        const cls = 'ss-input';
-        const shared = `data-id="${item.id}" data-key="${col.key}" data-collection="${collection}"`;
-        if (col.type === 'select') {
-            const opts = getDropdownOptions(col.optionsKey);
-            return `<select class="${cls} ss-select" ${shared} onchange="Dashboard.ssChanged(this)">${opts.map(o => `<option value="${o.value}"${o.value === val ? ' selected' : ''}>${o.label}</option>`).join('')}</select>`;
-        }
-        if (col.type === 'truck-select') {
-            const opts = state.trucks.filter(t => t.status === 'active' || t.id === val);
-            return `<select class="${cls} ss-select" ${shared} onchange="Dashboard.ssChanged(this)"><option value="">” None ”</option>${opts.map(t => `<option value="${t.id}"${t.id === val ? ' selected' : ''}>${escapeHtml(t.unit || t.id)}</option>`).join('')}</select>`;
-        }
-        if (col.type === 'date') {
-            const expCls = col.expiry ? ssExpiryClass(val) : '';
-            return `<input type="date" class="${cls}${expCls}" value="${escapeHtml(val)}" ${shared} onchange="Dashboard.ssChanged(this)">`;
-        }
-        return `<input type="text" class="${cls}" value="${escapeHtml(val)}" placeholder="${col.label}" ${shared} ${col.maxlength ? 'maxlength="'+col.maxlength+'"' : ''} oninput="Dashboard.ssChanged(this)">`;
-    }
-
-    function ssChanged(input) {
-        const id = input.dataset.id;
-        const key = input.dataset.key;
-        const collection = input.dataset.collection;
-        const item = state[collection].find(x => x.id === id);
-        const orig = item ? (item[key] || '') : '';
-        const newVal = input.value;
-        if (!spreadsheetDirty[collection].has(id)) spreadsheetDirty[collection].set(id, {});
-        const rec = spreadsheetDirty[collection].get(id);
-        if (newVal !== orig) { rec[key] = newVal; input.classList.add('ss-dirty'); }
-        else { delete rec[key]; input.classList.remove('ss-dirty'); if (!Object.keys(rec).length) spreadsheetDirty[collection].delete(id); }
-        const saveBar = $(collection + 'SpreadsheetSave');
-        if (saveBar) saveBar.style.display = spreadsheetDirty[collection].size > 0 ? 'flex' : 'none';
-        const countEl = saveBar?.querySelector('.ss-save-count');
-        if (countEl) countEl.textContent = spreadsheetDirty[collection].size + ' changed';
-    }
-
-    async function ssSaveAll(collection) {
-        const dirty = spreadsheetDirty[collection];
-        if (!dirty.size) return;
-        const saveBar = $(collection + 'SpreadsheetSave');
-        const btn = saveBar?.querySelector('.ss-save-btn');
-        if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
-        try {
-            const batch = db.batch();
-            const type = collection === 'trucks' ? 'truck' : collection === 'trailers' ? 'trailer' : collection === 'loads' ? 'load' : 'driver';
-            for (const [id, changes] of dirty) {
-                const payload = normalizePayload({ ...changes, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, type);
-                batch.update(col(collection).doc(id), payload);
-                const item = state[collection].find(x => x.id === id);
-                if (item) Object.assign(item, changes);
-            }
-            const savedCount = dirty.size;
-            await batch.commit();
-            dirty.clear();
-            if (saveBar) saveBar.style.display = 'none';
-            document.querySelectorAll('#' + collection + 'TableBody .ss-dirty').forEach(el => el.classList.remove('ss-dirty'));
-            showMsg(savedCount + ' item' + (savedCount === 1 ? '' : 's') + ' saved');
-            if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
-            else if (collection === 'trailers') renderTrailers();
-            else if (collection === 'loads') renderLoads();
-            else renderDrivers();
-            updateOverview();
-        } catch (err) {
-            console.error('Spreadsheet save error:', err);
-            showMsg('Error saving changes', true);
-        } finally {
-            if (btn) { btn.disabled = false; btn.textContent = 'Save All'; }
-        }
-    }
-
-    function ssDiscardAll(collection) {
-        spreadsheetDirty[collection].clear();
-        const saveBar = $(collection + 'SpreadsheetSave');
-        if (saveBar) saveBar.style.display = 'none';
-        if (collection === 'trucks') renderTrucks();
-        else if (collection === 'trailers') renderTrailers();
-        else if (collection === 'loads') renderLoads();
-        else renderDrivers();
-    }
-
     // ── Driver Documents ──────────────────────
     const DOC_TYPE_LABELS = {
         cdl: 'CDL', medical: 'Medical Card', contract: 'Contract',
@@ -4818,31 +2323,31 @@
     }
 
     async function uploadDriverDoc(driverId, file, docType) {
-        if (file.size > MAX_DOC_SIZE) throw new Error('File too large (max 10 MB)');
+        if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return null; }
         const path = driverStoragePath(driverId, file.name);
         const ref = storage.ref(path);
-        await ref.put(file);
-        const url = await ref.getDownloadURL();
-        const docEntry = {
-            name: file.name,
-            type: docType,
-            storagePath: path,
-            url: url,
-            size: file.size,
-            contentType: file.type,
-            uploadedAt: new Date().toISOString()
-        };
-        await col('drivers').doc(driverId).collection('documents').add(docEntry);
-        if (file.type && file.type.startsWith('image/')) {
-            await col('drivers').doc(driverId).collection('photos').add({
-                caption: DOC_TYPE_LABELS[docType] || docType || '',
-                imageUrl: url,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdAtIso: new Date().toISOString()
-            });
+        const task = ref.put(file);
+        try {
+            await task;
+            const url = await ref.getDownloadURL();
+            const docEntry = {
+                name: file.name,
+                type: docType,
+                storagePath: path,
+                url: url,
+                size: file.size,
+                contentType: file.type,
+                uploadedAt: new Date().toISOString()
+            };
+            await col('drivers').doc(driverId).collection('documents').add(docEntry);
+            await syncDriverDocSummary(driverId);
+            showMsg('Document uploaded');
+            return docEntry;
+        } catch (err) {
+            console.error('Upload error:', err);
+            showMsg('Upload failed: ' + (err.message || err), true);
+            return null;
         }
-        await syncDriverDocSummary(driverId);
-        return docEntry;
     }
 
     async function deleteDriverDoc(driverId, docId, storagePath) {
@@ -4859,24 +2364,13 @@
     async function syncDriverDocSummary(driverId) {
         const docs = await loadDriverDocs(driverId);
         const types = [...new Set(docs.map(d => d.type).filter(Boolean))];
-        const photoDoc = docs.find(d => d.type === 'photo' && d.url);
-        // Build per-docType URL map for all docs
-        const docUrls = {};
-        docs.forEach(d => {
-            if (d.type && d.url && !docUrls[d.type]) {
-                docUrls[d.type] = d.url;
-            }
-        });
-        const update = {
+        await col('drivers').doc(driverId).update({
             docTypes: types,
             docCount: docs.length,
-            docUrls: docUrls,
-            photoUrl: photoDoc ? photoDoc.url : firebase.firestore.FieldValue.delete(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        await col('drivers').doc(driverId).update(update);
+        });
         const driver = state.drivers.find(d => d.id === driverId);
-        if (driver) { driver.docTypes = types; driver.docCount = docs.length; driver.photoUrl = photoDoc ? photoDoc.url : null; driver.docUrls = docUrls; }
+        if (driver) { driver.docTypes = types; driver.docCount = docs.length; }
     }
 
     async function loadDriverDocs(driverId) {
@@ -4949,7 +2443,7 @@
             dndBtn.classList.toggle('hidden', isCreate || !d.doNotDispatch || !canToggleDND());
             if (!isCreate) updateDNDVisuals(d);
         }
-        // DND toggle in driver info ” only visible when DND is active
+        // DND toggle in driver info — only visible when DND is active
         const dndField = $('dpDNDField');
         const dndToggle = $('dpDNDToggle');
         if (dndField && dndToggle) {
@@ -5039,7 +2533,6 @@
 
         // Render summary chips
         renderPanelSummary();
-        renderPanelStats();
 
         // Clear + load activity feed & tasks
         const notesFeed = $('detailNotesFeed');
@@ -5080,12 +2573,12 @@
         document.querySelectorAll('#detailDriverInfo .dp-endorse-chip input:checked').forEach(cb => {
             endorsements.push(cb.value);
         });
-        return normalizePayload({
+        return {
             firstName: $('dpFirstName').value.trim(),
             lastName: $('dpLastName').value.trim(),
-            phone: $('dpPhone').value,
+            phone: stripPhone($('dpPhone').value),
             email: $('dpEmail').value.trim(),
-            cdl: $('dpCdl').value.trim(),
+            cdl: $('dpCdl').value.trim().toUpperCase(),
             cdlClass: $('dpCdlClass').value,
             cdlState: $('dpCdlState').value,
             cdlExp: $('dpCdlExp').value,
@@ -5101,11 +2594,11 @@
             dob: $('dpDob').value,
             endorsements: endorsements.join(','),
             emergencyName: $('dpEmergencyName').value.trim(),
-            emergencyPhone: $('dpEmergencyPhone').value,
+            emergencyPhone: stripPhone($('dpEmergencyPhone').value),
             address: $('dpAddress').value.trim(),
             notes: $('dpNotes').value.trim(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, 'driver');
+        };
     }
 
     async function saveDriverFromPanel() {
@@ -5114,10 +2607,6 @@
             showMsg('First name is required', true);
             $('dpFirstName').focus();
             return;
-        }
-        if (payload.cdl) {
-            const dup = await checkDuplicate('drivers', 'cdl', payload.cdl, detailPanelDriverId);
-            if (dup) { const dd = dup.data(); if (!confirm('A driver with CDL ' + payload.cdl + ' already exists (' + (dd.firstName || '') + ' ' + (dd.lastName || '') + '). Save anyway?')) return; }
         }
         // Block truck assignment for DND drivers
         if (detailPanelDriverId && payload.truck) {
@@ -5345,34 +2834,6 @@
             notePost.addEventListener('click', panelPostCompose);
         }
 
-        // ── Task interaction wiring ──
-        const taskFeed = $('detailTasksFeed');
-        if (taskFeed) {
-            taskFeed.addEventListener('change', async (e) => {
-                const sel = e.target.closest('.dp-task-status-select');
-                if (!sel || !detailPanelDriverId) return;
-                const taskId = sel.dataset.taskId;
-                const newStatus = sel.value;
-                try {
-                    const result = await FirebaseDB.updateTaskStatus(state.user.uid, 'drivers', detailPanelDriverId, taskId, newStatus);
-                    if (!result.success) throw new Error(result.error);
-                    showMsg('Status updated');
-                    await Promise.all([loadPanelTasks(), loadPanelHistory()]);
-                } catch (err) { console.error(err); showMsg('Error updating status', true); }
-            });
-            taskFeed.addEventListener('click', async (e) => {
-                const btn = e.target.closest('.dp-task-resolve');
-                if (!btn || !detailPanelDriverId) return;
-                const taskId = btn.dataset.taskId;
-                try {
-                    const result = await FirebaseDB.resolveTask(state.user.uid, 'drivers', detailPanelDriverId, taskId, '', state.user.email || state.user.uid);
-                    if (!result.success) throw new Error(result.error);
-                    showMsg('Task resolved');
-                    await Promise.all([loadPanelTasks(), loadPanelHistory()]);
-                } catch (err) { console.error(err); showMsg('Error resolving task', true); }
-            });
-        }
-
         // ── Collapsible toggles ──
         document.querySelectorAll('#driverDetailPanel .dp-section-toggle').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -5411,7 +2872,7 @@
             }
             setTimeout(() => $('dpTruck')?.focus(), 150);
         });
-        // DND button (quick action ” only visible when DND is active, for removal)
+        // DND button (quick action — only visible when DND is active, for removal)
         const dndBtn = $('dpActionDND');
         if (dndBtn) dndBtn.addEventListener('click', () => toggleDND());
 
@@ -5590,7 +3051,7 @@
             const overdue = dueDate && dueDate < now && t.status !== 'Resolved';
             const overdueHtml = overdue ? '<span class="dp-task-overdue">OVERDUE</span>' : '';
 
-            return `<div class="dp-task" data-id="${t.id}" data-entity-type="drivers" data-entity-id="${detailPanelDriverId}">
+            return `<div class="dp-task" data-id="${t.id}">
                 <div class="dp-task-top">
                     <span class="dp-task-type">${escapeHtml(t.type || 'note')}</span>
                     ${priHtml}${overdueHtml}
@@ -5598,12 +3059,7 @@
                 <div class="dp-task-text">${escapeHtml(t.text || '')}</div>
                 <div class="dp-task-bot">
                     <span class="dp-task-date">${dateStr}</span>
-                    <select class="dp-task-status-select" data-task-id="${t.id}">
-                        <option value="Open"${t.status === 'Open' ? ' selected' : ''}>Open</option>
-                        <option value="In Progress"${t.status === 'In Progress' ? ' selected' : ''}>In Progress</option>
-                        <option value="Resolved"${t.status === 'Resolved' ? ' selected' : ''}>Resolved</option>
-                    </select>
-                    <button class="dp-task-resolve" data-task-id="${t.id}" title="Mark resolved">âœ“</button>
+                    <span class="dp-task-status" data-status="${escapeHtml(t.status || 'Open')}">${escapeHtml(t.status || 'Open')}</span>
                 </div>
             </div>`;
         }).join('');
@@ -5719,27 +3175,6 @@
         ).join('');
     }
 
-    function renderPanelStats() {
-        const bar = $('detailStatsBar');
-        if (!bar || !detailPanelDriverId) { if (bar) bar.innerHTML = ''; return; }
-        const d = state.drivers.find(x => x.id === detailPanelDriverId);
-        if (!d) { bar.innerHTML = ''; return; }
-        const driverName = [d.firstName, d.lastName].filter(Boolean).join(' ');
-        if (!driverName) { bar.innerHTML = ''; return; }
-        const loads = (state.loads || []).filter(l => l.driver === driverName && l.status !== 'canceled');
-        let totalMiles = 0, grossEarnings = 0;
-        loads.forEach(l => {
-            totalMiles += parseFloat(l.mileage) || 0;
-            grossEarnings += (parseFloat(l.rate) || 0) + (parseFloat(l.detention) || 0);
-        });
-        const avgRpm = totalMiles > 0 ? (grossEarnings / totalMiles) : 0;
-        bar.innerHTML =
-            '<div class="dp-stat"><span class="dp-stat-value">' + loads.length + '</span><span class="dp-stat-label">Loads</span></div>' +
-            '<div class="dp-stat"><span class="dp-stat-value">' + formatCurrency(grossEarnings) + '</span><span class="dp-stat-label">Earnings</span></div>' +
-            '<div class="dp-stat"><span class="dp-stat-value">' + totalMiles.toLocaleString() + '</span><span class="dp-stat-label">Miles</span></div>' +
-            '<div class="dp-stat"><span class="dp-stat-value">$' + avgRpm.toFixed(2) + '</span><span class="dp-stat-label">Avg RPM</span></div>';
-    }
-
     // ── Render Compliance Grid ──
     function renderPanelCompliance() {
         const grid = $('detailComplianceGrid');
@@ -5781,1698 +3216,6 @@
         ].join('');
     }
 
-    // ── Truck Detail Panel (slide-out) ────────
-    let truckPanelId = null;
-    let truckPanelOpen = false;
-
-    const TRUCK_DOC_TYPES = ['registration', 'insurance', 'inspection', 'title', 'lease', 'photo', 'other'];
-    const TRUCK_DOC_LABELS = {
-        registration: 'Registration', insurance: 'Insurance', inspection: 'Inspection',
-        title: 'Title', lease: 'Lease', photo: 'Photo', other: 'Other'
-    };
-
-    function truckStoragePath(truckId, fileName) {
-        return `users/${uid()}/trucks/${truckId}/docs/${Date.now()}_${fileName}`;
-    }
-
-    async function uploadTruckDoc(truckId, file, docType) {
-        if (file.size > MAX_DOC_SIZE) throw new Error('File too large (max 10 MB)');
-        const path = truckStoragePath(truckId, file.name);
-        const ref = storage.ref(path);
-        await ref.put(file);
-        const url = await ref.getDownloadURL();
-        const docEntry = { name: file.name, type: docType, storagePath: path, url, size: file.size, contentType: file.type, uploadedAt: new Date().toISOString() };
-        await col('trucks').doc(truckId).collection('documents').add(docEntry);
-        if (file.type && file.type.startsWith('image/')) {
-            await col('trucks').doc(truckId).collection('photos').add({
-                caption: TRUCK_DOC_LABELS[docType] || docType || '',
-                imageUrl: url,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdAtIso: new Date().toISOString()
-            });
-        }
-        await syncTruckDocSummary(truckId);
-        return docEntry;
-    }
-
-    async function deleteTruckDoc(truckId, docId, storagePath) {
-        try { await storage.ref(storagePath).delete(); } catch (err) { if (err.code !== 'storage/object-not-found') console.warn(err); }
-        await col('trucks').doc(truckId).collection('documents').doc(docId).delete();
-        await syncTruckDocSummary(truckId);
-        showMsg('Document removed');
-    }
-
-    async function syncTruckDocSummary(truckId) {
-        const docs = await loadTruckDocs(truckId);
-        const types = [...new Set(docs.map(d => d.type).filter(Boolean))];
-        const photoDoc = docs.find(d => d.type === 'photo' && d.url);
-        const docUrls = {};
-        docs.forEach(d => {
-            if (d.type && d.url && !docUrls[d.type]) {
-                docUrls[d.type] = d.url;
-            }
-        });
-        const update = {
-            docTypes: types,
-            docCount: docs.length,
-            docUrls: docUrls,
-            photoUrl: photoDoc ? photoDoc.url : firebase.firestore.FieldValue.delete(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        await col('trucks').doc(truckId).update(update);
-        const truck = state.trucks.find(t => t.id === truckId);
-        if (truck) { truck.docTypes = types; truck.docCount = docs.length; truck.photoUrl = photoDoc ? photoDoc.url : null; truck.docUrls = docUrls; }
-    }
-
-    async function loadTruckDocs(truckId) {
-        const snap = await col('trucks').doc(truckId).collection('documents').orderBy('uploadedAt', 'desc').get();
-        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    }
-
-    function renderTruckDocGrid(docs, truckId) {
-        const grid = $('truckDocGrid');
-        if (!grid) return;
-        const docsByType = {};
-        docs.forEach(d => {
-            if (!docsByType[d.type]) docsByType[d.type] = [];
-            docsByType[d.type].push(d);
-        });
-        grid.innerHTML = TRUCK_DOC_TYPES.map(type => {
-            const label = TRUCK_DOC_LABELS[type] || type;
-            const typeDocs = docsByType[type] || [];
-            const hasDoc = typeDocs.length > 0;
-            const statusBadgeHtml = hasDoc
-                ? '<span class="detail-doc-slot-status uploaded">Uploaded</span>'
-                : '<span class="detail-doc-slot-status missing">Missing</span>';
-            let bodyHtml;
-            if (hasDoc) {
-                bodyHtml = typeDocs.map(doc => {
-                    const isImage = doc.contentType && doc.contentType.startsWith('image/');
-                    const sizeStr = doc.size ? (doc.size < 1024 ? doc.size + ' B' : (doc.size / 1024).toFixed(0) + ' KB') : '';
-                    const thumb = isImage ? `<img src="${escapeHtml(doc.url)}" alt="" class="detail-doc-thumb" loading="lazy">` : '';
-                    return `<div class="detail-doc-file">
-                        ${thumb}
-                        <div class="detail-doc-file-info">
-                            <span class="detail-doc-file-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</span>
-                            <span class="detail-doc-file-meta">${sizeStr}</span>
-                        </div>
-                        <div class="detail-doc-file-actions">
-                            <a href="${escapeHtml(doc.url)}" target="_blank" rel="noopener" title="View / Download">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            </a>
-                            <label class="doc-slot-replace" title="Replace" tabindex="0">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-truck="${truckId}" data-type="${type}" data-replace-doc="${doc.id}" data-replace-path="${escapeHtml(doc.storagePath)}" hidden>
-                            </label>
-                            <button type="button" class="doc-slot-delete" title="Delete" data-truck="${truckId}" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            </button>
-                        </div>
-                    </div>`;
-                }).join('');
-            } else {
-                bodyHtml = `<label class="detail-doc-upload-prompt" tabindex="0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Upload ${escapeHtml(label)}
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-truck="${truckId}" data-type="${type}" hidden>
-                </label>`;
-            }
-            return `<div class="detail-doc-slot" data-doc-type="${type}">
-                <div class="detail-doc-slot-header">
-                    <span class="detail-doc-slot-label">${escapeHtml(label)}</span>
-                    ${statusBadgeHtml}
-                </div>
-                <div class="detail-doc-slot-body">${bodyHtml}</div>
-            </div>`;
-        }).join('');
-    }
-
-    function openTruckDetailPanel(id) {
-        const isCreate = !id;
-        const t = isCreate ? {} : state.trucks.find(x => x.id === id);
-        if (!isCreate && !t) return;
-        truckPanelId = id || null;
-
-        const name = isCreate ? 'New Truck' : (t.unit || 'Unnamed Truck');
-        $('detailTruckName').textContent = name;
-        const statusEl = $('detailTruckStatus');
-        if (isCreate) { statusEl.style.display = 'none'; }
-        else {
-            statusEl.style.display = '';
-            statusEl.className = 'status-badge ' + (t.status || 'active');
-            statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(t.status || 'active');
-        }
-
-        // DND badge + button
-        const dndBadge = $('detailTruckDNDBadge');
-        if (dndBadge) dndBadge.classList.toggle('hidden', isCreate || !t.doNotDispatch);
-        const dndBtn = $('tpActionDND');
-        if (dndBtn) {
-            dndBtn.classList.toggle('hidden', isCreate || !t.doNotDispatch || !canToggleDND());
-            if (!isCreate) updateTruckDNDVisuals(t);
-        }
-        const dndField = $('tpDNDField');
-        const dndToggle = $('tpDNDToggle');
-        if (dndField && dndToggle) {
-            dndField.classList.toggle('hidden', isCreate || !t.doNotDispatch || !canToggleDND());
-            dndToggle.checked = !!t.doNotDispatch;
-            $('tpDNDLabel').textContent = t.doNotDispatch ? 'Active' : 'Off';
-        }
-
-        $('tpUnit').value = t.unit || '';
-        $('tpStatus').value = t.status || 'active';
-        $('tpYear').value = t.year || '';
-        $('tpMake').value = t.make || '';
-        $('tpModel').value = t.model || '';
-        $('tpVin').value = t.vin || '';
-        $('tpPlate').value = t.plate || '';
-        $('tpPlateState').value = t.plateState || '';
-        $('tpFuel').value = t.fuel || 'diesel';
-        $('tpAnnualInspDate').value = t.annualInspDate || '';
-        $('tpRegistrationExp').value = t.registrationExp || '';
-        $('tpInsuranceExp').value = t.insuranceExp || '';
-        $('tpNotes').value = t.notes || '';
-
-        document.querySelectorAll('#detailTruckInfo .detail-field-input').forEach(inp => {
-            inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
-        });
-
-        // Docs
-        const docGrid = $('truckDocGrid');
-        if (docGrid) {
-            if (!isCreate && id) {
-                renderTruckDocGrid([], id);
-                loadTruckDocs(id).then(docs => renderTruckDocGrid(docs, id));
-            } else { renderTruckDocGrid([], '__new__'); }
-        }
-
-        const panel = $('truckDetailPanel');
-        panel.classList.toggle('is-create', isCreate);
-
-        // Section collapse states
-        const infoSec = $('truckInfoSection');
-        const composeSec = $('truckComposeSection');
-        const tasksSec = $('truckTasksSection');
-        const feedSec = $('truckFeedSection');
-        const docsSec = $('truckDocsSection');
-        if (isCreate) {
-            infoSec?.classList.remove('collapsed');
-            composeSec?.classList.add('collapsed');
-            tasksSec?.classList.add('collapsed');
-            feedSec?.classList.add('collapsed');
-            docsSec?.classList.add('collapsed');
-        } else {
-            infoSec?.classList.add('collapsed');
-            composeSec?.classList.remove('collapsed');
-            tasksSec?.classList.remove('collapsed');
-            feedSec?.classList.remove('collapsed');
-            docsSec?.classList.add('collapsed');
-        }
-
-        $('truckDetailBackdrop').classList.remove('hidden');
-        panel.classList.remove('hidden');
-        truckPanelOpen = true;
-
-        document.querySelectorAll('#trucksTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
-        if (id) {
-            const activeRow = document.querySelector(`#trucksTableBody tr[data-id="${id}"]`);
-            if (activeRow) activeRow.classList.add('detail-active');
-        }
-
-        if (isCreate) setTimeout(() => $('tpUnit').focus(), 100);
-
-        renderTruckPanelSummary();
-
-        // Load feeds
-        const notesFeed = $('truckNotesFeed');
-        const tasksFeed = $('truckTasksFeed');
-        if (notesFeed) notesFeed.innerHTML = '<p class="dp-empty">Loading\u2026</p>';
-        if (tasksFeed) tasksFeed.innerHTML = '<p class="dp-empty">Loading\u2026</p>';
-        $('truckNoteCount').textContent = '';
-        $('truckTaskCount').textContent = '';
-        const noteText = $('truckNoteText');
-        if (noteText) { noteText.value = ''; noteText.style.height = 'auto'; }
-        const notePost = $('truckNotePost');
-        if (notePost) notePost.disabled = true;
-        $('truckNoteType').value = 'note';
-        $('truckNotePriority').value = 'normal';
-
-        if (!isCreate && id) { loadTruckPanelHistory(); loadTruckPanelTasks(); }
-
-        // Telematics section — show if truck has samsaraId, populate from cached data
-        renderTruckTelematics(t, id);
-    }
-
-    function closeTruckDetailPanel() {
-        $('truckDetailBackdrop').classList.add('hidden');
-        $('truckDetailPanel').classList.add('hidden');
-        truckPanelId = null;
-        truckPanelOpen = false;
-        document.querySelectorAll('#trucksTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
-    }
-
-    function getTruckPanelPayload() {
-        return {
-            unit: $('tpUnit').value.trim(),
-            year: $('tpYear').value.trim(),
-            make: $('tpMake').value.trim(),
-            model: $('tpModel').value.trim(),
-            vin: $('tpVin').value.trim(),
-            plate: $('tpPlate').value.trim(),
-            plateState: $('tpPlateState').value.trim().toUpperCase(),
-            fuel: $('tpFuel').value,
-            status: $('tpStatus').value || 'active',
-            annualInspDate: $('tpAnnualInspDate').value,
-            registrationExp: $('tpRegistrationExp').value,
-            insuranceExp: $('tpInsuranceExp').value,
-            notes: $('tpNotes').value.trim(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-    }
-
-    async function saveTruckFromPanel() {
-        const payload = getTruckPanelPayload();
-        if (!payload.unit) { showMsg('Unit # is required', true); $('tpUnit').focus(); return; }
-        try {
-            if (truckPanelId) {
-                await col('trucks').doc(truckPanelId).update(payload);
-                showMsg('Truck updated');
-            } else {
-                payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                const ref = await col('trucks').add(payload);
-                truckPanelId = ref.id;
-                showMsg('Truck added');
-                $('detailTruckName').textContent = payload.unit;
-                $('truckDetailPanel').classList.remove('is-create');
-                const statusEl = $('detailTruckStatus');
-                statusEl.style.display = '';
-                statusEl.className = 'status-badge ' + payload.status;
-                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
-                renderTruckDocGrid([], truckPanelId);
-            }
-            await loadTrucks();
-            populateTruckDropdown();
-            updateOverview();
-            renderTrucks();
-        } catch (err) { console.error('Save truck panel error:', err); showMsg('Error saving truck', true); }
-    }
-
-    async function autoSaveTruckField() {
-        if (!truckPanelId) return;
-        try { await col('trucks').doc(truckPanelId).update(getTruckPanelPayload()); } catch (e) { console.error(e); }
-    }
-
-    async function toggleTruckDND() {
-        if (!truckPanelId || !canToggleDND()) return;
-        const t = state.trucks.find(x => x.id === truckPanelId);
-        if (!t) return;
-        const newDnd = !t.doNotDispatch;
-        const action = newDnd ? 'place on' : 'remove from';
-        if (!confirm(`Are you sure you want to ${action} Do Not Dispatch for truck ${t.unit}?`)) {
-            const toggle = $('tpDNDToggle');
-            if (toggle) toggle.checked = !!t.doNotDispatch;
-            return;
-        }
-        try {
-            await col('trucks').doc(truckPanelId).update({
-                doNotDispatch: newDnd, dndSetBy: state.user.email || '', dndSetAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            t.doNotDispatch = newDnd;
-            updateTruckDNDVisuals(t);
-            const toggle = $('tpDNDToggle');
-            if (toggle) toggle.checked = newDnd;
-            const dndField = $('tpDNDField');
-            if (dndField) dndField.classList.toggle('hidden', !newDnd);
-            $('tpDNDLabel').textContent = newDnd ? 'Active' : 'Off';
-            renderTrucks();
-            renderTruckPanelSummary();
-            showMsg(newDnd ? 'Truck placed on Do Not Dispatch' : 'Do Not Dispatch removed');
-            try {
-                await col('trucks').doc(truckPanelId).collection('history').add({
-                    type: 'system', text: newDnd ? 'Placed on Do Not Dispatch' : 'Removed from Do Not Dispatch',
-                    by: state.user.email || 'Unknown', createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                loadTruckPanelHistory();
-            } catch (e) { console.error(e); }
-        } catch (err) {
-            console.error(err);
-            const toggle = $('tpDNDToggle');
-            if (toggle) toggle.checked = !!t.doNotDispatch;
-            showMsg('Error updating Do Not Dispatch', true);
-        }
-    }
-
-    function updateTruckDNDVisuals(t) {
-        const dndBtn = $('tpActionDND');
-        if (dndBtn) {
-            if (t.doNotDispatch) { dndBtn.classList.add('dp-qaction--active'); dndBtn.querySelector('span:last-child').textContent = 'Remove DND'; dndBtn.title = 'Remove Do Not Dispatch'; }
-            else { dndBtn.classList.remove('dp-qaction--active'); dndBtn.querySelector('span:last-child').textContent = 'DND'; dndBtn.title = 'Do Not Dispatch'; }
-        }
-        const badge = $('detailTruckDNDBadge');
-        if (badge) badge.classList.toggle('hidden', !t.doNotDispatch);
-    }
-
-    function renderTruckPanelSummary() {
-        const bar = $('truckSummaryBar');
-        if (!bar || !truckPanelId) { if (bar) bar.innerHTML = ''; return; }
-        const t = state.trucks.find(x => x.id === truckPanelId);
-        if (!t) { bar.innerHTML = ''; return; }
-        const chips = [];
-        const now = new Date();
-        const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-        function dateChip(label, dateStr) {
-            if (!dateStr) return { label, text: 'N/A', cls: 'dp-chip--gray' };
-            const dt = new Date(dateStr);
-            if (dt < now) return { label, text: 'Expired', cls: 'dp-chip--red' };
-            if (dt < soon) return { label, text: 'Due soon', cls: 'dp-chip--yellow' };
-            return { label, text: 'Current', cls: 'dp-chip--green' };
-        }
-
-        chips.push(dateChip('Inspection', t.annualInspDate));
-        chips.push(dateChip('Registration', t.registrationExp));
-        chips.push(dateChip('Insurance', t.insuranceExp));
-
-        const statusCls = t.status === 'active' ? 'dp-chip--green' : t.status === 'maintenance' ? 'dp-chip--yellow' : 'dp-chip--red';
-        chips.push({ label: 'Status', text: statusLabel(t.status || 'active'), cls: statusCls });
-
-        if (t.doNotDispatch) chips.unshift({ label: 'DND', text: 'Do Not Dispatch', cls: 'dp-chip--red' });
-
-        bar.innerHTML = chips.map(c =>
-            `<span class="${c.cls} dp-chip"><span class="dp-chip-dot"></span>${escapeHtml(c.label)}: ${escapeHtml(c.text)}</span>`
-        ).join('');
-    }
-
-    async function loadTruckPanelHistory() {
-        if (!truckPanelId) return;
-        try {
-            const snap = await db.collection('users').doc(state.user.uid)
-                .collection('trucks').doc(truckPanelId)
-                .collection('history').orderBy('createdAt', 'desc').limit(50).get();
-            const items = [];
-            snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-            renderTruckPanelNotes(items);
-        } catch (err) { console.error('loadTruckPanelHistory error:', err); }
-    }
-
-    function renderTruckPanelNotes(items) {
-        const container = $('truckNotesFeed');
-        const badge = $('truckNoteCount');
-        if (!container) return;
-        if (badge) badge.textContent = items.length || '';
-        if (!items.length) { container.innerHTML = '<p class="dp-empty">No activity yet. Post a note above.</p>'; return; }
-        container.innerHTML = items.map(n => {
-            const ts = n.createdAt?.toDate?.() || (n.createdAtIso ? new Date(n.createdAtIso) : null);
-            const timeStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
-            const author = n.createdBy || n.by || '';
-            const initial = author.charAt(0).toUpperCase() || 'U';
-            const priHtml = (n.priority && n.priority !== 'normal') ? `<span class="dp-note-pri" data-pri="${escapeHtml(n.priority)}">${escapeHtml(n.priority)}</span>` : '';
-            return `<div class="dp-note" data-id="${n.id}">
-                <div class="dp-note-avi">${initial}</div>
-                <div class="dp-note-body">
-                    <div class="dp-note-meta"><span class="dp-note-tag" data-type="${escapeHtml(n.type || 'note')}">${escapeHtml(n.type || 'note')}</span>${priHtml}<span class="dp-note-time">${timeStr}</span></div>
-                    <div class="dp-note-text">${escapeHtml(n.text || '')}</div>
-                    <div class="dp-note-author">${escapeHtml(author)}</div>
-                </div>
-                <button class="dp-note-del" data-id="${n.id}" title="Delete">\u2715</button>
-            </div>`;
-        }).join('');
-        container.querySelectorAll('.dp-note-del').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (!confirm('Delete this note?')) return;
-                try {
-                    await db.collection('users').doc(state.user.uid).collection('trucks').doc(truckPanelId).collection('history').doc(btn.dataset.id).delete();
-                    await loadTruckPanelHistory();
-                } catch (err) { console.error(err); showMsg('Error deleting note', true); }
-            });
-        });
-    }
-
-    async function loadTruckPanelTasks() {
-        if (!truckPanelId) return;
-        try {
-            const result = await FirebaseDB.getTasks(state.user.uid, 'trucks', truckPanelId, { limit: 20 });
-            if (result.success) renderTruckPanelTasks(result.data);
-        } catch (err) { console.error('loadTruckPanelTasks error:', err); }
-    }
-
-    function renderTruckPanelTasks(tasks) {
-        const container = $('truckTasksFeed');
-        const badge = $('truckTaskCount');
-        if (!container) return;
-        const open = tasks.filter(t => t.status && t.status !== 'Resolved');
-        if (badge) badge.textContent = open.length || '';
-        if (!open.length) { container.innerHTML = '<p class="dp-empty">No open tasks.</p>'; return; }
-        const now = new Date();
-        container.innerHTML = open.slice(0, 8).map(t => {
-            const ts = t.createdAt?.toDate?.() || (t.createdAtIso ? new Date(t.createdAtIso) : null);
-            const dateStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-            const priHtml = (t.priority && t.priority !== 'normal') ? `<span class="dp-task-pri" data-pri="${escapeHtml(t.priority)}">${escapeHtml(t.priority)}</span>` : '';
-            const dueDate = t.dueDate ? new Date(t.dueDate) : null;
-            const overdue = dueDate && dueDate < now && t.status !== 'Resolved';
-            return `<div class="dp-task" data-id="${t.id}" data-entity-type="trucks" data-entity-id="${truckPanelId}">
-                <div class="dp-task-top"><span class="dp-task-type">${escapeHtml(t.type || 'note')}</span>${priHtml}${overdue ? '<span class="dp-task-overdue">OVERDUE</span>' : ''}</div>
-                <div class="dp-task-text">${escapeHtml(t.text || '')}</div>
-                <div class="dp-task-bot">
-                    <span class="dp-task-date">${dateStr}</span>
-                    <select class="dp-task-status-select" data-task-id="${t.id}"><option value="Open"${t.status === 'Open' ? ' selected' : ''}>Open</option><option value="In Progress"${t.status === 'In Progress' ? ' selected' : ''}>In Progress</option><option value="Resolved"${t.status === 'Resolved' ? ' selected' : ''}>Resolved</option></select>
-                    <button class="dp-task-resolve" data-task-id="${t.id}" title="Mark resolved">âœ“</button>
-                </div>
-            </div>`;
-        }).join('');
-    }
-
-    async function truckPanelPostCompose() {
-        const textarea = $('truckNoteText');
-        const postBtn = $('truckNotePost');
-        const compose = textarea?.closest('.dp-compose');
-        const text = textarea?.value?.trim();
-        if (!text || !truckPanelId) return;
-        const type = $('truckNoteType')?.value || 'note';
-        const priority = $('truckNotePriority')?.value || 'normal';
-        postBtn.disabled = true;
-        postBtn.classList.add('posting');
-        try {
-            const t = state.trucks.find(x => x.id === truckPanelId);
-            const taskData = {
-                text, type, status: 'Open', priority, assignedTo: [], dueDate: null,
-                createdBy: state.user.email || state.user.uid, source: 'truck-panel',
-                truckName: t ? t.unit : truckPanelId, createdAtIso: new Date().toISOString()
-            };
-            const result = await FirebaseDB.createTask(state.user.uid, 'trucks', truckPanelId, taskData);
-            if (!result.success) throw new Error(result.error);
-            textarea.value = ''; textarea.style.height = 'auto';
-            $('truckNoteType').value = 'note'; $('truckNotePriority').value = 'normal';
-            postBtn.disabled = true;
-            if (compose) { compose.classList.add('posted'); setTimeout(() => compose.classList.remove('posted'), 600); }
-            await Promise.all([loadTruckPanelHistory(), loadTruckPanelTasks()]);
-        } catch (err) { console.error(err); showMsg('Could not post. ' + (err.message || ''), true); }
-        finally { postBtn.classList.remove('posting'); postBtn.disabled = !textarea.value.trim(); }
-    }
-
-    function initTruckDetailPanel() {
-        $('truckDetailCloseBtn').addEventListener('click', closeTruckDetailPanel);
-        $('truckDetailBackdrop').addEventListener('click', closeTruckDetailPanel);
-        $('truckDetailSaveBtn').addEventListener('click', saveTruckFromPanel);
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && truckPanelOpen) closeTruckDetailPanel();
-        });
-
-        document.querySelectorAll('#detailTruckInfo .detail-field-input').forEach(inp => {
-            inp.addEventListener('blur', () => {
-                inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
-                autoSaveTruckField();
-            });
-        });
-
-        // Doc grid events
-        const grid = $('truckDocGrid');
-        if (grid) {
-            grid.addEventListener('change', async (e) => {
-                const input = e.target.closest('input[type="file"]');
-                if (!input || !input.files[0]) return;
-                let entityId = input.dataset.truck;
-                const docType = input.dataset.type;
-                const file = input.files[0];
-                if (!truckPanelId || entityId === '__new__') {
-                    const payload = getTruckPanelPayload();
-                    if (!payload.unit) { showMsg('Enter at least a unit # before uploading', true); $('tpUnit').focus(); input.value = ''; return; }
-                    try {
-                        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                        const ref = await col('trucks').add(payload);
-                        truckPanelId = ref.id; entityId = ref.id;
-                        $('detailTruckName').textContent = payload.unit;
-                        $('truckDetailPanel').classList.remove('is-create');
-                        await loadTrucks(); populateTruckDropdown(); updateOverview(); renderTrucks();
-                    } catch (err) { console.error(err); showMsg('Error saving truck', true); input.value = ''; return; }
-                }
-                const replaceDocId = input.dataset.replaceDoc;
-                const replacePath = input.dataset.replacePath;
-                if (replaceDocId && replacePath) await deleteTruckDoc(entityId, replaceDocId, replacePath);
-                await uploadTruckDoc(entityId, file, docType);
-                input.value = '';
-                const docs = await loadTruckDocs(entityId);
-                renderTruckDocGrid(docs, entityId);
-            });
-            grid.addEventListener('click', async (e) => {
-                const btn = e.target.closest('.doc-slot-delete');
-                if (!btn) return;
-                if (!confirm('Delete this document?')) return;
-                await deleteTruckDoc(btn.dataset.truck, btn.dataset.docId, btn.dataset.path);
-                const docs = await loadTruckDocs(btn.dataset.truck);
-                renderTruckDocGrid(docs, btn.dataset.truck);
-            });
-        }
-
-        // Compose
-        const noteText = $('truckNoteText');
-        const notePost = $('truckNotePost');
-        if (noteText && notePost) {
-            noteText.addEventListener('input', () => {
-                noteText.style.height = 'auto'; noteText.style.height = noteText.scrollHeight + 'px';
-                notePost.disabled = !noteText.value.trim();
-            });
-            notePost.addEventListener('click', truckPanelPostCompose);
-        }
-
-        // Task interaction wiring
-        const truckTaskFeed = $('truckTasksFeed');
-        if (truckTaskFeed) {
-            truckTaskFeed.addEventListener('change', async (e) => {
-                const sel = e.target.closest('.dp-task-status-select');
-                if (!sel || !truckPanelId) return;
-                const taskId = sel.dataset.taskId;
-                const newStatus = sel.value;
-                try {
-                    const result = await FirebaseDB.updateTaskStatus(state.user.uid, 'trucks', truckPanelId, taskId, newStatus);
-                    if (!result.success) throw new Error(result.error);
-                    showMsg('Status updated');
-                    await Promise.all([loadTruckPanelTasks(), loadTruckPanelHistory()]);
-                } catch (err) { console.error(err); showMsg('Error updating status', true); }
-            });
-            truckTaskFeed.addEventListener('click', async (e) => {
-                const btn = e.target.closest('.dp-task-resolve');
-                if (!btn || !truckPanelId) return;
-                const taskId = btn.dataset.taskId;
-                try {
-                    const result = await FirebaseDB.resolveTask(state.user.uid, 'trucks', truckPanelId, taskId, '', state.user.email || state.user.uid);
-                    if (!result.success) throw new Error(result.error);
-                    showMsg('Task resolved');
-                    await Promise.all([loadTruckPanelTasks(), loadTruckPanelHistory()]);
-                } catch (err) { console.error(err); showMsg('Error resolving task', true); }
-            });
-        }
-
-        // Collapsible toggles
-        document.querySelectorAll('#truckDetailPanel .dp-section-toggle').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const section = document.getElementById(btn.dataset.target);
-                if (!section) return;
-                const collapsed = section.classList.toggle('collapsed');
-                btn.setAttribute('aria-expanded', String(!collapsed));
-            });
-        });
-
-        // Quick actions
-        const oosBtn = $('tpActionOOS');
-        if (oosBtn) oosBtn.addEventListener('click', async () => {
-            if (!truckPanelId) return;
-            const t = state.trucks.find(x => x.id === truckPanelId);
-            const newStatus = t?.status === 'inactive' ? 'active' : 'inactive';
-            try {
-                await col('trucks').doc(truckPanelId).update({ status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                if (t) t.status = newStatus;
-                $('tpStatus').value = newStatus;
-                const statusEl = $('detailTruckStatus');
-                statusEl.className = 'status-badge ' + newStatus;
-                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(newStatus);
-                renderTruckPanelSummary(); renderTrucks(); updateOverview();
-                showMsg('Truck marked ' + statusLabel(newStatus));
-            } catch (err) { console.error(err); showMsg('Error updating status', true); }
-        });
-
-        const maintBtn = $('tpActionMaint');
-        if (maintBtn) maintBtn.addEventListener('click', async () => {
-            if (!truckPanelId) return;
-            const t = state.trucks.find(x => x.id === truckPanelId);
-            const newStatus = t?.status === 'maintenance' ? 'active' : 'maintenance';
-            try {
-                await col('trucks').doc(truckPanelId).update({ status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                if (t) t.status = newStatus;
-                $('tpStatus').value = newStatus;
-                const statusEl = $('detailTruckStatus');
-                statusEl.className = 'status-badge ' + newStatus;
-                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(newStatus);
-                renderTruckPanelSummary(); renderTrucks(); updateOverview();
-                showMsg('Truck marked ' + statusLabel(newStatus));
-            } catch (err) { console.error(err); showMsg('Error updating status', true); }
-        });
-
-        const dndBtn = $('tpActionDND');
-        if (dndBtn) dndBtn.addEventListener('click', () => toggleTruckDND());
-        const dndToggle = $('tpDNDToggle');
-        if (dndToggle) dndToggle.addEventListener('change', () => toggleTruckDND());
-    }
-
-    // ── Trailer Detail Panel (slide-out) ────────
-    let trailerPanelId = null;
-    let trailerPanelOpen = false;
-
-    const TRAILER_DOC_TYPES = ['registration', 'insurance', 'inspection', 'title', 'lease', 'photo', 'other'];
-    const TRAILER_DOC_LABELS = {
-        registration: 'Registration', insurance: 'Insurance', inspection: 'Inspection',
-        title: 'Title', lease: 'Lease', photo: 'Photo', other: 'Other'
-    };
-
-    function trailerStoragePath(trailerId, fileName) {
-        return `users/${uid()}/trailers/${trailerId}/docs/${Date.now()}_${fileName}`;
-    }
-
-    async function uploadTrailerDoc(trailerId, file, docType) {
-        if (file.size > MAX_DOC_SIZE) throw new Error('File too large (max 10 MB)');
-        const path = trailerStoragePath(trailerId, file.name);
-        const ref = storage.ref(path);
-        await ref.put(file);
-        const url = await ref.getDownloadURL();
-        const docEntry = { name: file.name, type: docType, storagePath: path, url, size: file.size, contentType: file.type, uploadedAt: new Date().toISOString() };
-        await col('trailers').doc(trailerId).collection('documents').add(docEntry);
-        if (file.type && file.type.startsWith('image/')) {
-            await col('trailers').doc(trailerId).collection('photos').add({
-                caption: TRAILER_DOC_LABELS[docType] || docType || '',
-                imageUrl: url,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdAtIso: new Date().toISOString()
-            });
-        }
-        await syncTrailerDocSummary(trailerId);
-        return docEntry;
-    }
-
-    async function deleteTrailerDoc(trailerId, docId, storagePath) {
-        try { await storage.ref(storagePath).delete(); } catch (err) { if (err.code !== 'storage/object-not-found') console.warn(err); }
-        await col('trailers').doc(trailerId).collection('documents').doc(docId).delete();
-        await syncTrailerDocSummary(trailerId);
-        showMsg('Document removed');
-    }
-
-    async function syncTrailerDocSummary(trailerId) {
-        const docs = await loadTrailerDocs(trailerId);
-        const types = [...new Set(docs.map(d => d.type).filter(Boolean))];
-        const photoDoc = docs.find(d => d.type === 'photo' && d.url);
-        const docUrls = {};
-        docs.forEach(d => {
-            if (d.type && d.url && !docUrls[d.type]) {
-                docUrls[d.type] = d.url;
-            }
-        });
-        const update = {
-            docTypes: types,
-            docCount: docs.length,
-            docUrls: docUrls,
-            photoUrl: photoDoc ? photoDoc.url : firebase.firestore.FieldValue.delete(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-        await col('trailers').doc(trailerId).update(update);
-        const trailer = state.trailers.find(t => t.id === trailerId);
-        if (trailer) { trailer.docTypes = types; trailer.docCount = docs.length; trailer.photoUrl = photoDoc ? photoDoc.url : null; trailer.docUrls = docUrls; }
-    }
-
-    async function loadTrailerDocs(trailerId) {
-        const snap = await col('trailers').doc(trailerId).collection('documents').orderBy('uploadedAt', 'desc').get();
-        return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    }
-
-    function renderTrailerDocGrid(docs, trailerId) {
-        const grid = $('trailerDocGrid');
-        if (!grid) return;
-        const docsByType = {};
-        docs.forEach(d => {
-            if (!docsByType[d.type]) docsByType[d.type] = [];
-            docsByType[d.type].push(d);
-        });
-        grid.innerHTML = TRAILER_DOC_TYPES.map(type => {
-            const label = TRAILER_DOC_LABELS[type] || type;
-            const typeDocs = docsByType[type] || [];
-            const hasDoc = typeDocs.length > 0;
-            const statusBadgeHtml = hasDoc
-                ? '<span class="detail-doc-slot-status uploaded">Uploaded</span>'
-                : '<span class="detail-doc-slot-status missing">Missing</span>';
-            let bodyHtml;
-            if (hasDoc) {
-                bodyHtml = typeDocs.map(doc => {
-                    const isImage = doc.contentType && doc.contentType.startsWith('image/');
-                    const sizeStr = doc.size ? (doc.size < 1024 ? doc.size + ' B' : (doc.size / 1024).toFixed(0) + ' KB') : '';
-                    const thumb = isImage ? `<img src="${escapeHtml(doc.url)}" alt="" class="detail-doc-thumb" loading="lazy">` : '';
-                    return `<div class="detail-doc-file">
-                        ${thumb}
-                        <div class="detail-doc-file-info">
-                            <span class="detail-doc-file-name" title="${escapeHtml(doc.name)}">${escapeHtml(doc.name)}</span>
-                            <span class="detail-doc-file-meta">${sizeStr}</span>
-                        </div>
-                        <div class="detail-doc-file-actions">
-                            <a href="${escapeHtml(doc.url)}" target="_blank" rel="noopener" title="View / Download">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                            </a>
-                            <label class="doc-slot-replace" title="Replace" tabindex="0">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                                <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-trailer="${trailerId}" data-type="${type}" data-replace-doc="${doc.id}" data-replace-path="${escapeHtml(doc.storagePath)}" hidden>
-                            </label>
-                            <button type="button" class="doc-slot-delete" title="Delete" data-trailer="${trailerId}" data-doc-id="${doc.id}" data-path="${escapeHtml(doc.storagePath)}">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                            </button>
-                        </div>
-                    </div>`;
-                }).join('');
-            } else {
-                bodyHtml = `<label class="detail-doc-upload-prompt" tabindex="0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    Upload ${escapeHtml(label)}
-                    <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx" data-trailer="${trailerId}" data-type="${type}" hidden>
-                </label>`;
-            }
-            return `<div class="detail-doc-slot" data-doc-type="${type}">
-                <div class="detail-doc-slot-header">
-                    <span class="detail-doc-slot-label">${escapeHtml(label)}</span>
-                    ${statusBadgeHtml}
-                </div>
-                <div class="detail-doc-slot-body">${bodyHtml}</div>
-            </div>`;
-        }).join('');
-    }
-
-    function openTrailerDetailPanel(id) {
-        const isCreate = !id;
-        const t = isCreate ? {} : state.trailers.find(x => x.id === id);
-        if (!isCreate && !t) return;
-        trailerPanelId = id || null;
-
-        const name = isCreate ? 'New Trailer' : (t.unit || 'Unnamed Trailer');
-        $('detailTrailerName').textContent = name;
-        const statusEl = $('detailTrailerStatus');
-        if (isCreate) { statusEl.style.display = 'none'; }
-        else {
-            statusEl.style.display = '';
-            statusEl.className = 'status-badge ' + (t.status || 'active');
-            statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(t.status || 'active');
-        }
-
-        // DND badge + button
-        const dndBadge = $('detailTrailerDNDBadge');
-        if (dndBadge) dndBadge.classList.toggle('hidden', isCreate || !t.doNotDispatch);
-        const dndBtn = $('ttpActionDND');
-        if (dndBtn) {
-            dndBtn.classList.toggle('hidden', isCreate || !t.doNotDispatch || !canToggleDND());
-            if (!isCreate) updateTrailerDNDVisuals(t);
-        }
-        const dndField = $('ttpDNDField');
-        const dndToggle = $('ttpDNDToggle');
-        if (dndField && dndToggle) {
-            dndField.classList.toggle('hidden', isCreate || !t.doNotDispatch || !canToggleDND());
-            dndToggle.checked = !!t.doNotDispatch;
-            $('ttpDNDLabel').textContent = t.doNotDispatch ? 'Active' : 'Off';
-        }
-
-        $('ttpUnit').value = t.unit || '';
-        $('ttpStatus').value = t.status || 'active';
-        $('ttpYear').value = t.year || '';
-        $('ttpMake').value = t.make || '';
-        $('ttpType').value = t.type || 'dry-van';
-        $('ttpVin').value = t.vin || '';
-        $('ttpPlate').value = t.plate || '';
-        $('ttpPlateState').value = t.plateState || '';
-        $('ttpAnnualInspDate').value = t.annualInspDate || '';
-        $('ttpRegistrationExp').value = t.registrationExp || '';
-        $('ttpInsuranceExp').value = t.insuranceExp || '';
-        $('ttpNotes').value = t.notes || '';
-
-        document.querySelectorAll('#detailTrailerInfo .detail-field-input').forEach(inp => {
-            inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
-        });
-
-        // Docs
-        const docGrid = $('trailerDocGrid');
-        if (docGrid) {
-            if (!isCreate && id) {
-                renderTrailerDocGrid([], id);
-                loadTrailerDocs(id).then(docs => renderTrailerDocGrid(docs, id));
-            } else { renderTrailerDocGrid([], '__new__'); }
-        }
-
-        const panel = $('trailerDetailPanel');
-        panel.classList.toggle('is-create', isCreate);
-
-        // Section collapse states
-        const infoSec = $('trailerInfoSection');
-        const composeSec = $('trailerComposeSection');
-        const tasksSec = $('trailerTasksSection');
-        const feedSec = $('trailerFeedSection');
-        const docsSec = $('trailerDocsSection');
-        if (isCreate) {
-            infoSec?.classList.remove('collapsed');
-            composeSec?.classList.add('collapsed');
-            tasksSec?.classList.add('collapsed');
-            feedSec?.classList.add('collapsed');
-            docsSec?.classList.add('collapsed');
-        } else {
-            infoSec?.classList.add('collapsed');
-            composeSec?.classList.remove('collapsed');
-            tasksSec?.classList.remove('collapsed');
-            feedSec?.classList.remove('collapsed');
-            docsSec?.classList.add('collapsed');
-        }
-
-        $('trailerDetailBackdrop').classList.remove('hidden');
-        panel.classList.remove('hidden');
-        trailerPanelOpen = true;
-
-        document.querySelectorAll('#trailersTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
-        if (id) {
-            const activeRow = document.querySelector(`#trailersTableBody tr[data-id="${id}"]`);
-            if (activeRow) activeRow.classList.add('detail-active');
-        }
-
-        if (isCreate) setTimeout(() => $('ttpUnit').focus(), 100);
-
-        renderTrailerPanelSummary();
-
-        // Load feeds
-        const notesFeed = $('trailerNotesFeed');
-        const tasksFeed = $('trailerTasksFeed');
-        if (notesFeed) notesFeed.innerHTML = '<p class="dp-empty">Loading\u2026</p>';
-        if (tasksFeed) tasksFeed.innerHTML = '<p class="dp-empty">Loading\u2026</p>';
-        $('trailerNoteCount').textContent = '';
-        $('trailerTaskCount').textContent = '';
-        const noteText = $('trailerNoteText');
-        if (noteText) { noteText.value = ''; noteText.style.height = 'auto'; }
-        const notePost = $('trailerNotePost');
-        if (notePost) notePost.disabled = true;
-        $('trailerNoteType').value = 'note';
-        $('trailerNotePriority').value = 'normal';
-
-        if (!isCreate && id) { loadTrailerPanelHistory(); loadTrailerPanelTasks(); }
-    }
-
-    function closeTrailerDetailPanel() {
-        $('trailerDetailBackdrop').classList.add('hidden');
-        $('trailerDetailPanel').classList.add('hidden');
-        trailerPanelId = null;
-        trailerPanelOpen = false;
-        document.querySelectorAll('#trailersTableBody tr.detail-active').forEach(r => r.classList.remove('detail-active'));
-    }
-
-    function getTrailerPanelPayload() {
-        return {
-            unit: $('ttpUnit').value.trim(),
-            year: $('ttpYear').value.trim(),
-            make: $('ttpMake').value.trim(),
-            type: $('ttpType').value,
-            vin: $('ttpVin').value.trim(),
-            plate: $('ttpPlate').value.trim(),
-            plateState: $('ttpPlateState').value.trim().toUpperCase(),
-            status: $('ttpStatus').value || 'active',
-            annualInspDate: $('ttpAnnualInspDate').value,
-            registrationExp: $('ttpRegistrationExp').value,
-            insuranceExp: $('ttpInsuranceExp').value,
-            notes: $('ttpNotes').value.trim(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        };
-    }
-
-    async function saveTrailerFromPanel() {
-        const payload = getTrailerPanelPayload();
-        if (!payload.unit) { showMsg('Unit # is required', true); $('ttpUnit').focus(); return; }
-        try {
-            if (trailerPanelId) {
-                await col('trailers').doc(trailerPanelId).update(payload);
-                showMsg('Trailer updated');
-            } else {
-                payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                const ref = await col('trailers').add(payload);
-                trailerPanelId = ref.id;
-                showMsg('Trailer added');
-                $('detailTrailerName').textContent = payload.unit;
-                $('trailerDetailPanel').classList.remove('is-create');
-                const statusEl = $('detailTrailerStatus');
-                statusEl.style.display = '';
-                statusEl.className = 'status-badge ' + payload.status;
-                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(payload.status);
-                renderTrailerDocGrid([], trailerPanelId);
-            }
-            await loadTrailers();
-            updateOverview();
-            renderTrailers();
-        } catch (err) { console.error('Save trailer panel error:', err); showMsg('Error saving trailer', true); }
-    }
-
-    async function autoSaveTrailerField() {
-        if (!trailerPanelId) return;
-        try { await col('trailers').doc(trailerPanelId).update(getTrailerPanelPayload()); } catch (e) { console.error(e); }
-    }
-
-    async function toggleTrailerDND() {
-        if (!trailerPanelId || !canToggleDND()) return;
-        const t = state.trailers.find(x => x.id === trailerPanelId);
-        if (!t) return;
-        const newDnd = !t.doNotDispatch;
-        const action = newDnd ? 'place on' : 'remove from';
-        if (!confirm(`Are you sure you want to ${action} Do Not Dispatch for trailer ${t.unit}?`)) {
-            const toggle = $('ttpDNDToggle');
-            if (toggle) toggle.checked = !!t.doNotDispatch;
-            return;
-        }
-        try {
-            await col('trailers').doc(trailerPanelId).update({
-                doNotDispatch: newDnd, dndSetBy: state.user.email || '', dndSetAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            t.doNotDispatch = newDnd;
-            updateTrailerDNDVisuals(t);
-            const toggle = $('ttpDNDToggle');
-            if (toggle) toggle.checked = newDnd;
-            const dndField = $('ttpDNDField');
-            if (dndField) dndField.classList.toggle('hidden', !newDnd);
-            $('ttpDNDLabel').textContent = newDnd ? 'Active' : 'Off';
-            renderTrailers();
-            renderTrailerPanelSummary();
-            showMsg(newDnd ? 'Trailer placed on Do Not Dispatch' : 'Do Not Dispatch removed');
-            try {
-                await col('trailers').doc(trailerPanelId).collection('history').add({
-                    type: 'system', text: newDnd ? 'Placed on Do Not Dispatch' : 'Removed from Do Not Dispatch',
-                    by: state.user.email || 'Unknown', createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                loadTrailerPanelHistory();
-            } catch (e) { console.error(e); }
-        } catch (err) {
-            console.error(err);
-            const toggle = $('ttpDNDToggle');
-            if (toggle) toggle.checked = !!t.doNotDispatch;
-            showMsg('Error updating Do Not Dispatch', true);
-        }
-    }
-
-    function updateTrailerDNDVisuals(t) {
-        const dndBtn = $('ttpActionDND');
-        if (dndBtn) {
-            if (t.doNotDispatch) { dndBtn.classList.add('dp-qaction--active'); dndBtn.querySelector('span:last-child').textContent = 'Remove DND'; dndBtn.title = 'Remove Do Not Dispatch'; }
-            else { dndBtn.classList.remove('dp-qaction--active'); dndBtn.querySelector('span:last-child').textContent = 'DND'; dndBtn.title = 'Do Not Dispatch'; }
-        }
-        const badge = $('detailTrailerDNDBadge');
-        if (badge) badge.classList.toggle('hidden', !t.doNotDispatch);
-    }
-
-    function renderTrailerPanelSummary() {
-        const bar = $('trailerSummaryBar');
-        if (!bar || !trailerPanelId) { if (bar) bar.innerHTML = ''; return; }
-        const t = state.trailers.find(x => x.id === trailerPanelId);
-        if (!t) { bar.innerHTML = ''; return; }
-        const chips = [];
-        const now = new Date();
-        const soon = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-        function dateChip(label, dateStr) {
-            if (!dateStr) return { label, text: 'N/A', cls: 'dp-chip--gray' };
-            const dt = new Date(dateStr);
-            if (dt < now) return { label, text: 'Expired', cls: 'dp-chip--red' };
-            if (dt < soon) return { label, text: 'Due soon', cls: 'dp-chip--yellow' };
-            return { label, text: 'Current', cls: 'dp-chip--green' };
-        }
-
-        chips.push(dateChip('Inspection', t.annualInspDate));
-        chips.push(dateChip('Registration', t.registrationExp));
-        chips.push(dateChip('Insurance', t.insuranceExp));
-
-        const statusCls = t.status === 'active' ? 'dp-chip--green' : t.status === 'maintenance' ? 'dp-chip--yellow' : 'dp-chip--red';
-        chips.push({ label: 'Status', text: statusLabel(t.status || 'active'), cls: statusCls });
-
-        if (t.doNotDispatch) chips.unshift({ label: 'DND', text: 'Do Not Dispatch', cls: 'dp-chip--red' });
-
-        bar.innerHTML = chips.map(c =>
-            `<span class="${c.cls} dp-chip"><span class="dp-chip-dot"></span>${escapeHtml(c.label)}: ${escapeHtml(c.text)}</span>`
-        ).join('');
-    }
-
-    async function loadTrailerPanelHistory() {
-        if (!trailerPanelId) return;
-        try {
-            const snap = await db.collection('users').doc(state.user.uid)
-                .collection('trailers').doc(trailerPanelId)
-                .collection('history').orderBy('createdAt', 'desc').limit(50).get();
-            const items = [];
-            snap.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
-            renderTrailerPanelNotes(items);
-        } catch (err) { console.error('loadTrailerPanelHistory error:', err); }
-    }
-
-    function renderTrailerPanelNotes(items) {
-        const container = $('trailerNotesFeed');
-        const badge = $('trailerNoteCount');
-        if (!container) return;
-        if (badge) badge.textContent = items.length || '';
-        if (!items.length) { container.innerHTML = '<p class="dp-empty">No activity yet. Post a note above.</p>'; return; }
-        container.innerHTML = items.map(n => {
-            const ts = n.createdAt?.toDate?.() || (n.createdAtIso ? new Date(n.createdAtIso) : null);
-            const timeStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' ' + ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '';
-            const author = n.createdBy || n.by || '';
-            const initial = author.charAt(0).toUpperCase() || 'U';
-            const priHtml = (n.priority && n.priority !== 'normal') ? `<span class="dp-note-pri" data-pri="${escapeHtml(n.priority)}">${escapeHtml(n.priority)}</span>` : '';
-            return `<div class="dp-note" data-id="${n.id}">
-                <div class="dp-note-avi">${initial}</div>
-                <div class="dp-note-body">
-                    <div class="dp-note-meta"><span class="dp-note-tag" data-type="${escapeHtml(n.type || 'note')}">${escapeHtml(n.type || 'note')}</span>${priHtml}<span class="dp-note-time">${timeStr}</span></div>
-                    <div class="dp-note-text">${escapeHtml(n.text || '')}</div>
-                    <div class="dp-note-author">${escapeHtml(author)}</div>
-                </div>
-                <button class="dp-note-del" data-id="${n.id}" title="Delete">\u2715</button>
-            </div>`;
-        }).join('');
-        container.querySelectorAll('.dp-note-del').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                if (!confirm('Delete this note?')) return;
-                try {
-                    await db.collection('users').doc(state.user.uid).collection('trailers').doc(trailerPanelId).collection('history').doc(btn.dataset.id).delete();
-                    await loadTrailerPanelHistory();
-                } catch (err) { console.error(err); showMsg('Error deleting note', true); }
-            });
-        });
-    }
-
-    async function loadTrailerPanelTasks() {
-        if (!trailerPanelId) return;
-        try {
-            const result = await FirebaseDB.getTasks(state.user.uid, 'trailers', trailerPanelId, { limit: 20 });
-            if (result.success) renderTrailerPanelTasks(result.data);
-        } catch (err) { console.error('loadTrailerPanelTasks error:', err); }
-    }
-
-    function renderTrailerPanelTasks(tasks) {
-        const container = $('trailerTasksFeed');
-        const badge = $('trailerTaskCount');
-        if (!container) return;
-        const open = tasks.filter(t => t.status && t.status !== 'Resolved');
-        if (badge) badge.textContent = open.length || '';
-        if (!open.length) { container.innerHTML = '<p class="dp-empty">No open tasks.</p>'; return; }
-        const now = new Date();
-        container.innerHTML = open.slice(0, 8).map(t => {
-            const ts = t.createdAt?.toDate?.() || (t.createdAtIso ? new Date(t.createdAtIso) : null);
-            const dateStr = ts ? ts.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-            const priHtml = (t.priority && t.priority !== 'normal') ? `<span class="dp-task-pri" data-pri="${escapeHtml(t.priority)}">${escapeHtml(t.priority)}</span>` : '';
-            const dueDate = t.dueDate ? new Date(t.dueDate) : null;
-            const overdue = dueDate && dueDate < now && t.status !== 'Resolved';
-            return `<div class="dp-task" data-id="${t.id}" data-entity-type="trailers" data-entity-id="${trailerPanelId}">
-                <div class="dp-task-top"><span class="dp-task-type">${escapeHtml(t.type || 'note')}</span>${priHtml}${overdue ? '<span class="dp-task-overdue">OVERDUE</span>' : ''}</div>
-                <div class="dp-task-text">${escapeHtml(t.text || '')}</div>
-                <div class="dp-task-bot">
-                    <span class="dp-task-date">${dateStr}</span>
-                    <select class="dp-task-status-select" data-task-id="${t.id}"><option value="Open"${t.status === 'Open' ? ' selected' : ''}>Open</option><option value="In Progress"${t.status === 'In Progress' ? ' selected' : ''}>In Progress</option><option value="Resolved"${t.status === 'Resolved' ? ' selected' : ''}>Resolved</option></select>
-                    <button class="dp-task-resolve" data-task-id="${t.id}" title="Mark resolved">âœ“</button>
-                </div>
-            </div>`;
-        }).join('');
-    }
-
-    async function trailerPanelPostCompose() {
-        const textarea = $('trailerNoteText');
-        const postBtn = $('trailerNotePost');
-        const compose = textarea?.closest('.dp-compose');
-        const text = textarea?.value?.trim();
-        if (!text || !trailerPanelId) return;
-        const type = $('trailerNoteType')?.value || 'note';
-        const priority = $('trailerNotePriority')?.value || 'normal';
-        postBtn.disabled = true;
-        postBtn.classList.add('posting');
-        try {
-            const t = state.trailers.find(x => x.id === trailerPanelId);
-            const taskData = {
-                text, type, status: 'Open', priority, assignedTo: [], dueDate: null,
-                createdBy: state.user.email || state.user.uid, source: 'trailer-panel',
-                trailerName: t ? t.unit : trailerPanelId, createdAtIso: new Date().toISOString()
-            };
-            const result = await FirebaseDB.createTask(state.user.uid, 'trailers', trailerPanelId, taskData);
-            if (!result.success) throw new Error(result.error);
-            textarea.value = ''; textarea.style.height = 'auto';
-            $('trailerNoteType').value = 'note'; $('trailerNotePriority').value = 'normal';
-            postBtn.disabled = true;
-            if (compose) { compose.classList.add('posted'); setTimeout(() => compose.classList.remove('posted'), 600); }
-            await Promise.all([loadTrailerPanelHistory(), loadTrailerPanelTasks()]);
-        } catch (err) { console.error(err); showMsg('Could not post. ' + (err.message || ''), true); }
-        finally { postBtn.classList.remove('posting'); postBtn.disabled = !textarea.value.trim(); }
-    }
-
-    function initTrailerDetailPanel() {
-        $('trailerDetailCloseBtn').addEventListener('click', closeTrailerDetailPanel);
-        $('trailerDetailBackdrop').addEventListener('click', closeTrailerDetailPanel);
-        $('trailerDetailSaveBtn').addEventListener('click', saveTrailerFromPanel);
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && trailerPanelOpen) closeTrailerDetailPanel();
-        });
-
-        document.querySelectorAll('#detailTrailerInfo .detail-field-input').forEach(inp => {
-            inp.addEventListener('blur', () => {
-                inp.closest('.detail-field')?.classList.toggle('has-value', !!inp.value);
-                autoSaveTrailerField();
-            });
-        });
-
-        // Doc grid events
-        const grid = $('trailerDocGrid');
-        if (grid) {
-            grid.addEventListener('change', async (e) => {
-                const input = e.target.closest('input[type="file"]');
-                if (!input || !input.files[0]) return;
-                let entityId = input.dataset.trailer;
-                const docType = input.dataset.type;
-                const file = input.files[0];
-                if (!trailerPanelId || entityId === '__new__') {
-                    const payload = getTrailerPanelPayload();
-                    if (!payload.unit) { showMsg('Enter at least a unit # before uploading', true); $('ttpUnit').focus(); input.value = ''; return; }
-                    try {
-                        payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                        const ref = await col('trailers').add(payload);
-                        trailerPanelId = ref.id; entityId = ref.id;
-                        $('detailTrailerName').textContent = payload.unit;
-                        $('trailerDetailPanel').classList.remove('is-create');
-                        await loadTrailers(); updateOverview(); renderTrailers();
-                    } catch (err) { console.error(err); showMsg('Error saving trailer', true); input.value = ''; return; }
-                }
-                const replaceDocId = input.dataset.replaceDoc;
-                const replacePath = input.dataset.replacePath;
-                if (replaceDocId && replacePath) await deleteTrailerDoc(entityId, replaceDocId, replacePath);
-                await uploadTrailerDoc(entityId, file, docType);
-                input.value = '';
-                const docs = await loadTrailerDocs(entityId);
-                renderTrailerDocGrid(docs, entityId);
-            });
-            grid.addEventListener('click', async (e) => {
-                const btn = e.target.closest('.doc-slot-delete');
-                if (!btn) return;
-                if (!confirm('Delete this document?')) return;
-                await deleteTrailerDoc(btn.dataset.trailer, btn.dataset.docId, btn.dataset.path);
-                const docs = await loadTrailerDocs(btn.dataset.trailer);
-                renderTrailerDocGrid(docs, btn.dataset.trailer);
-            });
-        }
-
-        // Compose
-        const noteText = $('trailerNoteText');
-        const notePost = $('trailerNotePost');
-        if (noteText && notePost) {
-            noteText.addEventListener('input', () => {
-                noteText.style.height = 'auto'; noteText.style.height = noteText.scrollHeight + 'px';
-                notePost.disabled = !noteText.value.trim();
-            });
-            notePost.addEventListener('click', trailerPanelPostCompose);
-        }
-
-        // Task interaction wiring
-        const trailerTaskFeed = $('trailerTasksFeed');
-        if (trailerTaskFeed) {
-            trailerTaskFeed.addEventListener('change', async (e) => {
-                const sel = e.target.closest('.dp-task-status-select');
-                if (!sel || !trailerPanelId) return;
-                const taskId = sel.dataset.taskId;
-                const newStatus = sel.value;
-                try {
-                    const result = await FirebaseDB.updateTaskStatus(state.user.uid, 'trailers', trailerPanelId, taskId, newStatus);
-                    if (!result.success) throw new Error(result.error);
-                    showMsg('Status updated');
-                    await Promise.all([loadTrailerPanelTasks(), loadTrailerPanelHistory()]);
-                } catch (err) { console.error(err); showMsg('Error updating status', true); }
-            });
-            trailerTaskFeed.addEventListener('click', async (e) => {
-                const btn = e.target.closest('.dp-task-resolve');
-                if (!btn || !trailerPanelId) return;
-                const taskId = btn.dataset.taskId;
-                try {
-                    const result = await FirebaseDB.resolveTask(state.user.uid, 'trailers', trailerPanelId, taskId, '', state.user.email || state.user.uid);
-                    if (!result.success) throw new Error(result.error);
-                    showMsg('Task resolved');
-                    await Promise.all([loadTrailerPanelTasks(), loadTrailerPanelHistory()]);
-                } catch (err) { console.error(err); showMsg('Error resolving task', true); }
-            });
-        }
-
-        // Collapsible toggles
-        document.querySelectorAll('#trailerDetailPanel .dp-section-toggle').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const section = document.getElementById(btn.dataset.target);
-                if (!section) return;
-                const collapsed = section.classList.toggle('collapsed');
-                btn.setAttribute('aria-expanded', String(!collapsed));
-            });
-        });
-
-        // Quick actions
-        const oosBtn = $('ttpActionOOS');
-        if (oosBtn) oosBtn.addEventListener('click', async () => {
-            if (!trailerPanelId) return;
-            const t = state.trailers.find(x => x.id === trailerPanelId);
-            const newStatus = t?.status === 'inactive' ? 'active' : 'inactive';
-            try {
-                await col('trailers').doc(trailerPanelId).update({ status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                if (t) t.status = newStatus;
-                $('ttpStatus').value = newStatus;
-                const statusEl = $('detailTrailerStatus');
-                statusEl.className = 'status-badge ' + newStatus;
-                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(newStatus);
-                renderTrailerPanelSummary(); renderTrailers(); updateOverview();
-                showMsg('Trailer marked ' + statusLabel(newStatus));
-            } catch (err) { console.error(err); showMsg('Error updating status', true); }
-        });
-
-        const maintBtn = $('ttpActionMaint');
-        if (maintBtn) maintBtn.addEventListener('click', async () => {
-            if (!trailerPanelId) return;
-            const t = state.trailers.find(x => x.id === trailerPanelId);
-            const newStatus = t?.status === 'maintenance' ? 'active' : 'maintenance';
-            try {
-                await col('trailers').doc(trailerPanelId).update({ status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                if (t) t.status = newStatus;
-                $('ttpStatus').value = newStatus;
-                const statusEl = $('detailTrailerStatus');
-                statusEl.className = 'status-badge ' + newStatus;
-                statusEl.innerHTML = '<span class="status-dot"></span>' + statusLabel(newStatus);
-                renderTrailerPanelSummary(); renderTrailers(); updateOverview();
-                showMsg('Trailer marked ' + statusLabel(newStatus));
-            } catch (err) { console.error(err); showMsg('Error updating status', true); }
-        });
-
-        const dndBtn = $('ttpActionDND');
-        if (dndBtn) dndBtn.addEventListener('click', () => toggleTrailerDND());
-        const dndToggle = $('ttpDNDToggle');
-        if (dndToggle) dndToggle.addEventListener('change', () => toggleTrailerDND());
-    }
-
-    // ── Google Drive Import ─────────────────
-    const GDRIVE_CONFIG = {
-        clientId: '1019904853500-dgr51js0f2scs3om1l4jocbho85g0ona.apps.googleusercontent.com',
-        apiKey: 'AIzaSyDrjI76QLlhLnmX80_XdFaD4QHP32I9QxY',
-        scopes: 'https://www.googleapis.com/auth/drive.readonly',
-        pickerMimeTypes: [
-            'application/vnd.google-apps.spreadsheet',
-            'text/csv',
-            'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'text/plain',
-            'text/tab-separated-values'
-        ]
-    };
-
-    let gdriveTokenClient = null;
-    let gdriveAccessToken = null;
-    let gdriveReady = false;
-    let gdrivePickerCallback = null;
-
-    function initGoogleDriveForImport() {
-        if (typeof gapi === 'undefined' || typeof google === 'undefined') {
-            // Libraries not loaded yet ” retry a few times
-            let attempts = 0;
-            const poll = setInterval(() => {
-                attempts++;
-                if (typeof gapi !== 'undefined' && typeof google !== 'undefined' && google.accounts) {
-                    clearInterval(poll);
-                    setupGdriveClient();
-                } else if (attempts > 50) {
-                    clearInterval(poll);
-                    console.warn('Google libraries not available ” Drive import disabled');
-                }
-            }, 200);
-        } else {
-            setupGdriveClient();
-        }
-    }
-
-    function setupGdriveClient() {
-        gapi.load('client:picker', async () => {
-            try {
-                await gapi.client.init({ apiKey: GDRIVE_CONFIG.apiKey });
-                gdriveTokenClient = google.accounts.oauth2.initTokenClient({
-                    client_id: GDRIVE_CONFIG.clientId,
-                    scope: GDRIVE_CONFIG.scopes,
-                    callback: onGdriveTokenResponse
-                });
-                gdriveReady = true;
-            } catch (err) {
-                console.warn('Google Drive init failed:', err);
-            }
-        });
-    }
-
-    function onGdriveTokenResponse(response) {
-        if (response.error) {
-            showMsg('Google Drive sign-in failed', true);
-            return;
-        }
-        gdriveAccessToken = response.access_token;
-        openGooglePicker();
-    }
-
-    function pickFileFromGoogleDrive(callback) {
-        if (!gdriveReady) {
-            showMsg('Google Drive is loading ” try again in a moment', true);
-            return;
-        }
-        gdrivePickerCallback = callback;
-        if (gdriveAccessToken) {
-            openGooglePicker();
-        } else {
-            gdriveTokenClient.requestAccessToken({ prompt: '' });
-        }
-    }
-
-    function openGooglePicker() {
-        const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
-            .setMimeTypes(GDRIVE_CONFIG.pickerMimeTypes.join(','))
-            .setMode(google.picker.DocsViewMode.LIST);
-        const picker = new google.picker.PickerBuilder()
-            .setTitle('Select a file to import')
-            .setOAuthToken(gdriveAccessToken)
-            .setDeveloperKey(GDRIVE_CONFIG.apiKey)
-            .addView(view)
-            .addView(new google.picker.DocsView(google.picker.ViewId.SPREADSHEETS))
-            .setCallback(onPickerAction)
-            .build();
-        picker.setVisible(true);
-    }
-
-    async function onPickerAction(data) {
-        console.log('[GDrive] Picker action:', data.action);
-        if (data.action !== google.picker.Action.PICKED) return;
-        const doc = data.docs[0];
-        if (!doc) { console.warn('[GDrive] No doc selected'); return; }
-        const fileId = doc.id;
-        const fileName = doc.name;
-        const mimeType = doc.mimeType;
-        console.log('[GDrive] Picked:', fileName, 'MIME:', mimeType, 'ID:', fileId);
-
-        showMsg('Downloading from Google Drive\u2026');
-
-        try {
-            let blob;
-            if (mimeType === 'application/vnd.google-apps.spreadsheet') {
-                // Google Sheets ” export as xlsx
-                console.log('[GDrive] Exporting Google Sheet as xlsx');
-                const resp = await fetch(
-                    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}/export?mimeType=application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`,
-                    { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
-                );
-                console.log('[GDrive] Export response:', resp.status, resp.statusText);
-                if (!resp.ok) {
-                    const errText = await resp.text();
-                    console.error('[GDrive] Export error body:', errText);
-                    throw new Error('Export failed: ' + resp.status);
-                }
-                blob = await resp.blob();
-                console.log('[GDrive] Blob size:', blob.size, 'type:', blob.type);
-                const file = new File([blob], fileName + '.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                if (gdrivePickerCallback) gdrivePickerCallback(file);
-                else console.warn('[GDrive] No callback set!');
-            } else {
-                // Regular file ” download directly
-                console.log('[GDrive] Downloading file directly');
-                const resp = await fetch(
-                    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`,
-                    { headers: { Authorization: 'Bearer ' + gdriveAccessToken } }
-                );
-                console.log('[GDrive] Download response:', resp.status, resp.statusText);
-                if (!resp.ok) {
-                    const errText = await resp.text();
-                    console.error('[GDrive] Download error body:', errText);
-                    throw new Error('Download failed: ' + resp.status);
-                }
-                blob = await resp.blob();
-                console.log('[GDrive] Blob size:', blob.size, 'type:', blob.type);
-                const file = new File([blob], fileName, { type: mimeType || 'application/octet-stream' });
-                if (gdrivePickerCallback) gdrivePickerCallback(file);
-                else console.warn('[GDrive] No callback set!');
-            }
-        } catch (err) {
-            console.error('[GDrive] Download error:', err);
-            showMsg('Failed to download file from Google Drive', true);
-        }
-    }
-
-    // ── Import Dropdown Helper ──
-    function showImportDropdown(anchorBtn, smartImportFn) {
-        // Close any existing dropdown
-        document.querySelectorAll('.import-dropdown').forEach(d => d.remove());
-
-        const rect = anchorBtn.getBoundingClientRect();
-        const dropdown = document.createElement('div');
-        dropdown.className = 'import-dropdown';
-        dropdown.innerHTML = `
-            <button class="import-dropdown-item" data-source="file">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
-                From File
-            </button>
-            <button class="import-dropdown-item" data-source="gdrive">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M12 2L2 19.5h20L12 2z"/><path d="M8 19.5L15.5 7"/><path d="M16 19.5L8.5 7"/></svg>
-                From Google Drive
-            </button>
-        `;
-
-        dropdown.style.top = (rect.bottom + 4) + 'px';
-        dropdown.style.left = rect.left + 'px';
-        document.body.appendChild(dropdown);
-
-        // "From File" ” trigger local file picker
-        dropdown.querySelector('[data-source="file"]').addEventListener('click', () => {
-            dropdown.remove();
-            const input = document.createElement('input');
-            input.type = 'file';
-            input.accept = '.csv,.tsv,.txt,.xlsx,.xls';
-            input.addEventListener('change', (e) => smartImportFn(e.target.files[0]));
-            input.click();
-        });
-
-        // "From Google Drive" ” open picker
-        dropdown.querySelector('[data-source="gdrive"]').addEventListener('click', () => {
-            dropdown.remove();
-            pickFileFromGoogleDrive((file) => smartImportFn(file));
-        });
-
-        // Close on outside click
-        const closeHandler = (e) => {
-            if (!dropdown.contains(e.target) && e.target !== anchorBtn) {
-                dropdown.remove();
-                document.removeEventListener('click', closeHandler, true);
-            }
-        };
-        setTimeout(() => document.addEventListener('click', closeHandler, true), 0);
-    }
-
-    // ── Smart Import for Trucks ──
-    function detectFileType(file) {
-        const ext = file.name.split('.').pop().toLowerCase();
-        const mime = (file.type || '').toLowerCase();
-        if (ext === 'pdf' || mime === 'application/pdf') return 'pdf';
-        if (['xlsx', 'xls'].includes(ext) || mime.includes('spreadsheetml') || mime.includes('ms-excel')) return 'excel';
-        if (['csv', 'tsv', 'txt'].includes(ext) || mime.includes('text/') || mime.includes('csv')) return 'csv';
-        // Fallback: try to guess from content
-        if (mime.includes('octet-stream')) {
-            if (['xlsx', 'xls'].includes(ext)) return 'excel';
-            if (ext === 'pdf') return 'pdf';
-        }
-        return ext === 'xlsx' || ext === 'xls' ? 'excel' : 'csv';
-    }
-
-    async function parseFileToRows(file, importType) {
-        const type = detectFileType(file);
-        console.log('[Import] File:', file.name, 'MIME:', file.type, 'Detected:', type, 'Size:', file.size);
-        let rows;
-
-        // Primary parser based on detected type
-        try {
-            if (type === 'pdf') rows = await parsePdfToRows(file);
-            else if (type === 'excel') rows = await parseExcelToRows(file, importType);
-            else rows = await parseCsvToRows(file);
-        } catch (e) { console.warn('[Import] Primary parser failed:', e); }
-
-        console.log('[Import] Primary result:', rows ? rows.length + ' rows' : 'null', rows && rows.length > 0 ? 'Header: ' + JSON.stringify(rows[0]) : '');
-        if (rows && rows.length >= 2) return rows;
-
-        // Fallback: try Excel parser (handles xlsx/xls/csv via SheetJS)
-        if (type !== 'excel') {
-            try {
-                console.log('[Import] Falling back to Excel parser');
-                rows = await parseExcelToRows(file, importType);
-                if (rows && rows.length >= 2) return rows;
-            } catch (e) { console.warn('[Import] Excel fallback failed:', e); }
-        }
-
-        // Fallback: try CSV parser
-        if (type !== 'csv') {
-            try {
-                console.log('[Import] Falling back to CSV parser');
-                rows = await parseCsvToRows(file);
-                if (rows && rows.length >= 2) return rows;
-            } catch (e) { console.warn('[Import] CSV fallback failed:', e); }
-        }
-
-        return rows;
-    }
-
-    async function smartImportTrucks(file) {
-        if (!file) return;
-        showMsg('Reading file…');
-        try {
-            let rows = await parseFileToRows(file, 'truck');
-            if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
-            const config = SHEET_CONFIGS.truck;
-            const aliases = config.csvAliases || {};
-
-            // Find actual header row (may not be row 0)
-            let headerIdx = 0;
-            const truckHeaderPat = /^(unit|unitnumber|vin|make|model|year|plate|truck|truckno|trucknumber|vehicle|equipment|fuel|status|no|number|fleet|asset|id)$/i;
-            for (let i = 0; i < Math.min(rows.length, 10); i++) {
-                const cleaned = rows[i].map(c => (c || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
-                if (cleaned.filter(h => truckHeaderPat.test(h)).length >= 2) { headerIdx = i; break; }
-            }
-            const header = rows[headerIdx];
-            const dataRows = rows.slice(headerIdx + 1);
-            console.log('[Import] Truck header row:', headerIdx, 'Headers:', JSON.stringify(header));
-
-            const colMap = buildSmartColumnMap(header, aliases);
-            console.log('[Import] Truck header-based map:', JSON.stringify(colMap));
-
-            // Content-based detection for unmapped columns
-            const truckFields = ['unit', 'year', 'make', 'model', 'vin', 'plate', 'plateState', 'fuel', 'status'];
-            detectColumnsByContent(dataRows, header, colMap, truckFields);
-            console.log('[Import] Truck final map:', JSON.stringify(colMap));
-
-            if (colMap.unit === undefined) {
-                console.error('[Import] No unit column found. Headers:', JSON.stringify(header));
-                showMsg('Could not find a Unit # column. Make sure your file has a column with truck/unit numbers.', true);
-                return;
-            }
-
-            const parsed = [];
-            for (let i = 0; i < dataRows.length; i++) {
-                const row = dataRows[i];
-                if (!row || row.every(c => !c || !c.toString().trim())) continue;
-                const data = {};
-                let hasValue = false;
-                const allFields = [...config.cols.map(c => c.key), ...(config.extraFields || [])];
-                allFields.forEach(key => {
-                    if (colMap[key] !== undefined) {
-                        let val = (row[colMap[key]] || '').toString().trim();
-                        if (key === 'plateState') val = val.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
-                        if (key === 'vin') val = val.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                        if (key === 'year') { const yr = parseInt(val); val = (yr >= 1900 && yr <= 2099) ? yr.toString() : ''; }
-                        if (['annualInspDate', 'registrationExp', 'insuranceExp'].includes(key) && val) val = normalizeDate(val);
-                        if (key === 'status' && val) {
-                            const col = config.cols.find(c => c.key === 'status');
-                            if (col?.options) { const m = col.options.find(o => o.value.toLowerCase() === val.toLowerCase() || o.label.toLowerCase() === val.toLowerCase()); val = m ? m.value : 'active'; }
-                        }
-                        if (key === 'fuel' && val) {
-                            const col = config.cols.find(c => c.key === 'fuel');
-                            if (col?.options) { const m = col.options.find(o => o.value.toLowerCase() === val.toLowerCase() || o.label.toLowerCase() === val.toLowerCase()); val = m ? m.value : val; }
-                        }
-                        if (val) { data[key] = val; hasValue = true; }
-                    }
-                });
-                if (hasValue && data.unit) parsed.push(data);
-            }
-            if (parsed.length === 0) { showMsg('No valid truck rows found', true); return; }
-
-            // VIN verification ” fill/correct make, model, year from NHTSA
-            const truckVins = parsed.map(d => d.vin).filter(Boolean);
-            if (truckVins.length) {
-                showMsg('Verifying ' + truckVins.length + ' VIN' + (truckVins.length > 1 ? 's' : '') + '…');
-                try {
-                    const vinData = await decodeVINBatch(truckVins);
-                    const fixes = applyVINData(parsed, vinData, 'truck');
-                    if (fixes) console.log('[VIN] Applied ' + fixes + ' corrections to truck data');
-                } catch (e) { console.warn('[VIN] Decode failed, continuing with sheet data:', e); }
-            }
-
-            // Open unified sheet with parsed data
-            openUnifiedSheet('truck', parsed, { mode: 'import' });
-            const extraCount = Object.keys(colMap).filter(k => config.extraFields?.includes(k)).length;
-            let msg = parsed.length + ' truck' + (parsed.length > 1 ? 's' : '') + ' imported for review';
-            if (extraCount > 0) msg += ' (' + extraCount + ' extra field' + (extraCount > 1 ? 's' : '') + ' mapped)';
-            showMsg(msg);
-        } catch (err) { console.error('Smart truck import error:', err); showMsg('Error reading file: ' + (err.message || ''), true); }
-    }
-
-    // ── Smart Import for Trailers ──
-    async function smartImportTrailers(file) {
-        if (!file) return;
-        showMsg('Reading file…');
-        try {
-            let rows = await parseFileToRows(file, 'trailer');
-            if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
-            const config = SHEET_CONFIGS.trailer;
-            const aliases = config.csvAliases || {};
-
-            // Find actual header row
-            let headerIdx = 0;
-            const trailerHeaderPat = /^(unit|unitnumber|vin|make|model|year|plate|trailer|trailerno|trailernumber|type|vehicle|equipment|status|no|number|fleet|asset|id)$/i;
-            for (let i = 0; i < Math.min(rows.length, 10); i++) {
-                const cleaned = rows[i].map(c => (c || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
-                if (cleaned.filter(h => trailerHeaderPat.test(h)).length >= 2) { headerIdx = i; break; }
-            }
-            const header = rows[headerIdx];
-            const dataRows = rows.slice(headerIdx + 1);
-            console.log('[Import] Trailer header row:', headerIdx, 'Headers:', JSON.stringify(header));
-
-            const colMap = buildSmartColumnMap(header, aliases);
-            console.log('[Import] Trailer header-based map:', JSON.stringify(colMap));
-
-            // Content-based detection for unmapped columns
-            const trailerFields = ['unit', 'year', 'make', 'vin', 'plate', 'plateState', 'type', 'status'];
-            detectColumnsByContent(dataRows, header, colMap, trailerFields);
-            console.log('[Import] Trailer final map:', JSON.stringify(colMap));
-
-            if (colMap.unit === undefined) {
-                console.error('[Import] No unit column found. Headers:', JSON.stringify(header));
-                showMsg('Could not find a Unit # column. Make sure your file has a column with trailer/unit numbers.', true);
-                return;
-            }
-
-            const parsed = [];
-            for (let i = 0; i < dataRows.length; i++) {
-                const row = dataRows[i];
-                if (!row || row.every(c => !c || !c.toString().trim())) continue;
-                const data = {};
-                let hasValue = false;
-                const allFields = [...config.cols.map(c => c.key), ...(config.extraFields || [])];
-                allFields.forEach(key => {
-                    if (colMap[key] !== undefined) {
-                        let val = (row[colMap[key]] || '').toString().trim();
-                        if (key === 'plateState') val = val.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 2);
-                        if (key === 'vin') val = val.toUpperCase().replace(/[^A-Z0-9]/g, '');
-                        if (key === 'year') { const yr = parseInt(val); val = (yr >= 1900 && yr <= 2099) ? yr.toString() : ''; }
-                        if (['annualInspDate', 'registrationExp', 'insuranceExp'].includes(key) && val) val = normalizeDate(val);
-                        if (key === 'status' && val) {
-                            const col = config.cols.find(c => c.key === 'status');
-                            if (col?.options) { const m = col.options.find(o => o.value.toLowerCase() === val.toLowerCase() || o.label.toLowerCase() === val.toLowerCase()); val = m ? m.value : 'active'; }
-                        }
-                        if (key === 'type' && val) {
-                            // Extract length from combined model/type field (e.g., "53ft Dry Van")
-                            const lenMatch = val.match(/(\d+)\s*(?:ft|foot|feet|')/i);
-                            if (lenMatch && !data.length) data.length = lenMatch[1] + 'ft';
-                            const lv = val.toLowerCase();
-                            if (lv.includes('reefer') || lv.includes('refrigerat')) val = 'reefer';
-                            else if (lv.includes('dry') && lv.includes('van') || lv.includes('dryvan')) val = 'dry-van';
-                            else if (lv.includes('flatbed')) val = 'flatbed';
-                            else if (lv.includes('step') && lv.includes('deck')) val = 'step-deck';
-                            else if (lv.includes('tanker')) val = 'tanker';
-                            else if (lv.includes('lowboy')) val = 'lowboy';
-                            else {
-                                const col = config.cols.find(c => c.key === 'type');
-                                if (col?.options) { const m = col.options.find(o => o.value.toLowerCase() === lv || o.label.toLowerCase() === lv); val = m ? m.value : 'other'; }
-                            }
-                        }
-                        if (val) { data[key] = val; hasValue = true; }
-                    }
-                });
-                if (hasValue && data.unit) parsed.push(data);
-            }
-            if (parsed.length === 0) { showMsg('No valid trailer rows found', true); return; }
-
-            // VIN verification ” fill/correct make, year, type from NHTSA
-            const trailerVins = parsed.map(d => d.vin).filter(Boolean);
-            if (trailerVins.length) {
-                showMsg('Verifying ' + trailerVins.length + ' VIN' + (trailerVins.length > 1 ? 's' : '') + '…');
-                try {
-                    const vinData = await decodeVINBatch(trailerVins);
-                    const fixes = applyVINData(parsed, vinData, 'trailer');
-                    if (fixes) console.log('[VIN] Applied ' + fixes + ' corrections to trailer data');
-                } catch (e) { console.warn('[VIN] Decode failed, continuing with sheet data:', e); }
-            }
-
-            // Open unified sheet with parsed data
-            openUnifiedSheet('trailer', parsed, { mode: 'import' });
-            const extraCount = Object.keys(colMap).filter(k => config.extraFields?.includes(k)).length;
-            let msg = parsed.length + ' trailer' + (parsed.length > 1 ? 's' : '') + ' imported for review';
-            if (extraCount > 0) msg += ' (' + extraCount + ' extra field' + (extraCount > 1 ? 's' : '') + ' mapped)';
-            showMsg(msg);
-        } catch (err) { console.error('Smart trailer import error:', err); showMsg('Error reading file: ' + (err.message || ''), true); }
-    }
-
     function openTruckModal(data) {
         $('truckModalTitle').textContent = data ? 'Edit Truck' : 'Add Truck';
         $('truckEditId').value = data ? data.id : '';
@@ -7493,17 +3236,20 @@
     }
 
     function initTruckForm() {
-        $('addTruckBtn').addEventListener('click', () => openUnifiedSheet('truck', null, {mode:'add'}));
-        $('addFirstTruck').addEventListener('click', () => openUnifiedSheet('truck', null, {mode:'add'}));
+        $('addTruckBtn').addEventListener('click', () => openSheetModal('truck'));
+        $('addFirstTruck').addEventListener('click', () => openSheetModal('truck'));
         $('closeTruckModal').addEventListener('click', () => $('truckModal').classList.add('hidden'));
         $('cancelTruck').addEventListener('click', () => $('truckModal').classList.add('hidden'));
 
-        // Import “ show dropdown (File or Google Drive)
+        // Import – trigger CSV file picker
         const importBtn = $('importTrucksBtn');
         if (importBtn) {
-            importBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                showImportDropdown(importBtn, smartImportTrucks);
+            importBtn.addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.csv,.tsv,.txt';
+                input.addEventListener('change', (e) => importCSVToSheet(e.target.files[0], 'truck'));
+                input.click();
             });
         }
 
@@ -7524,24 +3270,20 @@
 
         $('truckForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const payload = normalizePayload({
+            const payload = {
                 unit: $('truckUnit').value.trim(),
                 year: $('truckYear').value.trim(),
                 make: $('truckMake').value.trim(),
                 model: $('truckModel').value.trim(),
                 vin: $('truckVin').value.trim(),
                 plate: $('truckPlate').value.trim(),
-                plateState: $('truckPlateState').value.trim(),
+                plateState: $('truckPlateState').value.trim().toUpperCase(),
                 fuel: $('truckFuel').value,
                 status: $('truckStatus').value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, 'truck');
+            };
             try {
                 const editId = $('truckEditId').value;
-                if (payload.vin && payload.vin.length === 17) {
-                    const dup = await checkDuplicate('trucks', 'vin', payload.vin, editId);
-                    if (dup && !confirm('A truck with VIN ' + payload.vin + ' already exists (Unit: ' + (dup.data().unit || '?') + '). Save anyway?')) return;
-                }
                 if (editId) {
                     await col('trucks').doc(editId).update(payload);
                 } else {
@@ -7645,7 +3387,7 @@
             if (ext === 'pdf') {
                 rows = await parsePdfToRows(file);
             } else if (ext === 'xlsx' || ext === 'xls') {
-                rows = await parseExcelToRows(file, 'driver');
+                rows = await parseExcelToRows(file);
             } else {
                 rows = await parseCsvToRows(file);
             }
@@ -7657,51 +3399,30 @@
 
             const config = SHEET_CONFIGS.driver;
             const aliases = config.csvAliases || {};
-
-            // Find the actual header row (may not be row 0 ” some sheets have title rows)
-            let headerIdx = 0;
-            const namePatterns = /^(firstname|first|fname|lastname|last|lname|name|fullname|drivername|driver|employee)$/i;
-            for (let i = 0; i < Math.min(rows.length, 10); i++) {
-                const cleaned = rows[i].map(c => (c || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
-                if (cleaned.some(h => namePatterns.test(h))) {
-                    headerIdx = i;
-                    break;
-                }
-            }
-            const header = rows[headerIdx];
-            const dataRows = rows.slice(headerIdx + 1);
-            console.log('[Import] Header row index:', headerIdx, 'Headers:', JSON.stringify(header));
+            const header = rows[0];
 
             // Build column mapping with fuzzy matching
             const colMap = buildSmartColumnMap(header, aliases);
-            console.log('[Import] Header-based column map:', JSON.stringify(colMap));
 
-            // Content-based detection: fill in any fields the header matching missed
-            const allDriverFields = ['firstName', 'lastName', 'fullName', 'phone', 'email',
-                'cdl', 'cdlState', 'cdlClass', 'status', 'dob', 'ssn'];
-            detectColumnsByContent(dataRows, header, colMap, allDriverFields);
-            console.log('[Import] Final column map:', JSON.stringify(colMap));
-
-            // Resolve name columns
+            // Check for fullName → split into first/last
             const hasFullName = colMap.fullName !== undefined;
             const hasFirstName = colMap.firstName !== undefined;
-            const hasLastName = colMap.lastName !== undefined;
 
             if (!hasFirstName && !hasFullName) {
-                const nameIdx = header.findIndex(h => /^(name|driver|employee|person)$/i.test((h || '').toString().replace(/[^a-z]/gi, '')));
+                // Try harder — look for any column that could be a name
+                const nameIdx = header.findIndex(h => /^(name|driver|employee|person)$/i.test(h.replace(/[^a-z]/gi, '')));
                 if (nameIdx !== -1) colMap.fullName = nameIdx;
             }
 
             if (colMap.firstName === undefined && colMap.fullName === undefined) {
-                console.error('[Import] No name column found. Headers:', JSON.stringify(header));
                 showMsg('Could not find a name column. Make sure your file has a header with driver names.', true);
                 return;
             }
 
             // Parse data rows
             const parsed = [];
-            for (let i = 0; i < dataRows.length; i++) {
-                const row = dataRows[i];
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
                 if (!row || row.every(c => !c || !c.toString().trim())) continue;
 
                 const data = {};
@@ -7741,30 +3462,22 @@
                     }
                 });
 
-                // Always resolve into single name field
-                if (!data.name) {
-                    let fullName = '';
-                    if (hasFullName) {
-                        fullName = (row[colMap.fullName] || '').toString().trim();
-                    }
-                    if (!fullName && (hasFirstName || hasLastName)) {
-                        const first = hasFirstName ? (row[colMap.firstName] || '').toString().trim() : '';
-                        const last = hasLastName ? (row[colMap.lastName] || '').toString().trim() : '';
-                        fullName = [first, last].filter(Boolean).join(' ');
-                    }
-                    if (fullName) {
-                        // Flip "Last, First" format
-                        if (fullName.includes(',')) {
-                            const parts = fullName.split(',').map(p => p.trim()).filter(Boolean);
-                            fullName = (parts[1] || '') + ' ' + (parts[0] || '');
+                // Handle fullName splitting
+                if (hasFullName && !data.firstName) {
+                    const full = (row[colMap.fullName] || '').toString().trim();
+                    if (full) {
+                        const parts = full.replace(/,\s*/g, ' ').split(/\s+/).filter(Boolean);
+                        if (full.includes(',')) {
+                            // "Last, First" format
+                            data.lastName = parts[0] || '';
+                            data.firstName = parts.slice(1).join(' ') || '';
+                        } else {
+                            data.firstName = parts[0] || '';
+                            data.lastName = parts.slice(1).join(' ') || '';
                         }
-                        data.name = fullName.trim();
                         hasValue = true;
                     }
                 }
-                delete data.firstName;
-                delete data.lastName;
-                delete data.fullName;
 
                 // Try to match truck by unit number
                 if (data.truck && state.trucks.length) {
@@ -7773,7 +3486,7 @@
                     data.truck = match ? match.id : '';
                 }
 
-                if (hasValue && data.name) {
+                if (hasValue && (data.firstName || data.lastName)) {
                     parsed.push(data);
                 }
             }
@@ -7783,8 +3496,29 @@
                 return;
             }
 
-            // Open unified sheet with parsed data
-            openUnifiedSheet('driver', parsed, { mode: 'import' });
+            // Load into the sheet modal (shows the 7 visible columns)
+            const tbody = $(config.tbodyId);
+            tbody.innerHTML = '';
+            parsed.forEach((rowData, i) => {
+                const sheetRow = buildSheetRow(i, rowData, config.cols);
+                // Store extra fields as data attributes
+                if (config.extraFields) {
+                    config.extraFields.forEach(key => {
+                        if (rowData[key]) sheetRow.dataset['extra_' + key] = rowData[key];
+                    });
+                }
+                tbody.appendChild(sheetRow);
+            });
+            tbody.appendChild(buildSheetRow(parsed.length, null, config.cols));
+            updateSheetRowCount(config);
+            $(config.modalId).classList.remove('hidden');
+
+            setTimeout(() => {
+                validateAllSheetCells(config);
+                const first = tbody.querySelector('.sheet-cell');
+                if (first) startEditingCell(first);
+            }, 80);
+
             const extraCount = Object.keys(colMap).filter(k => config.extraFields?.includes(k)).length;
             let msg = parsed.length + ' driver' + (parsed.length > 1 ? 's' : '') + ' imported for review';
             if (extraCount > 0) msg += ' (' + extraCount + ' extra field' + (extraCount > 1 ? 's' : '') + ' mapped)';
@@ -7795,168 +3529,17 @@
         }
     }
 
-    async function smartImportInspections(file) {
-        if (!file) return;
-        showMsg('Reading file…');
-        try {
-            let rows = await parseFileToRows(file, 'inspection');
-            if (!rows || rows.length < 2) { showMsg('No data found in file.', true); return; }
-            const config = SHEET_CONFIGS.inspection;
-            const aliases = config.csvAliases || {};
-
-            let headerIdx = 0;
-            const inspHeaderPat = /^(date|inspectiondate|type|level|report|reportnum|driver|truck|unit|result|violations|location|fine|notes|comment)$/i;
-            for (let i = 0; i < Math.min(rows.length, 10); i++) {
-                const cleaned = rows[i].map(c => (c || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
-                if (cleaned.filter(h => inspHeaderPat.test(h)).length >= 2) { headerIdx = i; break; }
-            }
-            const header = rows[headerIdx];
-            const dataRows = rows.slice(headerIdx + 1);
-            console.log('[Import] Inspection header row:', headerIdx, 'Headers:', JSON.stringify(header));
-
-            const colMap = buildSmartColumnMap(header, aliases);
-            const inspFields = ['date', 'type', 'reportNum', 'driverName', 'truckUnit', 'result', 'violations', 'location', 'fineAmount', 'notes'];
-            detectColumnsByContent(dataRows, header, colMap, inspFields);
-            console.log('[Import] Inspection final map:', JSON.stringify(colMap));
-
-            if (colMap.date === undefined) {
-                showMsg('Could not find a Date column. Make sure your file has a column with inspection dates.', true);
-                return;
-            }
-
-            const parsed = [];
-            for (let i = 0; i < dataRows.length; i++) {
-                const row = dataRows[i];
-                if (!row || row.every(c => !c || !c.toString().trim())) continue;
-                const data = {};
-                let hasValue = false;
-                const allFields = [...config.cols.map(c => c.key), ...(config.extraFields || [])];
-                allFields.forEach(key => {
-                    if (colMap[key] !== undefined) {
-                        let val = (row[colMap[key]] || '').toString().trim();
-                        if (key === 'date' && val) val = normalizeDate(val);
-                        if (key === 'type' && val) {
-                            const lv = val.toLowerCase();
-                            if (/level\s*1|full|level\s*i(?!\w)/i.test(lv)) val = 'level-1';
-                            else if (/level\s*2|walk/i.test(lv)) val = 'level-2';
-                            else if (/level\s*3|driver/i.test(lv)) val = 'level-3';
-                            else if (/level\s*4|special/i.test(lv)) val = 'level-4';
-                            else if (/level\s*5|vehicle/i.test(lv)) val = 'level-5';
-                            else if (/citation|ticket/i.test(lv)) val = 'citation';
-                            else {
-                                const col = config.cols.find(c => c.key === 'type');
-                                if (col?.options) { const m = col.options.find(o => o.value === lv || o.label.toLowerCase() === lv); val = m ? m.value : 'level-1'; }
-                            }
-                        }
-                        if (key === 'result' && val) {
-                            const lv = val.toLowerCase();
-                            if (lv.includes('pass') || lv === 'clean' || lv === 'satisfactory') val = 'pass';
-                            else if (lv.includes('fail') || lv === 'unsatisfactory') val = 'fail';
-                            else if (lv.includes('warning')) val = 'warning';
-                            else if (lv.includes('oos') || lv.includes('out of service')) val = 'oos';
-                        }
-                        if (key === 'violations') { const n = parseInt(val); val = isNaN(n) ? '0' : String(n); }
-                        if (key === 'fineAmount') { val = val.replace(/[^0-9.]/g, ''); }
-                        if (val) { data[key] = val; hasValue = true; }
-                    }
-                });
-                if (hasValue && data.date) parsed.push(data);
-            }
-            if (parsed.length === 0) { showMsg('No valid inspection rows found in file', true); return; }
-
-            openUnifiedSheet('inspection', parsed, { mode: 'import' });
-            showMsg(parsed.length + ' inspection' + (parsed.length > 1 ? 's' : '') + ' imported for review');
-        } catch (err) {
-            console.error('Smart import error:', err);
-            showMsg('Error reading file: ' + (err.message || ''), true);
-        }
-    }
-
-    // ── NHTSA VIN Decode (batch, up to 50 at a time) ──
-    async function decodeVINBatch(vins) {
-        const valid = [...new Set(vins.filter(v => v && v.length === 17))];
-        if (!valid.length) return {};
-        const results = {};
-        for (let i = 0; i < valid.length; i += 50) {
-            const batch = valid.slice(i, i + 50);
-            try {
-                const resp = await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVINValuesBatch/', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: 'vins=' + batch.join(';') + '&format=json'
-                });
-                const json = await resp.json();
-                if (json.Results) {
-                    json.Results.forEach(r => {
-                        if (!r.VIN) return;
-                        results[r.VIN.toUpperCase()] = {
-                            make: (r.Make || '').trim(),
-                            model: (r.Model || '').trim(),
-                            year: (r.ModelYear || '').trim(),
-                            bodyClass: (r.BodyClass || '').trim(),
-                            trailerBodyType: (r.TrailerBodyType || '').trim(),
-                            fuelType: (r.FuelTypePrimary || '').trim(),
-                            gvwr: (r.GVWR || '').trim()
-                        };
-                    });
-                }
-            } catch (e) { console.warn('[VIN Decode] Batch failed:', e); }
-        }
-        return results;
-    }
-
-    function applyVINData(parsed, vinData, importType) {
-        let fixes = 0;
-        parsed.forEach(d => {
-            if (!d.vin) return;
-            const info = vinData[d.vin.toUpperCase()];
-            if (!info || (!info.make && !info.year)) return;
-            // Fill blanks and correct mismatches ” VIN is the source of truth
-            if (info.year && info.year !== '0') {
-                if (!d.year) { d.year = info.year; fixes++; }
-                else if (d.year !== info.year) { console.warn('[VIN] Year mismatch ' + d.vin + ': sheet=' + d.year + ' VIN=' + info.year); d.year = info.year; fixes++; }
-            }
-            if (info.make) {
-                if (!d.make) { d.make = info.make; fixes++; }
-                else if (d.make.toUpperCase() !== info.make.toUpperCase()) { console.warn('[VIN] Make mismatch ' + d.vin + ': sheet=' + d.make + ' VIN=' + info.make); d.make = info.make; fixes++; }
-            }
-            if (importType === 'truck' && info.model && !d.model) { d.model = info.model; fixes++; }
-            if (importType === 'truck' && info.fuelType) {
-                const ft = info.fuelType.toLowerCase();
-                if (ft.includes('diesel') && d.fuel !== 'diesel') { d.fuel = 'diesel'; fixes++; }
-                else if (ft.includes('gas') && d.fuel !== 'gasoline') { d.fuel = 'gasoline'; fixes++; }
-            }
-            if (importType === 'trailer') {
-                // Use VIN body class for type if not already confidently set
-                const bt = (info.trailerBodyType || info.bodyClass || '').toLowerCase();
-                if (bt) {
-                    let vinType = '';
-                    if (bt.includes('refrigerat') || bt.includes('reefer')) vinType = 'reefer';
-                    else if (bt.includes('flatbed')) vinType = 'flatbed';
-                    else if (bt.includes('tank')) vinType = 'tanker';
-                    else if (bt.includes('lowboy')) vinType = 'lowboy';
-                    else if (bt.includes('step') || bt.includes('deck')) vinType = 'step-deck';
-                    else if (bt.includes('van') || bt.includes('enclosed') || bt.includes('box')) vinType = 'dry-van';
-                    if (vinType && (!d.type || d.type === 'other')) { d.type = vinType; fixes++; }
-                    // VIN says reefer but sheet said dry-van ” trust VIN
-                    if (vinType === 'reefer' && d.type === 'dry-van') { d.type = 'reefer'; fixes++; }
-                }
-            }
-        });
-        return fixes;
-    }
-
     function buildSmartColumnMap(headerRow, aliases) {
         const colMap = {};
         const cleaned = headerRow.map(h => (h || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
 
         for (const [field, names] of Object.entries(aliases)) {
-            // Exact match first ” skip already-claimed columns
-            let idx = cleaned.findIndex((h, i) => !Object.values(colMap).includes(i) && names.includes(h));
+            // Exact match first
+            let idx = cleaned.findIndex(h => names.includes(h));
             if (idx !== -1) { colMap[field] = idx; continue; }
 
-            // Substring match ” skip already-claimed columns
-            idx = cleaned.findIndex((h, i) => h && !Object.values(colMap).includes(i) && names.some(n => h.includes(n) || n.includes(h)));
+            // Substring match — header contains alias or alias contains header
+            idx = cleaned.findIndex(h => h && names.some(n => h.includes(n) || n.includes(h)));
             if (idx !== -1) { colMap[field] = idx; continue; }
 
             // Partial word match for compound headers
@@ -7972,194 +3555,6 @@
             if (idx !== -1 && !Object.values(colMap).includes(idx)) {
                 colMap[field] = idx;
             }
-        }
-
-        return colMap;
-    }
-
-    // Detect column types by sampling actual data content (handles missing/wrong headers)
-    function detectColumnsByContent(dataRows, headerRow, colMap, fieldList) {
-        const usedCols = new Set(Object.values(colMap));
-        const mappedFields = new Set(Object.keys(colMap));
-
-        // Data pattern matchers ” each returns a confidence 0-1 for a set of sample values
-        const patterns = {
-            firstName: vals => {
-                const hits = vals.filter(v => /^[A-Za-z' \-]{2,25}$/.test(v) && v.split(/\s+/).length <= 2 && !/\d/.test(v));
-                return hits.length / vals.length;
-            },
-            lastName: vals => {
-                const hits = vals.filter(v => /^[A-Za-z' \-]{2,30}$/.test(v) && v.split(/\s+/).length <= 3 && !/\d/.test(v));
-                return hits.length / vals.length;
-            },
-            fullName: vals => {
-                const hits = vals.filter(v => /^[A-Za-z' \-]{2,}$/.test(v) && v.split(/\s+/).length >= 2 && !/\d/.test(v));
-                return hits.length / vals.length;
-            },
-            phone: vals => {
-                const hits = vals.filter(v => {
-                    const digits = v.replace(/\D/g, '');
-                    return digits.length >= 7 && digits.length <= 11 && /[\d()\-\s.+]{7,}/.test(v);
-                });
-                return hits.length / vals.length;
-            },
-            email: vals => {
-                const hits = vals.filter(v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v));
-                return hits.length / vals.length;
-            },
-            cdl: vals => {
-                const hits = vals.filter(v => /^[A-Z0-9\-]{4,20}$/i.test(v) && /\d/.test(v) && /[A-Z]/i.test(v));
-                return hits.length / vals.length;
-            },
-            cdlState: vals => {
-                const states = 'AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC'.split(' ');
-                const hits = vals.filter(v => states.includes(v.toUpperCase().trim()));
-                return hits.length / vals.length;
-            },
-            cdlClass: vals => {
-                const hits = vals.filter(v => /^(A|B|C|CLASS\s*[ABC])$/i.test(v.trim()));
-                return hits.length / vals.length;
-            },
-            status: vals => {
-                const kw = ['active', 'inactive', 'home time', 'home-time', 'on leave', 'on-leave', 'terminated', 'y', 'n', 'yes', 'no'];
-                const hits = vals.filter(v => kw.includes(v.toLowerCase().trim()));
-                return hits.length / vals.length;
-            },
-            dob: vals => {
-                const hits = vals.filter(v => {
-                    if (!/\d/.test(v)) return false;
-                    const d = new Date(v);
-                    if (isNaN(d)) return false;
-                    const yr = d.getFullYear();
-                    return yr >= 1940 && yr <= 2010; // reasonable DOB range
-                });
-                return hits.length / vals.length;
-            },
-            ssn: vals => {
-                const hits = vals.filter(v => /^\d{3}[\s\-]?\d{2}[\s\-]?\d{4}$/.test(v.trim()));
-                return hits.length / vals.length;
-            },
-            // Truck/trailer fields
-            unit: vals => {
-                const hits = vals.filter(v => /^[A-Z0-9\-]{1,15}$/i.test(v.trim()) && v.trim().length <= 15);
-                return hits.length / vals.length * 0.3; // low confidence ” too generic on its own
-            },
-            vin: vals => {
-                const hits = vals.filter(v => /^[A-HJ-NPR-Z0-9]{17}$/i.test(v.replace(/[^A-Z0-9]/gi, '')));
-                return hits.length / vals.length;
-            },
-            year: vals => {
-                const hits = vals.filter(v => { const yr = parseInt(v); return yr >= 1980 && yr <= 2099 && /^\d{4}$/.test(v.trim()); });
-                return hits.length / vals.length;
-            },
-            make: vals => {
-                const makes = ['freightliner', 'peterbilt', 'kenworth', 'volvo', 'international', 'mack', 'western star',
-                               'navistar', 'hino', 'isuzu', 'ford', 'chevrolet', 'gmc', 'ram', 'dodge', 'toyota',
-                               'utility', 'great dane', 'wabash', 'hyundai', 'stoughton', 'vanguard', 'fontaine', 'wilson'];
-                const hits = vals.filter(v => makes.some(m => v.toLowerCase().includes(m)));
-                return hits.length / vals.length;
-            },
-            model: vals => {
-                const models = ['cascadia', 'prostar', 'vnl', 'lonestar', '579', '389', 't680', 't880', 'w900', 'anthem',
-                                'lt', 'granite', 'pinnacle', '4300', '4400', 'lf', 'fe', 'npr'];
-                const hits = vals.filter(v => models.some(m => v.toLowerCase().includes(m)));
-                return hits.length / vals.length;
-            },
-            plate: vals => {
-                const hits = vals.filter(v => /^[A-Z0-9\-\s]{3,10}$/i.test(v.trim()) && /[A-Z]/i.test(v) && /\d/.test(v));
-                return hits.length / vals.length;
-            },
-            plateState: vals => {
-                const states = 'AL AK AZ AR CA CO CT DE FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC'.split(' ');
-                const hits = vals.filter(v => states.includes(v.toUpperCase().trim()));
-                return hits.length / vals.length;
-            },
-            fuel: vals => {
-                const fuels = ['diesel', 'gasoline', 'gas', 'cng', 'lng', 'electric', 'hybrid', 'propane'];
-                const hits = vals.filter(v => fuels.includes(v.toLowerCase().trim()));
-                return hits.length / vals.length;
-            },
-            type: vals => {
-                const types = ['dry van', 'dryvan', 'dry-van', 'reefer', 'flatbed', 'step deck', 'step-deck', 'tanker', 'lowboy', 'container', 'box', 'refrigerated'];
-                const hits = vals.filter(v => types.some(t => v.toLowerCase().includes(t)));
-                return hits.length / vals.length;
-            },
-            // Generic date detector for expiration/hire dates
-            _date: vals => {
-                const hits = vals.filter(v => {
-                    if (!/\d/.test(v)) return false;
-                    const d = new Date(v);
-                    if (isNaN(d)) return false;
-                    const yr = d.getFullYear();
-                    return yr >= 2000 && yr <= 2040;
-                });
-                return hits.length / vals.length;
-            }
-        };
-
-        // Sample data from each unmapped column
-        const colSamples = {};
-        for (let c = 0; c < headerRow.length; c++) {
-            if (usedCols.has(c)) continue;
-            const samples = [];
-            for (let r = 0; r < Math.min(dataRows.length, 15); r++) {
-                const val = (dataRows[r][c] || '').toString().trim();
-                if (val) samples.push(val);
-            }
-            if (samples.length > 0) colSamples[c] = samples;
-        }
-
-        // Score each unmapped column against each unmapped field
-        const fieldsToDetect = fieldList.filter(f => !mappedFields.has(f));
-        const scores = []; // { field, col, score }
-
-        for (const field of fieldsToDetect) {
-            const patternKey = patterns[field] ? field : null;
-            for (const [colStr, samples] of Object.entries(colSamples)) {
-                const col = parseInt(colStr);
-                let score = 0;
-                if (patternKey) {
-                    score = patterns[patternKey](samples);
-                }
-                // Also check header hint (even partial/misspelled)
-                const hdr = (headerRow[col] || '').toString().toLowerCase().replace(/[^a-z0-9]/g, '');
-                if (hdr) {
-                    // Driver fields
-                    if (field === 'phone' && /ph|tel|cell|mob|contact/.test(hdr)) score += 0.3;
-                    if (field === 'email' && /mail|email/.test(hdr)) score += 0.3;
-                    if (field === 'cdl' && /cdl|lic|dl/.test(hdr)) score += 0.3;
-                    if (field === 'cdlState' && /state/.test(hdr)) score += 0.3;
-                    if (field === 'dob' && /dob|birth|bday/.test(hdr)) score += 0.3;
-                    if (field === 'status' && /status|active/.test(hdr)) score += 0.3;
-                    if ((field === 'firstName' || field === 'fullName') && /name|first|driver/.test(hdr)) score += 0.3;
-                    if (field === 'lastName' && /last|sur|family/.test(hdr)) score += 0.3;
-                    // Truck/trailer fields
-                    if (field === 'unit' && /unit|truck|equip|no|number/.test(hdr)) score += 0.3;
-                    if (field === 'vin' && /vin|vehicleid/.test(hdr)) score += 0.3;
-                    if (field === 'year' && /year|yr|model/.test(hdr)) score += 0.3;
-                    if (field === 'make' && /make|manuf|brand/.test(hdr)) score += 0.3;
-                    if (field === 'model' && /model/.test(hdr)) score += 0.3;
-                    if (field === 'plate' && /plate|tag|license/.test(hdr)) score += 0.3;
-                    if (field === 'plateState' && /state|platestate|tagstate/.test(hdr)) score += 0.3;
-                    if (field === 'fuel' && /fuel|gas|diesel/.test(hdr)) score += 0.3;
-                    if (field === 'type' && /type|trailer/.test(hdr)) score += 0.3;
-                }
-
-                if (score >= 0.5) scores.push({ field, col, score });
-            }
-        }
-
-        // Assign best matches greedily (highest score first, no column reuse)
-        scores.sort((a, b) => b.score - a.score);
-        const assignedCols = new Set(usedCols);
-        const assignedFields = new Set(mappedFields);
-
-        for (const { field, col, score } of scores) {
-            if (assignedCols.has(col) || assignedFields.has(field)) continue;
-            colMap[field] = col;
-            assignedCols.add(col);
-            assignedFields.add(field);
-            console.log('[Import] Content-detected: column', col, '(' + (headerRow[col] || '<blank>') + ') → ' + field, '(score: ' + score.toFixed(2) + ')');
         }
 
         return colMap;
@@ -8218,78 +3613,14 @@
         });
     }
 
-    async function parseExcelToRows(file, importType) {
+    async function parseExcelToRows(file) {
         if (typeof XLSX === 'undefined') { showMsg('Excel library not loaded', true); return null; }
         const data = await file.arrayBuffer();
         const wb = XLSX.read(data, { type: 'array', cellDates: true, dateNF: 'yyyy-mm-dd' });
-
-        let ws;
-        if (wb.SheetNames.length > 1 && importType) {
-            ws = pickBestSheet(wb, importType);
-            console.log('[Import] Multi-sheet workbook ” picked sheet:', ws.__sheetName || '(best match)');
-        } else {
-            ws = wb.Sheets[wb.SheetNames[0]];
-        }
-
+        const ws = wb.Sheets[wb.SheetNames[0]];
         const json = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
         // Filter out completely empty rows
         return json.filter(r => r.some(c => c !== null && c !== undefined && c.toString().trim() !== ''));
-    }
-
-    // Score each sheet in a workbook and return the best match for the given import type
-    function pickBestSheet(wb, importType) {
-        const sheetKeywords = {
-            driver: {
-                sheetNames: ['driver', 'drivers', 'employee', 'employees', 'personnel', 'staff', 'roster'],
-                headers: ['name', 'firstname', 'lastname', 'drivername', 'cdl', 'licensenumber',
-                           'phone', 'email', 'hiredate', 'dob', 'endorsements', 'medicalcard',
-                           'emergencycontact', 'drugtest', 'cdlstate', 'cdlexp', 'cdlclass', 'driver']
-            },
-            truck: {
-                sheetNames: ['truck', 'trucks', 'vehicle', 'vehicles', 'unit', 'units', 'fleet', 'equipment', 'tractor', 'tractors'],
-                headers: ['vin', 'make', 'model', 'year', 'plate', 'platenumber', 'unit', 'unitnumber',
-                           'mileage', 'odometer', 'fueltype', 'grossweight', 'dotinspection']
-            },
-            trailer: {
-                sheetNames: ['trailer', 'trailers'],
-                headers: ['vin', 'make', 'model', 'year', 'plate', 'platenumber', 'unit', 'unitnumber',
-                           'trailertype', 'length', 'axles', 'dotinspection']
-            }
-        };
-
-        const kw = sheetKeywords[importType] || sheetKeywords.driver;
-        let bestSheet = wb.Sheets[wb.SheetNames[0]];
-        let bestScore = -1;
-
-        for (const sheetName of wb.SheetNames) {
-            let score = 0;
-            const cleanName = sheetName.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-            // Score sheet name match (high weight)
-            if (kw.sheetNames.some(k => cleanName === k)) score += 10;
-            else if (kw.sheetNames.some(k => cleanName.includes(k))) score += 5;
-
-            // Score header matches
-            const ws = wb.Sheets[sheetName];
-            const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
-            if (rows.length > 0) {
-                const headerRow = rows[0].map(h => (h || '').toString().toLowerCase().replace(/[^a-z0-9]/g, ''));
-                const headerMatches = headerRow.filter(h => h && kw.headers.some(k => h.includes(k) || k.includes(h))).length;
-                score += headerMatches * 2;
-
-                // Small bonus for having data rows
-                if (rows.length > 1) score += 1;
-            }
-
-            console.log('[Import] Sheet "' + sheetName + '" score for ' + importType + ':', score);
-            if (score > bestScore) {
-                bestScore = score;
-                bestSheet = ws;
-                bestSheet.__sheetName = sheetName;
-            }
-        }
-
-        return bestSheet;
     }
 
     async function parsePdfToRows(file) {
@@ -8297,132 +3628,44 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
         const data = await file.arrayBuffer();
         const pdf = await pdfjsLib.getDocument({ data }).promise;
-
-        // Extract text items with position + width info across all pages
-        const allItems = [];
+        const allText = [];
         for (let p = 1; p <= pdf.numPages; p++) {
             const page = await pdf.getPage(p);
             const content = await page.getTextContent();
-            const vp = page.getViewport({ scale: 1 });
-            content.items.forEach(item => {
-                if (!item.str || !item.str.trim()) return;
-                const y = vp.height - item.transform[5];
-                const x = item.transform[4];
-                const w = item.width || (item.str.length * Math.abs(item.transform[0]) * 0.6);
-                const fontSize = Math.abs(item.transform[0]) || 10;
-                allItems.push({ text: item.str.trim(), x, y, w, fontSize, page: p });
-            });
+            const items = content.items.map(i => i.str);
+            allText.push(items.join(' '));
         }
+        // Try to detect table structure from the text
+        const fullText = allText.join('\n');
+        const lines = fullText.split('\n').map(l => l.trim()).filter(Boolean);
 
-        if (allItems.length === 0) {
-            console.warn('[PDF] No text items extracted');
-            return null;
-        }
-
-        // Group items into rows by Y-coordinate (within tolerance)
-        allItems.sort((a, b) => a.page - b.page || a.y - b.y || a.x - b.x);
-        const yTolerance = 4;
-        const rowGroups = [];
-        let currentGroup = [allItems[0]];
-
-        for (let i = 1; i < allItems.length; i++) {
-            const item = allItems[i];
-            const prev = currentGroup[currentGroup.length - 1];
-            if (item.page === prev.page && Math.abs(item.y - prev.y) <= yTolerance) {
-                currentGroup.push(item);
-            } else {
-                rowGroups.push(currentGroup);
-                currentGroup = [item];
-            }
-        }
-        rowGroups.push(currentGroup);
-
-        // Measure actual whitespace gaps between consecutive items in each row
-        const allGaps = [];
-        rowGroups.forEach(group => {
-            group.sort((a, b) => a.x - b.x);
-            for (let i = 1; i < group.length; i++) {
-                const prevEnd = group[i - 1].x + group[i - 1].w;
-                const gap = group[i].x - prevEnd;
-                if (gap > 0) allGaps.push(gap);
-            }
-        });
-        allGaps.sort((a, b) => a - b);
-
-        console.log('[PDF] All gaps (' + allGaps.length + '):', allGaps.map(g => Math.round(g * 10) / 10));
-
-        // Find the natural break between "within-word" gaps and "between-column" gaps
-        // Use Jenks/Otsu-like approach: find the gap value with the biggest jump
-        let colGapThreshold;
-        if (allGaps.length >= 2) {
-            let maxJump = 0, jumpAt = 0;
-            for (let i = 1; i < allGaps.length; i++) {
-                const jump = allGaps[i] - allGaps[i - 1];
-                if (jump > maxJump) { maxJump = jump; jumpAt = i; }
-            }
-            // Threshold is midpoint between the two gap clusters
-            colGapThreshold = (allGaps[jumpAt - 1] + allGaps[jumpAt]) / 2;
-        } else {
-            colGapThreshold = 20;
-        }
-        // Ensure a reasonable minimum
-        const avgFontSize = allItems.reduce((s, it) => s + it.fontSize, 0) / allItems.length;
-        colGapThreshold = Math.max(colGapThreshold, avgFontSize * 1.5);
-
-        console.log('[PDF] Column gap threshold:', Math.round(colGapThreshold * 10) / 10, 'avgFontSize:', Math.round(avgFontSize * 10) / 10);
-
-        // Build rows by splitting on gaps > threshold
-        const lines = rowGroups.map(group => {
-            group.sort((a, b) => a.x - b.x);
-            const cells = [group[0].text];
-            for (let i = 1; i < group.length; i++) {
-                const prevEnd = group[i - 1].x + group[i - 1].w;
-                const gap = group[i].x - prevEnd;
-                if (gap >= colGapThreshold) {
-                    cells.push(group[i].text);
-                } else {
-                    cells[cells.length - 1] += ' ' + group[i].text;
-                }
-            }
-            return cells.map(c => c.trim()).filter(Boolean);
-        }).filter(row => row.length > 0);
-
-        console.log('[PDF] Extracted', lines.length, 'lines. First 3:', JSON.stringify(lines.slice(0, 3)));
-
-        if (lines.length < 2) return null;
-
-        // Find header row
-        const tableKeywords = ['name', 'first', 'last', 'cdl', 'license', 'phone', 'email', 'driver', 'dob', 'hire', 'status', 'unit', 'vin', 'plate', 'make', 'model', 'year', 'type', 'fuel', 'trailer', 'truck', 'vehicle', 'number', 'registration', 'insurance', 'inspection', 'expiration', 'date', 'termination'];
+        // Heuristic: find the line most likely to be a header (has multiple known keywords)
+        const driverKeywords = ['name', 'first', 'last', 'cdl', 'license', 'phone', 'email', 'driver', 'dob', 'hire', 'status'];
         let headerIdx = -1, bestScore = 0;
-        lines.forEach((cells, i) => {
-            const joined = cells.join(' ').toLowerCase();
-            const score = tableKeywords.filter(kw => joined.includes(kw)).length;
+        lines.forEach((line, i) => {
+            const lower = line.toLowerCase();
+            const score = driverKeywords.filter(kw => lower.includes(kw)).length;
             if (score > bestScore) { bestScore = score; headerIdx = i; }
         });
 
-        console.log('[PDF] Best header at line', headerIdx, 'score', bestScore, headerIdx >= 0 ? JSON.stringify(lines[headerIdx]) : '');
-
         if (headerIdx === -1 || bestScore < 2) {
-            headerIdx = lines.findIndex(cells => cells.length >= 2);
-            if (headerIdx === -1) {
-                showMsg('Could not detect table structure in PDF. Try Excel or CSV instead.', true);
-                return null;
-            }
+            // Fallback: try splitting by consistent whitespace
+            showMsg('Could not detect table structure in PDF. Try Excel or CSV instead.', true);
+            return null;
         }
 
-        // Normalize: pad shorter rows to match header length
-        const header = lines[headerIdx];
-        const numCols = header.length;
+        // Split header and data lines by multiple spaces or tabs
+        const splitLine = (line) => line.split(/\s{2,}|\t/).map(c => c.trim()).filter(Boolean);
+        const header = splitLine(lines[headerIdx]);
         const rows = [header];
+
         for (let i = headerIdx + 1; i < lines.length; i++) {
-            const row = lines[i];
-            if (row.length >= Math.max(2, numCols - 2)) {
-                while (row.length < numCols) row.push('');
-                rows.push(row.slice(0, numCols));
+            const cells = splitLine(lines[i]);
+            if (cells.length >= Math.max(2, header.length - 2)) {
+                rows.push(cells);
             }
         }
 
-        console.log('[PDF] Final result:', rows.length, 'rows (incl header). Header:', JSON.stringify(rows[0]));
         return rows.length >= 2 ? rows : null;
     }
 
@@ -8446,10 +3689,7 @@
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Out of Service' },
-                    { value: 'maintenance', label: 'In Maintenance' },
-                    { value: 'inshop', label: 'In Shop' },
-                    { value: 'reserved', label: 'Reserved' },
-                    { value: 'sold', label: 'Sold' }
+                    { value: 'maintenance', label: 'In Maintenance' }
                 ]}
             ],
             collection: 'trucks',
@@ -8465,27 +3705,16 @@
             saveId: 'saveMultiTruck',
             defaults: { fuel: 'diesel', status: 'active' },
             afterSave: async () => { await loadTrucks(); populateTruckDropdown(); },
-            extraFields: ['annualInspDate', 'registrationExp', 'insuranceExp',
-                          'mileage', 'grossWeight', 'dotInspDate', 'tireSize', 'pdInsurance', 'notes'],
             csvAliases: {
-                unit: ['unit', 'unitnumber', 'unitno', 'truckno', 'trucknumber', 'equipmentno', 'equipmentnumber', 'no', 'number', 'truck', 'vehicleno', 'vehiclenumber', 'fleetno', 'fleetnumber', 'id', 'truckid', 'assetno', 'assetnumber', 'asset'],
-                year: ['year', 'yr', 'modelyear', 'vehicleyear'],
-                make: ['make', 'manufacturer', 'brand', 'oem'],
-                model: ['model', 'truckmodel', 'vehiclemodel'],
-                vin: ['vin', 'vehicleid', 'vehicleidentification', 'vinno', 'vinnumber', 'serialnumber', 'serial'],
-                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag', 'platenumber', 'plateno', 'tagno', 'tagnumber', 'registration'],
-                plateState: ['platestate', 'state', 'tagstate', 'registrationstate', 'regstate'],
-                fuel: ['fuel', 'fueltype', 'gas', 'diesel'],
-                status: ['status', 'active', 'condition'],
-                annualInspDate: ['annualinspection', 'inspection', 'inspectiondate', 'annualinsp', 'inspdate', 'inspexp', 'annualinspdate', 'inspectionexp'],
-                registrationExp: ['registration', 'registrationexp', 'registrationexpiration', 'regexp', 'regexpiration', 'regexp'],
-                insuranceExp: ['insurance', 'insuranceexp', 'insuranceexpiration', 'insexp', 'insexpiration'],
-                mileage: ['mileage', 'odometer', 'miles', 'km', 'odo', 'currentmileage'],
-                grossWeight: ['grossweight', 'gvw', 'weight', 'gvwr', 'maxweight'],
-                dotInspDate: ['dotinspection', 'dotinsp', 'dotinspdate'],
-                tireSize: ['tiresize', 'tire', 'tires', 'wheelsize'],
-                pdInsurance: ['pdinsurance', 'physicaldamage', 'pd', 'physicalinsurance', 'pdvalue', 'insurancevalue'],
-                notes: ['notes', 'note', 'comments', 'comment', 'remarks']
+                unit: ['unit', 'unitnumber', 'unitno', 'truckno', 'trucknumber'],
+                year: ['year', 'yr', 'modelyear'],
+                make: ['make', 'manufacturer', 'brand'],
+                model: ['model'],
+                vin: ['vin', 'vehicleid'],
+                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag'],
+                plateState: ['platestate', 'state', 'tagstate'],
+                fuel: ['fuel', 'fueltype'],
+                status: ['status']
             }
         },
         trailer: {
@@ -8507,10 +3736,7 @@
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Out of Service' },
-                    { value: 'maintenance', label: 'In Maintenance' },
-                    { value: 'inshop', label: 'In Shop' },
-                    { value: 'reserved', label: 'Reserved' },
-                    { value: 'sold', label: 'Sold' }
+                    { value: 'maintenance', label: 'In Maintenance' }
                 ]}
             ],
             collection: 'trailers',
@@ -8526,36 +3752,20 @@
             saveId: 'saveMultiTrailer',
             defaults: { type: 'dry-van', status: 'active' },
             afterSave: async () => { await loadTrailers(); },
-            extraFields: ['plateState', 'annualInspDate', 'registrationExp', 'insuranceExp',
-                          'reeferModel', 'tireSize', 'length', 'spareTires', 'etracks',
-                          'chuteType', 'airRide', 'ventedVan', 'tireRack', 'pdInsurance', 'notes'],
             csvAliases: {
-                unit: ['unit', 'unitnumber', 'unitno', 'trailerno', 'trailernumber', 'equipmentno', 'equipmentnumber', 'no', 'number', 'trailer', 'vehicleno', 'vehiclenumber', 'fleetno', 'fleetnumber', 'id', 'trailerid', 'assetno', 'assetnumber', 'asset'],
-                year: ['year', 'yr', 'modelyear', 'vehicleyear'],
-                make: ['make', 'manufacturer', 'brand', 'oem'],
-                type: ['type', 'trailertype', 'equipmenttype', 'bodytype', 'body', 'model'],
-                vin: ['vin', 'vehicleid', 'vehicleidentification', 'vinno', 'vinnumber', 'serialnumber', 'serial'],
-                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag', 'platenumber', 'plateno', 'tagno', 'tagnumber', 'registration'],
-                plateState: ['platestate', 'state', 'tagstate', 'registrationstate', 'regstate'],
-                status: ['status', 'active', 'condition'],
-                annualInspDate: ['annualinspection', 'inspection', 'inspectiondate', 'annualinsp', 'inspdate', 'inspexp', 'annualinspdate', 'inspectionexp'],
-                registrationExp: ['registration', 'registrationexp', 'registrationexpiration', 'regexp', 'regexpiration', 'regexp'],
-                insuranceExp: ['insurance', 'insuranceexp', 'insuranceexpiration', 'insexp', 'insexpiration'],
-                reeferModel: ['reefermodel', 'reefer', 'reefermake', 'reeferunit', 'reeferbrand', 'tempcontrol'],
-                tireSize: ['tiresize', 'tire', 'tires', 'wheelsize'],
-                spareTires: ['sparetires', 'spare', 'sparetire', 'spares'],
-                etracks: ['etracks', 'etrack', 'tracks'],
-                chuteType: ['chute', 'chutetype', 'centerorsidechute', 'centerchute', 'sidechute'],
-                airRide: ['airride', 'air', 'suspension'],
-                ventedVan: ['ventedvan', 'vented', 'vent'],
-                tireRack: ['tirerack', 'rack'],
-                pdInsurance: ['pdinsurance', 'physicaldamage', 'pd', 'physicalinsurance', 'pdvalue', 'insurancevalue'],
-                notes: ['notes', 'note', 'comments', 'comment', 'remarks']
+                unit: ['unit', 'unitnumber', 'unitno', 'trailerno', 'trailernumber'],
+                year: ['year', 'yr', 'modelyear'],
+                make: ['make', 'manufacturer', 'brand'],
+                type: ['type', 'trailertype', 'equipmenttype'],
+                vin: ['vin', 'vehicleid'],
+                plate: ['plate', 'licenseplate', 'licenseplatenumber', 'tag'],
+                status: ['status']
             }
         },
         driver: {
             cols: [
-                { key: 'name', placeholder: 'e.g., John Smith', type: 'text', required: true },
+                { key: 'firstName', placeholder: 'e.g., John', type: 'text', required: true },
+                { key: 'lastName', placeholder: 'e.g., Smith', type: 'text' },
                 { key: 'phone', placeholder: '(555) 123-4567', type: 'text' },
                 { key: 'cdl', placeholder: 'CDL number', type: 'text' },
                 { key: 'cdlState', placeholder: 'TX', type: 'text', maxlength: 2, pattern: /^[A-Z]{2}$/, warnMsg: 'Invalid state code' },
@@ -8563,17 +3773,13 @@
                 { key: 'status', type: 'select', defaultLabel: 'Active', options: [
                     { value: 'active', label: 'Active' },
                     { value: 'inactive', label: 'Inactive' },
-                    { value: 'home-time', label: 'Home Time' },
-                    { value: 'training', label: 'Training' },
-                    { value: 'pending', label: 'Pending' },
-                    { value: 'suspended', label: 'Suspended' },
-                    { value: 'terminated', label: 'Terminated' }
+                    { value: 'on-leave', label: 'On Leave' }
                 ]}
             ],
             collection: 'drivers',
             label: 'driver',
-            requiredKey: 'name',
-            duplicateKey: 'cdl',
+            requiredKey: 'firstName',
+            duplicateKey: null,
             modalId: 'multiDriverModal',
             tbodyId: 'multiDriverBody',
             countId: 'multiDriverRowCount',
@@ -8612,103 +3818,6 @@
                 address: ['address', 'homeaddress', 'driveraddress', 'streetaddress', 'street', 'addr'],
                 notes: ['notes', 'note', 'comments', 'comment', 'memo', 'remarks'],
                 truck: ['truck', 'truckno', 'trucknumber', 'assignedtruck', 'unit', 'unitnumber', 'vehicle', 'assignedunit', 'equipment']
-            }
-        },
-        inspection: {
-            cols: [
-                { key: 'date', type: 'date', required: true },
-                { key: 'type', type: 'select', options: [
-                    { value: 'level-1', label: 'Level I' }, { value: 'level-2', label: 'Level II' },
-                    { value: 'level-3', label: 'Level III' }, { value: 'level-4', label: 'Level IV' },
-                    { value: 'level-5', label: 'Level V' }, { value: 'citation', label: 'Citation' }
-                ]},
-                { key: 'reportNum', placeholder: 'Report #', type: 'text' },
-                { key: 'result', type: 'select', options: [
-                    { value: 'pass', label: 'Pass' }, { value: 'fail', label: 'Fail' },
-                    { value: 'warning', label: 'Warning' }, { value: 'oos', label: 'Out of Service' }
-                ]}
-            ],
-            collection: 'inspections',
-            label: 'inspection',
-            requiredKey: 'date',
-            defaults: { violations: 0 },
-            afterSave: async () => { await loadInspections(); },
-            extraFields: ['driverName', 'truckUnit', 'location', 'violations', 'fineAmount', 'notes', 'inspStatus', 'assignedTo'],
-            csvAliases: {
-                date: ['date', 'inspectiondate', 'inspdate', 'dateofinspe', 'dateofinspection'],
-                type: ['type', 'level', 'inspectiontype', 'insplevel', 'insptype', 'category'],
-                reportNum: ['reportnum', 'reportnumber', 'report', 'reportno', 'inspectionreport', 'casenumber', 'caseno', 'case'],
-                driverName: ['driver', 'drivername', 'driverfullname', 'operator', 'employeename'],
-                truckUnit: ['truck', 'truckunit', 'unit', 'unitnumber', 'unitno', 'vehicle', 'vehicleno', 'equipment'],
-                result: ['result', 'outcome', 'inspectionresult', 'pass', 'passfail', 'verdict', 'status'],
-                violations: ['violations', 'violationcount', 'numviolations', 'viols', 'defects'],
-                location: ['location', 'city', 'state', 'place', 'inspectionlocation', 'site'],
-                fineAmount: ['fine', 'fineamount', 'penalty', 'amount', 'fee', 'cost'],
-                notes: ['notes', 'note', 'comments', 'comment', 'remarks', 'description', 'details']
-            }
-        },
-        load: {
-            cols: [
-                { key: 'loadNumber', placeholder: 'e.g., 176-1', type: 'text', required: true },
-                { key: 'unit', type: 'truck-select' },
-                { key: 'origin', placeholder: 'City, ST', type: 'text' },
-                { key: 'destination', placeholder: 'City, ST', type: 'text' },
-                { key: 'broker', placeholder: 'Broker name', type: 'text' },
-                { key: 'rate', placeholder: '0.00', type: 'number' },
-                { key: 'mileage', placeholder: '0', type: 'number' },
-                { key: 'detention', placeholder: '0.00', type: 'number' },
-                { key: 'status', type: 'select', defaultLabel: 'Booked', options: [
-                    { value: 'booked', label: 'Booked' }, { value: 'dispatched', label: 'Dispatched' },
-                    { value: 'loaded', label: 'Loaded' }, { value: 'in-transit', label: 'In Transit' },
-                    { value: 'delivered', label: 'Delivered' }, { value: 'invoiced', label: 'Invoiced' },
-                    { value: 'paid', label: 'Paid' }, { value: 'canceled', label: 'Canceled' },
-                    { value: 'issue', label: 'Issue' }
-                ]},
-                { key: 'deliveryDate', type: 'date' },
-                { key: 'driver', type: 'driver-select' },
-                { key: 'dispatcher', type: 'dispatcher-select' }
-            ],
-            collection: 'loads',
-            label: 'load',
-            requiredKey: null,
-            duplicateKey: null,
-            defaults: { status: 'booked' },
-            afterSave: async () => { await loadLoads(); updateOverview(); updateDispatchOverview(); updateAnalytics(); },
-            extraFields: ['loadDate', 'comments'],
-            csvAliases: {
-                loadNumber: ['loadnumber', 'load', 'loadnum', 'loadid', 'loadno', 'number', 'no', 'id', 'order', 'ordernumber', 'orderno', 'orderid', 'pro', 'pronumber', 'prono', 'ref', 'reference', 'refnumber', 'refno', 'bol', 'bolnumber'],
-                unit: ['unit', 'unitnumber', 'unitno', 'truck', 'truckno', 'trucknumber', 'vehicle', 'equipmentno'],
-                origin: ['origin', 'from', 'pickup', 'pickuplocation', 'shipper', 'shippercity', 'originlocation', 'pickupcity', 'fromlocation', 'fromcity', 'pu', 'pulocation'],
-                destination: ['destination', 'to', 'delivery', 'deliverylocation', 'receiver', 'receivercity', 'destlocation', 'deliverycity', 'tolocation', 'tocity', 'del', 'dellocation', 'consignee'],
-                broker: ['broker', 'brokername', 'brokercompany', 'customer', 'customername', 'shipper', 'client', 'clientname', 'company'],
-                rate: ['rate', 'loadrate', 'amount', 'price', 'totalrate', 'linehaul', 'linehaulrate', 'revenue', 'pay', 'loadpay'],
-                mileage: ['mileage', 'miles', 'distance', 'totalmiles', 'loadmiles', 'mi', 'km', 'deadhead'],
-                detention: ['detention', 'bonus', 'detbonus', 'detentionpay', 'accessorial', 'extra', 'lumper', 'tonu'],
-                status: ['status', 'loadstatus', 'state', 'condition'],
-                deliveryDate: ['deliverydate', 'deldate', 'delivery', 'delivered', 'deliveryday', 'dropoff', 'dropoffdate', 'duedate', 'eta'],
-                driver: ['driver', 'drivername', 'assigneddriver', 'operator'],
-                dispatcher: ['dispatcher', 'dispatchername', 'dispatch', 'coordinator', 'rep'],
-                loadDate: ['loaddate', 'date', 'pickupdate', 'pudate', 'bookdate', 'bookeddate', 'created', 'createddate'],
-                comments: ['comments', 'comment', 'notes', 'note', 'remarks', 'memo', 'description']
-            }
-        },
-        task: {
-            collection: null,
-            label: 'task',
-            requiredKey: 'description',
-            afterSave: async () => {
-                if (window.TaskManager && typeof window.TaskManager.reload === 'function') {
-                    await window.TaskManager.reload();
-                }
-            },
-            csvAliases: {
-                description: ['description', 'task', 'text', 'tasktext', 'details', 'note', 'notes', 'taskdescription'],
-                entityType: ['entitytype', 'type', 'entity', 'category', 'for'],
-                entity: ['entity', 'unit', 'unitnumber', 'name', 'driver', 'truck', 'trailer', 'entityid', 'entityname'],
-                taskType: ['tasktype', 'kind', 'workkind', 'worktype'],
-                priority: ['priority', 'importance', 'urgency', 'level'],
-                dueDate: ['duedate', 'due', 'deadline', 'by', 'dueday'],
-                status: ['status', 'state', 'taskstatus']
             }
         }
     };
@@ -8807,7 +3916,7 @@
                 cell.title = [result.year, result.make, result.model].filter(Boolean).join(' ');
                 setTimeout(() => cell.classList.remove('vin-sheet-valid'), 4000);
             }
-            // Autofill sibling cells ” only if user hasn't manually edited them
+            // Autofill sibling cells — only if user hasn't manually edited them
             const fillMap = { year: result.year, make: result.make, model: result.model };
             Object.entries(fillMap).forEach(([key, val]) => {
                 if (!val) return;
@@ -9264,7 +4373,7 @@
                     });
                 }
 
-                // Collect validation issues ” store as warnings, never block
+                // Collect validation issues — store as warnings, never block
                 const issues = [];
                 tr.querySelectorAll('.cell-invalid, .cell-duplicate, .cell-warning').forEach(c => {
                     if (c.title) issues.push(c.title);
@@ -9282,17 +4391,9 @@
                         if (!data[k]) data[k] = v;
                     });
                 }
-                // For drivers: split name into firstName + lastName for Firestore
-                if (type === 'driver' && data.name) {
-                    const parts = data.name.trim().split(/\s+/);
-                    data.firstName = parts[0] || '';
-                    data.lastName = parts.slice(1).join(' ') || '';
-                    delete data.name;
-                }
                 // Uppercase state fields
                 if (data.plateState) data.plateState = data.plateState.toUpperCase();
                 if (data.cdlState) data.cdlState = data.cdlState.toUpperCase();
-                normalizePayload(data, type);
                 data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 data.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
                 const doc = col(config.collection).doc();
@@ -9330,7 +4431,6 @@
         const tbody = $('trailersTableBody');
         const table = $('trailersTable');
         const empty = $('trailersEmpty');
-        const thead = table?.querySelector('thead tr');
         if (state.trailers.length === 0) {
             table.style.display = 'none';
             empty.style.display = '';
@@ -9339,26 +4439,24 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.trailers.filter(t => matchesFilter(t, 'trailer'));
-        const sorted = sortItems(filtered, sortState.trailers, 'trailer');
-        bulkSelection.trailers = new Set([...bulkSelection.trailers].filter(id => sorted.some(t => t.id === id)));
-        updateBulkBar('trailers');
-        const visCols = getVisibleTableCols('trailers');
-        const widths = computeTableColWidths('trailers');
-        if (thead) {
-            let h = '<th class="col-checkbox"><input type="checkbox" id="trailerSelectAll" title="Select all"></th>';
-            visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
-            h += '<th style="width:7%"></th>';
-            thead.innerHTML = h;
-            wireColDrag(thead, 'trailers');
-        }
-        const selAll = thead?.querySelector('#trailerSelectAll');
-        if (selAll) selAll.onchange = () => toggleSelectAll('trailers', selAll);
-        tbody.innerHTML = sorted.map(t => {
-            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + t.id + '" ' + (bulkSelection.trailers.has(t.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'trailers\',\'' + t.id + '\',this)">' + validationIndicator(t) + '</td>';
-            visCols.forEach(c => { cells += trailerCell(t, c.key); });
-            cells += '<td class="row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editTrailer(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button title="Delete" class="btn-delete" onclick="Dashboard.deleteTrailer(\'' + t.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>';
-            return '<tr data-id="' + t.id + '" class="' + (bulkSelection.trailers.has(t.id) ? 'row-selected' : '') + ' ' + (t.doNotDispatch ? 'row-dnd' : '') + ' ' + (t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : '') + '">' + cells + '</tr>';
-        }).join('');
+        tbody.innerHTML = filtered.map(t => `<tr data-id="${t.id}" class="${t.validationStatus === 'error' ? 'row-validation-error' : t.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+            ${validationIndicator(t)}
+            <td><div class="cell cell-primary" title="Open trailer profile for ${escapeHtml(t.unit || ('Trailer ' + t.id))}"><strong>${escapeHtml(t.unit || ('Trailer ' + t.id))}</strong></div></td>
+            <td><div class="cell">${escapeHtml(t.year)}</div></td>
+            <td><div class="cell">${escapeHtml(t.make)}</div></td>
+            <td><div class="cell">${trailerTypeLabel(t.type)}</div></td>
+            <td><div class="cell vin-cell">${escapeHtml(t.vin)}</div></td>
+            <td><div class="cell">${escapeHtml(t.plate)}</div></td>
+            <td><div class="cell">${statusSelect(t.status, t.id, 'trailers', 'trailer')}</div></td>
+            <td class="row-actions"><div class="cell">
+                <button title="Edit" onclick="Dashboard.editTrailer('${t.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteTrailer('${t.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </div></td>
+        </tr>`).join('');
     }
 
     function openTrailerModal(data) {
@@ -9378,16 +4476,19 @@
     }
 
     function initTrailerForm() {
-        $('addTrailerBtn').addEventListener('click', () => openUnifiedSheet('trailer', null, {mode:'add'}));
-        $('addFirstTrailer').addEventListener('click', () => openUnifiedSheet('trailer', null, {mode:'add'}));
+        $('addTrailerBtn').addEventListener('click', () => openSheetModal('trailer'));
+        $('addFirstTrailer').addEventListener('click', () => openSheetModal('trailer'));
         $('closeTrailerModal').addEventListener('click', () => $('trailerModal').classList.add('hidden'));
         $('cancelTrailer').addEventListener('click', () => $('trailerModal').classList.add('hidden'));
 
         const importTrailerBtn = $('importTrailersBtn');
         if (importTrailerBtn) {
-            importTrailerBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                showImportDropdown(importTrailerBtn, smartImportTrailers);
+            importTrailerBtn.addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.csv,.tsv,.txt';
+                input.addEventListener('change', (e) => importCSVToSheet(e.target.files[0], 'trailer'));
+                input.click();
             });
         }
 
@@ -9401,7 +4502,7 @@
 
         $('trailerForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const payload = normalizePayload({
+            const payload = {
                 unit: $('trailerUnit').value.trim(),
                 year: $('trailerYear').value.trim(),
                 make: $('trailerMake').value.trim(),
@@ -9410,13 +4511,9 @@
                 plate: $('trailerPlate').value.trim(),
                 status: $('trailerStatus').value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, 'trailer');
+            };
             try {
                 const editId = $('trailerEditId').value;
-                if (payload.vin && payload.vin.length === 17) {
-                    const dup = await checkDuplicate('trailers', 'vin', payload.vin, editId);
-                    if (dup && !confirm('A trailer with VIN ' + payload.vin + ' already exists (Unit: ' + (dup.data().unit || '?') + '). Save anyway?')) return;
-                }
                 if (editId) {
                     await col('trailers').doc(editId).update(payload);
                 } else {
@@ -9448,7 +4545,6 @@
         const tbody = $('driversTableBody');
         const table = $('driversTable');
         const empty = $('driversEmpty');
-        const thead = table?.querySelector('thead tr');
         if (state.drivers.length === 0) {
             table.style.display = 'none';
             empty.style.display = '';
@@ -9457,26 +4553,25 @@
         empty.style.display = 'none';
         table.style.display = '';
         const filtered = state.drivers.filter(d => matchesFilter(d, 'driver'));
-        const sorted = sortItems(filtered, sortState.drivers, 'driver');
-        bulkSelection.drivers = new Set([...bulkSelection.drivers].filter(id => sorted.some(d => d.id === id)));
-        updateBulkBar('drivers');
-        const visCols = getVisibleTableCols('drivers');
-        const widths = computeTableColWidths('drivers');
-        if (thead) {
-            let h = '<th class="col-checkbox"><input type="checkbox" id="driverSelectAll" title="Select all"></th>';
-            visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
-            h += '<th style="width:8%"></th>';
-            thead.innerHTML = h;
-            wireColDrag(thead, 'drivers');
-        }
-        const selAll = thead?.querySelector('#driverSelectAll');
-        if (selAll) selAll.onchange = () => toggleSelectAll('drivers', selAll);
-        tbody.innerHTML = sorted.map(d => {
-            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + d.id + '" ' + (bulkSelection.drivers.has(d.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'drivers\',\'' + d.id + '\',this)">' + validationIndicator(d) + '</td>';
-            visCols.forEach(c => { cells += driverCell(d, c.key); });
-            cells += '<td class="row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editDriver(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button title="Delete" class="btn-delete" onclick="Dashboard.deleteDriver(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>';
-            return '<tr data-id="' + d.id + '" class="' + (bulkSelection.drivers.has(d.id) ? 'row-selected' : '') + ' ' + (d.doNotDispatch ? 'row-dnd' : '') + ' ' + (d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : '') + '">' + cells + '</tr>';
-        }).join('');
+        tbody.innerHTML = filtered.map(d => `<tr data-id="${d.id}" class="${d.doNotDispatch ? 'row-dnd' : ''} ${d.validationStatus === 'error' ? 'row-validation-error' : d.validationStatus === 'warning' ? 'row-validation-warning' : ''}">
+            ${validationIndicator(d)}
+            <td><div class="cell cell-primary" title="Open driver profile for ${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}"><strong>${escapeHtml(d.firstName)} ${escapeHtml(d.lastName)}</strong>${d.doNotDispatch ? '<span class="dnd-tag">DND</span>' : ''}</div></td>
+            <td><div class="cell">${escapeHtml(d.cdl)}</div></td>
+            <td><div class="cell">${escapeHtml(d.cdlState)}</div></td>
+            <td><div class="cell">${escapeHtml(d.cdlExp)}</div></td>
+            <td><div class="cell">${escapeHtml(d.phone)}</div></td>
+            <td><div class="cell">${escapeHtml(d.email)}</div></td>
+            <td><div class="cell">${escapeHtml(truckLabel(d.truck))}</div></td>
+            <td><div class="cell">${statusSelect(d.status, d.id, 'drivers', 'driver')}</div></td>
+            <td class="row-actions"><div class="cell">
+                <button title="Edit" onclick="Dashboard.editDriver('${d.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                </button>
+                <button title="Delete" class="btn-delete" onclick="Dashboard.deleteDriver('${d.id}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </div></td>
+        </tr>`).join('');
     }
 
     function openDriverModal(data) {
@@ -9500,26 +4595,29 @@
     }
 
     function initDriverForm() {
-        $('addDriverBtn').addEventListener('click', () => openUnifiedSheet('driver', null, {mode:'add'}));
-        $('addFirstDriver').addEventListener('click', () => openUnifiedSheet('driver', null, {mode:'add'}));
+        $('addDriverBtn').addEventListener('click', () => openDriverDetailPanel(null));
+        $('addFirstDriver').addEventListener('click', () => openDriverDetailPanel(null));
         $('closeDriverModal').addEventListener('click', () => $('driverModal').classList.add('hidden'));
         $('cancelDriver').addEventListener('click', () => $('driverModal').classList.add('hidden'));
 
         const importDriverBtn = $('importDriversBtn');
         if (importDriverBtn) {
-            importDriverBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                showImportDropdown(importDriverBtn, smartImportDrivers);
+            importDriverBtn.addEventListener('click', () => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = '.csv,.tsv,.txt,.xlsx,.xls,.pdf';
+                input.addEventListener('change', (e) => smartImportDrivers(e.target.files[0]));
+                input.click();
             });
         }
 
         $('driverForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const payload = normalizePayload({
+            const payload = {
                 firstName: $('driverFirstName').value.trim(),
                 lastName: $('driverLastName').value.trim(),
                 cdl: $('driverCdl').value.trim(),
-                cdlState: $('driverCdlState').value.trim(),
+                cdlState: $('driverCdlState').value.trim().toUpperCase(),
                 cdlExp: $('driverCdlExp').value,
                 medExp: $('driverMedExp').value,
                 phone: $('driverPhone').value.trim(),
@@ -9527,13 +4625,9 @@
                 truck: $('driverTruck').value,
                 status: $('driverStatus').value,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, 'driver');
+            };
             try {
                 const editId = $('driverEditId').value;
-                if (payload.cdl) {
-                    const dup = await checkDuplicate('drivers', 'cdl', payload.cdl, editId);
-                    if (dup) { const dd = dup.data(); if (!confirm('A driver with CDL ' + payload.cdl + ' already exists (' + (dd.firstName || '') + ' ' + (dd.lastName || '') + '). Save anyway?')) return; }
-                }
                 if (editId) {
                     await col('drivers').doc(editId).update(payload);
                 } else {
@@ -9576,11 +4670,11 @@
 
     function vehicleLabel(year, make, model) {
         const parts = [year, make, model].filter(Boolean).map(v => escapeHtml(String(v)));
-        return parts.length ? parts.join(' ') : '”';
+        return parts.length ? parts.join(' ') : '—';
     }
 
     function shortenVin(vin) {
-        if (!vin) return '”';
+        if (!vin) return '—';
         const v = String(vin);
         return v.length > 10 ? '…' + escapeHtml(v.slice(-8)) : escapeHtml(v);
     }
@@ -9588,35 +4682,37 @@
     function fuelLabel(val) {
         const opts = getDropdownOptions('truckFuel');
         const match = opts.find(o => o.value === val);
-        return match ? match.label : escapeHtml(val || '”');
+        return match ? match.label : escapeHtml(val || '—');
     }
 
     function trailerTypeLabel(val) {
         const opts = getDropdownOptions('trailerType');
         const match = opts.find(o => o.value === val);
-        return match ? match.label : escapeHtml(val || '”');
+        return match ? match.label : escapeHtml(val || '—');
     }
 
     function truckLabel(truckId) {
-        if (!truckId) return '”';
+        if (!truckId) return '—';
         const t = state.trucks.find(tr => tr.id === truckId);
-        return t ? t.unit : '”';
+        return t ? t.unit : '—';
     }
 
     // ── Validation Indicator Helpers ───────
     function validationIndicator(item) {
-        if (!item.validationStatus || item.validationStatus === 'valid') return '';
+        if (!item.validationStatus || item.validationStatus === 'valid') return '<td class="col-validation"></td>';
         const isError = item.validationStatus === 'error';
         const issues = item.validationIssues || [];
         const cls = isError ? 'error' : 'warning';
         const label = isError ? 'Error' : 'Warning';
-        return `<span class="validation-indicator vi-${cls}" aria-label="${label}" role="img">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+        return `<td class="col-validation">
+            <span class="validation-indicator vi-${cls}" aria-label="${label}" role="img">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
                     <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
                 </svg>
                 <span class="vi-tooltip"><strong>${label}</strong>${issues.map(i => '<br>• ' + escapeHtml(i)).join('')}</span>
-            </span>`;
+            </span>
+        </td>`;
     }
 
     function issueDetailRow(item, colSpan) {
@@ -9842,15 +4938,13 @@
                 status: newStatus,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
-            const stateArr = state[collection] || [];
+            const stateArr = collection === 'trucks' ? state.trucks : collection === 'trailers' ? state.trailers : state.drivers;
             const item = stateArr.find(x => x.id === id);
             if (item) item.status = newStatus;
 
             // Re-render
             if (collection === 'trucks') { renderTrucks(); populateTruckDropdown(); }
             else if (collection === 'trailers') renderTrailers();
-            else if (collection === 'loads') renderLoads();
-            else if (collection === 'inspections') renderInspections();
             else renderDrivers();
             updateOverview();
             showMsg('Status updated');
@@ -9887,22 +4981,6 @@
         if (type === 'driver') {
             return [item.firstName, item.lastName, item.cdl, item.cdlState, item.phone, item.email].some(v => v && String(v).toLowerCase().includes(q));
         }
-        if (type === 'load') {
-            return [item.loadNumber, item.unit, item.origin, item.destination, item.broker, item.driver, item.dispatcher, item.comments].some(v => v && String(v).toLowerCase().includes(q));
-        }
-        if (type === 'inspection') {
-            const typeF = $('inspectionTypeFilter');
-            const resultF = $('inspectionResultFilter');
-            const statusF = $('inspectionStatusFilter');
-            const tf = typeF ? typeF.value : '';
-            const rf = resultF ? resultF.value : '';
-            const sf = statusF ? statusF.value : '';
-            if (tf && item.type !== tf) return false;
-            if (rf && item.result !== rf) return false;
-            if (sf && (item.inspStatus || 'open') !== sf) return false;
-            if (!q) return true;
-            return [item.reportNum, item.driverName, item.truckUnit, item.location, item.type, item.result, item.notes].some(v => v && String(v).toLowerCase().includes(q));
-        }
         return true;
     }
 
@@ -9919,797 +4997,6 @@
             const el = $(id);
             if (el) el.addEventListener('input', renderDrivers);
         });
-        ['loadSearch', 'loadStatusFilter'].forEach(id => {
-            const el = $(id);
-            if (el) el.addEventListener('input', renderLoads);
-        });
-        ['inspectionSearch', 'inspectionTypeFilter', 'inspectionResultFilter', 'inspectionStatusFilter'].forEach(id => {
-            const el = $(id);
-            if (el) el.addEventListener('input', renderInspections);
-        });
-        // Sort dropdowns
-        const truckSort = $('truckSort');
-        if (truckSort) truckSort.addEventListener('change', () => { sortState.trucks = truckSort.value; renderTrucks(); });
-        const trailerSort = $('trailerSort');
-        if (trailerSort) trailerSort.addEventListener('change', () => { sortState.trailers = trailerSort.value; renderTrailers(); });
-        const driverSort = $('driverSort');
-        if (driverSort) driverSort.addEventListener('change', () => { sortState.drivers = driverSort.value; renderDrivers(); });
-        const loadSort = $('loadSort');
-        if (loadSort) loadSort.addEventListener('change', () => { sortState.loads = loadSort.value; renderLoads(); });
-        // History search/filter/sort
-        ['historySearch', 'historyStatusFilter'].forEach(id => {
-            const el = $(id);
-            if (el) el.addEventListener('input', renderLoadHistory);
-        });
-        const historySort = $('historySort');
-        if (historySort) historySort.addEventListener('change', () => { sortState_history = historySort.value; renderLoadHistory(); });
-        // History export
-        const historyExport = $('historyExportBtn');
-        if (historyExport) historyExport.addEventListener('click', () => Dashboard.bulkExport('loads'));
-        const inspSort = $('inspectionSort');
-        if (inspSort) inspSort.addEventListener('change', () => { sortState.inspections = inspSort.value; renderInspections(); });
-        // Select-all checkboxes
-        const truckSelAll = $('truckSelectAll');
-        if (truckSelAll) truckSelAll.addEventListener('change', () => toggleSelectAll('trucks', truckSelAll));
-        const trailerSelAll = $('trailerSelectAll');
-        if (trailerSelAll) trailerSelAll.addEventListener('change', () => toggleSelectAll('trailers', trailerSelAll));
-        const driverSelAll = $('driverSelectAll');
-        if (driverSelAll) driverSelAll.addEventListener('change', () => toggleSelectAll('drivers', driverSelAll));
-        const loadSelAll = $('loadSelectAll');
-        if (loadSelAll) loadSelAll.addEventListener('change', () => toggleSelectAll('loads', loadSelAll));
-    }
-
-    // ── LOADS ─────────────────────────────
-    async function loadLoads() {
-        try {
-            const snap = await col('loads').orderBy('loadDate', 'desc').get();
-            state.loads = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            renderLoads();
-            updateCount('loadCount', state.loads.length);
-        } catch (e) { console.error('Load loads error:', e); }
-    }
-
-    function formatCurrency(val) {
-        const n = parseFloat(val);
-        if (isNaN(n)) return '';
-        return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-
-    function calcRPM(rate, mileage) {
-        const r = parseFloat(rate);
-        const m = parseFloat(mileage);
-        if (!r || !m) return '';
-        return '$' + (r / m).toFixed(2);
-    }
-
-    function calcTotal(rate, detention) {
-        const r = parseFloat(rate) || 0;
-        const d = parseFloat(detention) || 0;
-        return r + d;
-    }
-
-    function loadStatusBadge(status) {
-        const map = {
-            booked: 'load-badge-booked',
-            dispatched: 'load-badge-dispatched',
-            loaded: 'load-badge-loaded',
-            'in-transit': 'load-badge-transit',
-            delivered: 'load-badge-delivered',
-            invoiced: 'load-badge-invoiced',
-            paid: 'load-badge-paid',
-            canceled: 'load-badge-canceled',
-            issue: 'load-badge-issue'
-        };
-        const cls = map[status] || '';
-        const label = (DROPDOWN_DEFS.loadStatus.defaults.find(o => o.value === status) || {}).label || status || '';
-        return `<span class="load-badge ${cls}">${escapeHtml(label)}</span>`;
-    }
-
-    function renderLoads() {
-        const tbody = $('loadsTableBody');
-        const table = $('loadsTable');
-        const empty = $('loadsEmpty');
-        const thead = table?.querySelector('thead tr');
-        if (!tbody) {
-            console.warn('renderLoads: loadsTableBody not found');
-            return;
-        }
-        const boardLoads = state.loads.filter(isLoadBoardItem);
-        if (boardLoads.length === 0) {
-            if (table) table.style.display = 'none';
-            if (empty) empty.style.display = 'block';
-            renderLoadHistory();
-            updateDispatchOverview();
-            updateAnalytics();
-            return;
-        }
-        if (empty) empty.style.display = 'none';
-        if (table) table.style.display = 'table';
-        const existingIds = new Set(Array.from(tbody.querySelectorAll('tr[data-id]')).map(r => r.dataset.id));
-        const filtered = state.loads.filter(l => isLoadBoardItem(l) && matchesFilter(l, 'load'));
-        const sorted = sortItems(filtered, sortState.loads, 'load');
-        bulkSelection.loads = new Set([...bulkSelection.loads].filter(id => sorted.some(l => l.id === id)));
-        updateBulkBar('loads');
-        const bulkEditBtn = $('bulkEditLoadsBtn');
-        if (bulkEditBtn) bulkEditBtn.style.display = bulkSelection.loads.size > 0 ? '' : 'none';
-
-        const visCols = getVisibleTableCols('loads');
-        const widths = computeTableColWidths('loads');
-        if (thead) {
-            let h = '<th class="col-checkbox"><input type="checkbox" id="loadSelectAll" title="Select all"></th>';
-            visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
-            h += '<th style="width:4%"></th>';
-            thead.innerHTML = h;
-            wireColDrag(thead, 'loads');
-        }
-        const selAll = thead?.querySelector('#loadSelectAll');
-        if (selAll) selAll.onchange = () => toggleSelectAll('loads', selAll);
-        const rowsHtml = sorted.map(l => {
-            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + l.id + '" ' + (bulkSelection.loads.has(l.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'loads\',\'' + l.id + '\',this)"></td>';
-            visCols.forEach(c => { cells += loadCell(l, c.key); });
-            cells += '<td class="row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editLoad(\'' + l.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button><button title="Delete" class="btn-delete" onclick="Dashboard.deleteLoad(\'' + l.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></div></td>';
-            return '<tr data-id="' + l.id + '" class="' + (bulkSelection.loads.has(l.id) ? 'row-selected' : '') + '">' + cells + '</tr>';
-        }).join('');
-        tbody.innerHTML = rowsHtml;
-        if (existingIds.size > 0) {
-            Array.from(tbody.querySelectorAll('tr[data-id]')).forEach(tr => {
-                if (!existingIds.has(tr.dataset.id)) {
-                    tr.classList.add('load-row-enter');
-                    requestAnimationFrame(() => {
-                        requestAnimationFrame(() => tr.classList.remove('load-row-enter'));
-                    });
-                }
-            });
-        }
-        updateDispatchOverview();
-        updateAnalytics();
-        renderLoadHistory();
-    }
-
-    function matchesHistoryFilter(l) {
-        const q = ($('historySearch') ? $('historySearch').value : '').toLowerCase().trim();
-        const f = $('historyStatusFilter') ? $('historyStatusFilter').value : '';
-        if (f && l.status !== f) return false;
-        if (!q) return true;
-        return [l.loadNumber, l.unit, l.origin, l.destination, l.broker, l.driver, l.dispatcher, l.comments].some(v => v && String(v).toLowerCase().includes(q));
-    }
-
-    function renderLoadHistory() {
-        const tbody = $('historyTableBody');
-        if (!tbody) return;
-        
-        const table = $('historyTable');
-        const empty = $('historyEmpty');
-        const thead = table?.querySelector('thead tr');
-        
-        try {
-            const historyLoads = state.loads.filter(l => !isLoadBoardItem(l) && matchesHistoryFilter(l));
-            const sorted = sortItems(historyLoads, sortState_history, 'load');
-            if (sorted.length === 0) {
-                if (table) table.style.display = 'none';
-                if (empty) empty.style.display = 'block';
-                return;
-            }
-            if (empty) empty.style.display = 'none';
-            if (table) table.style.display = 'table';
-            const visCols = getVisibleTableCols('history');
-            const widths = computeTableColWidths('history');
-            if (thead) {
-                let h = '';
-                visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
-                h += '<th style="width:4%"></th>';
-                thead.innerHTML = h;
-                wireColDrag(thead, 'history');
-            }
-            tbody.innerHTML = sorted.map(l => {
-                let cells = '';
-                visCols.forEach(c => { cells += loadCell(l, c.key); });
-                cells += '<td class="row-actions"><div class="cell"><button title="Edit" onclick="Dashboard.editLoad(\'' + l.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div></td>';
-                return '<tr data-id="' + l.id + '">' + cells + '</tr>';
-            }).join('');
-        } catch (e) {
-            console.error('Error rendering load history:', e);
-            if (empty) empty.style.display = '';
-        }
-    }
-
-    function nextLoadNumber() {
-        const nums = state.loads.map(l => parseInt(l.loadNumber, 10)).filter(n => !isNaN(n));
-        return nums.length ? String(Math.max(...nums) + 1) : '1000';
-    }
-
-    function openLoadModal(data) {
-        $('loadModalTitle').textContent = data ? 'Edit Load' : 'New Load';
-        $('loadEditId').value = data ? data.id : '';
-        $('loadDate').value = data ? data.loadDate || '' : new Date().toISOString().split('T')[0];
-        $('loadNumber').value = data ? data.loadNumber || '' : nextLoadNumber();
-        $('loadUnit').value = data ? data.unit || '' : '';
-        $('loadOrigin').value = data ? data.origin || '' : '';
-        $('loadDestination').value = data ? data.destination || '' : '';
-        $('loadBroker').value = data ? data.broker || '' : '';
-        $('loadRate').value = data ? data.rate || '' : '';
-        $('loadMileage').value = data ? data.mileage || '' : '';
-        $('loadDetention').value = data ? data.detention || '' : '';
-        $('loadStatus').value = data ? data.status || 'booked' : 'booked';
-        $('loadDeliveryDate').value = data ? data.deliveryDate || '' : '';
-        $('loadDriver').value = data ? data.driver || '' : '';
-        $('loadComments').value = data ? data.comments || '' : '';
-        // Populate dispatcher dropdown with users who have Dispatcher role
-        const dispatcherSel = $('loadDispatcher');
-        if (dispatcherSel && dispatcherSel.tagName === 'SELECT') {
-            const currentDisp = data ? data.dispatcher || '' : '';
-            const dispatchers = (state.companyDashboard && state.companyDashboard.users || []).filter(u => u.role === 'Dispatcher');
-            const dOpts = '<option value="">—</option>' + dispatchers.map(u => `<option value="${escapeHtml(u.name)}" ${u.name === currentDisp ? 'selected' : ''}>${escapeHtml(u.name)}</option>`).join('');
-            dispatcherSel.innerHTML = dOpts;
-            if (currentDisp) dispatcherSel.value = currentDisp;
-        }
-        // Populate unit dropdown with active trucks
-        const unitSel = $('loadUnit');
-        if (unitSel) {
-            const current = unitSel.value;
-            const opts = '<option value="">”</option>' + state.trucks.map(t => `<option value="${escapeHtml(t.unit)}" ${t.unit === current ? 'selected' : ''}>${escapeHtml(t.unit)}</option>`).join('');
-            unitSel.innerHTML = opts;
-            if (current) unitSel.value = current;
-        }
-        // Populate driver dropdown with active drivers
-        const driverSel = $('loadDriver');
-        if (driverSel && driverSel.tagName === 'SELECT') {
-            const current = driverSel.value;
-            const opts = '<option value="">”</option>' + state.drivers.filter(d => !d.doNotDispatch).map(d => {
-                const name = (d.firstName || '') + ' ' + (d.lastName || '');
-                return `<option value="${escapeHtml(name.trim())}" ${name.trim() === current ? 'selected' : ''}>${escapeHtml(name.trim())}</option>`;
-            }).join('');
-            driverSel.innerHTML = opts;
-            if (current) driverSel.value = current;
-        }
-        $('loadModal').classList.remove('hidden');
-        // Show route if both origin & destination exist
-        setTimeout(() => calcLoadRoute(), 200);
-    }
-
-    /* ── Load Route Map (Google Maps) ── */
-    let _loadMap = null;
-    let _loadDirService = null;
-    let _loadDirRenderer = null;
-
-    function isGMaps() {
-        return !!(window.google && google.maps && google.maps.Map);
-    }
-
-    function resolveZipToCity(zip) {
-        return new Promise(resolve => {
-            if (!isGMaps()) return resolve(null);
-            new google.maps.Geocoder().geocode(
-                { address: zip, componentRestrictions: { country: 'US' } },
-                (results, status) => {
-                    if (status !== 'OK' || !results[0]) return resolve(null);
-                    let city = '', st = '';
-                    results[0].address_components.forEach(c => {
-                        if (c.types.includes('locality')) city = c.long_name;
-                        if (!city && c.types.includes('sublocality_level_1')) city = c.long_name;
-                        if (!city && c.types.includes('administrative_area_level_2')) city = c.long_name;
-                        if (c.types.includes('administrative_area_level_1')) st = c.short_name;
-                    });
-                    resolve(city && st ? city + ', ' + st : null);
-                }
-            );
-        });
-    }
-
-    function ensureLoadMap() {
-        const container = $('loadRouteMap');
-        if (!container || !isGMaps()) return false;
-        if (!_loadMap) {
-            _loadMap = new google.maps.Map(container, {
-                center: { lat: 39.8283, lng: -98.5795 },
-                zoom: 4,
-                disableDefaultUI: true,
-                zoomControl: true,
-                gestureHandling: 'cooperative',
-                styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }]
-            });
-            _loadDirService = new google.maps.DirectionsService();
-            _loadDirRenderer = new google.maps.DirectionsRenderer({
-                map: _loadMap,
-                suppressMarkers: false,
-                polylineOptions: { strokeColor: '#6366f1', strokeWeight: 4, strokeOpacity: 0.8 }
-            });
-        }
-        return true;
-    }
-
-    function calcLoadRoute() {
-        const originVal = ($('loadOrigin') || {}).value || '';
-        const destVal = ($('loadDestination') || {}).value || '';
-        const mapEl = $('loadRouteMap');
-        const infoEl = $('loadRouteInfo');
-        if (!originVal.trim() || !destVal.trim() || !isGMaps()) {
-            if (mapEl) mapEl.style.display = 'none';
-            if (infoEl) infoEl.style.display = 'none';
-            return;
-        }
-        if (!ensureLoadMap()) return;
-        mapEl.style.display = 'block';
-        google.maps.event.trigger(_loadMap, 'resize');
-        _loadDirService.route({
-            origin: originVal.trim(),
-            destination: destVal.trim(),
-            travelMode: google.maps.TravelMode.DRIVING
-        }, (result, status) => {
-            if (status === 'OK' && result.routes[0]) {
-                _loadDirRenderer.setDirections(result);
-                const leg = result.routes[0].legs[0];
-                const miles = Math.round(leg.distance.value * 0.000621371);
-                const mileageInput = $('loadMileage');
-                if (mileageInput) mileageInput.value = miles;
-                if (infoEl) {
-                    infoEl.style.display = 'flex';
-                    infoEl.innerHTML = '<span>' + escapeHtml(leg.distance.text) + '</span><span>' + escapeHtml(leg.duration.text) + '</span>';
-                }
-            } else {
-                if (mapEl) mapEl.style.display = 'none';
-                if (infoEl) infoEl.style.display = 'none';
-            }
-        });
-    }
-
-    async function handleLoadLocationBlur(input) {
-        const val = input.value.trim();
-        if (/^\d{5}$/.test(val)) {
-            const resolved = await resolveZipToCity(val);
-            if (resolved) input.value = resolved;
-        }
-        calcLoadRoute();
-    }
-
-    function wireLoadLocationEvents() {
-        ['loadOrigin', 'loadDestination'].forEach(id => {
-            const input = $(id);
-            if (!input) return;
-            input.addEventListener('blur', () => handleLoadLocationBlur(input));
-        });
-    }
-
-    /* ── Unified Sheet Route Map ── */
-    let _usheetMap = null;
-    let _usheetDirService = null;
-    let _usheetDirRenderer = null;
-    let _usheetActiveRow = null; // currently displayed route row
-
-    function ensureUsheetMap() {
-        const container = $('usheetRouteMap');
-        if (!container || !isGMaps()) return false;
-        if (!_usheetMap) {
-            _usheetMap = new google.maps.Map(container, {
-                center: { lat: 39.8283, lng: -98.5795 },
-                zoom: 4,
-                disableDefaultUI: true,
-                zoomControl: true,
-                gestureHandling: 'cooperative',
-                styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }]
-            });
-            _usheetDirService = new google.maps.DirectionsService();
-            _usheetDirRenderer = new google.maps.DirectionsRenderer({
-                map: _usheetMap,
-                suppressMarkers: false,
-                polylineOptions: { strokeColor: '#6366f1', strokeWeight: 4, strokeOpacity: 0.8 }
-            });
-        }
-        return true;
-    }
-
-    function showUsheetRoute(origin, dest, mileInput, tr) {
-        if (!isGMaps() || !ensureUsheetMap()) return;
-        _usheetActiveRow = tr;
-        const card = $('usheetRouteCard');
-        const infoEl = $('usheetRouteInfo');
-        const loadNumEl = $('usheetRouteLoadNum');
-        const flipBtn = $('usheetFlipBtn');
-        // Show engraved load number
-        if (loadNumEl) {
-            const ln = tr && tr.querySelector('span[data-key="loadNumber"]');
-            const num = ln ? ln.textContent : '';
-            loadNumEl.textContent = num ? 'LOAD #' + num : 'NEW LOAD';
-        }
-        uUpdateRouteNav();
-        _usheetDirService.route({
-            origin: origin,
-            destination: dest,
-            travelMode: google.maps.TravelMode.DRIVING
-        }, (result, status) => {
-            if (status === 'OK' && result.routes[0]) {
-                // Show the flip arrow
-                if (flipBtn) flipBtn.classList.add('visible');
-                // Auto-flip to map on first route
-                const body = $('usheetBody');
-                if (body && !body.classList.contains('flipped')) {
-                    body.classList.add('flipped');
-                    setTimeout(() => google.maps.event.trigger(_usheetMap, 'resize'), 520);
-                } else {
-                    google.maps.event.trigger(_usheetMap, 'resize');
-                }
-                _usheetDirRenderer.setDirections(result);
-                const bounds = new google.maps.LatLngBounds();
-                result.routes[0].overview_path.forEach(p => bounds.extend(p));
-                setTimeout(() => _usheetMap.fitBounds(bounds, { top: 10, right: 20, bottom: 10, left: 20 }), 550);
-                const leg = result.routes[0].legs[0];
-                const miles = Math.round(leg.distance.value * 0.000621371);
-                if (mileInput) {
-                    mileInput.value = miles;
-                    if (tr) uMarkDirty(tr);
-                    const rateEl = tr && tr.querySelector('input[data-key="rate"]');
-                    const rpmEl = tr && tr.querySelector('span[data-key="rpm"]');
-                    if (rpmEl && rateEl) rpmEl.textContent = calcRPM(rateEl.value, miles);
-                }
-                if (infoEl) {
-                    infoEl.innerHTML = '<span>' + escapeHtml(leg.start_address.split(',')[0]) + '</span>'
-                        + '<span class="usheet-route-arrow">→</span>'
-                        + '<span>' + escapeHtml(leg.end_address.split(',')[0]) + '</span>'
-                        + '<span class="usheet-route-pill">' + escapeHtml(leg.distance.text) + '</span>'
-                        + '<span class="usheet-route-pill">' + escapeHtml(leg.duration.text) + '</span>';
-                    if (miles) {
-                        const rateEl2 = tr && tr.querySelector('input[data-key="rate"]');
-                        const rpm = rateEl2 ? calcRPM(rateEl2.value, miles) : '';
-                        if (rpm) infoEl.innerHTML += '<span class="usheet-route-pill usheet-route-rpm">' + escapeHtml(rpm) + '/mi</span>';
-                    }
-                }
-            } else {
-                console.warn('[LoadRoute] Directions failed:', status, 'from', origin, 'to', dest);
-                hideUsheetMap();
-                if (infoEl && card) {
-                    if (flipBtn) flipBtn.classList.add('visible');
-                    infoEl.innerHTML = '<span class="usheet-route-error">Route error: ' + escapeHtml(status) + '</span>';
-                }
-            }
-        });
-    }
-
-    function hideUsheetMap() {
-        const body = $('usheetBody');
-        const flipBtn = $('usheetFlipBtn');
-        if (body) body.classList.remove('flipped');
-        if (flipBtn) flipBtn.classList.remove('visible');
-        _usheetActiveRow = null;
-    }
-
-    // Navigate between load rows that have routes
-    function uGetRoutableRows() {
-        const tbody = $('usheetTbody');
-        if (!tbody) return [];
-        return Array.from(tbody.children).filter(tr => {
-            const o = tr.querySelector('input[data-key="origin"]');
-            const d = tr.querySelector('input[data-key="destination"]');
-            return o && d && o.value.trim() && d.value.trim();
-        });
-    }
-
-    function uUpdateRouteNav() {
-        const rows = uGetRoutableRows();
-        const idx = rows.indexOf(_usheetActiveRow);
-        const prev = $('usheetRoutePrev');
-        const next = $('usheetRouteNext');
-        if (prev) prev.disabled = idx <= 0;
-        if (next) next.disabled = idx < 0 || idx >= rows.length - 1;
-    }
-
-    function uNavigateRoute(dir) {
-        const rows = uGetRoutableRows();
-        const idx = rows.indexOf(_usheetActiveRow);
-        const target = rows[idx + dir];
-        if (!target) return;
-        const o = target.querySelector('input[data-key="origin"]');
-        const d = target.querySelector('input[data-key="destination"]');
-        const m = target.querySelector('input[data-key="mileage"]');
-        if (o && d) showUsheetRoute(o.value.trim(), d.value.trim(), m, target);
-    }
-
-    function initLoadForm() {
-        // New Load → open unified sheet in add mode
-        const addBtn = $('addLoadBtn');
-        if (addBtn) addBtn.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
-        const addFirst = $('addFirstLoad');
-        if (addFirst) addFirst.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
-        // Import → open unified sheet in add mode (import button triggers file picker inside usheet)
-        const importBtn = $('importLoadsBtn');
-        if (importBtn) importBtn.addEventListener('click', () => openUnifiedSheet('load', [], { mode: 'add' }));
-        // Bulk edit selected
-        const bulkEditBtn = $('bulkEditLoadsBtn');
-        if (bulkEditBtn) bulkEditBtn.addEventListener('click', () => {
-            const ids = [...bulkSelection.loads];
-            if (!ids.length) return;
-            const items = state.loads.filter(l => ids.includes(l.id));
-            openUnifiedSheet('load', items, { mode: 'edit' });
-        });
-        // Keep modal for single-load edit from row actions
-        const closeBtn = $('closeLoadModal');
-        if (closeBtn) closeBtn.addEventListener('click', () => $('loadModal').classList.add('hidden'));
-        const cancelBtn = $('cancelLoad');
-        if (cancelBtn) cancelBtn.addEventListener('click', () => $('loadModal').classList.add('hidden'));
-
-        const form = $('loadForm');
-        if (form) form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const payload = {
-                loadDate: $('loadDate').value.trim(),
-                loadNumber: $('loadNumber').value.trim() || nextLoadNumber(),
-                unit: $('loadUnit').value,
-                origin: $('loadOrigin').value.trim(),
-                destination: $('loadDestination').value.trim(),
-                broker: $('loadBroker').value.trim(),
-                rate: parseFloat($('loadRate').value) || 0,
-                mileage: parseFloat($('loadMileage').value) || 0,
-                detention: parseFloat($('loadDetention').value) || 0,
-                status: $('loadStatus').value,
-                deliveryDate: $('loadDeliveryDate').value.trim(),
-                driver: $('loadDriver').value,
-                dispatcher: $('loadDispatcher').value,
-                comments: $('loadComments').value.trim(),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            };
-            if (!payload.loadNumber) payload.loadNumber = nextLoadNumber();
-            try {
-                const editId = $('loadEditId').value;
-                if (editId) {
-                    await col('loads').doc(editId).update(payload);
-                } else {
-                    payload.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-                    await col('loads').add(payload);
-                }
-                $('loadModal').classList.add('hidden');
-                await loadLoads();
-                updateOverview();
-                showMsg(editId ? 'Load updated' : 'Load added');
-            } catch (err) {
-                console.error('Save load error:', err);
-                showMsg('Error saving load', true);
-            }
-        });
-    }
-
-    function editLoad(id) {
-        const load = state.loads.find(l => l.id === id);
-        if (load) openLoadModal(load);
-    }
-
-    async function deleteLoad(id) {
-        if (!confirm('Delete this load?')) return;
-        try {
-            await col('loads').doc(id).delete();
-            await loadLoads();
-            updateOverview();
-            showMsg('Load deleted');
-        } catch (err) {
-            console.error('Delete load error:', err);
-            showMsg('Error deleting load', true);
-        }
-    }
-
-    // ── Load Document Upload (RC / POD) ────────────────
-    let loadDocTarget = { loadId: null, docType: null };
-    const MAX_LOAD_DOC_SIZE = 10 * 1024 * 1024; // 10MB
-
-    function initLoadDocUpload() {
-        const fileInput = $('loadDocUpload');
-        if (!fileInput) return;
-        // Delegated click on table body for .load-doc-btn
-        const tbody = $('loadsTableBody');
-        if (tbody) {
-            tbody.addEventListener('click', (e) => {
-                const btn = e.target.closest('.load-doc-btn');
-                if (!btn) return;
-                e.stopPropagation();
-                loadDocTarget.loadId = btn.dataset.id;
-                loadDocTarget.docType = btn.dataset.doc;
-                fileInput.value = '';
-                fileInput.click();
-            });
-        }
-        fileInput.addEventListener('change', async () => {
-            const file = fileInput.files[0];
-            if (!file) return;
-            if (file.size > MAX_LOAD_DOC_SIZE) { showMsg('File too large (max 10MB)', true); return; }
-            await uploadLoadDoc(loadDocTarget.loadId, loadDocTarget.docType, file);
-        });
-    }
-
-    async function uploadLoadDoc(loadId, docType, file) {
-        if (!loadId || !docType || !file) return;
-        const uid = firebase.auth().currentUser?.uid;
-        if (!uid) { showMsg('Not authenticated', true); return; }
-        const ts = Date.now();
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-        const storagePath = `users/${uid}/loads/${loadId}/docs/${docType}_${ts}_${safeName}`;
-        try {
-            showMsg('Uploading ' + (docType === 'rc' ? 'Rate Confirmation' : 'Proof of Delivery') + '...');
-            const ref = storage.ref(storagePath);
-            await ref.put(file);
-            const url = await ref.getDownloadURL();
-            const update = {};
-            update[docType + 'Url'] = url;
-            update[docType + 'Name'] = file.name;
-            update[docType + 'Path'] = storagePath;
-            update.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-            await col('loads').doc(loadId).update(update);
-            // Update local state
-            const load = state.loads.find(l => l.id === loadId);
-            if (load) {
-                load[docType + 'Url'] = url;
-                load[docType + 'Name'] = file.name;
-                load[docType + 'Path'] = storagePath;
-            }
-            renderLoads();
-            showMsg((docType === 'rc' ? 'Rate Confirmation' : 'Proof of Delivery') + ' uploaded');
-        } catch (err) {
-            console.error('Upload load doc error:', err);
-            showMsg('Error uploading document', true);
-        }
-    }
-
-    const inlineDocTarget = { entityType: '', entityId: '', docType: '' };
-    let inlineDocFileInput = null;
-
-    function initInlineDocUploads() {
-        inlineDocFileInput = document.createElement('input');
-        inlineDocFileInput.type = 'file';
-        inlineDocFileInput.accept = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx';
-        inlineDocFileInput.hidden = true;
-        document.body.appendChild(inlineDocFileInput);
-
-        // Photo lightbox
-        const lb = document.createElement('div');
-        lb.id = 'photoLightbox';
-        lb.className = 'photo-lightbox';
-        lb.innerHTML = '<div class="photo-lightbox-backdrop"></div><div class="photo-lightbox-content"><img id="photoLightboxImg" src="" alt="Photo"/><button class="photo-lightbox-close" title="Close">&times;</button></div>';
-        document.body.appendChild(lb);
-        lb.addEventListener('click', (e) => {
-            if (e.target.closest('.photo-lightbox-backdrop') || e.target.closest('.photo-lightbox-close')) {
-                lb.classList.remove('active');
-            }
-        });
-
-        function closeDocMenus() {
-            document.querySelectorAll('.entity-doc-uploaded.open').forEach(el => el.classList.remove('open'));
-            document.querySelectorAll('body > .entity-doc-menu').forEach(m => {
-                m.style.display = 'none';
-                if (m._docWrap) { m._docWrap.appendChild(m); m._docWrap = null; }
-            });
-        }
-
-        ['trucksTableBody', 'trailersTableBody', 'driversTableBody'].forEach(id => {
-            const tbody = $(id);
-            if (!tbody) return;
-            tbody.addEventListener('click', (e) => {
-                // Click on check or photo thumb → toggle menu
-                const indicator = e.target.closest('.entity-doc-check') || e.target.closest('.entity-doc-thumb');
-                if (indicator) {
-                    e.stopPropagation();
-                    const wrap = indicator.closest('.entity-doc-uploaded');
-                    // Close any other open menus first
-                    document.querySelectorAll('.entity-doc-uploaded.open').forEach(el => { if (el !== wrap) el.classList.remove('open'); });
-                    document.querySelectorAll('body > .entity-doc-menu').forEach(m => { if (m._docWrap !== wrap) { m.style.display = 'none'; if (m._docWrap) { m._docWrap.appendChild(m); m._docWrap = null; } } });
-                    wrap.classList.toggle('open');
-                    // Position the fixed menu next to the indicator
-                    if (wrap.classList.contains('open')) {
-                        const menu = wrap.querySelector('.entity-doc-menu');
-                        if (menu) {
-                            document.body.appendChild(menu);
-                            menu.style.display = 'flex';
-                            const rect = indicator.getBoundingClientRect();
-                            menu.style.top = (rect.bottom + 4) + 'px';
-                            menu.style.left = (rect.left + rect.width / 2 - 50) + 'px';
-                            menu.style.right = 'auto';
-                            menu._docWrap = wrap;
-                            // Wire up View/Replace since menu is now on body
-                            const vBtn = menu.querySelector('.entity-doc-view-btn');
-                            if (vBtn) {
-                                vBtn.onclick = (ev) => {
-                                    ev.stopPropagation();
-                                    const url = vBtn.dataset.photoUrl;
-                                    if (url) {
-                                        if (vBtn.dataset.isImage) {
-                                            $('photoLightboxImg').src = url;
-                                            lb.classList.add('active');
-                                        } else {
-                                            window.open(url, '_blank', 'noopener');
-                                        }
-                                    }
-                                    closeDocMenus();
-                                };
-                            }
-                            const rBtn = menu.querySelector('.entity-doc-replace-btn');
-                            if (rBtn) {
-                                rBtn.onclick = (ev) => {
-                                    ev.stopPropagation();
-                                    inlineDocTarget.entityType = rBtn.dataset.entity;
-                                    inlineDocTarget.entityId = rBtn.dataset.id;
-                                    inlineDocTarget.docType = rBtn.dataset.doc || 'photo';
-                                    inlineDocFileInput.value = '';
-                                    inlineDocFileInput.click();
-                                    closeDocMenus();
-                                };
-                            }
-                        }
-                    }
-                    return;
-                }
-                // View button in menu → open lightbox or new tab
-                const viewBtn = e.target.closest('.entity-doc-view-btn');
-                if (viewBtn) {
-                    e.stopPropagation();
-                    const url = viewBtn.dataset.photoUrl;
-                    if (url) {
-                        if (viewBtn.dataset.isImage) {
-                            $('photoLightboxImg').src = url;
-                            lb.classList.add('active');
-                        } else {
-                            window.open(url, '_blank', 'noopener');
-                        }
-                    }
-                    viewBtn.closest('.entity-doc-uploaded').classList.remove('open');
-                    return;
-                }
-                // Replace button in menu → open file picker
-                const replaceBtn = e.target.closest('.entity-doc-replace-btn');
-                if (replaceBtn) {
-                    e.stopPropagation();
-                    const wrap = replaceBtn.closest('.entity-doc-uploaded');
-                    inlineDocTarget.entityType = (wrap || replaceBtn).dataset.entity;
-                    inlineDocTarget.entityId = (wrap || replaceBtn).dataset.id;
-                    inlineDocTarget.docType = (wrap || replaceBtn).dataset.doc || 'photo';
-                    inlineDocFileInput.value = '';
-                    inlineDocFileInput.click();
-                    if (wrap) wrap.classList.remove('open');
-                    return;
-                }
-                // Upload button (not yet uploaded)
-                const btn = e.target.closest('.entity-doc-btn');
-                if (!btn) return;
-                e.stopPropagation();
-                inlineDocTarget.entityType = btn.dataset.entity;
-                inlineDocTarget.entityId = btn.dataset.id;
-                inlineDocTarget.docType = btn.dataset.doc;
-                inlineDocFileInput.value = '';
-                inlineDocFileInput.click();
-            });
-        });
-
-        // Close doc menus on outside click
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.entity-doc-uploaded') && !e.target.closest('.entity-doc-menu')) {
-                closeDocMenus();
-            }
-            if (!e.target.closest('.usheet-attach-btn') && !e.target.closest('.usheet-attach-menu')) {
-                document.querySelectorAll('.usheet-attach-menu').forEach(m => m.remove());
-            }
-        });
-
-        const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-
-        inlineDocFileInput.addEventListener('change', async () => {
-            const file = inlineDocFileInput.files[0];
-            if (!file) return;
-            if (file.size > MAX_DOC_SIZE) { showMsg('File too large (max 10 MB)', true); return; }
-            if (file.type && !ALLOWED_MIME_TYPES.includes(file.type) && !file.type.startsWith('image/')) {
-                showMsg('Unsupported file type. Please upload an image, PDF, or Word document.', true); return;
-            }
-            const uploadToast = showUploadToast(file.name);
-            try {
-                if (inlineDocTarget.entityType === 'driver') {
-                    await uploadDriverDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
-                    renderDrivers();
-                } else if (inlineDocTarget.entityType === 'truck') {
-                    await uploadTruckDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
-                    renderTrucks();
-                } else if (inlineDocTarget.entityType === 'trailer') {
-                    await uploadTrailerDoc(inlineDocTarget.entityId, file, inlineDocTarget.docType);
-                    renderTrailers();
-                }
-                completeUploadToast(uploadToast, true, 'Document uploaded successfully');
-            } catch (err) {
-                console.error('Inline upload failed:', err);
-                completeUploadToast(uploadToast, false, 'Upload failed: ' + (err.message || err));
-            }
-        });
     }
 
     // ── Operational Alerts ────────────────
@@ -10717,29 +5004,6 @@
         const alerts = [];
         const today = new Date().toISOString().split('T')[0];
         const soon = new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0];
-
-        // IFTA quarterly deadline reminder
-        const now = new Date();
-        const y = now.getFullYear();
-        const deadlines = [
-            { q: 'Q4 ' + (y - 1), date: new Date(y, 0, 31) },
-            { q: 'Q1 ' + y, date: new Date(y, 3, 30) },
-            { q: 'Q2 ' + y, date: new Date(y, 6, 31) },
-            { q: 'Q3 ' + y, date: new Date(y, 9, 31) },
-            { q: 'Q4 ' + y, date: new Date(y + 1, 0, 31) }
-        ];
-        const nextDeadline = deadlines.find(d => d.date >= now);
-        if (nextDeadline) {
-            const daysLeft = Math.ceil((nextDeadline.date - now) / 86400000);
-            if (daysLeft <= 45) {
-                alerts.push({
-                    type: daysLeft <= 7 ? 'danger' : daysLeft <= 14 ? 'warning' : 'info',
-                    icon: 'calendar',
-                    text: 'IFTA ' + nextDeadline.q + ' filing due in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : ''),
-                    link: 'index.html'
-                });
-            }
-        }
 
         // Drivers with expiring CDL (within 30 days)
         const expiringCdl = state.drivers.filter(d => d.cdlExp && d.cdlExp >= today && d.cdlExp <= soon);
@@ -10768,7 +5032,6 @@
                 kind: 'unassigned-drivers',
                 text: unassigned.length + ' active driver' + (unassigned.length > 1 ? 's' : '') + ' unassigned to a truck',
                 drivers: unassigned.map((d) => ({
-                    id: d.id,
                     name: [d.firstName, d.lastName].filter(Boolean).join(' ').trim() || 'Unnamed driver',
                     phone: (d.phone || '').trim(),
                     cdl: (d.cdl || '').trim()
@@ -10776,234 +5039,90 @@
             });
         }
 
-        // Unassigned active trucks (no driver assigned to them)
-        const assignedTruckIds = new Set(state.drivers.filter(d => d.truck).map(d => d.truck));
-        const unassignedTrucks = state.trucks.filter(t => t.status === 'active' && !assignedTruckIds.has(t.id));
-        if (unassignedTrucks.length) {
-            alerts.push({
-                type: 'info',
-                icon: 'truck',
-                kind: 'unassigned-trucks',
-                text: unassignedTrucks.length + ' active truck' + (unassignedTrucks.length > 1 ? 's' : '') + ' with no driver assigned',
-                items: unassignedTrucks.map(t => ({
-                    id: t.id,
-                    name: t.unit || t.id,
-                    meta: [t.year, t.make, t.model].filter(Boolean).join(' ')
-                }))
-            });
-        }
+        // IFTA quarterly filing deadlines
+        const nowDate = new Date();
+        const iftaAlertDeadlines = [
+            { q: 'Q1', month: 3, day: 30, label: 'Q1 (Jan\u2013Mar)' },
+            { q: 'Q2', month: 6, day: 31, label: 'Q2 (Apr\u2013Jun)' },
+            { q: 'Q3', month: 9, day: 31, label: 'Q3 (Jul\u2013Sep)' },
+            { q: 'Q4', month: 0, day: 31, label: 'Q4 (Oct\u2013Dec)', nextYear: true }
+        ];
+        iftaAlertDeadlines.forEach(dl => {
+            const yr = dl.nextYear && nowDate.getMonth() >= 10 ? nowDate.getFullYear() + 1 : nowDate.getFullYear();
+            const deadline = new Date(yr, dl.month, dl.day);
+            const daysLeft = Math.ceil((deadline - nowDate) / 86400000);
+            if (daysLeft >= 0 && daysLeft <= 30) {
+                alerts.push({
+                    type: daysLeft <= 7 ? 'danger' : 'warning',
+                    icon: 'clock',
+                    text: 'IFTA ' + dl.label + ' filing due in ' + daysLeft + ' day' + (daysLeft !== 1 ? 's' : '')
+                });
+            }
+        });
 
-        // Unassigned active trailers (not assigned to any truck)
-        const assignedTrailerIds = new Set(state.trucks.filter(t => t.trailer).map(t => t.trailer));
-        const unassignedTrailers = state.trailers.filter(t => t.status === 'active' && !assignedTrailerIds.has(t.id));
-        if (unassignedTrailers.length) {
-            alerts.push({
-                type: 'info',
-                icon: 'trailer',
-                kind: 'unassigned-trailers',
-                text: unassignedTrailers.length + ' active trailer' + (unassignedTrailers.length > 1 ? 's' : '') + ' with no truck assigned',
-                items: unassignedTrailers.map(t => ({
-                    id: t.id,
-                    name: t.unit || t.id,
-                    meta: [t.year, t.make, t.type ? trailerTypeLabel(t.type) : ''].filter(Boolean).join(' ')
-                }))
-            });
+        // MCS-150 biennial update alert
+        if (state.fmcsaSnapshot && state.fmcsaSnapshot.mcs150FormDate) {
+            const lastFiled = new Date(state.fmcsaSnapshot.mcs150FormDate);
+            if (!isNaN(lastFiled.getTime())) {
+                const nextDue = new Date(lastFiled);
+                nextDue.setFullYear(nextDue.getFullYear() + 2);
+                const daysMcs = Math.ceil((nextDue - nowDate) / 86400000);
+                if (daysMcs < 0) {
+                    alerts.push({ type: 'danger', icon: 'alert', text: 'MCS-150 biennial update is OVERDUE \u2014 file immediately' });
+                } else if (daysMcs <= 60) {
+                    alerts.push({ type: daysMcs <= 30 ? 'danger' : 'warning', icon: 'clock', text: 'MCS-150 biennial update due in ' + daysMcs + ' day' + (daysMcs !== 1 ? 's' : '') });
+                }
+            }
         }
 
         const container = $('overviewAlerts');
-        const safetyContainer = $('safetyAlerts');
+        if (!container) return;
+
+        if (alerts.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
 
         const iconMap = {
             clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
             alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>',
             wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
-            calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-            truck: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
-            trailer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><rect x="1" y="6" width="18" height="12" rx="1"/><circle cx="7" cy="18" r="2"/><circle cx="15" cy="18" r="2"/><path d="M19 12h4"/></svg>',
             user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>'
         };
 
-        // Show all alerts in both overview and safety containers
-        const safetyAlerts = alerts;
-        const overviewAlerts = alerts;
+        container.innerHTML = alerts.map((a, idx) => {
+            if (a.kind === 'unassigned-drivers') {
+                const detailId = `unassigned-driver-alert-${idx}`;
+                const rows = (a.drivers || []).map((driver) => {
+                    const subtitle = [driver.phone, driver.cdl ? ('CDL: ' + driver.cdl) : '']
+                        .filter(Boolean)
+                        .join(' | ');
+                    return `<li class="alert-dropdown-item"><span class="alert-dropdown-name">${escapeHtml(driver.name)}</span>${subtitle ? `<span class="alert-dropdown-meta">${escapeHtml(subtitle)}</span>` : ''}</li>`;
+                }).join('');
+                return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned" data-alert-kind="unassigned-drivers">`
+                    + `<button type="button" class="alert-dropdown-trigger" aria-expanded="false" aria-controls="${detailId}">`
+                    + `${iconMap[a.icon] || ''}`
+                    + `<span>${escapeHtml(a.text)}</span>`
+                    + `<svg class="alert-dropdown-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>`
+                    + `</button>`
+                    + `<div class="alert-dropdown-panel" id="${detailId}" hidden><ul class="alert-dropdown-list">${rows}</ul></div>`
+                    + `</div>`;
+            }
+            return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
+        }).join('');
 
-        function renderAlertsTo(target, list) {
-            if (!target) return;
-            if (list.length === 0) { target.innerHTML = ''; return; }
-
-            // Build assign-option lists for reuse
-            const activeTrucks = state.trucks.filter(t => t.status === 'active');
-            const truckOpts = activeTrucks.map(t =>
-                '<button type="button" class="alert-assign-option" data-truck-id="' + escapeHtml(t.id) + '">' + escapeHtml(t.unit || t.id) + '</button>'
-            ).join('') || '<div style="padding:0.4rem 0.5rem;font-size:0.62rem;color:var(--gray-400)">No active trucks</div>';
-
-            const activeDrivers = state.drivers.filter(d => d.status === 'active');
-            const driverOpts = activeDrivers.map(d =>
-                '<button type="button" class="alert-assign-option" data-driver-id="' + escapeHtml(d.id) + '">' + escapeHtml([d.firstName, d.lastName].filter(Boolean).join(' ') || 'Unnamed') + '</button>'
-            ).join('') || '<div style="padding:0.4rem 0.5rem;font-size:0.62rem;color:var(--gray-400)">No active drivers</div>';
-
-            target.innerHTML = list.map((a) => {
-                // Unassigned drivers — assign a truck
-                if (a.kind === 'unassigned-drivers') {
-                    const rows = (a.drivers || []).map((driver) => {
-                        const meta = [driver.cdl ? ('CDL: ' + driver.cdl) : '', driver.phone].filter(Boolean).join(' \u00b7 ');
-                        return `<li class="alert-unassigned-row">`
-                            + `<span class="alert-unassigned-name" data-driver-id="${escapeHtml(driver.id)}">${escapeHtml(driver.name)}</span>`
-                            + (meta ? `<span class="alert-unassigned-meta">${escapeHtml(meta)}</span>` : '')
-                            + `<div class="alert-assign-wrap" data-driver-id="${escapeHtml(driver.id)}">`
-                            + `<button type="button" class="alert-assign-btn" title="Assign truck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></button>`
-                            + `<div class="alert-assign-popup">${truckOpts}</div>`
-                            + `</div></li>`;
-                    }).join('');
-                    return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned">`
-                        + `<div class="alert-unassigned-header">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
-                        + `<svg class="alert-unassigned-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`
-                        + `</div><ul class="alert-unassigned-list">${rows}</ul></div>`;
-                }
-
-                // Unassigned trucks — assign a driver
-                if (a.kind === 'unassigned-trucks') {
-                    const rows = (a.items || []).map((item) => {
-                        return `<li class="alert-unassigned-row">`
-                            + `<span class="alert-unassigned-name" data-truck-id="${escapeHtml(item.id)}">${escapeHtml(item.name)}</span>`
-                            + (item.meta ? `<span class="alert-unassigned-meta">${escapeHtml(item.meta)}</span>` : '')
-                            + `<div class="alert-assign-wrap" data-truck-id="${escapeHtml(item.id)}">`
-                            + `<button type="button" class="alert-assign-btn" title="Assign driver"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></button>`
-                            + `<div class="alert-assign-popup">${driverOpts}</div>`
-                            + `</div></li>`;
-                    }).join('');
-                    return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned">`
-                        + `<div class="alert-unassigned-header">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
-                        + `<svg class="alert-unassigned-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`
-                        + `</div><ul class="alert-unassigned-list">${rows}</ul></div>`;
-                }
-
-                // Unassigned trailers — assign to a truck
-                if (a.kind === 'unassigned-trailers') {
-                    const rows = (a.items || []).map((item) => {
-                        return `<li class="alert-unassigned-row">`
-                            + `<span class="alert-unassigned-name" data-trailer-id="${escapeHtml(item.id)}">${escapeHtml(item.name)}</span>`
-                            + (item.meta ? `<span class="alert-unassigned-meta">${escapeHtml(item.meta)}</span>` : '')
-                            + `<div class="alert-assign-wrap" data-trailer-id="${escapeHtml(item.id)}">`
-                            + `<button type="button" class="alert-assign-btn" title="Assign to truck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 3h15v13H1z"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></button>`
-                            + `<div class="alert-assign-popup">${truckOpts}</div>`
-                            + `</div></li>`;
-                    }).join('');
-                    return `<div class="alert-item alert-${escapeHtml(a.type)} alert-unassigned">`
-                        + `<div class="alert-unassigned-header">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
-                        + `<svg class="alert-unassigned-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`
-                        + `</div><ul class="alert-unassigned-list">${rows}</ul></div>`;
-                }
-
-                if (a.link) {
-                    return `<a href="${escapeHtml(a.link)}" onclick="sessionStorage.setItem('fromDashboard','true')" class="alert-item alert-${escapeHtml(a.type)} alert-link" title="Go to IFTA Wizard">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span>`
-                        + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" class="alert-link-arrow"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>`;
-                }
-                return `<div class="alert-item alert-${escapeHtml(a.type)}">${iconMap[a.icon] || ''}<span>${escapeHtml(a.text)}</span></div>`;
-            }).join('');
-            wireAlertHandlers(target);
-        }
-
-        function wireAlertHandlers(target) {
-            // Collapsible headers
-            target.querySelectorAll('.alert-unassigned').forEach((card) => {
-                let openTimer = null, closeTimer = null;
-                const hdr = card.querySelector('.alert-unassigned-header');
-                if (hdr) { hdr.style.cursor = 'pointer'; hdr.addEventListener('click', () => card.classList.toggle('open')); }
-                card.addEventListener('mouseenter', () => { clearTimeout(closeTimer); openTimer = setTimeout(() => card.classList.add('open'), 300); });
-                card.addEventListener('mouseleave', () => { clearTimeout(openTimer); closeTimer = setTimeout(() => card.classList.remove('open'), 400); });
+        container.querySelectorAll('.alert-dropdown-trigger').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const alertEl = btn.closest('.alert-unassigned');
+                if (!alertEl) return;
+                const panel = alertEl.querySelector('.alert-dropdown-panel');
+                if (!panel) return;
+                const expanded = btn.getAttribute('aria-expanded') === 'true';
+                btn.setAttribute('aria-expanded', expanded ? 'false' : 'true');
+                panel.hidden = expanded;
+                alertEl.classList.toggle('expanded', !expanded);
             });
-
-            // Clickable names → open profile
-            target.querySelectorAll('.alert-unassigned-name[data-driver-id]').forEach((el) => {
-                el.addEventListener('click', () => openDriverProfile(el.dataset.driverId));
-            });
-            target.querySelectorAll('.alert-unassigned-name[data-truck-id]').forEach((el) => {
-                el.addEventListener('click', () => openTruckProfile(el.dataset.truckId));
-            });
-            target.querySelectorAll('.alert-unassigned-name[data-trailer-id]').forEach((el) => {
-                el.addEventListener('click', () => openTrailerProfile(el.dataset.trailerId));
-            });
-
-            // Toggle assign popups
-            target.querySelectorAll('.alert-assign-btn').forEach((btn) => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const wrap = btn.closest('.alert-assign-wrap');
-                    const wasOpen = wrap.classList.contains('open');
-                    target.querySelectorAll('.alert-assign-wrap.open').forEach(w => w.classList.remove('open'));
-                    if (!wasOpen) wrap.classList.add('open');
-                });
-            });
-
-            // Assign truck to driver (from unassigned-drivers alert)
-            target.querySelectorAll('.alert-assign-option[data-truck-id]').forEach((opt) => {
-                opt.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    const wrap = opt.closest('.alert-assign-wrap');
-                    const driverId = wrap.dataset.driverId;
-                    const truckId = opt.dataset.truckId;
-                    if (!driverId) return;
-                    wrap.classList.remove('open');
-                    try {
-                        await col('drivers').doc(driverId).update({ truck: truckId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                        const d = state.drivers.find(x => x.id === driverId);
-                        if (d) d.truck = truckId;
-                        const truck = state.trucks.find(t => t.id === truckId);
-                        showMsg('Assigned to ' + (truck ? truck.unit : 'truck'));
-                        renderDrivers();
-                        updateOverview();
-                    } catch (err) { console.error(err); showMsg('Error assigning truck', true); }
-                });
-            });
-
-            // Assign driver to truck (from unassigned-trucks alert)
-            target.querySelectorAll('.alert-assign-wrap[data-truck-id] .alert-assign-option[data-driver-id]').forEach((opt) => {
-                opt.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    const wrap = opt.closest('.alert-assign-wrap');
-                    const truckId = wrap.dataset.truckId;
-                    const driverId = opt.dataset.driverId;
-                    if (!truckId || !driverId) return;
-                    wrap.classList.remove('open');
-                    try {
-                        await col('drivers').doc(driverId).update({ truck: truckId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                        const d = state.drivers.find(x => x.id === driverId);
-                        if (d) d.truck = truckId;
-                        const driver = d ? [d.firstName, d.lastName].filter(Boolean).join(' ') : 'driver';
-                        showMsg(driver + ' assigned to truck');
-                        renderDrivers();
-                        renderTrucks();
-                        updateOverview();
-                    } catch (err) { console.error(err); showMsg('Error assigning driver', true); }
-                });
-            });
-
-            // Assign trailer to truck (from unassigned-trailers alert)
-            target.querySelectorAll('.alert-assign-wrap[data-trailer-id] .alert-assign-option[data-truck-id]').forEach((opt) => {
-                opt.addEventListener('click', async (e) => {
-                    e.stopPropagation();
-                    const wrap = opt.closest('.alert-assign-wrap');
-                    const trailerId = wrap.dataset.trailerId;
-                    const truckId = opt.dataset.truckId;
-                    if (!trailerId || !truckId) return;
-                    wrap.classList.remove('open');
-                    try {
-                        await col('trucks').doc(truckId).update({ trailer: trailerId, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-                        const t = state.trucks.find(x => x.id === truckId);
-                        if (t) t.trailer = trailerId;
-                        const truck = t ? t.unit : 'truck';
-                        showMsg('Trailer assigned to ' + truck);
-                        renderTrucks();
-                        renderTrailers();
-                        updateOverview();
-                    } catch (err) { console.error(err); showMsg('Error assigning trailer', true); }
-                });
-            });
-        }
-
-        renderAlertsTo(container, overviewAlerts);
-        renderAlertsTo(safetyContainer, safetyAlerts);
+        });
     }
 
     function populateTruckDropdown() {
@@ -11013,7 +5132,7 @@
         state.trucks.filter(t => t.status === 'active').forEach(t => {
             const opt = document.createElement('option');
             opt.value = t.id;
-            opt.textContent = t.unit + (t.make ? ' “ ' + t.make + ' ' + (t.model || '') : '');
+            opt.textContent = t.unit + (t.make ? ' – ' + t.make + ' ' + (t.model || '') : '');
             sel.appendChild(opt);
         });
         sel.value = current;
@@ -11025,710 +5144,50 @@
     }
 
     function updateOverview() {
+        const activeTrucks = state.trucks.filter(t => t.status === 'active').length;
+        const activeTrailers = state.trailers.filter(t => t.status === 'active').length;
+        const activeDrivers = state.drivers.filter(d => d.status === 'active').length;
+        const maintenance = state.trucks.filter(t => t.status === 'maintenance').length
+            + state.trailers.filter(t => t.status === 'maintenance').length;
+        const oos = state.trucks.filter(t => t.status === 'inactive').length
+            + state.trailers.filter(t => t.status === 'inactive').length;
+
         $('overviewTrucks').textContent = state.trucks.length;
         $('overviewTrailers').textContent = state.trailers.length;
         $('overviewDrivers').textContent = state.drivers.length;
-        // Safety counts
-        const st = $('safetyTruckCount'); if (st) st.textContent = state.trucks.length;
-        const str = $('safetyTrailerCount'); if (str) str.textContent = state.trailers.length;
-        const sd = $('safetyDriverCount'); if (sd) sd.textContent = state.drivers.length;
-        // All department DTT counts
-        document.querySelectorAll('[data-dtt-count="trucks"]').forEach(el => el.textContent = state.trucks.length);
-        document.querySelectorAll('[data-dtt-count="trailers"]').forEach(el => el.textContent = state.trailers.length);
-        document.querySelectorAll('[data-dtt-count="drivers"]').forEach(el => el.textContent = state.drivers.length);
-        populateOverviewDropdowns();
+        $('overviewActiveTrucks').textContent = activeTrucks;
+        $('overviewActiveTrailers').textContent = activeTrailers;
+        $('overviewActiveDrivers').textContent = activeDrivers;
+        $('overviewMaintenance').textContent = maintenance;
+        $('overviewOutOfService').textContent = oos;
         updateAlerts();
-        renderExpirationAlerts();
     }
-
-    /* ── Dispatch Overview aggregation ── */
-    let _dispatchTab = 'driver';
-
-    function updateDispatchOverview() {
-        const loads = state.loads.filter(l => l.status !== 'canceled');
-        const totalLoads = loads.length;
-        let totalMiles = 0, totalGross = 0, rpmCount = 0, rpmSum = 0;
-        loads.forEach(l => {
-            const m = parseFloat(l.mileage) || 0;
-            const r = parseFloat(l.rate) || 0;
-            const d = parseFloat(l.detention) || 0;
-            totalMiles += m;
-            totalGross += r + d;
-            if (m > 0 && r > 0) { rpmSum += r / m; rpmCount++; }
-        });
-        const avgMiles = totalLoads ? Math.round(totalMiles / totalLoads) : 0;
-        const avgRate = totalLoads ? totalGross / totalLoads : 0;
-        const avgRPM = rpmCount ? rpmSum / rpmCount : 0;
-        const el = id => $(id);
-        el('dispTotalLoads').textContent = totalLoads;
-        el('dispTotalMiles').textContent = totalMiles.toLocaleString();
-        el('dispAvgMiles').textContent = avgMiles.toLocaleString();
-        el('dispGrossRevenue').textContent = '$' + totalGross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        el('dispAvgRate').textContent = '$' + avgRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        el('dispAvgRPM').textContent = '$' + avgRPM.toFixed(2);
-        renderDispatchBreakdown(_dispatchTab);
-        renderDispatchPeriods(loads);
-        renderPulseChart(loads);
-    }
-
-    /* ── Period overview tables ── */
-    function renderDispatchPeriods(loads) {
-        const now = new Date();
-        const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
-        weekStart.setHours(0, 0, 0, 0);
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-        const yearStart = new Date(now.getFullYear(), 0, 1);
-
-        function agg(filtered) {
-            let gross = 0, miles = 0, rS = 0, rN = 0;
-            filtered.forEach(l => {
-                const r = parseFloat(l.rate) || 0, d = parseFloat(l.detention) || 0, m = parseFloat(l.mileage) || 0;
-                gross += r + d; miles += m;
-                if (m > 0 && r > 0) { rS += r / m; rN++; }
-            });
-            return { gross, miles, rpm: rN ? rS / rN : 0, loads: filtered.length, avgRate: filtered.length ? gross / filtered.length : 0 };
-        }
-
-        function inRange(l, start) {
-            const d = l.loadDate ? new Date(l.loadDate) : null;
-            return d && !isNaN(d.getTime()) && d >= start;
-        }
-
-        const week = agg(loads.filter(l => inRange(l, weekStart)));
-        const month = agg(loads.filter(l => inRange(l, monthStart)));
-        const year = agg(loads.filter(l => inRange(l, yearStart)));
-
-        // Averages: group loads by period and compute average
-        function avgByPeriod(keyFn) {
-            const buckets = {};
-            loads.forEach(l => {
-                const d = l.loadDate ? new Date(l.loadDate) : null;
-                if (!d || isNaN(d.getTime())) return;
-                const k = keyFn(d);
-                if (!buckets[k]) buckets[k] = [];
-                buckets[k].push(l);
-            });
-            const keys = Object.keys(buckets);
-            if (!keys.length) return { gross: 0, miles: 0, rpm: 0, loads: 0, avgRate: 0 };
-            const totals = keys.map(k => agg(buckets[k]));
-            const n = totals.length;
-            return {
-                gross: totals.reduce((s, t) => s + t.gross, 0) / n,
-                miles: totals.reduce((s, t) => s + t.miles, 0) / n,
-                rpm: totals.reduce((s, t) => s + t.rpm, 0) / n,
-                loads: totals.reduce((s, t) => s + t.loads, 0) / n,
-                avgRate: totals.reduce((s, t) => s + t.avgRate, 0) / n
-            };
-        }
-
-        function weekKey(d) {
-            const jan1 = new Date(d.getFullYear(), 0, 1);
-            const wn = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
-            return d.getFullYear() + '-W' + wn;
-        }
-
-        const avgWeek = avgByPeriod(weekKey);
-        const avgMonth = avgByPeriod(d => d.getFullYear() + '-' + (d.getMonth() + 1));
-        const avgYear = avgByPeriod(d => '' + d.getFullYear());
-
-        const f$ = v => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-        const fRpm = v => v > 0 ? '$' + v.toFixed(2) : '-';
-        const fN = v => typeof v === 'number' && v % 1 !== 0 ? v.toFixed(1) : String(v || 0);
-
-        function fill(prefix, data) {
-            const e = id => $(id);
-            e(prefix + 'Gross').textContent = f$(data.gross);
-            e(prefix + 'Miles').textContent = Math.round(data.miles).toLocaleString();
-            e(prefix + 'Rpm').textContent = fRpm(data.rpm);
-            e(prefix + 'Loads').textContent = fN(data.loads);
-            e(prefix + 'Rate').textContent = f$(data.avgRate);
-        }
-
-        fill('dpWeek', week);
-        fill('dpMonth', month);
-        fill('dpYear', year);
-        fill('dpAvgWeek', avgWeek);
-        fill('dpAvgMonth', avgMonth);
-        fill('dpAvgYear', avgYear);
-    }
-
-    /* ── Revenue Pulse chart (sparkline) ── */
-    let _pulseChart = null;
-    function renderPulseChart(loads) {
-        const canvas = $('dispPulseChart');
-        if (!canvas || typeof Chart === 'undefined') return;
-
-        // Build daily gross for last 60 days
-        const now = new Date();
-        const days = 60;
-        const dayMap = {};
-        for (let i = days - 1; i >= 0; i--) {
-            const d = new Date(now); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
-            dayMap[d.toISOString().slice(0, 10)] = 0;
-        }
-        loads.forEach(l => {
-            const d = l.loadDate ? new Date(l.loadDate) : null;
-            if (!d || isNaN(d.getTime())) return;
-            const key = d.toISOString().slice(0, 10);
-            if (key in dayMap) {
-                dayMap[key] += (parseFloat(l.rate) || 0) + (parseFloat(l.detention) || 0);
-            }
-        });
-
-        const keys = Object.keys(dayMap).sort();
-        const vals = keys.map(k => dayMap[k]);
-
-        // Rolling 7-day average for smoother line
-        const smooth = vals.map((_, i) => {
-            const start = Math.max(0, i - 6);
-            const slice = vals.slice(start, i + 1);
-            return slice.reduce((a, b) => a + b, 0) / slice.length;
-        });
-
-        // Delta text
-        const recent7 = vals.slice(-7).reduce((a, b) => a + b, 0);
-        const prev7 = vals.slice(-14, -7).reduce((a, b) => a + b, 0);
-        const deltaEl = $('dispPulseDelta');
-        const rangeEl = $('dispPulseRange');
-        if (deltaEl) {
-            if (prev7 > 0) {
-                const pct = ((recent7 - prev7) / prev7 * 100).toFixed(1);
-                const up = recent7 >= prev7;
-                deltaEl.textContent = (up ? '▲ ' : '▼ ') + Math.abs(pct) + '% vs prev week';
-                deltaEl.className = 'disp-pulse-delta ' + (up ? 'pulse-up' : 'pulse-down');
-            } else {
-                deltaEl.textContent = '';
-            }
-        }
-        if (rangeEl) {
-            rangeEl.textContent = 'Last 60 days · 7-day avg';
-        }
-
-        // Determine line color from trend
-        const lineColor = recent7 >= prev7 ? '#22c55e' : '#ef4444';
-        const fillColor = recent7 >= prev7 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)';
-
-        if (_pulseChart) _pulseChart.destroy();
-        _pulseChart = new Chart(canvas, {
-            type: 'line',
-            data: {
-                labels: keys.map(k => { const d = new Date(k); return (d.getMonth()+1) + '/' + d.getDate(); }),
-                datasets: [{
-                    data: smooth,
-                    borderColor: lineColor,
-                    backgroundColor: fillColor,
-                    borderWidth: 1.5,
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0,
-                    pointHitRadius: 8
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            title: ctx => ctx[0].label,
-                            label: ctx => '$' + ctx.raw.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-                        },
-                        backgroundColor: 'rgba(30,27,75,0.9)',
-                        titleFont: { size: 10 },
-                        bodyFont: { size: 11, weight: 'bold' },
-                        padding: 6,
-                        cornerRadius: 8,
-                        displayColors: false
-                    }
-                },
-                scales: {
-                    y: {
-                        display: false,
-                        beginAtZero: true
-                    },
-                    x: {
-                        display: false
-                    }
-                },
-                interaction: { intersect: false, mode: 'index' }
-            }
-        });
-    }
-
-    function aggregateLoadsBy(key) {
-        const map = {};
-        state.loads.filter(l => l.status !== 'canceled').forEach(l => {
-            const name = (l[key] || '').trim() || 'Unassigned';
-            if (!map[name]) map[name] = { loads: 0, miles: 0, gross: 0, rpmSum: 0, rpmCount: 0 };
-            const e = map[name];
-            const m = parseFloat(l.mileage) || 0;
-            const r = parseFloat(l.rate) || 0;
-            const d = parseFloat(l.detention) || 0;
-            e.loads++;
-            e.miles += m;
-            e.gross += r + d;
-            if (m > 0 && r > 0) { e.rpmSum += r / m; e.rpmCount++; }
-        });
-        return Object.entries(map).map(([name, e]) => ({
-            name,
-            loads: e.loads,
-            miles: e.miles,
-            avgMiles: e.loads ? Math.round(e.miles / e.loads) : 0,
-            gross: e.gross,
-            avgRate: e.loads ? e.gross / e.loads : 0,
-            avgRPM: e.rpmCount ? e.rpmSum / e.rpmCount : 0
-        })).sort((a, b) => b.gross - a.gross);
-    }
-
-    function renderDispatchBreakdown(tab) {
-        _dispatchTab = tab;
-        const keyMap = { driver: 'driver', broker: 'broker', dispatcher: 'dispatcher', unit: 'unit' };
-        const rows = aggregateLoadsBy(keyMap[tab] || 'driver');
-        const tbody = $('dispatchBreakdownTbody');
-        if (!tbody) return;
-        if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#9ca3af;padding:1rem">No data</td></tr>';
-            return;
-        }
-        tbody.innerHTML = rows.map(r => `<tr>
-            <td>${escapeHtml(r.name)}</td>
-            <td>${r.loads}</td>
-            <td>${r.miles.toLocaleString()}</td>
-            <td>${r.avgMiles.toLocaleString()}</td>
-            <td>$${r.gross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td>$${r.avgRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td>$${r.avgRPM.toFixed(2)}</td>
-        </tr>`).join('');
-        // Update tab active state
-        document.querySelectorAll('.dispatch-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
-    }
-
-    function initDispatchOverview() {
-        document.querySelectorAll('.dispatch-tab').forEach(btn => {
-            btn.addEventListener('click', () => renderDispatchBreakdown(btn.dataset.tab));
-        });
-    }
-
-    /* ── Analytics Section ────────────────────────────── */
-    let _anCharts = {};
-    let _anDriverMetric = 'gross';
-    let _anDispatcherMetric = 'gross';
-
-    function updateAnalytics() {
-        const loads = state.loads.filter(l => l.status !== 'canceled');
-        if (!loads.length) return;
-
-        // ─── Monthly aggregation ───
-        const months = {};
-        loads.forEach(l => {
-            const d = l.loadDate ? new Date(l.loadDate) : null;
-            if (!d || isNaN(d.getTime())) return;
-            const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
-            if (!months[key]) months[key] = { gross: 0, miles: 0, loads: 0, rpmS: 0, rpmN: 0 };
-            const r = parseFloat(l.rate) || 0, det = parseFloat(l.detention) || 0, m = parseFloat(l.mileage) || 0;
-            months[key].gross += r + det;
-            months[key].miles += m;
-            months[key].loads++;
-            if (m > 0 && r > 0) { months[key].rpmS += r / m; months[key].rpmN++; }
-        });
-        const sortedKeys = Object.keys(months).sort();
-        const labels = sortedKeys.map(k => {
-            const [y, m] = k.split('-');
-            return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1] + ' ' + y.slice(2);
-        });
-        const earningsData = sortedKeys.map(k => months[k].gross);
-        const mileageData = sortedKeys.map(k => months[k].miles);
-        const rpmData = sortedKeys.map(k => months[k].rpmN ? months[k].rpmS / months[k].rpmN : 0);
-        const loadsData = sortedKeys.map(k => months[k].loads);
-
-        // ─── Render Charts ───
-        const chartOpts = (label, data, color, isCurrency) => ({
-            type: 'bar',
-            data: {
-                labels,
-                datasets: [{
-                    label, data,
-                    backgroundColor: color + '33',
-                    borderColor: color,
-                    borderWidth: 2,
-                    borderRadius: 6,
-                    hoverBackgroundColor: color + '66'
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: ctx => isCurrency ? '$' + ctx.raw.toLocaleString(undefined, { minimumFractionDigits: 2 }) : ctx.raw.toLocaleString()
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: v => isCurrency ? '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) : v.toLocaleString(),
-                            font: { size: 10 }, color: '#9ca3af'
-                        },
-                        grid: { color: 'rgba(0,0,0,0.04)' }
-                    },
-                    x: { ticks: { font: { size: 10 }, color: '#9ca3af' }, grid: { display: false } }
-                }
-            }
-        });
-
-        const make = (id, label, data, color, isCurrency) => {
-            if (_anCharts[id]) _anCharts[id].destroy();
-            const ctx = $(id);
-            if (!ctx) return;
-            _anCharts[id] = new Chart(ctx, chartOpts(label, data, color, isCurrency));
-        };
-
-        make('anEarningsChart', 'Earnings', earningsData, '#6366f1', true);
-        make('anMileageChart', 'Mileage', mileageData, '#06b6d4', false);
-        make('anRpmChart', 'RPM', rpmData, '#8b5cf6', true);
-        make('anLoadsChart', 'Loads', loadsData, '#f59e0b', false);
-
-        // ─── Leaderboards ───
-        renderLeaderboard('drivers', _anDriverMetric);
-        renderLeaderboard('dispatchers', _anDispatcherMetric);
-        renderTeams();
-    }
-
-    function renderLeaderboard(board, metric) {
-        const key = board === 'drivers' ? 'driver' : 'dispatcher';
-        const rows = aggregateLoadsBy(key);
-        if (board === 'drivers') _anDriverMetric = metric;
-        else _anDispatcherMetric = metric;
-
-        // Sort by selected metric
-        const sortKey = { gross: 'gross', miles: 'miles', rpm: 'avgRPM', loads: 'loads' }[metric] || 'gross';
-        rows.sort((a, b) => b[sortKey] - a[sortKey]);
-
-        const containerId = board === 'drivers' ? 'anDriverBoard' : 'anDispatcherBoard';
-        const container = $(containerId);
-        if (!container) return;
-
-        const medals = ['🥇', '🥈', '🥉'];
-        const fmt$ = v => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const fmtVal = (r) => {
-            if (metric === 'gross') return fmt$(r.gross);
-            if (metric === 'miles') return r.miles.toLocaleString() + ' mi';
-            if (metric === 'rpm') return '$' + r.avgRPM.toFixed(2) + '/mi';
-            return r.loads + ' loads';
-        };
-        const fmtSub = (r) => {
-            if (metric === 'gross') return r.loads + ' loads · $' + r.avgRPM.toFixed(2) + '/mi';
-            if (metric === 'miles') return r.loads + ' loads · avg ' + r.avgMiles.toLocaleString() + ' mi';
-            if (metric === 'rpm') return fmt$(r.gross) + ' gross · ' + r.miles.toLocaleString() + ' mi';
-            return fmt$(r.gross) + ' · ' + r.miles.toLocaleString() + ' mi';
-        };
-
-        // Top bar % for visual comparison
-        const maxVal = rows.length ? rows[0][sortKey] : 1;
-
-        container.innerHTML = rows.slice(0, 10).map((r, i) => {
-            const pct = maxVal ? Math.round((r[sortKey] / maxVal) * 100) : 0;
-            return `<div class="an-lb-row${i < 3 ? ' an-lb-top' : ''}">
-                <span class="an-lb-rank">${medals[i] || (i + 1)}</span>
-                <div class="an-lb-info">
-                    <div class="an-lb-name">${escapeHtml(r.name)}</div>
-                    <div class="an-lb-sub">${fmtSub(r)}</div>
-                    <div class="an-lb-bar"><div class="an-lb-fill" style="width:${pct}%"></div></div>
-                </div>
-                <span class="an-lb-value">${fmtVal(r)}</span>
-            </div>`;
-        }).join('') || '<p class="an-empty">No data</p>';
-
-        // Update active tab
-        document.querySelectorAll(`.an-tab[data-board="${board}"]`).forEach(b => {
-            b.classList.toggle('active', b.dataset.metric === metric);
-        });
-    }
-
-    /* ── Dispatcher Teams ──────────────────────────────── */
-    async function loadTeams() {
-        try {
-            const doc = await col('settings').doc('dispatcherTeams').get();
-            return doc.exists ? (doc.data().teams || []) : [];
-        } catch (e) { console.error('loadTeams', e); return []; }
-    }
-
-    async function saveTeams(teams) {
-        await col('settings').doc('dispatcherTeams').set({ teams });
-    }
-
-    function getDispatchers() {
-        const users = (state.companyDashboard && state.companyDashboard.users) || [];
-        return users.filter(u => u.role === 'Dispatcher');
-    }
-
-    async function renderTeams() {
-        const teams = await loadTeams();
-        const grid = $('anTeamsGrid');
-        if (!grid) return;
-
-        if (!teams.length) {
-            grid.innerHTML = '<p class="an-empty">No teams configured yet. Click "Manage Teams" to create dispatcher teams.</p>';
-            return;
-        }
-
-        // Build per-dispatcher stats from loads
-        const dispStats = {};
-        state.loads.filter(l => l.status !== 'canceled').forEach(l => {
-            const name = (l.dispatcher || '').trim();
-            if (!name) return;
-            if (!dispStats[name]) dispStats[name] = { gross: 0, miles: 0, loads: 0, rpmS: 0, rpmN: 0 };
-            const r = parseFloat(l.rate) || 0, det = parseFloat(l.detention) || 0, m = parseFloat(l.mileage) || 0;
-            dispStats[name].gross += r + det;
-            dispStats[name].miles += m;
-            dispStats[name].loads++;
-            if (m > 0 && r > 0) { dispStats[name].rpmS += r / m; dispStats[name].rpmN++; }
-        });
-
-        // Aggregate team stats
-        const teamStats = teams.map(t => {
-            let tGross = 0, tMiles = 0, tLoads = 0, tRpmS = 0, tRpmN = 0;
-            (t.members || []).forEach(m => {
-                const s = dispStats[m] || {};
-                tGross += s.gross || 0;
-                tMiles += s.miles || 0;
-                tLoads += s.loads || 0;
-                tRpmS += s.rpmS || 0;
-                tRpmN += s.rpmN || 0;
-            });
-            return { ...t, gross: tGross, miles: tMiles, loads: tLoads, rpm: tRpmN ? tRpmS / tRpmN : 0 };
-        }).sort((a, b) => b.gross - a.gross);
-
-        const fmt$ = v => '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        const medals = ['🥇', '🥈', '🥉'];
-
-        grid.innerHTML = teamStats.map((t, i) => {
-            const memberList = (t.members || []).map(m => {
-                const s = dispStats[m] || {};
-                return `<div class="an-team-member">
-                    <span class="an-team-member-name">${escapeHtml(m)}${m === t.leader ? ' <span class="an-leader-badge">TL</span>' : ''}</span>
-                    <span class="an-team-member-stat">${fmt$(s.gross || 0)}</span>
-                </div>`;
-            }).join('');
-
-            return `<div class="an-team-card${i === 0 ? ' an-team-first' : ''}">
-                <div class="an-team-rank">${medals[i] || (i + 1)}</div>
-                <div class="an-team-header">
-                    <h4 class="an-team-name">${escapeHtml(t.name)}</h4>
-                    <span class="an-team-leader">TL: ${escapeHtml(t.leader || 'None')}</span>
-                </div>
-                <div class="an-team-stats">
-                    <div class="an-team-stat"><strong>${fmt$(t.gross)}</strong><span>Gross</span></div>
-                    <div class="an-team-stat"><strong>${t.miles.toLocaleString()}</strong><span>Miles</span></div>
-                    <div class="an-team-stat"><strong>${t.loads}</strong><span>Loads</span></div>
-                    <div class="an-team-stat"><strong>$${t.rpm.toFixed(2)}</strong><span>RPM</span></div>
-                </div>
-                <div class="an-team-members">${memberList}</div>
-            </div>`;
-        }).join('');
-    }
-
-    function initAnalytics() {
-        // Tab clicks
-        document.querySelectorAll('.an-tab').forEach(btn => {
-            btn.addEventListener('click', () => {
-                renderLeaderboard(btn.dataset.board, btn.dataset.metric);
-            });
-        });
-
-        // Manage teams modal
-        const modal = $('anTeamModal');
-        const openBtn = $('anManageTeams');
-        const closeBtn = $('anTeamModalClose');
-        if (openBtn) openBtn.addEventListener('click', () => openTeamModal());
-        if (closeBtn) closeBtn.addEventListener('click', () => { modal.style.display = 'none'; });
-        if (modal) modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
-
-        // Add team
-        const addBtn = $('anAddTeam');
-        if (addBtn) addBtn.addEventListener('click', addTeam);
-    }
-
-    async function openTeamModal() {
-        const modal = $('anTeamModal');
-        if (!modal) return;
-        modal.style.display = 'flex';
-
-        // Populate leader dropdown
-        const sel = $('anTeamLeader');
-        const disps = getDispatchers();
-        sel.innerHTML = '<option value="">Select team leader…</option>' + disps.map(d => {
-            const name = [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email;
-            return `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
-        }).join('');
-
-        // Render existing teams
-        await renderTeamList();
-    }
-
-    async function renderTeamList() {
-        const teams = await loadTeams();
-        const list = $('anTeamList');
-        if (!list) return;
-
-        if (!teams.length) {
-            list.innerHTML = '<p class="an-empty">No teams yet.</p>';
-            $('anAssignSection').style.display = 'none';
-            return;
-        }
-
-        list.innerHTML = teams.map((t, i) => `<div class="an-team-row" data-idx="${i}">
-            <div class="an-team-row-info">
-                <strong>${escapeHtml(t.name)}</strong>
-                <span class="an-team-row-leader">TL: ${escapeHtml(t.leader || 'None')}</span>
-                <span class="an-team-row-count">${(t.members || []).length} members</span>
-            </div>
-            <div class="an-team-row-actions">
-                <button class="btn btn-sm btn-outline an-assign-btn" data-idx="${i}">Assign</button>
-                <button class="btn btn-sm btn-danger an-delete-team" data-idx="${i}">&times;</button>
-            </div>
-        </div>`).join('');
-
-        // Assign clicks
-        list.querySelectorAll('.an-assign-btn').forEach(btn => {
-            btn.addEventListener('click', () => openAssignPanel(+btn.dataset.idx, teams));
-        });
-
-        // Delete clicks
-        list.querySelectorAll('.an-delete-team').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const idx = +btn.dataset.idx;
-                teams.splice(idx, 1);
-                await saveTeams(teams);
-                await renderTeamList();
-                renderTeams();
-            });
-        });
-    }
-
-    async function openAssignPanel(idx, teams) {
-        const team = teams[idx];
-        if (!team) return;
-        const section = $('anAssignSection');
-        const pool = $('anDispatcherPool');
-        section.style.display = '';
-        $('anAssignTitle').textContent = 'Assign dispatchers to ' + team.name;
-
-        // Get all dispatchers from company users
-        const disps = getDispatchers();
-        const members = team.members || [];
-        // Also include names that appear in loads but not in company users
-        const loadDisps = new Set();
-        state.loads.forEach(l => { if (l.dispatcher) loadDisps.add(l.dispatcher.trim()); });
-        const allNames = new Set([...disps.map(d => [d.firstName, d.lastName].filter(Boolean).join(' ') || d.email), ...loadDisps]);
-
-        // Remove names already in other teams
-        const takenNames = new Set();
-        teams.forEach((t, i) => { if (i !== idx) (t.members || []).forEach(m => takenNames.add(m)); });
-
-        pool.innerHTML = [...allNames].filter(n => n && !takenNames.has(n)).sort().map(name => {
-            const checked = members.includes(name) ? 'checked' : '';
-            return `<label class="an-disp-label"><input type="checkbox" value="${escapeHtml(name)}" ${checked}> ${escapeHtml(name)}</label>`;
-        }).join('');
-
-        // Live-update on change
-        pool.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-            cb.addEventListener('change', async () => {
-                const updated = [...pool.querySelectorAll('input:checked')].map(c => c.value);
-                teams[idx].members = updated;
-                await saveTeams(teams);
-                await renderTeamList();
-                renderTeams();
-            });
-        });
-    }
-
-    async function addTeam() {
-        const nameEl = $('anTeamName');
-        const leaderEl = $('anTeamLeader');
-        const name = (nameEl.value || '').trim();
-        const leader = leaderEl.value;
-        if (!name) { nameEl.focus(); return; }
-
-        const teams = await loadTeams();
-        teams.push({ name, leader, members: leader ? [leader] : [] });
-        await saveTeams(teams);
-        nameEl.value = '';
-        leaderEl.selectedIndex = 0;
-        await renderTeamList();
-        renderTeams();
-    }
-
-    // ── Toast notification system (bottom-right) ──
-    const toastContainer = (() => {
-        const c = document.createElement('div');
-        c.id = 'toastContainer';
-        Object.assign(c.style, {
-            position: 'fixed', bottom: '1.25rem', right: '1.25rem',
-            display: 'flex', flexDirection: 'column-reverse', gap: '0.5rem',
-            zIndex: '10000', pointerEvents: 'none', maxWidth: '340px'
-        });
-        document.body.appendChild(c);
-        return c;
-    })();
 
     function showMsg(text, isError) {
-        const toast = document.createElement('div');
-        toast.className = 'dash-toast' + (isError ? ' dash-toast-error' : ' dash-toast-success');
-        const iconSvg = isError
-            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
-            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
-        toast.innerHTML = '<span class="dash-toast-icon">' + iconSvg + '</span>'
-            + '<span class="dash-toast-text">' + escapeHtml(text) + '</span>'
-            + '<button class="dash-toast-close" title="Dismiss">&times;</button>'
-            + '<div class="dash-toast-progress"></div>';
-        toast.querySelector('.dash-toast-close').addEventListener('click', () => dismissToast(toast));
-        toast.style.pointerEvents = 'auto';
-        toastContainer.appendChild(toast);
-        requestAnimationFrame(() => toast.classList.add('show'));
-        const timer = setTimeout(() => dismissToast(toast), 3500);
-        toast._timer = timer;
-        return toast;
-    }
-
-    function dismissToast(toast) {
-        if (toast._dismissed) return;
-        toast._dismissed = true;
-        clearTimeout(toast._timer);
-        toast.classList.remove('show');
-        toast.classList.add('hide');
-        setTimeout(() => toast.remove(), 300);
-    }
-
-    function showUploadToast(fileName) {
-        const toast = document.createElement('div');
-        toast.className = 'dash-toast dash-toast-upload';
-        toast.innerHTML = '<span class="dash-toast-icon dash-toast-spinner"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16"><path d="M12 2v4"/><path d="M12 18v4" opacity=".3"/><path d="M4.93 4.93l2.83 2.83"/><path d="M16.24 16.24l2.83 2.83" opacity=".3"/><path d="M2 12h4"/><path d="M18 12h4" opacity=".3"/><path d="M4.93 19.07l2.83-2.83" opacity=".3"/><path d="M16.24 7.76l2.83-2.83" opacity=".3"/></svg></span>'
-            + '<span class="dash-toast-text">Uploading <strong>' + escapeHtml(fileName) + '</strong></span>'
-            + '<div class="dash-toast-progress dash-toast-progress-loading"></div>';
-        toast.style.pointerEvents = 'auto';
-        toastContainer.appendChild(toast);
-        requestAnimationFrame(() => toast.classList.add('show'));
-        return toast;
-    }
-
-    function completeUploadToast(toast, success, message) {
-        if (!toast || toast._dismissed) return;
-        toast.className = 'dash-toast show ' + (success ? 'dash-toast-success' : 'dash-toast-error');
-        const iconSvg = success
-            ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
-            : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
-        toast.innerHTML = '<span class="dash-toast-icon">' + iconSvg + '</span>'
-            + '<span class="dash-toast-text">' + escapeHtml(message) + '</span>'
-            + '<button class="dash-toast-close" title="Dismiss">&times;</button>'
-            + '<div class="dash-toast-progress"></div>';
-        toast.querySelector('.dash-toast-close').addEventListener('click', () => dismissToast(toast));
-        const timer = setTimeout(() => dismissToast(toast), 3500);
-        toast._timer = timer;
+        if (typeof showToast === 'function') {
+            showToast(text, isError ? 'error' : 'success');
+            return;
+        }
+        const div = document.createElement('div');
+        div.textContent = text;
+        Object.assign(div.style, {
+            position: 'fixed', top: '1rem', right: '1rem', padding: '0.625rem 1.125rem',
+            background: isError ? 'rgba(254,226,226,0.95)' : 'rgba(220,252,231,0.95)',
+            color: isError ? '#dc2626' : '#16a34a',
+            fontSize: '0.8125rem', fontWeight: '600', zIndex: '9999',
+            border: '1px solid ' + (isError ? '#fca5a5' : '#86efac'),
+            borderRadius: '12px', backdropFilter: 'blur(12px)',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+            transform: 'translateY(-8px)', opacity: '0',
+            transition: 'all 0.2s ease'
+        });
+        document.body.appendChild(div);
+        requestAnimationFrame(() => { div.style.transform = 'translateY(0)'; div.style.opacity = '1'; });
+        setTimeout(() => {
+            div.style.transform = 'translateY(-8px)';
+            div.style.opacity = '0';
+            setTimeout(() => div.remove(), 200);
+        }, 2200);
     }
 
     // ── Delete confirms ───────────────────
@@ -11765,10 +5224,12 @@
 
     // ── Edit helpers (called from inline onclick) ──
     function editTruck(id) {
-        openTruckDetailPanel(id);
+        const t = state.trucks.find(x => x.id === id);
+        if (t) openTruckModal(t);
     }
     function editTrailer(id) {
-        openTrailerDetailPanel(id);
+        const t = state.trailers.find(x => x.id === id);
+        if (t) openTrailerModal(t);
     }
     function editDriver(id) {
         const d = state.drivers.find(x => x.id === id);
@@ -11784,34 +5245,12 @@
         });
     }
 
-    // ── Overview dropdown toggle ─────
+    // ── Overview card click → navigate ─────
     function initOverviewCards() {
-        document.querySelectorAll('.overview-dropdown').forEach(dd => {
-            let openTimer = null, closeTimer = null;
-            const cardTrigger = dd.querySelector('.overview-card, .overview-map-chip');
-            if (!cardTrigger) return;
-            cardTrigger.addEventListener('click', () => {
-                const wasOpen = dd.classList.contains('open');
-                document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
-                if (!wasOpen) dd.classList.add('open');
+        document.querySelectorAll('.overview-card[data-nav]').forEach(card => {
+            card.addEventListener('click', () => {
+                navigateToSection(card.dataset.nav);
             });
-            dd.addEventListener('mouseenter', () => {
-                clearTimeout(closeTimer);
-                openTimer = setTimeout(() => {
-                    document.querySelectorAll('.overview-dropdown.open').forEach(d => { if (d !== dd) d.classList.remove('open'); });
-                    dd.classList.add('open');
-                }, 300);
-            });
-            dd.addEventListener('mouseleave', () => {
-                clearTimeout(openTimer);
-                closeTimer = setTimeout(() => dd.classList.remove('open'), 400);
-            });
-        });
-        // Close dropdown when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.overview-dropdown')) {
-                document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
-            }
         });
         // Dept landing page nav cards
         document.querySelectorAll('.dept-nav-card[data-navigate]').forEach(card => {
@@ -11819,141 +5258,6 @@
                 navigateToSection(card.dataset.navigate);
             });
         });
-        // Dispatch nav strip buttons
-        document.querySelectorAll('.disp-nav-btn[data-navigate]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                navigateToSection(btn.dataset.navigate);
-            });
-        });
-    }
-
-    function populateOverviewDropdowns() {
-        const trucksPanel = $('trucksDropdownPanel');
-        const trailersPanel = $('trailersDropdownPanel');
-        const driversPanel = $('driversDropdownPanel');
-        if (!trucksPanel || !trailersPanel || !driversPanel) return;
-
-        // Trucks
-        if (state.trucks.length) {
-            trucksPanel.innerHTML = state.trucks.map(t => {
-                const label = t.unit || t.id;
-                const meta = [t.year, t.make, t.model].filter(Boolean).join(' ');
-                const sCls = t.status === 'active' ? 'active' : t.status === 'maintenance' ? 'maintenance' : 'inactive';
-                const sLabel = t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : '';
-                return `<div class="overview-dropdown-item" data-id="${escapeHtml(t.id)}">
-                    <div class="overview-dropdown-item-info">
-                        <span class="overview-dropdown-item-name">${escapeHtml(label)}</span>
-                        ${meta ? `<span class="overview-dropdown-item-meta">${escapeHtml(meta)}</span>` : ''}
-                    </div>
-                    ${sLabel ? `<span class="overview-dropdown-item-status ${sCls}">${escapeHtml(sLabel)}</span>` : ''}
-                </div>`;
-            }).join('');
-        } else {
-            trucksPanel.innerHTML = '<div class="overview-dropdown-empty">No trucks added</div>';
-        }
-
-        // Trailers
-        if (state.trailers.length) {
-            trailersPanel.innerHTML = state.trailers.map(t => {
-                const label = t.unit || ('Trailer ' + t.id);
-                const meta = [t.year, t.make, trailerTypeLabel(t.type)].filter(Boolean).join(' ');
-                const sCls = t.status === 'active' ? 'active' : t.status === 'maintenance' ? 'maintenance' : 'inactive';
-                const sLabel = t.status ? t.status.charAt(0).toUpperCase() + t.status.slice(1) : '';
-                return `<div class="overview-dropdown-item" data-id="${escapeHtml(t.id)}">
-                    <div class="overview-dropdown-item-info">
-                        <span class="overview-dropdown-item-name">${escapeHtml(label)}</span>
-                        ${meta ? `<span class="overview-dropdown-item-meta">${escapeHtml(meta)}</span>` : ''}
-                    </div>
-                    ${sLabel ? `<span class="overview-dropdown-item-status ${sCls}">${escapeHtml(sLabel)}</span>` : ''}
-                </div>`;
-            }).join('');
-        } else {
-            trailersPanel.innerHTML = '<div class="overview-dropdown-empty">No trailers added</div>';
-        }
-
-        // Drivers
-        if (state.drivers.length) {
-            driversPanel.innerHTML = state.drivers.map(d => {
-                const name = [d.firstName, d.lastName].filter(Boolean).join(' ') || ('Driver ' + d.id);
-                const meta = [d.cdl, d.cdlState].filter(Boolean).join(' ');
-                const sCls = d.status === 'active' ? 'active' : 'inactive';
-                const sLabel = d.status ? d.status.charAt(0).toUpperCase() + d.status.slice(1) : '';
-                return `<div class="overview-dropdown-item" data-id="${escapeHtml(d.id)}">
-                    <div class="overview-dropdown-item-info">
-                        <span class="overview-dropdown-item-name">${escapeHtml(name)}</span>
-                        ${meta ? `<span class="overview-dropdown-item-meta">${escapeHtml(meta)}</span>` : ''}
-                    </div>
-                    ${sLabel ? `<span class="overview-dropdown-item-status ${sCls}">${escapeHtml(sLabel)}</span>` : ''}
-                </div>`;
-            }).join('');
-        } else {
-            driversPanel.innerHTML = '<div class="overview-dropdown-empty">No drivers added</div>';
-        }
-
-        // Click handlers for items
-        trucksPanel.querySelectorAll('.overview-dropdown-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
-                openTruckProfile(item.dataset.id);
-            });
-        });
-        trailersPanel.querySelectorAll('.overview-dropdown-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
-                openTrailerProfile(item.dataset.id);
-            });
-        });
-        driversPanel.querySelectorAll('.overview-dropdown-item').forEach(item => {
-            item.addEventListener('click', (e) => {
-                e.stopPropagation();
-                document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open'));
-                openDriverProfile(item.dataset.id);
-            });
-        });
-
-        // Populate all department DTT panels (safety, maintenance, dispatch, etc.)
-        document.querySelectorAll('.dtt-panel[data-dtt="trucks"]').forEach(panel => {
-            panel.innerHTML = trucksPanel.innerHTML;
-            panel.querySelectorAll('.overview-dropdown-item').forEach(item => {
-                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openTruckProfile(item.dataset.id); });
-            });
-        });
-        document.querySelectorAll('.dtt-panel[data-dtt="trailers"]').forEach(panel => {
-            panel.innerHTML = trailersPanel.innerHTML;
-            panel.querySelectorAll('.overview-dropdown-item').forEach(item => {
-                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openTrailerProfile(item.dataset.id); });
-            });
-        });
-        document.querySelectorAll('.dtt-panel[data-dtt="drivers"]').forEach(panel => {
-            panel.innerHTML = driversPanel.innerHTML;
-            panel.querySelectorAll('.overview-dropdown-item').forEach(item => {
-                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openDriverProfile(item.dataset.id); });
-            });
-        });
-        // Also populate safety ID-based panels
-        const safeTrucks = $('safetyTrucksDropdownPanel');
-        const safeTrailers = $('safetyTrailersDropdownPanel');
-        const safeDrivers = $('safetyDriversDropdownPanel');
-        if (safeTrucks) {
-            safeTrucks.innerHTML = trucksPanel.innerHTML;
-            safeTrucks.querySelectorAll('.overview-dropdown-item').forEach(item => {
-                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openTruckProfile(item.dataset.id); });
-            });
-        }
-        if (safeTrailers) {
-            safeTrailers.innerHTML = trailersPanel.innerHTML;
-            safeTrailers.querySelectorAll('.overview-dropdown-item').forEach(item => {
-                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openTrailerProfile(item.dataset.id); });
-            });
-        }
-        if (safeDrivers) {
-            safeDrivers.innerHTML = driversPanel.innerHTML;
-            safeDrivers.querySelectorAll('.overview-dropdown-item').forEach(item => {
-                item.addEventListener('click', (e) => { e.stopPropagation(); document.querySelectorAll('.overview-dropdown.open').forEach(d => d.classList.remove('open')); openDriverProfile(item.dataset.id); });
-            });
-        }
     }
 
     function buildOverviewLookupItems() {
@@ -12239,1210 +5543,35 @@
         });
     }
 
-    // ── Samsara Integration ───────────────
-    // ── Samsara Telematics Panel ──────────
-
-    function _fmtOdometer(miles) {
-        if (miles == null) return '—';
-        return miles.toLocaleString() + ' mi';
-    }
-    function _fmtEngineHours(h) {
-        if (h == null) return '—';
-        return h.toLocaleString() + ' hrs';
-    }
-    function _fmtGpsTime(isoStr) {
-        if (!isoStr) return '';
-        try {
-            const d = new Date(isoStr);
-            return d.toLocaleTimeString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-        } catch { return ''; }
-    }
-
-    function renderTruckTelematics(truck, truckId) {
-        const section = $('truckTelematicsSection');
-        if (!section) return;
-
-        // Hide for new trucks or no Samsara connection
-        const hasSamsara = truck && (truck.samsaraId || truck.samsaraLocation);
-        const samsaraConnected = state.profile && state.profile.samsara && state.profile.samsara.accessToken;
-        if (!truckId || !hasSamsara || !samsaraConnected) {
-            section.classList.add('hidden');
-            return;
-        }
-        section.classList.remove('hidden');
-
-        // GPS / location
-        const loc = truck.samsaraLocation || null;
-        $('tpTelemLocation').textContent  = loc && loc.location ? loc.location : '—';
-        $('tpTelemLocationTime').textContent = loc && loc.time ? _fmtGpsTime(loc.time) : '';
-        $('tpTelemSpeed').textContent     = loc && loc.speed != null ? loc.speed + ' mph' : '—';
-
-        // Odometer, engine hours
-        $('tpTelemOdometer').textContent    = _fmtOdometer(truck.samsaraOdometer);
-        $('tpTelemEngineHours').textContent = _fmtEngineHours(truck.samsaraEngineHours);
-
-        // Fuel level
-        const fuelEl  = $('tpTelemFuelLevel');
-        const fuelBar = $('tpTelemFuelBar');
-        const fuel    = truck.samsaraFuelLevel;
-        if (fuel != null) {
-            fuelEl.textContent = fuel + '%';
-            fuelEl.style.color = fuel < 15 ? '#dc2626' : fuel < 30 ? '#f59e0b' : '';
-            if (fuelBar) {
-                fuelBar.style.width = fuel + '%';
-                fuelBar.style.background = fuel < 15 ? '#dc2626' : fuel < 30 ? '#f59e0b' : '#22c55e';
-            }
-        } else {
-            fuelEl.textContent = '—';
-            if (fuelBar) fuelBar.style.width = '0%';
-        }
-
-        // Safety events
-        const safetyEvents = truck.samsaraSafetyEvents || [];
-        $('tpTelemSafetyCount').textContent = safetyEvents.length || '0';
-        $('tpTelemSafetyCount').style.color = safetyEvents.length > 5 ? '#dc2626' : safetyEvents.length > 0 ? '#f59e0b' : '';
-        const safetyWrap = $('tpTelemSafetyWrap');
-        const safetyList = $('tpTelemSafetyList');
-        if (safetyWrap && safetyList) {
-            if (safetyEvents.length) {
-                safetyWrap.style.display = '';
-                safetyList.innerHTML = safetyEvents.slice(0, 10).map(ev => {
-                    const label = (ev.type || 'event').replace(/_/g, ' ');
-                    const time  = ev.time ? ' <span class="tp-telem-fault-time">' + _fmtGpsTime(ev.time) + '</span>' : '';
-                    const sev   = ev.severity ? ' <span class="tp-telem-fault-sev tp-telem-sev-' + ev.severity.toLowerCase() + '">' + escapeHtml(ev.severity) + '</span>' : '';
-                    return '<li>' + escapeHtml(label) + sev + time + '</li>';
-                }).join('');
-            } else {
-                safetyWrap.style.display = 'none';
-            }
-        }
-
-        // Fault codes
-        const faults     = truck.samsaraFaults || [];
-        const faultsWrap = $('tpTelemFaultsWrap');
-        const faultsList = $('tpTelemFaultsList');
-        if (faultsWrap && faultsList) {
-            if (faults.length) {
-                faultsWrap.style.display = '';
-                faultsList.innerHTML = faults.slice(0, 10).map(f => {
-                    const code = f.code ? '<strong>' + escapeHtml(f.code) + '</strong> ' : '';
-                    const desc = f.description ? escapeHtml(f.description) : '';
-                    const sev  = f.severity ? ' <span class="tp-telem-fault-sev tp-telem-sev-' + f.severity.toLowerCase() + '">' + escapeHtml(f.severity) + '</span>' : '';
-                    return '<li>' + code + desc + sev + '</li>';
-                }).join('');
-            } else {
-                faultsWrap.style.display = 'none';
-            }
-        }
-
-        // Sync time + Sync Now button
-        const syncTimeEl = $('tpTelemSyncTime');
-        if (syncTimeEl) {
-            syncTimeEl.textContent = samsaraFleet.lastSyncedAt ? 'Synced ' + _fleetSyncTime(samsaraFleet.lastSyncedAt) : '';
-        }
-    }
-
-    function initTelematicsSyncBtn() {
-        const btn = $('tpTelemSyncBtn');
-        if (!btn) return;
-        btn.addEventListener('click', async () => {
-            if (!uid() || samsaraFleet.syncing) return;
-            btn.disabled = true;
-            btn.classList.add('syncing');
-            await triggerFleetSync();
-            // Reload truck from Firestore to get fresh samsara fields
-            if (truckPanelId) {
-                try {
-                    const snap = await db.collection('users').doc(uid()).collection('trucks').doc(truckPanelId).get();
-                    if (snap.exists) {
-                        const updated = { id: snap.id, ...snap.data() };
-                        const idx = state.trucks.findIndex(x => x.id === truckPanelId);
-                        if (idx >= 0) state.trucks[idx] = updated;
-                        renderTruckTelematics(updated, truckPanelId);
-                    }
-                } catch (e) { console.warn('Telematics reload error:', e); }
-            }
-            btn.disabled = false;
-            btn.classList.remove('syncing');
-        });
-    }
-
-    function updateSamsaraUI(samsaraData) {
-        const connectBtn = $('samsaraConnectBtn');
-        const disconnectBtn = $('samsaraDisconnectBtn');
-        const desc = $('samsaraStatusDesc');
-        const dot = $('samsaraStatusDot');
-        const label = $('samsaraStatusLabel');
-        const fleetCard = $('samsaraFleetCard');
-        if (!connectBtn || !disconnectBtn) return;
-
-        if (samsaraData && samsaraData.connectedAt) {
-            connectBtn.classList.add('hidden');
-            disconnectBtn.classList.remove('hidden');
-            const d = new Date(samsaraData.connectedAt);
-            const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-            if (desc) desc.textContent = 'Connected since ' + dateStr + '. ELD and telematics data is syncing.';
-            if (dot) dot.classList.add('connected');
-            if (label) { label.textContent = 'Connected'; label.classList.add('connected'); }
-            if (fleetCard) fleetCard.style.display = '';
-            // Auto-trigger fleet sync on first load if no cache yet
-            if (fleetCard && !samsaraFleet.lastSyncedAt && !samsaraFleet.syncing) {
-                _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', 'Loading fleet data…');
-                triggerFleetSync();
-            }
-        } else {
-            connectBtn.classList.remove('hidden');
-            disconnectBtn.classList.add('hidden');
-            if (desc) desc.textContent = 'Connect your Samsara fleet account for ELD and telematics data.';
-            if (dot) dot.classList.remove('connected');
-            if (label) { label.textContent = 'Not connected'; label.classList.remove('connected'); }
-            if (fleetCard) fleetCard.style.display = 'none';
-            _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', 'Connect Samsara to see fleet locations');
-        }
-    }
-
-    function initSamsara() {
-        // Collapse toggle
-        const toggle = $('samsaraWidgetToggle');
-        const widget = $('samsaraIntegrationRow');
-        const body = widget && widget.querySelector('.integration-widget-body');
-        if (toggle && widget && body) {
-            const openWidget = () => {
-                widget.classList.add('open');
-                body.classList.remove('hidden');
-                toggle.setAttribute('aria-expanded', 'true');
-            };
-            const closeWidget = () => {
-                widget.classList.remove('open');
-                body.classList.add('hidden');
-                toggle.setAttribute('aria-expanded', 'false');
-            };
-            toggle.addEventListener('click', () => {
-                widget.classList.contains('open') ? closeWidget() : openWidget();
-            });
-            toggle.addEventListener('keydown', e => {
-                if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle.click(); }
-            });
-        }
-
-        // Handle OAuth redirect result
-        const params = new URLSearchParams(window.location.search);
-        const samsaraResult = params.get('samsara');
-        if (samsaraResult) {
-            // Clean URL
-            const clean = new URL(window.location.href);
-            clean.searchParams.delete('samsara');
-            clean.searchParams.delete('reason');
-            window.history.replaceState({}, '', clean.toString());
-
-            if (samsaraResult === 'connected') {
-                showMsg('Samsara connected successfully');
-                // Navigate to settings
-                const settingsNav = document.querySelector('[data-section="settings"]');
-                if (settingsNav) settingsNav.click();
-            } else {
-                const reason = params.get('reason') || 'unknown';
-                showMsg('Samsara connection failed: ' + reason, true);
-            }
-        }
-
-        // Connect button — build OAuth URL client-side (no Cloud Function needed)
-        const connectBtn = $('samsaraConnectBtn');
-        if (connectBtn) {
-            connectBtn.addEventListener('click', () => {
-                const u = uid();
-                if (!u) { showMsg('Please sign in first', true); return; }
-                // Use the .web.app domain as redirect URI — this is always Firebase Hosting
-                // and has the /api/samsara/callback rewrite. logistixnerd.com is GitHub Pages
-                // and will 404 on that path.
-                const REDIRECT_URI = 'https://ifta-wizard-a9061.web.app/samsara-callback.html';
-                const state = btoa(JSON.stringify({ uid: u, ts: Date.now(), origin: 'https://ifta-wizard-a9061.web.app' }))
-                    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-                const params = new URLSearchParams({
-                    client_id: 'd9cb1080-5971-4463-871c-bafc91121520',
-                    response_type: 'code',
-                    state,
-                    redirect_uri: REDIRECT_URI,
-                });
-                window.location.href = 'https://api.samsara.com/oauth2/authorize?' + params.toString();
-            });
-        }
-
-        // Disconnect button — delete from Firestore directly (no Cloud Function needed)
-        const disconnectBtn = $('samsaraDisconnectBtn');
-        if (disconnectBtn) {
-            disconnectBtn.addEventListener('click', async () => {
-                if (!confirm('Disconnect Samsara? This will remove your fleet data connection.')) return;
-                disconnectBtn.disabled = true;
-                disconnectBtn.textContent = 'Disconnecting...';
-                try {
-                    await firebase.firestore().collection('users').doc(uid()).update({
-                        samsara: firebase.firestore.FieldValue.delete()
-                    });
-                    updateSamsaraUI(null);
-                    showMsg('Samsara disconnected');
-                } catch (err) {
-                    console.error('Samsara disconnect error:', err);
-                    showMsg(err.message || 'Failed to disconnect Samsara', true);
-                } finally {
-                    disconnectBtn.disabled = false;
-                    disconnectBtn.textContent = 'Disconnect';
-                }
-            });
-        }
-    }
-
-    // ── Samsara Fleet Map ─────────────────
-    const samsaraFleet = {
-        overviewMap: null,
-        liveMap: null,
-        overviewMarkers: [],
-        liveMarkers: [],
-        infoWindows: [],
-        unsubFleet: null,
-        lastSyncedAt: null,
-        syncing: false,
-        syncInterval: null,
-    };
-
-    function _fleetSyncTime(ts) {
-        if (!ts) return '';
-        const diff = Math.round((Date.now() - ts) / 60000);
-        if (diff < 1) return 'Just now';
-        if (diff < 60) return diff + ' min ago';
-        const h = Math.round(diff / 60);
-        return h + ' hr ago';
-    }
-
-    function _updateFleetSyncLabels() {
-        const t = _fleetSyncTime(samsaraFleet.lastSyncedAt);
-        const el1 = $('overviewFleetSyncTime');
-        const el2 = $('liveMapSyncTime');
-        if (el1) el1.textContent = t ? 'Synced ' + t : '';
-        if (el2) el2.textContent = t ? 'Synced ' + t : '';
-    }
-
-    function _fleetOverlay(overlayId, textId, text) {
-        const el = $(overlayId);
-        const txt = $(textId);
-        if (el) el.style.display = text ? 'flex' : 'none';
-        if (txt) txt.textContent = text || '';
-    }
-
-    function _buildFleetMarkers(vehicles, mapObj, markersArray) {
-        // Clear old markers
-        markersArray.forEach(m => m.setMap(null));
-        markersArray.length = 0;
-        samsaraFleet.infoWindows.forEach(w => w.close());
-        samsaraFleet.infoWindows.length = 0;
-
-        const vehiclesWithGps = vehicles.filter(v => v.gps && v.gps.lat && v.gps.lng);
-        if (!vehiclesWithGps.length) return;
-
-        const bounds = new google.maps.LatLngBounds();
-
-        vehiclesWithGps.forEach(v => {
-            const pos = { lat: v.gps.lat, lng: v.gps.lng };
-            const isTrailer = v.type === 'trailer';
-            const isMoving = v.gps.speed > 2;
-            const icon = isTrailer ? {
-                // Square marker for trailers
-                path: 'M -4 -4 L 4 -4 L 4 4 L -4 4 Z',
-                scale: 1,
-                fillColor: isMoving ? '#f59e0b' : '#94a3b8',
-                fillOpacity: 1,
-                strokeColor: '#fff',
-                strokeWeight: 1.5,
-            } : {
-                path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                scale: 5,
-                rotation: v.gps.heading || 0,
-                fillColor: isMoving ? '#6366f1' : '#64748b',
-                fillOpacity: 1,
-                strokeColor: '#fff',
-                strokeWeight: 1.5,
-            };
-            const marker = new google.maps.Marker({
-                position: pos,
-                map: mapObj,
-                icon,
-            });
-
-            const updatedTime = v.gps.time ? new Date(v.gps.time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '—';
-            const unitLabel = v.type === 'trailer' ? 'Trailer' : 'Truck';
-            const iw = new google.maps.InfoWindow({
-                content: '<div style="font:13px/1.5 -apple-system,sans-serif;min-width:160px">'
-                    + '<strong>' + (v.name || unitLabel) + '</strong>'
-                    + ' <span style="font-size:10px;color:#94a3b8;font-weight:400">' + unitLabel + '</span><br>'
-                    + (v.gps.location ? '<span style="color:#64748b;font-size:12px">' + v.gps.location + '</span><br>' : '')
-                    + (v.gps.speed ? '<span>' + v.gps.speed + ' mph</span> · ' : '')
-                    + '<span style="color:#94a3b8;font-size:11px">' + updatedTime + '</span>'
-                    + '</div>',
-            });
-            marker.addListener('mouseover', () => {
-                samsaraFleet.infoWindows.forEach(w => w.close());
-                iw.open(mapObj, marker);
-            });
-            marker.addListener('mouseout', () => {
-                iw.close();
-            });
-            samsaraFleet.infoWindows.push(iw);
-            markersArray.push(marker);
-            bounds.extend(pos);
-        });
-
-        if (vehiclesWithGps.length === 1) {
-            mapObj.setCenter(vehiclesWithGps[0].gps);
-            mapObj.setZoom(11);
-        } else {
-            mapObj.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
-        }
-    }
-
-    function _renderFleetVehicleList(vehicles, listId, mapObj, markersArray) {
-        const el = $(listId);
-        if (!el) return;
-        if (!vehicles || !vehicles.length) {
-            el.innerHTML = '<div class="samsara-fleet-vehicle-list-empty">No vehicles found</div>';
-            return;
-        }
-        el.innerHTML = vehicles.map((v, i) => {
-            const hasGps = v.gps && v.gps.lat;
-            const isMoving = hasGps && v.gps.speed > 2;
-            const isTrailer = v.type === 'trailer';
-            const speed = hasGps ? v.gps.speed + ' mph' : '';
-            const loc = hasGps && v.gps.location ? v.gps.location.split(',').slice(0, 2).join(',') : 'No GPS data';
-            const dotClass = isTrailer
-                ? (hasGps ? (isMoving ? ' trailer moving' : ' trailer stopped') : ' trailer')
-                : (hasGps ? (isMoving ? ' moving' : ' stopped') : '');
-            return '<div class="samsara-fleet-vehicle-item' + (hasGps ? '' : ' no-gps') + '" data-idx="' + i + '">'
-                + '<span class="samsara-fleet-vehicle-dot' + dotClass + '"></span>'
-                + '<div class="samsara-fleet-vehicle-info">'
-                + '<span class="samsara-fleet-vehicle-name">' + escapeHtml(v.name || 'Unit')
-                + (isTrailer ? ' <span style="font-size:9px;color:#94a3b8;font-weight:500;text-transform:uppercase">TRL</span>' : '') + '</span>'
-                + '<span class="samsara-fleet-vehicle-loc">' + escapeHtml(loc) + (speed ? ' · ' + speed : '') + '</span>'
-                + '</div></div>';
-        }).join('');
-
-        el.querySelectorAll('.samsara-fleet-vehicle-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const idx = parseInt(item.dataset.idx, 10);
-                const v = vehicles[idx];
-                if (!v || !v.gps || !mapObj) return;
-                mapObj.panTo({ lat: v.gps.lat, lng: v.gps.lng });
-                mapObj.setZoom(12);
-                const marker = markersArray[markersArray.findIndex((m, mi) => {
-                    const vg = vehicles.filter(x => x.gps && x.gps.lat);
-                    return vg[mi] === v;
-                })];
-                if (marker) google.maps.event.trigger(marker, 'click');
-            });
-        });
-    }
-
-    // NOAA NEXRAD precipitation radar tile layer (free, no API key)
-    let _nexradLayer = null;
-    let weatherOn = false;
-
-    function _getNexradLayer() {
-        if (_nexradLayer) return _nexradLayer;
-        if (!isGMaps()) return null;
-        _nexradLayer = new google.maps.ImageMapType({
-            getTileUrl: (coord, zoom) =>
-                `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/${zoom}/${coord.x}/${coord.y}.png`,
-            tileSize: new google.maps.Size(256, 256),
-            maxZoom: 9,
-            minZoom: 0,
-            opacity: 0.55,
-            name: 'NEXRAD',
-        });
-        return _nexradLayer;
-    }
-
-    function _enableWeather(map) {
-        const layer = _getNexradLayer();
-        if (!map || !layer) return;
-        if (!weatherOn) {
-            map.overlayMapTypes.insertAt(0, layer);
-            weatherOn = true;
-        }
-    }
-
-    function _ensureOverviewMap() {
-        if (samsaraFleet.overviewMap) return true;
-        const container = $('overviewFleetMap');
-        if (!container) return false;
-        if (!isGMaps()) {
-            // Maps API not loaded yet — retry once it's available
-            const poll = setInterval(() => {
-                if (!isGMaps()) return;
-                clearInterval(poll);
-                _ensureOverviewMap();
-                if (samsaraFleet.overviewMap && uid()) {
-                    db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet').get().then(snap => {
-                        if (!snap.exists) return;
-                        const { vehicles, syncedAt } = snap.data();
-                        samsaraFleet.lastSyncedAt = syncedAt;
-                        _renderFleetData(vehicles || []);
-                    }).catch(() => {});
-                }
-            }, 200);
-            return false;
-        }
-        samsaraFleet.overviewMap = new google.maps.Map(container, {
-            center: { lat: 39.8283, lng: -98.5795 },
-            zoom: 4,
-            disableDefaultUI: true,
-            zoomControl: true,
-            gestureHandling: 'greedy',
-            styles: [
-                { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
-                { elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
-                { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f5f5' }] },
-                { featureType: 'poi', stylers: [{ visibility: 'off' }] },
-                { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
-                { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#e0e0e0' }] },
-                { featureType: 'road.highway', elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] },
-                { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#c9e8f5' }] },
-                { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#9e9e9e' }] },
-                { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-            ],
-        });
-        _enableWeather(samsaraFleet.overviewMap);
-        return true;
-    }
-
-    function _ensureLiveMap() {
-        if (samsaraFleet.liveMap) return true;
-        const container = $('liveMapContainer');
-        if (!container || !isGMaps()) return false;
-        samsaraFleet.liveMap = new google.maps.Map(container, {
-            center: { lat: 39.8283, lng: -98.5795 },
-            zoom: 4,
-            disableDefaultUI: false,
-            zoomControl: true,
-            mapTypeControl: false,
-            streetViewControl: false,
-            fullscreenControl: true,
-            gestureHandling: 'greedy',
-            styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }],
-        });
-        return true;
-    }
-
-    function _renderFleetData(vehicles) {
-        const hasGps = vehicles.some(v => v.gps && v.gps.lat);
-
-        // Overview map
-        _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', hasGps ? '' : 'No GPS data available');
-        if (_ensureOverviewMap()) {
-            _buildFleetMarkers(vehicles, samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
-            _renderFleetVehicleList(vehicles, 'overviewFleetVehicleList', samsaraFleet.overviewMap, samsaraFleet.overviewMarkers);
-        }
-
-        // Live map (only update if initialized)
-        if (samsaraFleet.liveMap) {
-            _fleetOverlay('liveMapOverlay', 'liveMapOverlayText', hasGps ? '' : 'No GPS data available');
-            _buildFleetMarkers(vehicles, samsaraFleet.liveMap, samsaraFleet.liveMarkers);
-            _renderFleetVehicleList(vehicles, 'liveMapVehicleList', samsaraFleet.liveMap, samsaraFleet.liveMarkers);
-        }
-
-        _updateFleetSyncLabels();
-    }
-
-    // Start Firestore live listener + auto-poll (called once after auth)
-    function _startFleetLiveSync() {
-        if (!uid()) return;
-
-        // Firestore snapshot: re-renders whenever cache document updates
-        if (!samsaraFleet.unsubFleet) {
-            samsaraFleet.unsubFleet = db.collection('users').doc(uid())
-                .collection('samsara_cache').doc('fleet')
-                .onSnapshot(snap => {
-                    if (!snap.exists) return;
-                    const { vehicles, syncedAt } = snap.data();
-                    samsaraFleet.lastSyncedAt = syncedAt;
-                    _renderFleetData(vehicles || []);
-                }, err => console.warn('Fleet cache listener error:', err));
-        }
-
-        // Auto-poll every 2 minutes if Samsara is connected
-        if (!samsaraFleet.syncInterval) {
-            samsaraFleet.syncInterval = setInterval(() => {
-                if (state.profile?.samsara?.connectedAt && !samsaraFleet.syncing) {
-                    triggerFleetSync();
-                }
-            }, 120000);
-        }
-    }
-
-    async function triggerFleetSync() {
-        if (!uid() || samsaraFleet.syncing) return;
-        samsaraFleet.syncing = true;
-
-        // Show loading overlays
-        _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', 'Syncing fleet data…');
-        _fleetOverlay('liveMapOverlay', 'liveMapOverlayText', 'Syncing fleet data…');
-        [$('overviewFleetSyncBtn'), $('liveMapSyncBtn')].forEach(b => { if (b) { b.disabled = true; b.classList.add('syncing'); } });
-
-        try {
-            const reqRef = await db.collection('users').doc(uid()).collection('samsara_sync_requests').add({ requestedAt: Date.now() });
-            const timeoutMs = 55000;
-            const startMs = Date.now();
-
-            await new Promise((resolve, reject) => {
-                const unsub = reqRef.onSnapshot(snap => {
-                    if (Date.now() - startMs > timeoutMs) { unsub(); reject(new Error('timeout')); return; }
-                    if (!snap.exists) { unsub(); resolve(); return; } // deleted = success
-                    const d = snap.data() || {};
-                    if (d.status === 'error') { unsub(); reject(new Error(d.error || 'sync_error')); }
-                });
-                setTimeout(() => { unsub(); reject(new Error('timeout')); }, timeoutMs);
-            });
-
-            // Read fresh cache
-            const cacheDoc = await db.collection('users').doc(uid()).collection('samsara_cache').doc('fleet').get();
-            if (cacheDoc.exists) {
-                const { vehicles, syncedAt } = cacheDoc.data();
-                samsaraFleet.lastSyncedAt = syncedAt;
-                // Also update truck table rows with samsara location badges
-                await loadTrucks();
-                renderTrucks();
-                _renderFleetData(vehicles || []);
-            }
-        } catch (err) {
-            console.error('Fleet sync error:', err);
-            const msg = err.message === 'timeout' ? 'Sync timed out' : ('Sync failed: ' + (err.message || 'unknown'));
-            _fleetOverlay('overviewFleetMapOverlay', 'overviewFleetMapOverlayText', msg);
-            _fleetOverlay('liveMapOverlay', 'liveMapOverlayText', msg);
-        } finally {
-            samsaraFleet.syncing = false;
-            [$('overviewFleetSyncBtn'), $('liveMapSyncBtn')].forEach(b => { if (b) { b.disabled = false; b.classList.remove('syncing'); } });
-        }
-    }
-
-    function initFleetMap() {
-        // Wire sync buttons
-        const overviewBtn = $('overviewFleetSyncBtn');
-        const liveBtn = $('liveMapSyncBtn');
-        if (overviewBtn) overviewBtn.addEventListener('click', triggerFleetSync);
-        if (liveBtn) liveBtn.addEventListener('click', triggerFleetSync);
-
-        // Wire sidebar collapse / expand
-        const collapseBtn = $('overviewSidebarCollapse');
-        const expandBtn   = $('overviewSidebarExpand');
-        const sidebar     = $('overviewMapSidebar');
-        const topbar      = $('overviewMapTopbar');
-        if (collapseBtn && sidebar) {
-            collapseBtn.addEventListener('click', () => {
-                sidebar.classList.add('collapsed');
-                if (topbar) topbar.classList.add('sidebar-hidden');
-                if (expandBtn) expandBtn.style.display = 'inline-flex';
-            });
-        }
-        if (expandBtn && sidebar) {
-            expandBtn.addEventListener('click', () => {
-                sidebar.classList.remove('collapsed');
-                if (topbar) topbar.classList.remove('sidebar-hidden');
-                expandBtn.style.display = 'none';
-            });
-        }
-
-        // Wire telematics panel sync button
-        initTelematicsSyncBtn();
-    }
-
-    // ── Section Collapse Toggles ─────────
-    function initSectionCollapseToggles() {
-        const chevronSvg = '<svg class="section-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
-        document.querySelectorAll('.dash-card-header').forEach(header => {
-            const card = header.closest('.dash-card');
-            if (!card || card.closest('.dept-grid') || card.closest('#detailPanel')) return;
-            const h = header.querySelector('h2');
-            if (!h) return;
-            if (!header.querySelector('.section-chevron')) {
-                h.insertAdjacentHTML('afterend', chevronSvg);
-            }
-        });
-        document.addEventListener('click', (e) => {
-            const header = e.target.closest('.dash-card-header');
-            if (!header) return;
-            if (e.target.closest('.dash-card-header-actions') || e.target.closest('button') || e.target.closest('input') || e.target.closest('select') || e.target.closest('a')) return;
-            const card = header.closest('.dash-card');
-            if (!card || card.closest('.dept-grid') || card.closest('#detailPanel')) return;
-            if (!header.querySelector('h2')) return;
-            card.classList.toggle('collapsed');
-        });
-    }
-
     // ── Init ──────────────────────────────
     function init() {
         initNav();
         initOverviewCards();
         initOverviewLookup();
         initExpandToggles();
-        initSectionCollapseToggles();
         initProfileForm();
         initCompanyTabs();
         initCompanyDashboard();
-        initCompanyTaskWidgets();
         initFmcsaLookup();
         initTruckForm();
         initSheetModals();
         initTrailerForm();
         initDriverForm();
-        initLoadForm();
-        initLoadDocUpload();
-        initInlineDocUploads();
-        initDispatchOverview();
-        initAnalytics();
-        wireLoadLocationEvents();
-        initUnifiedSheet();
-        initTruckDetailPanel();
-        initTrailerDetailPanel();
         initDriverDetailPanel();
         initDropdownEditors();
         initModalBackdrops();
         initSearchFilters();
         initInlineEditing();
-        initInspections();
-        initTableColPickers();
-        initGoogleDriveForImport();
-        initSamsara();
-        initFleetMap();
         initAuth();
-
-        // Handle URL params to open detail panel (e.g. from Task Manager)
-        const params = new URLSearchParams(window.location.search);
-        const openPanel = params.get('openPanel');
-        const entityId = params.get('entityId');
-        if (openPanel && entityId) {
-            const waitForData = setInterval(() => {
-                if (!state.user) return;
-                if (openPanel === 'drivers' && state.drivers?.length) {
-                    clearInterval(waitForData);
-                    const driversNav = document.querySelector('[data-nav="drivers"]');
-                    if (driversNav) driversNav.click();
-                    setTimeout(() => openDriverDetailPanel(entityId), 200);
-                } else if (openPanel === 'trucks' && state.trucks?.length) {
-                    clearInterval(waitForData);
-                    const trucksNav = document.querySelector('[data-nav="trucks"]');
-                    if (trucksNav) trucksNav.click();
-                    setTimeout(() => openTruckDetailPanel(entityId), 200);
-                } else if (openPanel === 'trailers' && state.trailers?.length) {
-                    clearInterval(waitForData);
-                    const trailersNav = document.querySelector('[data-nav="trailers"]');
-                    if (trailersNav) trailersNav.click();
-                    setTimeout(() => openTrailerDetailPanel(entityId), 200);
-                }
-            }, 300);
-            setTimeout(() => clearInterval(waitForData), 10000);
-        }
-    }
-
-    // ── INSPECTIONS & CITATIONS ───────────
-    async function loadInspections() {
-        if (!uid()) return;
-        try {
-            const snap = await col('inspections').orderBy('date', 'desc').get();
-            state.inspections = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            renderInspections();
-            updateCount('inspectionCount', state.inspections.length);
-        } catch (e) { console.error('Load inspections error:', e); }
-    }
-
-    function renderInspections() {
-        const tbody = $('inspectionsTableBody');
-        const table = $('inspectionsTable');
-        const empty = $('inspectionsEmpty');
-        const thead = table?.querySelector('thead tr');
-        if (!tbody) return;
-        if (state.inspections.length === 0) {
-            table.style.display = 'none';
-            empty.style.display = '';
-            return;
-        }
-        empty.style.display = 'none';
-        table.style.display = '';
-        const filtered = state.inspections.filter(d => matchesFilter(d, 'inspection'));
-        const sorted = sortItems(filtered, sortState.inspections, 'inspection');
-        const visCols = getVisibleTableCols('inspections');
-        const widths = computeTableColWidths('inspections');
-        if (thead) {
-            let h = '<th class="col-checkbox"><input type="checkbox" id="inspectionSelectAll" title="Select all"></th>';
-            visCols.forEach(c => { h += '<th data-col-key="' + c.key + '" style="width:' + widths[c.key] + '%">' + c.label + '</th>'; });
-            h += '<th style="width:18%"></th>';
-            thead.innerHTML = h;
-            wireColDrag(thead, 'inspections');
-        }
-        const selAll = thead?.querySelector('#inspectionSelectAll');
-        if (selAll) selAll.onchange = () => toggleSelectAll('inspections', selAll);
-        tbody.innerHTML = sorted.map(d => {
-            const st = d.inspStatus || 'open';
-            const dimmed = st === 'resolved' || st === 'paid' || st === 'waived';
-            let cells = '<td class="col-checkbox"><input type="checkbox" class="bulk-cb" data-id="' + d.id + '" ' + (bulkSelection.inspections.has(d.id) ? 'checked' : '') + ' onchange="Dashboard.toggleBulkSelect(\'inspections\',\'' + d.id + '\',this)"></td>';
-            visCols.forEach(c => { cells += inspectionCell(d, c.key); });
-            cells += '<td class="row-actions"><div class="cell">';
-            cells += '<button title="Edit" class="insp-action-btn" onclick="Dashboard.editInspection(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg></button>';
-            cells += '<button title="Delete" class="insp-action-btn btn-delete" onclick="Dashboard.deleteInspection(\'' + d.id + '\')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>';
-            cells += '</div></td>';
-            return '<tr data-id="' + d.id + '" class="' + (dimmed ? 'insp-resolved' : '') + '">' + cells + '</tr>';
-        }).join('');
-    }
-
-    function editInspection(id) {
-        const d = state.inspections.find(x => x.id === id);
-        if (d) openUnifiedSheet('inspection', [d], { mode: 'edit' });
-    }
-
-    async function deleteInspection(id) {
-        if (!confirm('Delete this inspection? This cannot be undone.')) return;
-        try {
-            await col('inspections').doc(id).delete();
-            await loadInspections();
-            showMsg('Inspection deleted');
-        } catch (e) { console.error(e); showMsg('Error deleting inspection', true); }
-    }
-
-    async function toggleInspResolved(id) {
-        const d = state.inspections.find(x => x.id === id);
-        if (!d) return;
-        const newStatus = d.inspStatus === 'resolved' ? 'open' : 'resolved';
-        try {
-            await col('inspections').doc(id).update({ inspStatus: newStatus });
-            d.inspStatus = newStatus;
-            renderInspections();
-            showMsg(newStatus === 'resolved' ? 'Inspection marked resolved' : 'Inspection reopened');
-        } catch (e) { console.error(e); showMsg('Error updating status', true); }
-    }
-
-    async function toggleInspPaid(id) {
-        const d = state.inspections.find(x => x.id === id);
-        if (!d) return;
-        const newStatus = d.paidStatus === 'paid' ? 'unpaid' : 'paid';
-        try {
-            await col('inspections').doc(id).update({ paidStatus: newStatus });
-            d.paidStatus = newStatus;
-            renderInspections();
-            showMsg(newStatus === 'paid' ? 'Marked as paid' : 'Marked as unpaid');
-        } catch (e) { console.error(e); showMsg('Error updating paid status', true); }
-    }
-
-    async function createInspTask(id) {
-        const d = state.inspections.find(x => x.id === id);
-        if (!d) return;
-        const typeFmt = { 'level-1': 'Level I', 'level-2': 'Level II', 'level-3': 'Level III', 'level-4': 'Level IV', 'level-5': 'Level V', 'citation': 'Citation' };
-        const typeLabel = typeFmt[d.type] || d.type || 'Inspection';
-        const fine = d.fineAmount && parseFloat(d.fineAmount) > 0 ? ` — Fine: $${parseFloat(d.fineAmount).toFixed(2)}` : '';
-        const text = `${typeLabel} (${d.reportNum || 'No report #'}) — ${d.driverName || 'No driver'} / ${d.truckUnit || 'No truck'} on ${d.date || '?'}${fine}`;
-        const priority = d.result === 'fail' || d.result === 'oos' ? 'high' : 'normal';
-
-        const taskData = {
-            text,
-            type: 'task',
-            status: 'Open',
-            priority,
-            assignedTo: [],
-            dueDate: null,
-            createdBy: state.user.email || state.user.uid,
-            source: 'inspection',
-            inspectionId: id,
-            createdAtIso: new Date().toISOString()
-        };
-
-        try {
-            const result = await FirebaseDB.createTask(state.user.uid, 'inspections', id, taskData);
-            if (!result.success) throw new Error(result.error);
-            showMsg('Task created — view in Task Manager');
-        } catch (e) { console.error(e); showMsg('Error creating task', true); }
-    }
-
-    function initInspections() {
-        const addBtn = $('addInspectionBtn');
-        const addFirst = $('addFirstInspection');
-
-        const openAdd = () => openUnifiedSheet('inspection', null, { mode: 'add' });
-        if (addBtn) addBtn.addEventListener('click', openAdd);
-        if (addFirst) addFirst.addEventListener('click', openAdd);
-
-        const importBtn = $('importInspectionsBtn');
-        if (importBtn) {
-            importBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                showImportDropdown(importBtn, smartImportInspections);
-            });
-        }
-
-        const selectAll = $('inspectionSelectAll');
-        if (selectAll) selectAll.addEventListener('change', () => toggleSelectAll('inspections', selectAll));
-
-        // Inline status change on inspections table
-        const tbody = $('inspectionsTableBody');
-        if (tbody) {
-            tbody.addEventListener('change', async (e) => {
-                const sel = e.target.closest('.insp-status-select');
-                if (sel) {
-                    const id = sel.dataset.id;
-                    const field = sel.dataset.field;
-                    const val = sel.value;
-                    try {
-                        await col('inspections').doc(id).update({ [field]: val });
-                        const d = state.inspections.find(x => x.id === id);
-                        if (d) d[field] = val;
-                        renderInspections();
-                        updateComplianceScoreCard();
-                        renderCompDropdown();
-                        showMsg('Status updated');
-                    } catch (err) { console.error(err); showMsg('Error updating status', true); }
-                    return;
-                }
-                const asel = e.target.closest('.insp-assign-select');
-                if (asel) {
-                    const id = asel.dataset.id;
-                    const val = asel.value;
-                    try {
-                        await col('inspections').doc(id).update({ assignedTo: val });
-                        const d = state.inspections.find(x => x.id === id);
-                        if (d) d.assignedTo = val;
-                        showMsg(val ? 'Assigned to ' + val : 'Unassigned');
-                    } catch (err) { console.error(err); showMsg('Error updating assignment', true); }
-                }
-            });
-        }
-
-        loadInspections();
     }
 
     // Expose edit/delete/inline methods for inline onclick
     window.Dashboard = {
-        editTruck, editTrailer, editDriver, editLoad,
-        deleteTruck, deleteTrailer, deleteDriver, deleteLoad, uploadLoadDoc,
-        editInspection, deleteInspection, toggleInspResolved, toggleInspPaid, createInspTask,
-        inlineStatus, inlineTruckAssign,
-        toggleBulkSelect, bulkDelete, bulkChangeStatus, bulkExport, bulkEdit,
-        openTruckProfile, openTrailerProfile, openDriverProfile,
-        toggleSpreadsheet, ssChanged, ssSaveAll, ssDiscardAll,
-        openUnifiedSheet
+        editTruck, editTrailer, editDriver,
+        deleteTruck, deleteTrailer, deleteDriver,
+        inlineStatus,
+        openTruckProfile, openTrailerProfile, openDriverProfile
     };
-
-    /* ===========================================================
-       BULK DOCUMENT CENTER
-       =========================================================== */
-    (function initBulkDocs() {
-        const DOC_TYPES = {
-            drivers: ['cdl', 'medical', 'contract', 'mvr', 'psp', 'photo', 'other'],
-            trucks: ['registration', 'insurance', 'inspection', 'title', 'lease', 'photo', 'other'],
-            trailers: ['registration', 'insurance', 'inspection', 'title', 'lease', 'photo', 'other']
-        };
-        const TYPE_LABELS = {
-            cdl: 'CDL', medical: 'Medical', contract: 'Contract', mvr: 'MVR', psp: 'PSP',
-            registration: 'Registration', insurance: 'Insurance', inspection: 'Inspection',
-            title: 'Title', lease: 'Lease', photo: 'Photo', other: 'Other'
-        };
-
-        let bulkEntity = 'drivers';
-        let bulkDocType = '';
-        let bulkDocs = [];      // { entityName, entityId, doc }
-        let bulkSelected = new Set();
-
-        function bulkEl(id) { return document.getElementById(id); }
-
-        function entityName(entity, item) {
-            if (entity === 'drivers') return [item.firstName, item.lastName].filter(Boolean).join(' ') || item.id;
-            return item.unit || item.id;
-        }
-
-        function renderDocTypeChips() {
-            const container = bulkEl('bulkDocTypeFilter');
-            if (!container) return;
-            const types = DOC_TYPES[bulkEntity] || [];
-            container.innerHTML = '<button class="bulk-chip active" data-doctype="">All types</button>' +
-                types.map(t => `<button class="bulk-chip" data-doctype="${t}">${TYPE_LABELS[t] || t}</button>`).join('');
-            container.querySelectorAll('.bulk-chip').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    container.querySelectorAll('.bulk-chip').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    bulkDocType = btn.dataset.doctype;
-                    loadBulkDocs();
-                });
-            });
-        }
-
-        async function loadBulkDocs() {
-            const results = bulkEl('bulkResults');
-            if (!results) return;
-            results.innerHTML = '<p style="padding:1.5rem;text-align:center;color:var(--gray-400);font-size:0.8rem">Loading documents…</p>';
-            bulkDocs = [];
-            bulkSelected.clear();
-            updateSelectedCount();
-
-            const entities = state[bulkEntity] || [];
-            if (!entities.length) {
-                results.innerHTML = '<p style="padding:1.5rem;text-align:center;color:var(--gray-400);font-size:0.8rem">No ' + bulkEntity + ' found. Add some from the dashboard first.</p>';
-                return;
-            }
-
-            const search = (bulkEl('bulkSearch')?.value || '').trim().toLowerCase();
-
-            // Load documents for all entities in parallel
-            const promises = entities.map(async item => {
-                const name = entityName(bulkEntity, item);
-                if (search && !name.toLowerCase().includes(search)) return [];
-                try {
-                    const snap = await col(bulkEntity).doc(item.id).collection('documents').get();
-                    return snap.docs.map(d => ({
-                        entityName: name,
-                        entityId: item.id,
-                        doc: { id: d.id, ...d.data() }
-                    }));
-                } catch { return []; }
-            });
-
-            const allResults = await Promise.all(promises);
-            bulkDocs = allResults.flat();
-
-            if (bulkDocType) {
-                bulkDocs = bulkDocs.filter(r => r.doc.type === bulkDocType);
-            }
-
-            // Sort by entity name then upload date
-            bulkDocs.sort((a, b) => {
-                const cmp = a.entityName.localeCompare(b.entityName);
-                if (cmp !== 0) return cmp;
-                const at = new Date(a.doc.uploadedAt || 0).getTime();
-                const bt = new Date(b.doc.uploadedAt || 0).getTime();
-                return bt - at;
-            });
-
-            renderBulkResults();
-        }
-
-        function isImageUrl(doc) {
-            if (doc.contentType && doc.contentType.startsWith('image/')) return true;
-            if (doc.url) return /\.(jpg|jpeg|png|gif|webp)(\?|$)/i.test(doc.url.split('?')[0]);
-            return false;
-        }
-
-        function renderBulkResults() {
-            const results = bulkEl('bulkResults');
-            if (!results) return;
-
-            if (!bulkDocs.length) {
-                results.innerHTML = `<div class="placeholder-content">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
-                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-                    </svg>
-                    <p>No documents found</p>
-                    <span class="placeholder-hint">Try a different entity type, document type, or search term</span>
-                </div>`;
-                return;
-            }
-
-            const checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polyline points="20 6 9 17 4 12"/></svg>';
-            let html = '<table class="bulk-table"><thead><tr>' +
-                '<th></th><th></th><th>Name</th><th>Type</th><th>File</th><th>Date</th><th></th>' +
-                '</tr></thead><tbody>';
-
-            bulkDocs.forEach((item, idx) => {
-                const d = item.doc;
-                const isImg = isImageUrl(d);
-                const checked = bulkSelected.has(idx) ? 'checked' : '';
-                const dateStr = d.uploadedAt ? new Date(d.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-                const typeLabel = TYPE_LABELS[d.type] || d.type || 'Other';
-
-                html += `<tr class="${checked ? 'selected' : ''}" data-idx="${idx}">
-                    <td><label class="bulk-check"><input type="checkbox" data-idx="${idx}" ${checked}><span class="bulk-check-box">${checkSvg}</span></label></td>
-                    <td class="bulk-td-thumb">${isImg ? `<img src="${escapeHtml(d.url)}" alt="" loading="lazy">` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`}</td>
-                    <td class="bulk-td-entity">${escapeHtml(item.entityName)}</td>
-                    <td class="bulk-td-type"><span>${escapeHtml(typeLabel)}</span></td>
-                    <td class="bulk-td-name" title="${escapeHtml(d.name || '')}">${escapeHtml(d.name || 'Unnamed')}</td>
-                    <td class="bulk-td-date">${escapeHtml(dateStr)}</td>
-                    <td class="bulk-td-actions"><a href="${escapeHtml(d.url)}" target="_blank" rel="noopener" title="Open"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a></td>
-                </tr>`;
-            });
-            html += '</tbody></table>';
-            results.innerHTML = html;
-
-            // Row click toggles checkbox
-            results.querySelectorAll('tr[data-idx]').forEach(row => {
-                row.addEventListener('click', e => {
-                    if (e.target.closest('a') || e.target.closest('.bulk-check')) return;
-                    const cb = row.querySelector('input[type="checkbox"]');
-                    if (cb) { cb.checked = !cb.checked; cb.dispatchEvent(new Event('change')); }
-                });
-            });
-
-            // Bind checkboxes
-            results.querySelectorAll('input[type="checkbox"][data-idx]').forEach(cb => {
-                cb.addEventListener('change', () => {
-                    const idx = parseInt(cb.dataset.idx, 10);
-                    if (cb.checked) bulkSelected.add(idx);
-                    else bulkSelected.delete(idx);
-                    cb.closest('tr').classList.toggle('selected', cb.checked);
-                    updateSelectedCount();
-                });
-            });
-        }
-
-        function updateSelectedCount() {
-            const countEl = bulkEl('bulkSelectedCount');
-            if (countEl) countEl.textContent = bulkSelected.size + ' selected';
-            const zipBtn = bulkEl('bulkDownloadZip');
-            if (zipBtn) zipBtn.disabled = bulkSelected.size === 0;
-            // Update select-all checkbox
-            const allCb = bulkEl('bulkSelectAll');
-            if (allCb) {
-                allCb.checked = bulkDocs.length > 0 && bulkSelected.size === bulkDocs.length;
-                allCb.indeterminate = bulkSelected.size > 0 && bulkSelected.size < bulkDocs.length;
-            }
-        }
-
-        async function downloadZip() {
-            if (!bulkSelected.size) return;
-            if (typeof JSZip === 'undefined') {
-                alert('Zip library not loaded. Please refresh and try again.');
-                return;
-            }
-
-            const zipBtn = bulkEl('bulkDownloadZip');
-            const origText = zipBtn.innerHTML;
-            zipBtn.disabled = true;
-
-            try {
-                const zip = new JSZip();
-                const selected = [...bulkSelected].map(idx => bulkDocs[idx]).filter(Boolean);
-                const nameCount = {};
-                let added = 0;
-                const total = selected.length;
-
-                for (let i = 0; i < selected.length; i++) {
-                    const item = selected[i];
-                    const d = item.doc;
-                    if (!d.storagePath && !d.url) continue;
-
-                    zipBtn.innerHTML = '<svg class="spin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> ' + (i + 1) + '/' + total + '…';
-
-                    // Build folder/filename
-                    const folder = item.entityName.replace(/[^a-zA-Z0-9 _-]/g, '').trim() || 'Unknown';
-                    let fileName = d.name || ('document_' + d.id);
-                    const key = folder + '/' + fileName;
-                    nameCount[key] = (nameCount[key] || 0) + 1;
-                    if (nameCount[key] > 1) {
-                        const ext = fileName.lastIndexOf('.') > 0 ? fileName.slice(fileName.lastIndexOf('.')) : '';
-                        const base = ext ? fileName.slice(0, -ext.length) : fileName;
-                        fileName = base + '_' + nameCount[key] + ext;
-                    }
-
-                    try {
-                        // Get fresh download URL via Storage SDK
-                        let downloadUrl = d.url;
-                        if (d.storagePath) {
-                            try { downloadUrl = await storage.ref(d.storagePath).getDownloadURL(); }
-                            catch (e) { /* fall back to stored url */ }
-                        }
-                        if (!downloadUrl) continue;
-
-                        const blob = await new Promise((resolve, reject) => {
-                            const xhr = new XMLHttpRequest();
-                            xhr.open('GET', downloadUrl, true);
-                            xhr.responseType = 'blob';
-                            xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve(xhr.response) : reject(new Error('HTTP ' + xhr.status));
-                            xhr.onerror = () => reject(new Error('Network error'));
-                            xhr.send();
-                        });
-                        zip.folder(folder).file(fileName, blob);
-                        added++;
-                    } catch (err) {
-                        console.warn('Skipped file:', d.name, err);
-                    }
-                }
-
-                if (!added) {
-                    alert('Could not download any of the selected files. They may have been deleted from storage.');
-                    return;
-                }
-
-                zipBtn.innerHTML = '<svg class="spin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Zipping…';
-                const content = await zip.generateAsync({ type: 'blob' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(content);
-                a.download = 'documents_' + bulkEntity + '_' + new Date().toISOString().slice(0, 10) + '.zip';
-                document.body.appendChild(a);
-                a.click();
-                setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-            } catch (err) {
-                console.error('Zip download error:', err);
-                alert('Failed to create zip file. ' + (err.message || ''));
-            } finally {
-                zipBtn.innerHTML = origText;
-                zipBtn.disabled = bulkSelected.size === 0;
-            }
-        }
-
-        function bindBulkDocs() {
-            // Entity filter chips
-            const entityFilter = bulkEl('bulkEntityFilter');
-            if (!entityFilter) return;
-            entityFilter.querySelectorAll('.bulk-chip').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    entityFilter.querySelectorAll('.bulk-chip').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    bulkEntity = btn.dataset.entity;
-                    bulkDocType = '';
-                    renderDocTypeChips();
-                    loadBulkDocs();
-                });
-            });
-
-            // Search
-            let searchTimer;
-            const searchInput = bulkEl('bulkSearch');
-            if (searchInput) {
-                searchInput.addEventListener('input', () => {
-                    clearTimeout(searchTimer);
-                    searchTimer = setTimeout(() => loadBulkDocs(), 350);
-                });
-            }
-
-            // Select-all
-            const allCb = bulkEl('bulkSelectAll');
-            if (allCb) {
-                allCb.addEventListener('change', () => {
-                    if (allCb.checked) {
-                        bulkDocs.forEach((_, idx) => bulkSelected.add(idx));
-                    } else {
-                        bulkSelected.clear();
-                    }
-                    renderBulkResults();
-                    updateSelectedCount();
-                });
-            }
-
-            // Zip download
-            const zipBtn = bulkEl('bulkDownloadZip');
-            if (zipBtn) zipBtn.addEventListener('click', downloadZip);
-
-            // Initial doc type chips
-            renderDocTypeChips();
-        }
-
-        // Bind when DOM is ready
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', bindBulkDocs);
-        } else {
-            bindBulkDocs();
-        }
-
-        // Auto-load when section becomes visible
-        const observer = new MutationObserver(() => {
-            const section = document.getElementById('section-bulk-docs');
-            if (section && section.classList.contains('active')) {
-                loadBulkDocs();
-            }
-        });
-        const target = document.getElementById('section-bulk-docs');
-        if (target) observer.observe(target, { attributes: true, attributeFilter: ['class'] });
-    })();
 
     // Start when DOM is ready
     if (document.readyState === 'loading') {

@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documents Workspace - IFTA Wizard</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="documents-workspace.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+</head>
+<body>
+    <div class="docs-page">
+        <header class="docs-header">
+            <div class="docs-header-left">
+                <a href="dashboard.html" class="docs-back-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M15 18l-6-6 6-6"/></svg>
+                    Dashboard
+                </a>
+                <div>
+                    <h1>Documents Workspace</h1>
+                    <p>Driver, vehicle, trailer, and Samsara document control with clean grouping, preview, replacement, and expiration visibility.</p>
+                </div>
+            </div>
+            <div class="docs-header-actions">
+                <button class="btn btn-secondary" id="refreshDocsBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <section class="docs-kpis">
+            <article class="docs-kpi">
+                <div class="docs-kpi-label">Total Documents</div>
+                <div class="docs-kpi-value" id="kpiTotalDocs">0</div>
+                <div class="docs-kpi-sub">all sources</div>
+            </article>
+            <article class="docs-kpi warning">
+                <div class="docs-kpi-label">Expiring Soon</div>
+                <div class="docs-kpi-value" id="kpiExpiring">0</div>
+                <div class="docs-kpi-sub">next 30 days</div>
+            </article>
+            <article class="docs-kpi danger">
+                <div class="docs-kpi-label">Expired</div>
+                <div class="docs-kpi-value" id="kpiExpired">0</div>
+                <div class="docs-kpi-sub">action required</div>
+            </article>
+            <article class="docs-kpi warning">
+                <div class="docs-kpi-label">Missing URL/File</div>
+                <div class="docs-kpi-value" id="kpiMissingFile">0</div>
+                <div class="docs-kpi-sub">metadata-only records</div>
+            </article>
+            <article class="docs-kpi">
+                <div class="docs-kpi-label">Samsara Docs</div>
+                <div class="docs-kpi-value" id="kpiSamsara">0</div>
+                <div class="docs-kpi-sub">synced records</div>
+            </article>
+        </section>
+
+        <section class="docs-main">
+            <div class="docs-columns">
+                <article class="docs-panel docs-upload-panel">
+                    <header class="docs-panel-header"><h2>Upload / Replace</h2><span class="docs-meta">centralized document intake</span></header>
+                    <form id="docUploadForm" class="docs-upload-form">
+                        <div class="docs-grid-2">
+                            <label>Owner Type
+                                <select id="docOwnerType" required>
+                                    <option value="driver">Driver</option>
+                                    <option value="vehicle">Vehicle</option>
+                                    <option value="trailer">Trailer</option>
+                                </select>
+                            </label>
+                            <label>Owner
+                                <select id="docOwnerId" required></select>
+                            </label>
+                        </div>
+                        <div class="docs-grid-2">
+                            <label>Document Type
+                                <input type="text" id="docTypeInput" placeholder="e.g. CDL, Insurance, Inspection" required>
+                            </label>
+                            <label>Expiration Date
+                                <input type="date" id="docExpirationInput">
+                            </label>
+                        </div>
+                        <label>File
+                            <input type="file" id="docFileInput" required>
+                        </label>
+                        <div class="docs-form-actions">
+                            <button type="submit" class="btn btn-primary" id="docUploadSubmitBtn">Upload Document</button>
+                        </div>
+                    </form>
+                </article>
+
+                <article class="docs-panel docs-filter-panel">
+                    <header class="docs-panel-header"><h2>Filters & Grouping</h2><span class="docs-meta">keep lists concise</span></header>
+                    <div class="docs-filters">
+                        <label>Group By
+                            <select id="docGroupBy">
+                                <option value="ownerType">Owner Type</option>
+                                <option value="driver">Driver</option>
+                                <option value="vehicle">Vehicle</option>
+                                <option value="trailer">Trailer</option>
+                                <option value="docType">Document Type</option>
+                            </select>
+                        </label>
+                        <label>Status
+                            <select id="docStatusFilter">
+                                <option value="">All</option>
+                                <option value="expired">Expired</option>
+                                <option value="expiring">Expiring Soon</option>
+                                <option value="ok">Valid / No Expiration</option>
+                            </select>
+                        </label>
+                        <label>Source
+                            <select id="docSourceFilter">
+                                <option value="">All</option>
+                                <option value="manual">Manual / Uploaded</option>
+                                <option value="samsara">Samsara</option>
+                            </select>
+                        </label>
+                        <label>Search
+                            <input type="text" id="docSearchInput" placeholder="owner, type, file, source">
+                        </label>
+                    </div>
+                </article>
+
+                <article class="docs-panel docs-list-panel">
+                    <header class="docs-panel-header"><h2>Document Registry</h2><span class="docs-meta" id="docRegistryMeta">0 records</span></header>
+                    <div id="docsGroupedList" class="docs-grouped-list"></div>
+                </article>
+            </div>
+
+            <aside class="docs-detail" id="docsDetailPane">
+                <header class="docs-detail-header">
+                    <h2 id="docsDetailTitle">Document Detail</h2>
+                    <button id="closeDocsDetail" class="docs-close-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </header>
+                <div class="docs-detail-body" id="docsDetailBody">
+                    <p class="docs-detail-empty">Select a document card to preview metadata, expiration, and available actions.</p>
+                </div>
+            </aside>
+        </section>
+
+        <input type="file" id="replaceDocInput" class="hidden-input">
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="documents-workspace.js"></script>
+</body>
+</html>

@@ -9,15 +9,6 @@ const IFTAAuth = {
     firebaseReady: false,
     authStateInitialized: false,
     
-    // Admin emails - use centralized list from firebase-config.js or fallback
-    get adminEmails() {
-        return window.ADMIN_EMAILS || [
-            'milan.pericic@logistixnerd.com',
-            'milanpericic@gmail.com',
-            'admin@iftawizard.com'
-        ].map(e => e.toLowerCase());
-    },
-    
     // Initialize authentication
     init() {
         this.initFirebase();
@@ -144,7 +135,7 @@ const IFTAAuth = {
                 // Default landing after auth is Carrier Dashboard (unless coming from dashboard or in iframe).
                 const isEmbedded = window.self !== window.top;
                 const fromDashboard = sessionStorage.getItem('fromDashboard');
-                if (!isEmbedded && !fromDashboard && (window.location.pathname.toLowerCase().endsWith('/index.html') || window.location.pathname === '/')) {
+                if (!isEmbedded && !fromDashboard && (window.location.pathname.toLowerCase().endsWith('/dashboard.html') || window.location.pathname === '/')) {
                     window.location.assign('dashboard.html');
                     return;
                 } else if (fromDashboard) {
@@ -171,7 +162,7 @@ const IFTAAuth = {
 
                 const isEmbedded2 = window.self !== window.top;
                 const fromDashboard2 = sessionStorage.getItem('fromDashboard');
-                if (!isEmbedded2 && !fromDashboard2 && (window.location.pathname.toLowerCase().endsWith('/index.html') || window.location.pathname === '/')) {
+                if (!isEmbedded2 && !fromDashboard2 && (window.location.pathname.toLowerCase().endsWith('/dashboard.html') || window.location.pathname === '/')) {
                     window.location.assign('dashboard.html');
                     return;
                 } else if (fromDashboard2) {
@@ -859,8 +850,7 @@ const IFTAAuth = {
         // Show/hide admin link in profile menu
         const adminLink = document.getElementById('menuAdminConsole');
         if (adminLink) {
-            const userEmail = this.user?.email?.toLowerCase() || '';
-            const isAdmin = this.adminEmails.some(email => email.toLowerCase() === userEmail);
+            const isAdmin = this.isAdmin();
             adminLink.style.display = isAdmin ? 'flex' : 'none';
         }
         
@@ -939,7 +929,7 @@ const IFTAAuth = {
     
     // Check if current user is admin
     isAdmin() {
-        return this.adminEmails.includes(this.user?.email?.toLowerCase());
+        return (this.user?.role || '').toLowerCase() === 'admin';
     },
     
     // Get current user

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safety Workspace - IFTA Wizard</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="safety-workspace.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="safety-page">
+        <header class="safety-header">
+            <div class="safety-header-left">
+                <a href="dashboard.html" class="safety-back-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M15 18l-6-6 6-6"/></svg>
+                    Dashboard
+                </a>
+                <div>
+                    <h1>Safety Workspace</h1>
+                    <p>Safety events, coaching, camera media, defects, and DVIRs with fast operational triage.</p>
+                </div>
+            </div>
+            <div class="safety-header-actions">
+                <select id="safetyWindow" class="safety-control">
+                    <option value="24h">Last 24h</option>
+                    <option value="7d" selected>Last 7 days</option>
+                    <option value="30d">Last 30 days</option>
+                </select>
+                <button class="btn btn-secondary" id="refreshSafetyBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <section class="safety-alert-cards" id="safetyAlertCards">
+            <article class="safety-alert-card">
+                <div class="alert-label">Risk Score</div>
+                <div class="alert-value" id="riskScoreValue">0</div>
+                <div class="alert-sub" id="riskScoreBand">Low</div>
+            </article>
+            <article class="safety-alert-card">
+                <div class="alert-label">Open Alerts</div>
+                <div class="alert-value" id="openAlertsValue">0</div>
+                <div class="alert-sub" id="openAlertsSub">awaiting acknowledgment</div>
+            </article>
+            <article class="safety-alert-card">
+                <div class="alert-label">Critical Defects</div>
+                <div class="alert-value" id="criticalDefectsValue">0</div>
+                <div class="alert-sub" id="criticalDefectsSub">active equipment issues</div>
+            </article>
+            <article class="safety-alert-card">
+                <div class="alert-label">Open DVIRs</div>
+                <div class="alert-value" id="openDvirValue">0</div>
+                <div class="alert-sub" id="openDvirSub">pending driver signoff</div>
+            </article>
+            <article class="safety-alert-card">
+                <div class="alert-label">Speeding Intervals</div>
+                <div class="alert-value" id="speedingIntervalsValue">0</div>
+                <div class="alert-sub" id="speedingIntervalsSub">window total</div>
+            </article>
+        </section>
+
+        <section class="safety-main">
+            <div class="safety-columns">
+                <article class="safety-panel">
+                    <header class="safety-panel-header">
+                        <h2>Event Pressure</h2>
+                        <span class="safety-kpi-chip" id="eventPressureChip">Stable</span>
+                    </header>
+                    <div class="risk-indicators" id="riskIndicators"></div>
+                </article>
+
+                <article class="safety-panel">
+                    <header class="safety-panel-header">
+                        <h2>Active Alerts</h2>
+                        <input type="text" id="alertSearch" class="safety-inline-search" placeholder="Search alerts">
+                    </header>
+                    <div class="signal-list" id="alertsList"></div>
+                </article>
+
+                <article class="safety-panel">
+                    <header class="safety-panel-header">
+                        <h2>Safety Events</h2>
+                        <span class="safety-meta" id="eventsMeta">0 in window</span>
+                    </header>
+                    <div class="signal-list" id="eventsList"></div>
+                </article>
+
+                <article class="safety-panel">
+                    <header class="safety-panel-header">
+                        <h2>Defects & DVIRs</h2>
+                        <span class="safety-meta" id="defectsMeta">0 open</span>
+                    </header>
+                    <div class="signal-list split" id="defectsDvirList"></div>
+                </article>
+
+                <article class="safety-panel">
+                    <header class="safety-panel-header">
+                        <h2>Coaching Queue</h2>
+                        <span class="safety-meta" id="coachingMeta">0 sessions</span>
+                    </header>
+                    <div class="signal-list" id="coachingList"></div>
+                </article>
+
+                <article class="safety-panel">
+                    <header class="safety-panel-header">
+                        <h2>Camera Media</h2>
+                        <span class="safety-meta" id="cameraMeta">0 clips</span>
+                    </header>
+                    <div class="signal-list" id="cameraMediaList"></div>
+                </article>
+            </div>
+
+            <aside class="safety-drilldown" id="safetyDrilldown">
+                <header class="safety-drilldown-header">
+                    <h2 id="drilldownTitle">Drill-down</h2>
+                    <button id="closeDrilldown" class="safety-close-btn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </header>
+                <div class="safety-drilldown-body" id="drilldownBody">
+                    <p class="drilldown-empty">Click any signal card to inspect full context and sync metadata.</p>
+                </div>
+            </aside>
+        </section>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="safety-workspace.js"></script>
+</body>
+</html>

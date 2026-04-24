@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fleet Workspace - IFTA Wizard</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="fleet-workspace.css">
+    <link rel="stylesheet" href="drawer.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="fleet-page">
+        <header class="fleet-header">
+            <div class="fleet-header-left">
+                <a class="fleet-back" href="dashboard.html">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M15 18l-6-6 6-6"/></svg>
+                    Dashboard
+                </a>
+                <div>
+                    <h1>Fleet Workspace</h1>
+                    <p>Operational control for vehicles, trailers, assignments, trips, and equipment.</p>
+                </div>
+            </div>
+            <div class="fleet-header-right">
+                <button class="btn btn-secondary" id="refreshFleetBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <section class="fleet-summary" id="fleetSummaryCards">
+            <article class="fleet-card-summary">
+                <p>Total Vehicles</p>
+                <strong id="sumVehicles">0</strong>
+                <span id="sumVehiclesSub">active assets</span>
+            </article>
+            <article class="fleet-card-summary">
+                <p>Total Trailers</p>
+                <strong id="sumTrailers">0</strong>
+                <span id="sumTrailersSub">trailers on file</span>
+            </article>
+            <article class="fleet-card-summary">
+                <p>Active Assignments</p>
+                <strong id="sumAssignments">0</strong>
+                <span id="sumAssignmentsSub">linked driver-unit pairs</span>
+            </article>
+            <article class="fleet-card-summary">
+                <p>Open Trips</p>
+                <strong id="sumTrips">0</strong>
+                <span id="sumTripsSub">in progress routes</span>
+            </article>
+            <article class="fleet-card-summary">
+                <p>Equipment Issues</p>
+                <strong id="sumEquipment">0</strong>
+                <span id="sumEquipmentSub">work orders and defects</span>
+            </article>
+        </section>
+
+        <section class="fleet-main">
+            <div class="fleet-panel">
+                <div class="fleet-toolbar">
+                    <div class="fleet-tabs" id="fleetTabs">
+                        <button class="fleet-tab active" data-tab="vehicles">Vehicles</button>
+                        <button class="fleet-tab" data-tab="trailers">Trailers</button>
+                        <button class="fleet-tab" data-tab="assignments">Assignments</button>
+                        <button class="fleet-tab" data-tab="trips">Trips</button>
+                        <button class="fleet-tab" data-tab="equipment">Equipment</button>
+                    </div>
+                    <div class="fleet-filters">
+                        <input type="text" id="fleetSearch" class="fleet-filter-input" placeholder="Search current table...">
+                        <select id="fleetStatusFilter" class="fleet-filter-select">
+                            <option value="">All Statuses</option>
+                        </select>
+                        <select id="fleetSourceFilter" class="fleet-filter-select">
+                            <option value="">All Sources</option>
+                            <option value="manual">Manual</option>
+                            <option value="samsara">Samsara</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="fleet-table-wrap">
+                    <table class="fleet-table">
+                        <thead id="fleetTableHead"></thead>
+                        <tbody id="fleetTableBody"></tbody>
+                    </table>
+                    <div class="fleet-empty hidden" id="fleetEmptyState">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="42" height="42"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+                        <h3>No records found</h3>
+                        <p>Try adjusting the search or filters.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="drawer.js"></script>
+    <script src="fleet-workspace.js"></script>
+</body>
+</html>

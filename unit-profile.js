@@ -196,16 +196,30 @@
             telemOdoUnit.textContent = '';
         }
 
-        // Fuel bar
+        // Fuel bar + consumption
         const fuel = truck.samsaraFuelLevel;
         const fuelBar = $('telemFuelBar');
         const fuelVal = $('telemFuel');
+        const fuelSub = $('telemFuelSub');
         if (fuel != null) {
             fuelVal.textContent = fuel + '%';
             fuelBar.style.width = Math.min(100, Math.max(0, fuel)) + '%';
             fuelBar.style.background = getFuelColor(fuel);
+            if (fuelSub) {
+                const cap = truck.tankCapacity;
+                const mpg = truck.avgMpg;
+                if (cap) {
+                    const gal = Math.round(fuel / 100 * cap);
+                    const range = mpg ? ' · ~' + Math.round(gal * mpg).toLocaleString() + ' mi range' : '';
+                    fuelSub.textContent = gal + ' gal remaining' + range;
+                    fuelSub.style.display = '';
+                } else {
+                    fuelSub.style.display = 'none';
+                }
+            }
         } else {
             fuelVal.textContent = '—';
+            if (fuelSub) fuelSub.style.display = 'none';
         }
 
         // Engine hours
@@ -700,7 +714,7 @@
 
     function initAuth() {
         firebase.auth().onAuthStateChanged(async user => {
-            if (!user) { window.location.href = 'index.html'; return; }
+            if (!user) { window.location.href = 'dashboard.html'; return; }
             state.user = user;
             $('unitUserEmail').textContent = user.email || '';
             state.truckId = new URLSearchParams(window.location.search).get('truck') || '';
@@ -1170,7 +1184,7 @@
     function initAuth() {
         firebase.auth().onAuthStateChanged(async user => {
             if (!user) {
-                window.location.href = 'index.html';
+                window.location.href = 'dashboard.html';
                 return;
             }
 

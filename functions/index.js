@@ -296,6 +296,7 @@ exports.fmcsaLookup = functions
 
 const SAMSARA_TOKEN_URL = 'https://api.samsara.com/oauth2/token';
 const SAMSARA_AUTH_URL = 'https://api.samsara.com/oauth2/authorize';
+const SAMSARA_API_BASE = 'https://api.samsara.com';
 // HOSTING_ORIGIN is no longer hardcoded — derived from the request or passed by the client.
 // Allowed redirect origins (must also be registered in Samsara developer portal).
 const ALLOWED_ORIGINS = new Set([
@@ -304,6 +305,537 @@ const ALLOWED_ORIGINS = new Set([
   'https://ifta-wizard-a9061.firebaseapp.com',
 ]);
 const CANONICAL_ORIGIN = 'https://ifta-wizard-a9061.web.app';
+
+function resolveAllowedOrigin(origin) {
+  return origin && ALLOWED_ORIGINS.has(origin)
+    ? origin
+    : CANONICAL_ORIGIN;
+}
+
+function safeNumber(value) {
+  if (value == null || value === '') return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function timestampMsFromUnknown(item) {
+  if (!item || typeof item !== 'object') return null;
+
+  const candidates = [
+    item.updatedAt,
+    item.lastUpdatedAt,
+    item.lastModifiedAt,
+    item.lastModifiedTime,
+    item.time,
+    item.createdAt,
+    item.createdTime,
+  ];
+
+  for (const val of candidates) {
+    if (!val) continue;
+    const ms = Date.parse(String(val));
+    if (!Number.isNaN(ms)) return ms;
+  }
+
+  return null;
+}
+
+const SAMSARA_ENTITY_MODELS = Object.freeze({
+  drivers: { collection: 'samsara_drivers', entityType: 'driver' },
+  vehicles: { collection: 'samsara_vehicles', entityType: 'vehicle' },
+  trailers: { collection: 'samsara_trailers', entityType: 'trailer' },
+  trips: { collection: 'samsara_trips', entityType: 'trip' },
+  safetyEvents: { collection: 'samsara_safety_events', entityType: 'safety_event' },
+  dvirs: { collection: 'samsara_dvirs', entityType: 'dvir' },
+  defects: { collection: 'samsara_defects', entityType: 'defect' },
+  alerts: { collection: 'samsara_alerts', entityType: 'alert' },
+  documents: { collection: 'samsara_documents', entityType: 'document' },
+  workOrders: { collection: 'samsara_work_orders', entityType: 'work_order' },
+  fuelTransactions: { collection: 'samsara_fuel_transactions', entityType: 'fuel_transaction' },
+  hosLogs: { collection: 'samsara_hos_logs', entityType: 'hos_log' },
+  assignments: { collection: 'samsara_assignments', entityType: 'assignment' },
+});
+
+function buildSamsaraBaseRecord(modelKey, raw, payload) {
+  const model = SAMSARA_ENTITY_MODELS[modelKey];
+  if (!model) return null;
+
+  const samsaraId = String(raw?.id || raw?.samsaraId || '').trim();
+  if (!samsaraId) return null;
+
+  return {
+    internalId: samsaraId,
+    samsaraId,
+    sourceSystem: 'samsara',
+    entityType: model.entityType,
+    sourceUpdatedAt: raw.updatedAt || raw.lastUpdatedAt || raw.lastModifiedAt || raw.time || null,
+    ...payload,
+  };
+}
+
+function normalizeSamsaraVehicle(raw) {
+  return buildSamsaraBaseRecord('vehicles', raw, {
+    name: raw.name || '',
+    vin: raw.vin ? String(raw.vin).toUpperCase() : null,
+    licensePlate: raw.licensePlate || null,
+    make: raw.make || null,
+    model: raw.model || null,
+    year: safeNumber(raw.year),
+    status: raw.status || null,
+  });
+}
+
+function normalizeSamsaraTrailer(raw) {
+  return buildSamsaraBaseRecord('trailers', raw, {
+    name: raw.name || '',
+    vin: raw.vin ? String(raw.vin).toUpperCase() : null,
+    licensePlate: raw.licensePlate || null,
+    make: raw.make || null,
+    model: raw.model || null,
+    year: safeNumber(raw.year),
+    status: raw.status || null,
+  });
+}
+
+function normalizeSamsaraDriver(raw) {
+  const firstName = raw.firstName || '';
+  const lastName = raw.lastName || '';
+  const fullName = (firstName + ' ' + lastName).trim() || raw.name || '';
+
+  return buildSamsaraBaseRecord('drivers', raw, {
+    firstName: firstName || null,
+    lastName: lastName || null,
+    fullName,
+    email: raw.email || null,
+    phone: raw.phone || null,
+    licenseNumber: raw.licenseNumber || null,
+    status: raw.status || null,
+  });
+}
+
+function normalizeSamsaraTrip(raw) {
+  return buildSamsaraBaseRecord('trips', raw, {
+    vehicleSamsaraId: raw.vehicleId || raw.vehicle?.id || null,
+    driverSamsaraId: raw.driverId || raw.driver?.id || null,
+    startTime: raw.startTime || null,
+    endTime: raw.endTime || null,
+    distanceMeters: safeNumber(raw.distanceMeters),
+    status: raw.status || null,
+  });
+}
+
+function normalizeSamsaraSafetyEvent(raw) {
+  return buildSamsaraBaseRecord('safetyEvents', raw, {
+    vehicleSamsaraId: raw.vehicleId || raw.vehicle?.id || null,
+    driverSamsaraId: raw.driverId || raw.driver?.id || null,
+    eventType: raw.type || raw.behaviorLabel || null,
+    severity: raw.severity || null,
+    eventTime: raw.time || null,
+  });
+}
+
+function normalizeSamsaraDvir(raw) {
+  return buildSamsaraBaseRecord('dvirs', raw, {
+    vehicleSamsaraId: raw.vehicleId || raw.vehicle?.id || null,
+    trailerSamsaraId: raw.trailerId || raw.trailer?.id || null,
+    driverSamsaraId: raw.driverId || raw.driver?.id || null,
+    submittedAt: raw.submittedAt || raw.time || null,
+    status: raw.status || null,
+  });
+}
+
+function normalizeSamsaraDefect(raw) {
+  return buildSamsaraBaseRecord('defects', raw, {
+    dvirSamsaraId: raw.dvirId || null,
+    vehicleSamsaraId: raw.vehicleId || raw.vehicle?.id || null,
+    trailerSamsaraId: raw.trailerId || raw.trailer?.id || null,
+    defectType: raw.type || null,
+    status: raw.status || null,
+    resolvedAt: raw.resolvedAt || null,
+  });
+}
+
+function normalizeSamsaraAlert(raw) {
+  return buildSamsaraBaseRecord('alerts', raw, {
+    alertType: raw.type || null,
+    severity: raw.severity || null,
+    status: raw.status || null,
+    message: raw.message || raw.description || null,
+    triggeredAt: raw.triggeredAt || raw.time || null,
+  });
+}
+
+function normalizeSamsaraDocument(raw) {
+  return buildSamsaraBaseRecord('documents', raw, {
+    documentType: raw.documentType || raw.type || null,
+    title: raw.title || raw.name || null,
+    ownerSamsaraId: raw.ownerId || null,
+    expiresAt: raw.expiresAt || null,
+    status: raw.status || null,
+  });
+}
+
+function normalizeSamsaraWorkOrder(raw) {
+  return buildSamsaraBaseRecord('workOrders', raw, {
+    vehicleSamsaraId: raw.vehicleId || raw.assetId || null,
+    title: raw.title || null,
+    description: raw.description || null,
+    priority: raw.priority || null,
+    status: raw.status || null,
+    dueAt: raw.dueAt || null,
+  });
+}
+
+function normalizeSamsaraFuelTransaction(raw) {
+  return buildSamsaraBaseRecord('fuelTransactions', raw, {
+    vehicleSamsaraId: raw.vehicleId || raw.vehicle?.id || null,
+    driverSamsaraId: raw.driverId || raw.driver?.id || null,
+    gallons: safeNumber(raw.gallons),
+    totalCost: safeNumber(raw.totalCost),
+    currency: raw.currency || 'USD',
+    purchasedAt: raw.purchasedAt || raw.time || null,
+  });
+}
+
+function normalizeSamsaraHosLog(raw) {
+  return buildSamsaraBaseRecord('hosLogs', raw, {
+    driverSamsaraId: raw.driverId || raw.driver?.id || null,
+    vehicleSamsaraId: raw.vehicleId || raw.vehicle?.id || null,
+    status: raw.hosStatus || raw.status || null,
+    dutyStatus: raw.dutyStatus || null,
+    logDate: raw.logDate || null,
+  });
+}
+
+function normalizeSamsaraAssignment(raw) {
+  return buildSamsaraBaseRecord('assignments', raw, {
+    driverSamsaraId: raw.driverId || raw.driver?.id || null,
+    vehicleSamsaraId: raw.vehicleId || raw.vehicle?.id || null,
+    trailerSamsaraId: raw.trailerId || raw.trailer?.id || null,
+    assignmentType: raw.assignmentType || raw.type || null,
+    startedAt: raw.startTime || raw.assignedAt || null,
+    endedAt: raw.endTime || null,
+    status: raw.status || null,
+  });
+}
+
+const SAMSARA_NORMALIZERS = Object.freeze({
+  vehicles: normalizeSamsaraVehicle,
+  drivers: normalizeSamsaraDriver,
+  trailers: normalizeSamsaraTrailer,
+  trips: normalizeSamsaraTrip,
+  safetyEvents: normalizeSamsaraSafetyEvent,
+  dvirs: normalizeSamsaraDvir,
+  defects: normalizeSamsaraDefect,
+  alerts: normalizeSamsaraAlert,
+  documents: normalizeSamsaraDocument,
+  workOrders: normalizeSamsaraWorkOrder,
+  fuelTransactions: normalizeSamsaraFuelTransaction,
+  hosLogs: normalizeSamsaraHosLog,
+  assignments: normalizeSamsaraAssignment,
+});
+
+async function getUserSamsaraTokens(uid) {
+  const userSnap = await admin.firestore().collection('users').doc(uid).get();
+  if (!userSnap.exists) return null;
+  const userData = userSnap.data() || {};
+  const tokens = userData.samsara || null;
+  if (!tokens) return null;
+
+  // Compatibility with legacy snake_case token fields.
+  return {
+    ...tokens,
+    accessToken: tokens.accessToken || tokens.access_token || null,
+    refreshToken: tokens.refreshToken || tokens.refresh_token || null,
+    expiresAt: tokens.expiresAt || tokens.token_expiry || null,
+    scope: tokens.scope || null,
+    scopes: tokens.scopes || null,
+  };
+}
+
+async function refreshSamsaraTokenIfNeeded(uid, tokens) {
+  const compatibleTokens = {
+    ...(tokens || {}),
+    accessToken: tokens?.accessToken || tokens?.access_token || null,
+    refreshToken: tokens?.refreshToken || tokens?.refresh_token || null,
+    expiresAt: tokens?.expiresAt || tokens?.token_expiry || null,
+  };
+
+  if (!compatibleTokens.accessToken) {
+    throw new functions.https.HttpsError('failed-precondition', 'Samsara account is not connected.');
+  }
+
+  if (!compatibleTokens.expiresAt || Date.now() < (compatibleTokens.expiresAt - 300000)) {
+    return compatibleTokens;
+  }
+
+  if (!compatibleTokens.refreshToken) {
+    throw new functions.https.HttpsError('failed-precondition', 'Samsara token expired. Reconnect integration.');
+  }
+
+  const clientId = (process.env.SAMSARA_CLIENT_ID || '').trim();
+  const clientSecret = (process.env.SAMSARA_CLIENT_SECRET || '').trim();
+  if (!clientId || !clientSecret) {
+    throw new functions.https.HttpsError('failed-precondition', 'Samsara OAuth secrets are not configured.');
+  }
+
+  const refreshRes = await fetch(SAMSARA_TOKEN_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': 'Basic ' + Buffer.from(clientId + ':' + clientSecret).toString('base64'),
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: compatibleTokens.refreshToken,
+    }).toString(),
+    signal: AbortSignal.timeout(12000),
+  });
+
+  if (!refreshRes.ok) {
+    const body = await refreshRes.text();
+    console.error('refreshSamsaraTokenIfNeeded failed:', refreshRes.status, body);
+    throw new functions.https.HttpsError('unauthenticated', 'Unable to refresh Samsara token. Reconnect integration.');
+  }
+
+  const refreshed = await refreshRes.json();
+  const nextTokens = {
+    ...compatibleTokens,
+    accessToken: refreshed.access_token,
+    refreshToken: refreshed.refresh_token || compatibleTokens.refreshToken,
+    expiresAt: Date.now() + ((refreshed.expires_in || 3600) * 1000),
+    refreshedAt: Date.now(),
+    access_token: refreshed.access_token,
+    refresh_token: refreshed.refresh_token || compatibleTokens.refreshToken,
+    token_expiry: Date.now() + ((refreshed.expires_in || 3600) * 1000),
+    scope: refreshed.scope || compatibleTokens.scope || null,
+    scopes: refreshed.scope
+      ? String(refreshed.scope).split(/\s+/).filter(Boolean)
+      : (compatibleTokens.scopes || null),
+  };
+
+  await admin.firestore().collection('users').doc(uid).set({
+    samsara: {
+      accessToken: nextTokens.accessToken,
+      refreshToken: nextTokens.refreshToken,
+      expiresAt: nextTokens.expiresAt,
+      refreshedAt: nextTokens.refreshedAt,
+      access_token: nextTokens.access_token,
+      refresh_token: nextTokens.refresh_token,
+      token_expiry: nextTokens.token_expiry,
+      scope: nextTokens.scope,
+      scopes: nextTokens.scopes,
+    },
+  }, { merge: true });
+
+  return nextTokens;
+}
+
+async function fetchSamsaraPages({ accessToken, path, limit = 512, extraParams = {} }) {
+  const headers = { Authorization: 'Bearer ' + accessToken };
+  const allItems = [];
+  let cursor = null;
+  let pageCount = 0;
+
+  while (pageCount < 20) {
+    pageCount += 1;
+    const params = new URLSearchParams();
+    params.set('limit', String(limit));
+    for (const [k, v] of Object.entries(extraParams || {})) {
+      if (v != null && v !== '') params.set(k, String(v));
+    }
+    if (cursor) params.set('after', cursor);
+
+    const url = `${SAMSARA_API_BASE}${path}?${params.toString()}`;
+    const res = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      throw new Error(`Samsara API ${path} failed (${res.status}): ${body.slice(0, 300)}`);
+    }
+
+    const payload = await res.json();
+    const items = Array.isArray(payload?.data) ? payload.data : [];
+    allItems.push(...items);
+
+    const nextCursor = payload?.pagination?.endCursor || payload?.pagination?.nextCursor || null;
+    const hasNext = payload?.pagination?.hasNextPage === true || Boolean(nextCursor);
+
+    if (!hasNext || !nextCursor) break;
+    cursor = nextCursor;
+  }
+
+  return allItems;
+}
+
+async function upsertNormalizedEntities(uid, collectionName, entities, runMeta) {
+  if (!entities.length) return { upserted: 0 };
+
+  const parent = admin.firestore().collection('users').doc(uid);
+  let batch = admin.firestore().batch();
+  let ops = 0;
+  let commits = 0;
+
+  for (const entity of entities) {
+    const samsaraId = entity.samsaraId || entity.externalId;
+    if (!samsaraId) continue;
+
+    const internalId = entity.internalId || samsaraId;
+    const docRef = parent.collection(collectionName).doc(String(internalId));
+    batch.set(docRef, {
+      ...entity,
+      internalId: String(internalId),
+      samsaraId: String(samsaraId),
+      sourceSystem: 'samsara',
+      external: {
+        provider: 'samsara',
+        id: String(samsaraId),
+      },
+      raw: entity.raw || null,
+      syncedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastSyncRunId: runMeta.runId,
+    }, { merge: true });
+
+    ops += 1;
+    if (ops === 400) {
+      await batch.commit();
+      commits += 1;
+      batch = admin.firestore().batch();
+      ops = 0;
+    }
+  }
+
+  if (ops > 0) {
+    await batch.commit();
+    commits += 1;
+  }
+
+  return { upserted: entities.length, commits };
+}
+
+async function runSamsaraIncrementalSync(uid, options = {}) {
+  const resources = Array.isArray(options.resources) && options.resources.length
+    ? options.resources
+    : ['vehicles', 'drivers', 'trailers'];
+  const fullResync = Boolean(options.fullResync);
+  const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+
+  const stateRef = admin.firestore().collection('users').doc(uid).collection('integration_sync').doc('samsara');
+  const stateSnap = await stateRef.get();
+  const prevState = stateSnap.exists ? (stateSnap.data() || {}) : {};
+  const prevCursors = prevState.cursors || {};
+
+  let tokens = await getUserSamsaraTokens(uid);
+  tokens = await refreshSamsaraTokenIfNeeded(uid, tokens);
+
+  const summary = {
+    runId,
+    uid,
+    fullResync,
+    resources,
+    startedAt: Date.now(),
+    synced: {},
+  };
+
+  const configs = {
+    vehicles: {
+      path: '/fleet/vehicles',
+      collection: SAMSARA_ENTITY_MODELS.vehicles.collection,
+      normalize: SAMSARA_NORMALIZERS.vehicles,
+      cursorKey: 'vehiclesLastSyncedAt',
+    },
+    drivers: {
+      path: '/fleet/drivers',
+      collection: SAMSARA_ENTITY_MODELS.drivers.collection,
+      normalize: SAMSARA_NORMALIZERS.drivers,
+      cursorKey: 'driversLastSyncedAt',
+    },
+    trailers: {
+      path: '/fleet/trailers',
+      collection: SAMSARA_ENTITY_MODELS.trailers.collection,
+      normalize: SAMSARA_NORMALIZERS.trailers,
+      cursorKey: 'trailersLastSyncedAt',
+    },
+  };
+
+  const nextCursors = { ...prevCursors };
+
+  for (const resource of resources) {
+    const cfg = configs[resource];
+    if (!cfg) continue;
+
+    const previousCursor = fullResync ? null : (prevCursors[cfg.cursorKey] || null);
+    const previousCursorMs = previousCursor ? Date.parse(previousCursor) : null;
+    const extraParams = previousCursor ? { updatedAfter: previousCursor } : {};
+
+    const rows = await fetchSamsaraPages({
+      accessToken: tokens.accessToken,
+      path: cfg.path,
+      extraParams,
+    });
+
+    const filteredRows = (!fullResync && previousCursorMs)
+      ? rows.filter((row) => {
+          const ts = timestampMsFromUnknown(row);
+          return ts == null || ts > previousCursorMs;
+        })
+      : rows;
+
+    const normalized = filteredRows
+      .map((raw) => {
+        const base = cfg.normalize(raw);
+        if (!base) return null;
+        return {
+          ...base,
+          raw,
+        };
+      })
+      .filter(Boolean);
+
+    const writeResult = await upsertNormalizedEntities(uid, cfg.collection, normalized, { runId });
+
+    const maxSeenTs = rows.reduce((acc, item) => {
+      const ts = timestampMsFromUnknown(item);
+      return ts && ts > acc ? ts : acc;
+    }, previousCursorMs || 0);
+
+    if (maxSeenTs) {
+      nextCursors[cfg.cursorKey] = new Date(maxSeenTs).toISOString();
+    } else if (!nextCursors[cfg.cursorKey]) {
+      nextCursors[cfg.cursorKey] = new Date().toISOString();
+    }
+
+    summary.synced[resource] = {
+      fetched: rows.length,
+      incremental: filteredRows.length,
+      upserted: writeResult.upserted,
+      previousCursor: previousCursor || null,
+      nextCursor: nextCursors[cfg.cursorKey],
+    };
+  }
+
+  await stateRef.set({
+    provider: 'samsara',
+    lastRunId: runId,
+    status: 'success',
+    lastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
+    lastSyncedAtIso: new Date().toISOString(),
+    cursors: nextCursors,
+    resources,
+    fullResync,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+
+  summary.completedAt = Date.now();
+  summary.lastSyncedAtIso = new Date().toISOString();
+
+  return summary;
+}
 
 /**
  * Callable: Start Samsara OAuth flow — returns the authorize URL.
@@ -345,6 +877,7 @@ exports.samsaraAuthUrl = functions
 exports.samsaraCallback = functions
   .runWith({ secrets: ['SAMSARA_CLIENT_ID', 'SAMSARA_CLIENT_SECRET'], memory: '256MB', timeoutSeconds: 20 })
   .https.onRequest(async (req, res) => {
+    let callbackOrigin = CANONICAL_ORIGIN;
     try {
       const { code, state, error } = req.query;
 
@@ -374,13 +907,12 @@ exports.samsaraCallback = functions
 
       // Verify the state isn't stale (10 min window)
       if (Date.now() - parsed.ts > 600000) {
-        return res.redirect((parsed.origin || 'https://www.logistixnerd.com') + '/dashboard.html?samsara=error&reason=expired');
+        callbackOrigin = resolveAllowedOrigin(parsed.origin);
+        return res.redirect(callbackOrigin + '/dashboard.html?samsara=error&reason=expired');
       }
 
       // Recover the origin that was used when the OAuth flow started.
-      const callbackOrigin = parsed.origin && ALLOWED_ORIGINS.has(parsed.origin)
-        ? parsed.origin
-        : CANONICAL_ORIGIN;
+      callbackOrigin = resolveAllowedOrigin(parsed.origin);
 
       const clientId = process.env.SAMSARA_CLIENT_ID;
       const clientSecret = process.env.SAMSARA_CLIENT_SECRET;
@@ -414,13 +946,18 @@ exports.samsaraCallback = functions
           refreshToken: tokens.refresh_token,
           expiresAt: Date.now() + (tokens.expires_in * 1000),
           connectedAt: Date.now(),
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          token_expiry: Date.now() + (tokens.expires_in * 1000),
+          scope: tokens.scope || null,
+          scopes: tokens.scope ? String(tokens.scope).split(/\s+/).filter(Boolean) : null,
         }
       }, { merge: true });
 
       return res.redirect(callbackOrigin + '/dashboard.html?samsara=connected');
     } catch (err) {
       console.error('samsaraCallback unexpected error:', err);
-      return res.redirect((callbackOrigin || 'https://www.logistixnerd.com') + '/dashboard.html?samsara=error&reason=internal');
+      return res.redirect(callbackOrigin + '/dashboard.html?samsara=error&reason=internal');
     }
   });
 
@@ -606,7 +1143,7 @@ exports.samsaraFleetSync = functions
       const [vehiclesRes, statsRes, extStatsRes, trailersRes, trailerStatsRes] = await Promise.all([
         fetch('https://api.samsara.com/fleet/vehicles?limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
         fetch('https://api.samsara.com/fleet/vehicles/stats?types=gps&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
-        fetch('https://api.samsara.com/fleet/vehicles/stats?types=obdOdometerMeters,fuelPercents&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
+        fetch('https://api.samsara.com/fleet/vehicles/stats?types=obdOdometerMeters,fuelPercents,engineSeconds&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
         fetch('https://api.samsara.com/fleet/trailers?limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
         fetch('https://api.samsara.com/fleet/trailers/stats?types=gps&limit=512', { headers: bearerHeaders, signal: AbortSignal.timeout(20000) }),
       ]);
@@ -672,8 +1209,8 @@ exports.samsaraFleetSync = functions
       for (const v of (extStatsData.data || [])) {
         extById[v.id] = {
           odometerMeters: v.obdOdometerMeters?.value ?? null,
-          engineHours:    null,
-          fuelPercent:    v.fuelPercents?.value     ?? null,
+          engineHours:    v.engineSeconds?.value    != null ? Math.round(v.engineSeconds.value / 360) / 10 : null,
+          fuelPercent:    v.fuelPercents?.value      ?? null,
         };
       }
 
@@ -868,6 +1405,132 @@ exports.samsaraFleetSync = functions
       console.error('samsaraFleetSync error:', err);
       await snap.ref.update({ status: 'error', error: 'internal' });
     }
+  });
+
+/**
+ * Callable: Incremental Samsara sync.
+ * Writes normalized entities into Firestore subcollections and tracks cursors.
+ *
+ * Data contract:
+ * - data.resources?: ['vehicles' | 'drivers' | 'trailers']
+ * - data.fullResync?: boolean
+ */
+exports.samsaraIncrementalSync = functions
+  .runWith({ secrets: ['SAMSARA_CLIENT_ID', 'SAMSARA_CLIENT_SECRET'], memory: '512MB', timeoutSeconds: 120 })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const allowedResources = new Set(['vehicles', 'drivers', 'trailers']);
+    const resources = Array.isArray(data?.resources)
+      ? data.resources.filter((r) => allowedResources.has(r))
+      : undefined;
+
+    const result = await runSamsaraIncrementalSync(context.auth.uid, {
+      resources,
+      fullResync: Boolean(data?.fullResync),
+    });
+
+    return { success: true, result };
+  });
+
+/**
+ * Callable: Normalize and upsert a batch of Samsara records for any supported entity model.
+ *
+ * Data contract:
+ * - data.entity: one of Object.keys(SAMSARA_ENTITY_MODELS)
+ * - data.records: array of raw Samsara payload records
+ */
+exports.samsaraUpsertNormalizedBatch = functions
+  .runWith({ memory: '512MB', timeoutSeconds: 120 })
+  .https.onCall(async (data, context) => {
+    if (!context.auth) {
+      throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
+    }
+
+    const entity = String(data?.entity || '').trim();
+    const records = Array.isArray(data?.records) ? data.records : [];
+
+    if (!entity || !SAMSARA_ENTITY_MODELS[entity]) {
+      throw new functions.https.HttpsError('invalid-argument', 'Unsupported entity model key.');
+    }
+    if (!records.length) {
+      throw new functions.https.HttpsError('invalid-argument', 'records array is required.');
+    }
+
+    const normalizer = SAMSARA_NORMALIZERS[entity];
+    if (!normalizer) {
+      throw new functions.https.HttpsError('failed-precondition', 'No normalizer registered for entity.');
+    }
+
+    const normalized = records
+      .map((raw) => {
+        const base = normalizer(raw);
+        if (!base) return null;
+        return { ...base, raw };
+      })
+      .filter(Boolean);
+
+    const runMeta = {
+      runId: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    };
+
+    const collectionName = SAMSARA_ENTITY_MODELS[entity].collection;
+    const write = await upsertNormalizedEntities(context.auth.uid, collectionName, normalized, runMeta);
+
+    const stateRef = admin.firestore().collection('users').doc(context.auth.uid).collection('integration_sync').doc('samsara');
+    await stateRef.set({
+      provider: 'samsara',
+      lastRunId: runMeta.runId,
+      lastManualEntity: entity,
+      lastManualUpsertCount: write.upserted,
+      lastSyncedAt: admin.firestore.FieldValue.serverTimestamp(),
+      lastSyncedAtIso: new Date().toISOString(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    return {
+      success: true,
+      entity,
+      collection: collectionName,
+      upserted: write.upserted,
+    };
+  });
+
+/**
+ * Scheduled: periodic incremental sync for all connected Samsara users.
+ */
+exports.samsaraIncrementalSyncScheduled = functions
+  .runWith({ secrets: ['SAMSARA_CLIENT_ID', 'SAMSARA_CLIENT_SECRET'], memory: '1GB', timeoutSeconds: 540 })
+  .pubsub.schedule('every 30 minutes')
+  .onRun(async () => {
+    const usersSnap = await admin.firestore().collection('users').get();
+    let processed = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const userDoc of usersSnap.docs) {
+      const data = userDoc.data() || {};
+      if (!data.samsara || !data.samsara.accessToken) {
+        skipped += 1;
+        continue;
+      }
+
+      try {
+        await runSamsaraIncrementalSync(userDoc.id, {
+          resources: ['vehicles', 'drivers', 'trailers'],
+          fullResync: false,
+        });
+        processed += 1;
+      } catch (err) {
+        failed += 1;
+        console.error('samsaraIncrementalSyncScheduled user sync failed:', userDoc.id, err.message || err);
+      }
+    }
+
+    console.log('samsaraIncrementalSyncScheduled summary:', { processed, skipped, failed });
+    return null;
   });
 
 /**

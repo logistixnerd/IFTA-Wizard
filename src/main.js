@@ -7,7 +7,7 @@
 //     calculator.js pure and break circular deps.
 //   • Expose the minimal window globals that legacy non-module scripts need.
 //
-// Load order (from index.html):
+// Load order (from dashboard.html):
 //   Firebase compat → tax-rates.js → auth-firebase.js → reports.js → [this]
 
 'use strict';

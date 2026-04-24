@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drivers Workspace - IFTA Wizard</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="drivers-workspace.css">
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+</head>
+<body>
+    <div class="drivers-page">
+
+        <!-- Header -->
+        <header class="drivers-header">
+            <div class="drivers-header-left">
+                <a href="dashboard.html" class="drivers-back-link">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><path d="M15 18l-6-6 6-6"/></svg>
+                    Dashboard
+                </a>
+                <div>
+                    <h1>Drivers Workspace</h1>
+                    <p>Driver roster, assignments, hiring pipeline, and onboarding status.</p>
+                </div>
+            </div>
+            <div class="drivers-header-actions">
+                <button class="btn btn-secondary" id="refreshDriversBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"/></svg>
+                    Refresh
+                </button>
+            </div>
+        </header>
+
+        <!-- Summary cards -->
+        <section class="drivers-summary-cards">
+            <article class="drivers-summary-card">
+                <div class="ds-label">Total Drivers</div>
+                <div class="ds-value" id="dsTotal">0</div>
+                <div class="ds-sub">all records</div>
+            </article>
+            <article class="drivers-summary-card">
+                <div class="ds-label">Active</div>
+                <div class="ds-value" id="dsActive">0</div>
+                <div class="ds-sub">available for dispatch</div>
+            </article>
+            <article class="drivers-summary-card">
+                <div class="ds-label">Do Not Dispatch</div>
+                <div class="ds-value" id="dsDnd">0</div>
+                <div class="ds-sub">restricted drivers</div>
+            </article>
+            <article class="drivers-summary-card">
+                <div class="ds-label">In Hiring</div>
+                <div class="ds-value" id="dsHiring">0</div>
+                <div class="ds-sub">applicants &amp; candidates</div>
+            </article>
+            <article class="drivers-summary-card">
+                <div class="ds-label">CDL Expiring Soon</div>
+                <div class="ds-value" id="dsExpiring">0</div>
+                <div class="ds-sub">within 60 days</div>
+            </article>
+        </section>
+
+        <!-- Section nav -->
+        <nav class="drivers-nav">
+            <button class="drivers-nav-tab active" data-section="overview">Overview</button>
+            <button class="drivers-nav-tab" data-section="assignments">Assignments</button>
+            <button class="drivers-nav-tab" data-section="hiring">Hiring</button>
+            <button class="drivers-nav-tab" data-section="hiring-pipeline">Pipeline</button>
+            <button class="drivers-nav-tab" data-section="onboarding">Onboarding</button>
+        </nav>
+
+        <!-- Section: Overview -->
+        <section id="section-overview" class="drivers-section active">
+            <div class="dw-panel">
+                <div class="dw-panel-header">
+                    <h2>Driver Roster</h2>
+                    <input type="search" id="overviewSearch" class="dw-search" placeholder="Search drivers…">
+                </div>
+                <div class="dw-panel-body">
+                    <div class="dw-table-wrap" id="overviewTableWrap">
+                        <table class="dw-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>CDL #</th>
+                                    <th>State</th>
+                                    <th>CDL Exp</th>
+                                    <th>Phone</th>
+                                    <th>Email</th>
+                                    <th>Assigned Truck</th>
+                                    <th>Status</th>
+                                    <th>Docs</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overviewTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="overviewEmpty" class="dw-empty" style="display:none">No drivers found. Add your first driver from the dashboard.</div>
+                </div>
+            </div>
+
+            <aside id="driverDocsPanel" class="dw-docs-panel hidden" aria-hidden="true">
+                <header class="dw-docs-panel-header">
+                    <div>
+                        <h3 id="driverDocsTitle">Driver Documents</h3>
+                        <p id="driverDocsSubtitle">Manage required and optional driver files.</p>
+                    </div>
+                    <button type="button" id="closeDriverDocsPanel" class="dw-icon-btn" aria-label="Close document panel">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                </header>
+
+                <div id="driverDocsWarnings" class="dw-docs-warnings"></div>
+                <div id="driverDocsMessage" class="dw-docs-message" aria-live="polite"></div>
+                <div id="driverDocsTypes" class="dw-docs-types"></div>
+            </aside>
+        </section>
+
+        <!-- Section: Assignments -->
+        <section id="section-assignments" class="drivers-section">
+            <div class="dw-panel">
+                <div class="dw-panel-header">
+                    <h2>Driver–Truck Assignments</h2>
+                </div>
+                <div class="dw-panel-body">
+                    <div class="dw-table-wrap" id="assignmentsTableWrap">
+                        <table class="dw-table">
+                            <thead>
+                                <tr>
+                                    <th>Driver</th>
+                                    <th>Assigned Truck</th>
+                                    <th>Status</th>
+                                    <th>Phone</th>
+                                </tr>
+                            </thead>
+                            <tbody id="assignmentsTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="assignmentsEmpty" class="dw-empty" style="display:none">No driver–truck assignments found.</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Hiring -->
+        <section id="section-hiring" class="drivers-section">
+            <div class="dw-panel">
+                <div class="dw-panel-header">
+                    <h2>Hiring Queue</h2>
+                </div>
+                <div class="dw-panel-body">
+                    <div class="dw-item-list" id="hiringList"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Pipeline -->
+        <section id="section-hiring-pipeline" class="drivers-section">
+            <div class="dw-panel">
+                <div class="dw-panel-header">
+                    <h2>Hiring Pipeline</h2>
+                </div>
+                <div class="dw-panel-body">
+                    <div class="dw-kanban" id="pipelineKanban"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section: Onboarding -->
+        <section id="section-onboarding" class="drivers-section">
+            <div class="dw-panel">
+                <div class="dw-panel-header">
+                    <h2>Onboarding Status</h2>
+                </div>
+                <div class="dw-panel-body">
+                    <div class="dw-item-list" id="onboardingList"></div>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script src="drivers-workspace.js"></script>
+</body>
+</html>

@@ -1,28 +1,32 @@
 (function () {
     'use strict';
 
-    const $ = id => document.getElementById(id);
-
     // ── State ──────────────────────────────
     const state = {
         user: null,
         allTasks: [],
         customStatuses: [],
-        companyUsers: [],
         filteredTasks: [],
-        currentView: localStorage.getItem('taskManagerView') || 'table',
+        currentView: localStorage.getItem('taskManagerView') || 'kanban',
         filters: {
             status: [],
             assignedTo: null,
             entityType: '',
             searchQuery: ''
         },
-        bulkSelection: new Set(),
-        sort: { key: 'createdAt', dir: 'desc' },
         editingTaskId: null,
         editingTaskEntityType: null,
         editingTaskEntityId: null
     };
+
+    // ── Utilities ──────────────────────────
+    function $(id) {
+        return document.getElementById(id);
+    }
+
+    function col(name) {
+        return db.collection('users').doc(state.user.uid).collection(name);
+    }
 
     function escapeHtml(value) {
         if (value == null) return '';
@@ -55,24 +59,6 @@
         }).format(date);
     }
 
-    function formatTime(value) {
-        if (!value) return '';
-        const date = typeof value.toDate === 'function' ? value.toDate() : new Date(value);
-        if (Number.isNaN(date.getTime())) return '';
-        return new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(date);
-    }
-
-    function getDayCount(dueDate) {
-        if (!dueDate) return null;
-        const date = typeof dueDate.toDate === 'function' ? dueDate.toDate() : new Date(dueDate);
-        if (Number.isNaN(date.getTime())) return null;
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        const due = new Date(date);
-        due.setHours(0, 0, 0, 0);
-        return Math.ceil((due - now) / (1000 * 60 * 60 * 24));
-    }
-
     function isOverdue(dueDate) {
         if (!dueDate) return false;
         const date = typeof dueDate.toDate === 'function' ? dueDate.toDate() : new Date(dueDate);
@@ -103,30 +89,11 @@
     }
 
     // ── Load Data ──────────────────────────
-    async function loadCompanyUsers() {
-        try {
-            const doc = await db.collection('users').doc(state.user.uid).get();
-            const data = doc.data();
-            const users = (data && data.companyDashboard && data.companyDashboard.users) || [];
-            state.companyUsers = users.map(u => ({
-                name: u.name || '',
-                email: (u.email || '').toLowerCase(),
-                role: u.role || ''
-            })).filter(u => u.email);
-            // Ensure current user is in the list
-            const myEmail = (state.user.email || '').toLowerCase();
-            if (myEmail && !state.companyUsers.some(u => u.email === myEmail)) {
-                state.companyUsers.unshift({ name: state.user.displayName || myEmail.split('@')[0], email: myEmail, role: 'Owner' });
-            }
-        } catch (err) {
-            console.error('Error loading company users:', err);
-            state.companyUsers = [];
-        }
-    }
-
     async function loadTasks() {
         try {
-            const result = await FirebaseDB.getAllTasks(state.user.uid);
+            const result = await FirebaseDB.getAllTasks(state.user.uid, {
+                status: state.filters.status.length > 0 ? state.filters.status : undefined
+            });
             
             if (!result.success) throw new Error(result.error);
             
@@ -203,36 +170,29 @@
             return true;
         });
 
-        state.filteredTasks = sortTasks(state.filteredTasks);
+        // Sort by creation date (newest first) by default
+        state.filteredTasks.sort((a, b) => {
+            const aTime = a.createdAt?.toDate?.() || new Date(a.createdAtIso || 0);
+            const bTime = b.createdAt?.toDate?.() || new Date(b.createdAtIso || 0);
+            return bTime - aTime;
+        });
     }
 
     function populateStatusFilters() {
-        // Status filter dropdown
         const statusFilter = $('statusFilter');
-        if (statusFilter) {
-            const currentValue = statusFilter.value;
-            statusFilter.innerHTML = '<option value="">All</option>';
-            state.customStatuses.forEach(status => {
-                const option = document.createElement('option');
-                option.value = status.name;
-                option.textContent = status.name;
-                statusFilter.appendChild(option);
-            });
-            statusFilter.value = currentValue;
-        }
-        // Form status select
-        const taskStatusEl = $('taskStatus');
-        if (taskStatusEl) {
-            const curVal = taskStatusEl.value;
-            taskStatusEl.innerHTML = '';
-            state.customStatuses.forEach(status => {
-                const option = document.createElement('option');
-                option.value = status.name;
-                option.textContent = status.name;
-                taskStatusEl.appendChild(option);
-            });
-            if (state.customStatuses.some(s => s.name === curVal)) taskStatusEl.value = curVal;
-        }
+        if (!statusFilter) return;
+
+        const currentValue = statusFilter.value;
+        statusFilter.innerHTML = '<option value="">All</option>';
+
+        state.customStatuses.forEach(status => {
+            const option = document.createElement('option');
+            option.value = status.name;
+            option.textContent = status.name;
+            statusFilter.appendChild(option);
+        });
+
+        statusFilter.value = currentValue;
     }
 
     // ── View Rendering ────────────────────
@@ -321,80 +281,35 @@
 
         if (empty) empty.style.display = 'none';
 
-        let html = '';
-        state.filteredTasks.forEach(task => {
+        tbody.innerHTML = state.filteredTasks.map(task => {
             const overdue = task.dueDate && isOverdue(task.dueDate);
             const rowClass = overdue ? ' row-overdue' : '';
-            const days = getDayCount(task.dueDate);
-            const commentCount = (task.comments || []).length;
+            const typeClass = task.type ? ` task-type-${task.type}` : '';
+            const assigneesText = (task.assignedTo || []).join(', ') || 'Unassigned';
 
-            // Status select options
-            const statusOpts = state.customStatuses.map(s =>
-                `<option value="${escapeHtml(s.name)}"${s.name === task.status ? ' selected' : ''}>${escapeHtml(s.name)}</option>`
-            ).join('');
-
-            // Days badge
-            let daysBadge = '<span class="days-na">\u2014</span>';
-            if (days !== null) {
-                const cls = days < 0 ? 'days-overdue' : days <= 3 ? 'days-warn' : 'days-ok';
-                const label = days < 0 ? Math.abs(days) + 'd late' : days === 0 ? 'Today' : days + 'd';
-                daysBadge = `<span class="days-badge ${cls}">${label}</span>`;
-            }
-
-            // Created
-            const createdDate = task.createdAt ? formatDate(task.createdAt) : 'Unknown';
-            const createdTime = task.createdAt ? formatTime(task.createdAt) : '';
-
-            // Note truncated
-            const noteText = task.text || '';
-            const noteTruncated = noteText.length > 50 ? noteText.substring(0, 50) + '\u2026' : noteText;
-
-            // Status color for inline select
-            const sColor = getStatusColor(task.status);
-
-            const assignees = task.assignedTo || [];
-            const assigneeDisplay = assignees.length > 0
-                ? assignees.map(e => { const u = state.companyUsers.find(cu => cu.email === e); return u ? escapeHtml(u.name || u.email) : escapeHtml(e); }).join(', ')
-                : '<span class="unassigned-label">Unassigned</span>';
-
-            html += `<tr class="task-row${rowClass}" data-task-id="${escapeHtml(task.id)}" data-entity-type="${escapeHtml(task.entityType)}" data-entity-id="${escapeHtml(task.entityId)}">
-                <td class="td-created"><span class="created-date">${escapeHtml(createdDate)}</span><span class="created-time">${escapeHtml(createdTime)}</span></td>
-                <td class="td-due-date">${task.dueDate ? escapeHtml(formatDate(task.dueDate)) : '\u2014'}</td>
-                <td class="td-days">${daysBadge}</td>
-                <td class="td-note"><div class="note-cell" data-task-id="${escapeHtml(task.id)}"><span class="note-preview" title="${escapeHtml(noteText)}">${escapeHtml(noteTruncated)}</span><button class="btn-note-toggle" title="Expand note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></div></td>
-                <td class="td-owner">${escapeHtml(task.entityName)}</td>
-                <td class="td-assigned"><button class="assignee-trigger" data-task-id="${escapeHtml(task.id)}">${assigneeDisplay}</button></td>
-                <td class="td-type">${task.type ? `<span class="task-type-badge task-type-${escapeHtml(task.type)}">${escapeHtml(task.type)}</span>` : '\u2014'}</td>
-                <td class="td-status"><select class="inline-status" data-task-id="${escapeHtml(task.id)}" style="background-color:${sColor}18;color:${sColor};border-color:${sColor}40">${statusOpts}</select></td>
-                <td class="td-comments"><button class="btn-comments-toggle" data-task-id="${escapeHtml(task.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span>${commentCount}</span></button></td>
-            </tr>`;
-
-            // ── Note expand row ──
-            const noteHistory = (task.noteHistory || []).slice().reverse();
-            const historyHtml = noteHistory.length > 0
-                ? noteHistory.map(h => `<div class="note-history-entry"><div class="note-history-meta">${escapeHtml(h.editedBy || 'Unknown')} \u00b7 ${escapeHtml(formatDateTime(h.editedAt))}</div><div class="note-history-text">${escapeHtml(h.text)}</div></div>`).join('')
-                : '<p class="note-history-empty">No previous edits</p>';
-
-            html += `<tr class="task-expand-row" id="noteExpand_${task.id}" style="display:none"><td colspan="9"><div class="expand-note-panel">
-                <label class="expand-label">Edit Note</label>
-                <textarea class="note-edit-area" data-task-id="${escapeHtml(task.id)}">${escapeHtml(noteText)}</textarea>
-                <div class="expand-actions"><button class="btn btn-sm btn-primary btn-save-note" data-task-id="${escapeHtml(task.id)}">Save</button><button class="btn btn-sm btn-secondary btn-cancel-note" data-task-id="${escapeHtml(task.id)}">Cancel</button></div>
-                <div class="note-history"><div class="note-history-title">Edit History</div>${historyHtml}</div>
-            </div></td></tr>`;
-
-            // ── Comments expand row ──
-            const comments = task.comments || [];
-            const commentsHtml = comments.length > 0
-                ? comments.map(c => `<div class="comment-entry"><div class="comment-meta">${escapeHtml(c.author || 'Unknown')} \u00b7 ${escapeHtml(formatDateTime(c.timestamp))}</div><div class="comment-text">${escapeHtml(c.text)}</div></div>`).join('')
-                : '<p class="comments-empty">No comments yet</p>';
-
-            html += `<tr class="task-expand-row" id="commentsExpand_${task.id}" style="display:none"><td colspan="9"><div class="expand-comments-panel">
-                <div class="comment-thread">${commentsHtml}</div>
-                <div class="comment-add"><input type="text" class="comment-input" data-task-id="${escapeHtml(task.id)}" placeholder="Write a comment\u2026"><button class="btn btn-sm btn-primary btn-post-comment" data-task-id="${escapeHtml(task.id)}">Post</button></div>
-            </div></td></tr>`;
-        });
-
-        tbody.innerHTML = html;
+            return `
+                <tr class="task-row${rowClass}" data-task-id="${escapeHtml(task.id)}" data-entity-type="${escapeHtml(task.entityType)}" data-entity-id="${escapeHtml(task.entityId)}">
+                    <td class="td-due-date">${task.dueDate ? escapeHtml(formatDate(task.dueDate)) : '—'}</td>
+                    <td class="td-task">
+                        <strong>${escapeHtml(task.text.substring(0, 60))}</strong>
+                    </td>
+                    <td class="td-entity">${escapeHtml(task.entityName)}</td>
+                    <td class="td-type">${task.type ? `<span class="task-type-badge task-type-${escapeHtml(task.type)}">${escapeHtml(task.type)}</span>` : '—'}</td>
+                    <td class="td-assigned">${escapeHtml(assigneesText)}</td>
+                    <td class="td-status">
+                        <span class="status-badge" style="background-color: ${getStatusColor(task.status)}40; color: ${getStatusColor(task.status)}">
+                            ${escapeHtml(task.status)}
+                        </span>
+                    </td>
+                    <td class="td-created">${escapeHtml(formatDate(task.createdAt))}</td>
+                    <td class="td-actions">
+                        <button class="btn-task-view" title="View details">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     }
 
     function getStatusColor(status) {
@@ -493,14 +408,8 @@
     // ── Task Management ───────────────────
     function openTaskForm(prefilledEntity = null) {
         $('taskFormTitle').textContent = 'Add Task';
-        const submitBtn = $('taskFormSubmitBtn');
-        if (submitBtn) submitBtn.textContent = 'Create Task';
         $('taskForm').reset();
-        $('taskEntityType').disabled = false;
-        $('taskEntityId').disabled = false;
         state.editingTaskId = null;
-        state.editingTaskEntityType = null;
-        state.editingTaskEntityId = null;
 
         if (prefilledEntity) {
             $('taskEntityType').value = prefilledEntity.type;
@@ -508,44 +417,30 @@
             $('taskEntityId').value = prefilledEntity.id;
         }
 
-        $('taskAssignees').value = '';
-        renderFormAssigneeTags([]);
-
         $('taskFormModal').classList.add('open');
     }
 
     function closeTaskForm() {
         $('taskFormModal').classList.remove('open');
-        $('taskEntityType').disabled = false;
-        $('taskEntityId').disabled = false;
-        closeAssigneeDropdown();
     }
 
-    function populateEntityDropdown(entityType, preselectId = null) {
+    function populateEntityDropdown(entityType) {
         const select = $('taskEntityId');
-        if (!select) return Promise.resolve();
+        if (!select) return;
 
-        select.innerHTML = '<option value="">Loading...</option>';
+        select.innerHTML = '<option value="">Select...</option>';
 
-        if (!entityType) { select.innerHTML = '<option value="">Select...</option>'; return Promise.resolve(); }
+        if (!entityType) return;
 
-        return db.collection('users').doc(state.user.uid).collection(entityType).get().then(snap => {
-            select.innerHTML = '<option value="">Select...</option>';
-            snap.forEach(doc => {
-                const d = doc.data();
-                const option = document.createElement('option');
-                option.value = doc.id;
-                if (entityType === 'drivers') {
-                    option.textContent = [d.firstName, d.lastName].filter(Boolean).join(' ') || doc.id;
-                } else {
-                    option.textContent = d.unit || doc.id;
-                }
-                select.appendChild(option);
-            });
-            if (preselectId) select.value = preselectId;
-        }).catch(err => {
-            console.error('Error loading entities:', err);
-            select.innerHTML = '<option value="">Error loading</option>';
+        const filteredTasks = state.allTasks.filter(t => t.entityType === entityType);
+        const uniqueEntities = [...new Set(filteredTasks.map(t => JSON.stringify({ id: t.entityId, name: t.entityName })))];
+
+        uniqueEntities.forEach(entityJson => {
+            const entity = JSON.parse(entityJson);
+            const option = document.createElement('option');
+            option.value = entity.id;
+            option.textContent = entity.name;
+            select.appendChild(option);
         });
     }
 
@@ -554,7 +449,6 @@
         const entityId = $('taskEntityId').value;
         const text = $('taskText').value.trim();
         const type = $('taskType').value || null;
-        const priority = $('taskPriority').value || null;
         const assigneesText = $('taskAssignees').value.trim();
         const dueDate = $('taskDueDate').value;
         const status = $('taskStatus').value || 'Open';
@@ -569,219 +463,25 @@
             : [];
 
         try {
-            if (state.editingTaskId) {
-                // ── Edit mode ──
-                const updateData = { text, type, priority, assignedTo, dueDate: dueDate || null, status };
-                const result = await FirebaseDB.updateTask(
-                    state.user.uid, state.editingTaskEntityType, state.editingTaskEntityId,
-                    state.editingTaskId, updateData
-                );
-                if (!result.success) throw new Error(result.error);
-                const task = state.allTasks.find(t => t.id === state.editingTaskId);
-                if (task) Object.assign(task, updateData);
-                closeTaskForm();
-                applyFilters();
-                renderView();
-                showMsg('Task updated');
-            } else {
-                // ── Create mode ──
-                const taskData = {
-                    text, type, priority, assignedTo,
-                    dueDate: dueDate || null,
-                    status,
-                    createdBy: state.user.email || state.user.uid
-                };
-                const result = await FirebaseDB.createTask(state.user.uid, entityType, entityId, taskData);
-                if (!result.success) throw new Error(result.error);
-                closeTaskForm();
-                await loadTasks();
-                showMsg('Task created successfully');
-            }
-        } catch (error) {
-            console.error('Error saving task:', error);
-            showMsg('Error saving task', true);
-        }
-    }
+            const taskData = {
+                text,
+                type,
+                assignedTo,
+                dueDate: dueDate || null,
+                status,
+                createdBy: state.user.email || state.user.uid
+            };
 
-    async function editTask(taskId) {
-        const task = state.allTasks.find(t => t.id === taskId);
-        if (!task) return;
-
-        state.editingTaskId = taskId;
-        state.editingTaskEntityType = task.entityType;
-        state.editingTaskEntityId = task.entityId;
-
-        $('taskFormTitle').textContent = 'Edit Task';
-        const submitBtn = $('taskFormSubmitBtn');
-        if (submitBtn) submitBtn.textContent = 'Save Changes';
-        $('taskForm').reset();
-        $('taskEntityType').value = task.entityType;
-        $('taskEntityType').disabled = true;
-        $('taskEntityId').disabled = true;
-
-        await populateEntityDropdown(task.entityType, task.entityId);
-
-        $('taskText').value = task.text || '';
-        $('taskType').value = task.type || '';
-        const prioEl = $('taskPriority');
-        if (prioEl) prioEl.value = task.priority || '';
-        $('taskDueDate').value = task.dueDate || '';
-        $('taskStatus').value = task.status || 'Open';
-
-        const assignees = task.assignedTo || [];
-        $('taskAssignees').value = assignees.join(',');
-        renderFormAssigneeTags(assignees);
-
-        $('taskFormModal').classList.add('open');
-    }
-
-    async function deleteTask(taskId) {
-        const task = state.allTasks.find(t => t.id === taskId);
-        if (!task) return;
-        if (!confirm('Delete this task? This cannot be undone.')) return;
-        try {
-            const result = await FirebaseDB.deleteTask(state.user.uid, task.entityType, task.entityId, taskId);
+            const result = await FirebaseDB.createTask(state.user.uid, entityType, entityId, taskData);
             if (!result.success) throw new Error(result.error);
-            state.allTasks = state.allTasks.filter(t => t.id !== taskId);
-            state.bulkSelection.delete(taskId);
-            applyFilters();
-            renderView();
-            showMsg('Task deleted');
-        } catch (err) {
-            console.error(err);
-            showMsg('Error deleting task', true);
+
+            closeTaskForm();
+            await loadTasks();
+            showMsg('Task created successfully');
+        } catch (error) {
+            console.error('Error creating task:', error);
+            showMsg('Error creating task', true);
         }
-    }
-
-    // ── Bulk Selection ──────────────────────
-    function toggleSelectAllTasks(masterCb) {
-        const tbody = $('taskTableBody');
-        if (!tbody) return;
-        const cbs = tbody.querySelectorAll('.task-bulk-cb');
-        cbs.forEach(cb => {
-            cb.checked = masterCb.checked;
-            const id = cb.dataset.id;
-            if (masterCb.checked) state.bulkSelection.add(id);
-            else state.bulkSelection.delete(id);
-            const row = cb.closest('tr');
-            if (row) row.classList.toggle('row-selected', masterCb.checked);
-        });
-        updateTaskBulkBar();
-    }
-
-    function toggleBulkSelectTask(id, checkbox) {
-        if (checkbox.checked) state.bulkSelection.add(id);
-        else state.bulkSelection.delete(id);
-        updateTaskBulkBar();
-        const row = checkbox.closest('tr');
-        if (row) row.classList.toggle('row-selected', checkbox.checked);
-        // Update select-all state
-        const selAll = $('taskSelectAll');
-        if (selAll) {
-            const allCbs = document.querySelectorAll('.task-bulk-cb');
-            const allChecked = allCbs.length > 0 && [...allCbs].every(c => c.checked);
-            selAll.checked = allChecked;
-            selAll.indeterminate = !allChecked && state.bulkSelection.size > 0;
-        }
-    }
-
-    function updateTaskBulkBar() {
-        const count = state.bulkSelection.size;
-        const bar = $('taskBulkBar');
-        if (!bar) return;
-        if (count > 0) {
-            bar.classList.add('visible');
-            bar.querySelector('.bulk-count').textContent = count + ' selected';
-        } else {
-            bar.classList.remove('visible');
-        }
-    }
-
-    async function bulkDeleteTasks() {
-        const ids = [...state.bulkSelection];
-        if (!ids.length) return;
-        if (!confirm('Delete ' + ids.length + ' task' + (ids.length > 1 ? 's' : '') + '? This cannot be undone.')) return;
-        try {
-            const tasks = state.allTasks.filter(t => ids.includes(t.id));
-            const batch = firebase.firestore().batch();
-            tasks.forEach(t => {
-                const ref = db.collection('users').doc(state.user.uid)
-                    .collection(t.entityType).doc(t.entityId)
-                    .collection('history').doc(t.id);
-                batch.delete(ref);
-            });
-            await batch.commit();
-            state.allTasks = state.allTasks.filter(t => !ids.includes(t.id));
-            state.bulkSelection.clear();
-            applyFilters();
-            renderView();
-            showMsg(ids.length + ' task' + (ids.length > 1 ? 's' : '') + ' deleted');
-        } catch (err) {
-            console.error(err);
-            showMsg('Error deleting tasks', true);
-        }
-    }
-
-    async function bulkChangeStatusTasks() {
-        const ids = [...state.bulkSelection];
-        if (!ids.length) return;
-        const statusNames = state.customStatuses.map((s, i) => (i + 1) + '. ' + s.name).join('\n');
-        const choice = prompt('Choose new status:\n' + statusNames + '\n\nEnter number:');
-        if (!choice) return;
-        const idx = parseInt(choice) - 1;
-        if (isNaN(idx) || idx < 0 || idx >= state.customStatuses.length) { showMsg('Invalid choice', true); return; }
-        const newStatus = state.customStatuses[idx].name;
-        try {
-            const tasks = state.allTasks.filter(t => ids.includes(t.id));
-            const batch = firebase.firestore().batch();
-            tasks.forEach(t => {
-                const ref = db.collection('users').doc(state.user.uid)
-                    .collection(t.entityType).doc(t.entityId)
-                    .collection('history').doc(t.id);
-                batch.update(ref, { status: newStatus, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-            });
-            await batch.commit();
-            tasks.forEach(t => { t.status = newStatus; });
-            state.bulkSelection.clear();
-            applyFilters();
-            renderView();
-            showMsg(ids.length + ' status' + (ids.length > 1 ? 'es' : '') + ' updated to ' + newStatus);
-        } catch (err) {
-            console.error(err);
-            showMsg('Error updating status', true);
-        }
-    }
-
-    function bulkExportTasks() {
-        const ids = [...state.bulkSelection];
-        const source = ids.length > 0 ? state.allTasks.filter(t => ids.includes(t.id)) : state.filteredTasks;
-        if (!source.length) { showMsg('No tasks to export', true); return; }
-        const exclude = new Set(['id', 'createdAt', 'updatedAt', 'noteHistory', 'comments', 'resolvedAt']);
-        const allKeys = [...new Set(source.flatMap(r => Object.keys(r)))].filter(k => !exclude.has(k));
-        const headerLabels = {
-            text: 'Description', entityType: 'Entity Type', entityName: 'Entity',
-            entityId: 'Entity ID', status: 'Status', type: 'Type', priority: 'Priority',
-            assignedTo: 'Assigned To', dueDate: 'Due Date', createdAtIso: 'Created At',
-            createdBy: 'Created By', resolutionNotes: 'Resolution Notes', resolvedBy: 'Resolved By'
-        };
-        const header = allKeys.map(k => headerLabels[k] || k).join(',');
-        const rows = source.map(r => allKeys.map(k => {
-            let v = r[k];
-            if (Array.isArray(v)) v = v.join('; ');
-            else if (v == null) v = '';
-            else if (typeof v === 'object' && typeof v.toDate === 'function') v = formatDate(v);
-            else v = String(v);
-            return v.includes(',') || v.includes('"') || v.includes('\n') ? '"' + v.replace(/"/g, '""') + '"' : v;
-        }).join(','));
-        const csv = header + '\n' + rows.join('\n');
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'tasks_export.csv';
-        a.click();
-        URL.revokeObjectURL(url);
-        showMsg(source.length + ' task' + (source.length !== 1 ? 's' : '') + ' exported');
     }
 
     async function changeTaskStatus(taskId, newStatus) {
@@ -841,213 +541,6 @@
         } catch (error) {
             console.error('Error reopening task:', error);
             showMsg('Error reopening task', true);
-        }
-    }
-
-    // ── Inline Editing ─────────────────────
-    async function saveInlineNote(taskId) {
-        const task = state.allTasks.find(t => t.id === taskId);
-        if (!task) return;
-        const textarea = document.querySelector('.note-edit-area[data-task-id="' + taskId + '"]');
-        if (!textarea) return;
-        const newText = textarea.value.trim();
-        if (!newText) { showMsg('Note cannot be empty', true); return; }
-        if (newText === task.text) {
-            document.getElementById('noteExpand_' + taskId).style.display = 'none';
-            return;
-        }
-        try {
-            const result = await FirebaseDB.updateTaskNote(
-                state.user.uid, task.entityType, task.entityId, taskId,
-                newText, task.text, state.user.email || state.user.uid
-            );
-            if (!result.success) throw new Error(result.error);
-            if (!task.noteHistory) task.noteHistory = [];
-            task.noteHistory.push({ text: task.text, editedBy: state.user.email || state.user.uid, editedAt: new Date().toISOString() });
-            task.text = newText;
-            renderView();
-            showMsg('Note updated');
-        } catch (err) {
-            console.error('Error updating note:', err);
-            showMsg('Error updating note', true);
-        }
-    }
-
-    async function saveInlineAssigned(taskId, newAssignees) {
-        const task = state.allTasks.find(t => t.id === taskId);
-        if (!task) return;
-        const oldStr = (task.assignedTo || []).join(',');
-        if (newAssignees.join(',') === oldStr) return;
-        try {
-            const result = await FirebaseDB.updateTask(
-                state.user.uid, task.entityType, task.entityId, taskId,
-                { assignedTo: newAssignees }
-            );
-            if (!result.success) throw new Error(result.error);
-            task.assignedTo = newAssignees;
-            // Update the trigger button text
-            const btn = document.querySelector('.assignee-trigger[data-task-id="' + taskId + '"]');
-            if (btn) {
-                if (newAssignees.length > 0) {
-                    btn.innerHTML = newAssignees.map(e => {
-                        const u = state.companyUsers.find(cu => cu.email === e);
-                        return escapeHtml(u ? (u.name || u.email) : e);
-                    }).join(', ');
-                } else {
-                    btn.innerHTML = '<span class="unassigned-label">Unassigned</span>';
-                }
-            }
-            showMsg('Assignee updated');
-        } catch (err) {
-            console.error('Error updating assignee:', err);
-            showMsg('Error updating assignee', true);
-        }
-    }
-
-    // ── Assignee Dropdown ──────────────────
-    let activeAssigneeDropdown = null;
-
-    function openAssigneeDropdown(taskId, triggerEl) {
-        closeAssigneeDropdown();
-        const task = state.allTasks.find(t => t.id === taskId);
-        if (!task) return;
-        const selected = new Set((task.assignedTo || []).map(e => e.toLowerCase()));
-
-        const dropdown = document.createElement('div');
-        dropdown.className = 'assignee-dropdown';
-        dropdown.innerHTML = `
-            <div class="assignee-dd-search"><input type="text" class="assignee-dd-input" placeholder="Search users\u2026" autocomplete="off"></div>
-            <div class="assignee-dd-list"></div>
-        `;
-        document.body.appendChild(dropdown);
-        activeAssigneeDropdown = { el: dropdown, taskId: taskId, selected: selected };
-
-        // Position
-        const rect = triggerEl.getBoundingClientRect();
-        dropdown.style.top = (rect.bottom + 4) + 'px';
-        dropdown.style.left = rect.left + 'px';
-        dropdown.style.minWidth = Math.max(rect.width, 220) + 'px';
-
-        // Clamp to viewport
-        requestAnimationFrame(() => {
-            const dRect = dropdown.getBoundingClientRect();
-            if (dRect.right > window.innerWidth - 8) dropdown.style.left = Math.max(8, window.innerWidth - dRect.width - 8) + 'px';
-            if (dRect.bottom > window.innerHeight - 8) dropdown.style.top = Math.max(8, rect.top - dRect.height - 4) + 'px';
-        });
-
-        renderAssigneeOptions('');
-        const input = dropdown.querySelector('.assignee-dd-input');
-        input.focus();
-        input.addEventListener('input', () => renderAssigneeOptions(input.value));
-    }
-
-    function renderAssigneeOptions(query) {
-        if (!activeAssigneeDropdown) return;
-        const { el, selected } = activeAssigneeDropdown;
-        const listEl = el.querySelector('.assignee-dd-list');
-        const q = query.toLowerCase().trim();
-        const filtered = state.companyUsers.filter(u =>
-            !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)
-        );
-        if (filtered.length === 0) {
-            listEl.innerHTML = '<div class="assignee-dd-empty">No users found</div>';
-            return;
-        }
-        listEl.innerHTML = filtered.map(u => {
-            const checked = selected.has(u.email) ? ' checked' : '';
-            const initials = (u.name || u.email).substring(0, 2).toUpperCase();
-            return `<label class="assignee-dd-item${checked ? ' is-selected' : ''}">
-                <input type="checkbox" value="${escapeHtml(u.email)}"${checked}>
-                <span class="assignee-dd-avatar">${escapeHtml(initials)}</span>
-                <span class="assignee-dd-info"><span class="assignee-dd-name">${escapeHtml(u.name || u.email)}</span><span class="assignee-dd-email">${escapeHtml(u.email)}</span></span>
-            </label>`;
-        }).join('');
-    }
-
-    function closeAssigneeDropdown() {
-        if (!activeAssigneeDropdown) return;
-        const { el, taskId, selected } = activeAssigneeDropdown;
-        el.remove();
-        if (taskId === '__form__') {
-            // Update form hidden input + tags
-            const emails = Array.from(selected);
-            $('taskAssignees').value = emails.join(',');
-            renderFormAssigneeTags(emails);
-        } else {
-            saveInlineAssigned(taskId, Array.from(selected));
-        }
-        activeAssigneeDropdown = null;
-    }
-
-    function openFormAssigneeDropdown() {
-        const trigger = $('formAssigneeTrigger');
-        if (!trigger) return;
-        const currentVal = ($('taskAssignees').value || '').trim();
-        const emails = currentVal ? currentVal.split(',').map(e => e.trim().toLowerCase()).filter(Boolean) : [];
-        // Reuse the inline dropdown infrastructure with a pseudo taskId
-        closeAssigneeDropdown();
-        const selected = new Set(emails);
-        const dropdown = document.createElement('div');
-        dropdown.className = 'assignee-dropdown';
-        dropdown.innerHTML = `
-            <div class="assignee-dd-search"><input type="text" class="assignee-dd-input" placeholder="Search users\u2026" autocomplete="off"></div>
-            <div class="assignee-dd-list"></div>
-        `;
-        document.body.appendChild(dropdown);
-        activeAssigneeDropdown = { el: dropdown, taskId: '__form__', selected: selected };
-        const rect = trigger.getBoundingClientRect();
-        dropdown.style.top = (rect.bottom + 4) + 'px';
-        dropdown.style.left = rect.left + 'px';
-        dropdown.style.minWidth = Math.max(rect.width, 220) + 'px';
-        requestAnimationFrame(() => {
-            const dRect = dropdown.getBoundingClientRect();
-            if (dRect.right > window.innerWidth - 8) dropdown.style.left = Math.max(8, window.innerWidth - dRect.width - 8) + 'px';
-            if (dRect.bottom > window.innerHeight - 8) dropdown.style.top = Math.max(8, rect.top - dRect.height - 4) + 'px';
-        });
-        renderAssigneeOptions('');
-        const input = dropdown.querySelector('.assignee-dd-input');
-        input.focus();
-        input.addEventListener('input', () => renderAssigneeOptions(input.value));
-    }
-
-    function renderFormAssigneeTags(emails) {
-        const container = $('formAssigneeTags');
-        if (!container) return;
-        if (emails.length === 0) {
-            container.innerHTML = '';
-            $('formAssigneeTrigger').textContent = 'Select users\u2026';
-            return;
-        }
-        $('formAssigneeTrigger').textContent = emails.length + ' user' + (emails.length > 1 ? 's' : '') + ' selected';
-        container.innerHTML = emails.map(e => {
-            const u = state.companyUsers.find(cu => cu.email === e);
-            return '<span class="assignee-tag">' + escapeHtml(u ? (u.name || u.email) : e) + '</span>';
-        }).join('');
-    }
-
-    async function postInlineComment(taskId) {
-        const task = state.allTasks.find(t => t.id === taskId);
-        if (!task) return;
-        const input = document.querySelector('.comment-input[data-task-id="' + taskId + '"]');
-        if (!input) return;
-        const text = input.value.trim();
-        if (!text) return;
-        const comment = { text: text, author: state.user.email || state.user.uid, timestamp: new Date().toISOString() };
-        try {
-            const result = await FirebaseDB.addTaskComment(
-                state.user.uid, task.entityType, task.entityId, taskId, comment
-            );
-            if (!result.success) throw new Error(result.error);
-            if (!task.comments) task.comments = [];
-            task.comments.push(comment);
-            renderView();
-            // Re-open comments panel after render
-            const row = document.getElementById('commentsExpand_' + taskId);
-            if (row) row.style.display = '';
-            showMsg('Comment added');
-        } catch (err) {
-            console.error('Error adding comment:', err);
-            showMsg('Error adding comment', true);
         }
     }
 
@@ -1113,9 +606,9 @@
     // ── Event Listeners ────────────────────
     function initEventListeners() {
         // View toggle
-        document.querySelectorAll('.task-view-toggle .toggle-btn').forEach(btn => {
+        document.querySelectorAll('.toggle-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.task-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
 
                 const view = btn.dataset.view;
@@ -1138,16 +631,6 @@
         // Add task button
         $('addTaskBtn').addEventListener('click', () => openTaskForm());
 
-        // Add multiple tasks (paste from Excel via unified sheet)
-        const addMultipleBtn = $('addMultipleTasksBtn');
-        if (addMultipleBtn) {
-            addMultipleBtn.addEventListener('click', () => {
-                if (window.Dashboard && typeof window.Dashboard.openUnifiedSheet === 'function') {
-                    window.Dashboard.openUnifiedSheet('task', null, { mode: 'add' });
-                }
-            });
-        }
-
         // Task form
         $('closeTaskFormModal').addEventListener('click', closeTaskForm);
         $('cancelTaskForm').addEventListener('click', closeTaskForm);
@@ -1160,9 +643,6 @@
             const entityType = $('taskEntityType').value;
             if (entityType) populateEntityDropdown(entityType);
         });
-
-        // Form assignee picker
-        $('formAssigneeTrigger').addEventListener('click', () => openFormAssigneeDropdown());
 
         // Task detail drawer
         $('closeTaskDetail').addEventListener('click', closeTaskDetail);
@@ -1230,100 +710,41 @@
                 return;
             }
 
-            // Note expand toggle
-            const noteBtn = e.target.closest('.btn-note-toggle');
-            if (noteBtn) {
-                const taskId = noteBtn.closest('.note-cell').dataset.taskId;
-                const noteRow = document.getElementById('noteExpand_' + taskId);
-                const commRow = document.getElementById('commentsExpand_' + taskId);
-                if (commRow) commRow.style.display = 'none';
-                if (noteRow) noteRow.style.display = noteRow.style.display === 'none' ? '' : 'none';
-                return;
-            }
-
-            // Save note
-            const saveNoteBtn = e.target.closest('.btn-save-note');
-            if (saveNoteBtn) { saveInlineNote(saveNoteBtn.dataset.taskId); return; }
-
-            // Cancel note
-            const cancelNoteBtn = e.target.closest('.btn-cancel-note');
-            if (cancelNoteBtn) {
-                const id = cancelNoteBtn.dataset.taskId;
-                const task = state.allTasks.find(t => t.id === id);
-                const ta = document.querySelector('.note-edit-area[data-task-id="' + id + '"]');
-                if (ta && task) ta.value = task.text;
-                document.getElementById('noteExpand_' + id).style.display = 'none';
-                return;
-            }
-
-            // Comments expand toggle
-            const commBtn = e.target.closest('.btn-comments-toggle');
-            if (commBtn) {
-                const taskId = commBtn.dataset.taskId;
-                const commRow = document.getElementById('commentsExpand_' + taskId);
-                const noteRow = document.getElementById('noteExpand_' + taskId);
-                if (noteRow) noteRow.style.display = 'none';
-                if (commRow) commRow.style.display = commRow.style.display === 'none' ? '' : 'none';
-                return;
-            }
-
-            // Post comment
-            const postBtn = e.target.closest('.btn-post-comment');
-            if (postBtn) { postInlineComment(postBtn.dataset.taskId); return; }
-
-            // Assignee trigger
-            const assignBtn = e.target.closest('.assignee-trigger');
-            if (assignBtn) { openAssigneeDropdown(assignBtn.dataset.taskId, assignBtn); return; }
-
-            // Close assignee dropdown on outside click
-            if (activeAssigneeDropdown && !e.target.closest('.assignee-dropdown') && !e.target.closest('.assignee-trigger')) {
-                closeAssigneeDropdown();
-            }
-        });
-
-        // Assignee dropdown checkbox toggle
-        document.addEventListener('change', async (e) => {
-            if (activeAssigneeDropdown && e.target.closest('.assignee-dd-item input[type="checkbox"]')) {
-                const cb = e.target;
-                const email = cb.value.toLowerCase();
-                if (cb.checked) {
-                    activeAssigneeDropdown.selected.add(email);
-                } else {
-                    activeAssigneeDropdown.selected.delete(email);
-                }
-                const item = cb.closest('.assignee-dd-item');
-                if (item) item.classList.toggle('is-selected', cb.checked);
-                return;
-            }
-
-            const sel = e.target.closest('.inline-status');
-            if (sel) {
-                await changeTaskStatus(sel.dataset.taskId, sel.value);
-                const sColor = getStatusColor(sel.value);
-                sel.style.backgroundColor = sColor + '18';
-                sel.style.color = sColor;
-                sel.style.borderColor = sColor + '40';
-            }
-
-            // Detail drawer status
-            const detailSel = e.target.closest('.task-detail-status-select');
-            if (detailSel) {
-                await changeTaskStatus(detailSel.dataset.taskId, detailSel.value);
-                const task = state.allTasks.find(t => t.id === detailSel.dataset.taskId);
+            // Task row click (table)
+            const row = e.target.closest('.task-row');
+            if (row && !e.target.closest('button')) {
+                const taskId = row.dataset.taskId;
+                const task = state.allTasks.find(t => t.id === taskId);
                 if (task) showTaskDetail(task);
+                return;
             }
-        });
 
-        // Comment input Enter key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter' && e.target.classList.contains('comment-input')) {
-                e.preventDefault();
-                postInlineComment(e.target.dataset.taskId);
+            // View details button
+            const viewBtn = e.target.closest('.btn-task-view');
+            if (viewBtn) {
+                const row = viewBtn.closest('.task-row');
+                if (row) {
+                    const taskId = row.dataset.taskId;
+                    const task = state.allTasks.find(t => t.id === taskId);
+                    if (task) showTaskDetail(task);
+                }
+                return;
             }
         });
 
         // Task detail drawer actions
         document.addEventListener('click', async (e) => {
+            // Status change in detail
+            const statusSelect = e.target.closest('.task-detail-status-select');
+            if (statusSelect) {
+                const taskId = statusSelect.dataset.taskId;
+                const newStatus = statusSelect.value;
+                await changeTaskStatus(taskId, newStatus);
+                const task = state.allTasks.find(t => t.id === taskId);
+                if (task) showTaskDetail(task);
+                return;
+            }
+
             // Resolve button
             const resolveBtn = e.target.closest('.btn-resolve-task');
             if (resolveBtn) {
@@ -1343,14 +764,17 @@
                 return;
             }
 
-            // Jump to entity — open dashboard detail panel
+            // Jump to entity
             const jumpBtn = e.target.closest('.btn-jump-to-entity');
             if (jumpBtn) {
                 const entityType = jumpBtn.dataset.entityType;
                 const entityId = jumpBtn.dataset.entityId;
-                if (entityType && entityId) {
-                    window.open(`dashboard.html?openPanel=${encodeURIComponent(entityType)}&entityId=${encodeURIComponent(entityId)}`, '_blank');
-                }
+                let url = '';
+                if (entityType === 'drivers') url = `driver-profile.html?driver=${encodeURIComponent(entityId)}`;
+                else if (entityType === 'trucks') url = `unit-profile.html?truck=${encodeURIComponent(entityId)}`;
+                else if (entityType === 'trailers') url = `trailer-profile.html?trailer=${encodeURIComponent(entityId)}`;
+                
+                if (url) window.open(url, '_blank');
                 return;
             }
         });
@@ -1369,64 +793,19 @@
     function initAuth() {
         firebase.auth().onAuthStateChanged(async (user) => {
             if (!user) {
-                window.location.href = 'index.html';
+                window.location.href = 'dashboard.html';
                 return;
             }
             state.user = user;
-
-            // Sync view toggle buttons with state
-            document.querySelectorAll('.task-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
-            const activeBtn = document.querySelector(`.task-view-toggle .toggle-btn[data-view="${state.currentView}"]`);
-            if (activeBtn) activeBtn.classList.add('active');
-            document.querySelectorAll('.task-view-container').forEach(c => c.classList.remove('active'));
-            const activeContainer = document.querySelector(state.currentView === 'kanban' ? '.task-view-kanban' : '.task-view-table');
-            if (activeContainer) activeContainer.classList.add('active');
-
             await loadCustomStatuses();
-            await loadCompanyUsers();
             await loadTasks();
             initEventListeners();
         });
     }
 
     // ── Init ───────────────────────────────
-
-    // Expose for dashboard integration
-    window.TaskManager = {
-        _ready: false,
-        initWithUser: function(user) {
-            state.user = user;
-            // Sync view toggle buttons with saved state
-            document.querySelectorAll('.task-view-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
-            const activeBtn = document.querySelector(`.task-view-toggle .toggle-btn[data-view="${state.currentView}"]`);
-            if (activeBtn) activeBtn.classList.add('active');
-            document.querySelectorAll('.task-view-container').forEach(c => c.classList.remove('active'));
-            const activeContainer = document.querySelector(state.currentView === 'kanban' ? '.task-view-kanban' : '.task-view-table');
-            if (activeContainer) activeContainer.classList.add('active');
-            if (!this._ready) {
-                this._ready = true;
-                loadCustomStatuses()
-                    .then(() => loadCompanyUsers())
-                    .then(() => loadTasks())
-                    .then(() => initEventListeners());
-            } else {
-                loadTasks();
-            }
-        },
-        editTask: (id) => editTask(id),
-        deleteTask: (id) => deleteTask(id),
-        bulkDelete: () => bulkDeleteTasks(),
-        bulkExport: () => bulkExportTasks(),
-        bulkChangeStatus: () => bulkChangeStatusTasks(),
-        toggleBulkSelect: (id, cb) => toggleBulkSelectTask(id, cb),
-        reload: () => loadTasks()
-    };
-
-    // Standalone mode — only self-init when NOT embedded in the dashboard
-    if (!window.__tmDashboardMode) {
-        document.addEventListener('DOMContentLoaded', () => {
-            initAuth();
-        });
-    }
+    document.addEventListener('DOMContentLoaded', () => {
+        initAuth();
+    });
 
 })();

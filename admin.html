@@ -44,7 +44,7 @@
         <div class="access-denied-content">
             <p class="access-denied-title">access denied</p>
             <p class="access-denied-message">you must be logged in as an admin to access this page</p>
-            <a href="index.html">login</a>
+            <a href="dashboard.html">login</a>
         </div>
     </div>
 
@@ -89,7 +89,7 @@
             </nav>
             
             <div class="admin-sidebar-footer">
-                <a href="index.html" class="admin-nav-item">
+                <a href="dashboard.html" class="admin-nav-item">
                     <span class="nav-text">Back to App</span>
                 </a>
                 <button class="admin-nav-item" id="adminLogout">
@@ -218,7 +218,7 @@
                     <div class="admin-card-header">
                         <h2>Generated Reports</h2>
                         <div class="admin-card-actions">
-                            <select class="admin-select" id="reportQuarterFilter">
+                            <select class="admin-select" id="reportQuarterFilter" title="Filter by quarter">
                                 <option value="">All Quarters</option>
                                 <option value="Q1">Q1</option>
                                 <option value="Q2">Q2</option>
@@ -311,7 +311,7 @@
                     <div class="admin-card-header">
                         <h2>Tax Rates by Jurisdiction</h2>
                         <div class="admin-card-actions">
-                            <select class="admin-select" id="fuelTypeFilter">
+                            <select class="admin-select" id="fuelTypeFilter" title="Filter by fuel type">
                                 <option value="diesel">Diesel</option>
                                 <option value="gasoline">Gasoline</option>
                                 <option value="gasohol">Gasohol</option>
@@ -369,7 +369,7 @@
                     <div class="admin-card-header">
                         <h2>Activity Log</h2>
                         <div class="admin-card-actions">
-                            <select class="admin-select" id="activityFilter">
+                            <select class="admin-select" id="activityFilter" title="Filter by activity">
                                 <option value="">All Activities</option>
                                 <option value="login">Logins</option>
                                 <option value="report">Reports</option>

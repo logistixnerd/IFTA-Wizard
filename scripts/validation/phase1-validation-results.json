@@ -1,0 +1,133 @@
+{
+  "generatedAt": "2026-04-23T20:24:00.026Z",
+  "total": 25,
+  "pass": 25,
+  "fail": 0,
+  "results": [
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A0 users scope exists",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A0 catch-all owner CRUD rule exists",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A1 authenticated owner RW expected allow for integration_sync",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A2 unauthorized access expected deny for integration_sync",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A1 authenticated owner RW expected allow for samsara_oauth_pending",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A2 unauthorized access expected deny for samsara_oauth_pending",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A1 authenticated owner RW expected allow for samsara_sync_requests",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A2 unauthorized access expected deny for samsara_sync_requests",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A1 authenticated owner RW expected allow for samsara_cache",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A2 unauthorized access expected deny for samsara_cache",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A1 authenticated owner RW expected allow for documents",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A2 unauthorized access expected deny for documents",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A1 authenticated owner RW expected allow for ifta_records",
+      "result": "PASS"
+    },
+    {
+      "suite": "firestore-rules-contract",
+      "name": "A2 unauthorized access expected deny for ifta_records",
+      "result": "PASS"
+    },
+    {
+      "suite": "metadata-roundtrip",
+      "name": "B2 frontend token health accepts camelCase",
+      "result": "PASS"
+    },
+    {
+      "suite": "metadata-roundtrip",
+      "name": "B3 frontend token health accepts snake_case",
+      "result": "PASS"
+    },
+    {
+      "suite": "metadata-roundtrip",
+      "name": "B4 frontend sync cursor supports cursor and cursors map",
+      "result": "PASS"
+    },
+    {
+      "suite": "oauth-callback",
+      "name": "C1 provider error redirect",
+      "result": "PASS"
+    },
+    {
+      "suite": "oauth-callback",
+      "name": "C2 missing params redirect",
+      "result": "PASS"
+    },
+    {
+      "suite": "oauth-callback",
+      "name": "C3 invalid state redirect",
+      "result": "PASS"
+    },
+    {
+      "suite": "oauth-callback",
+      "name": "C4 token exchange failure redirect",
+      "result": "PASS"
+    },
+    {
+      "suite": "oauth-callback",
+      "name": "C5 success redirect preserves allowed origin",
+      "result": "PASS"
+    },
+    {
+      "suite": "oauth-callback",
+      "name": "C6 success redirect falls back for disallowed origin",
+      "result": "PASS"
+    },
+    {
+      "suite": "metadata-roundtrip",
+      "name": "B1 backend writes dual token metadata fields",
+      "result": "PASS"
+    },
+    {
+      "suite": "oauth-callback",
+      "name": "C7 expired state redirect origin sanitized to allow-list/canonical",
+      "result": "PASS"
+    }
+  ]
+}

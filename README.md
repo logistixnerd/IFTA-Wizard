@@ -112,8 +112,16 @@ External APIs
 
 ```
 IFTA-Wizard/
-├── index.html              IFTA calculator (main entry point)
+├── dashboard.html          IFTA calculator (main entry point)
 ├── dashboard.html          Fleet operations dashboard
+├── fleet-workspace.html    Canonical Fleet workspace shell
+├── safety-workspace.html   Canonical Safety workspace shell
+├── compliance-workspace.html Canonical Compliance workspace shell
+├── fuel-ifta-workspace.html Canonical Fuel & IFTA workspace shell
+├── documents-workspace.html Canonical Documents workspace shell
+├── integrations-workspace.html Canonical Integrations workspace shell
+├── drivers-workspace.html  Driver routing shell endpoint
+├── dispatch-workspace.html Dispatch routing shell endpoint
 ├── admin.html              Admin panel (role-restricted)
 ├── about.html / terms.html / privacy.html
 ├── driver-profile.html     Driver profile view
@@ -126,12 +134,12 @@ IFTA-Wizard/
 │   ├── ui/
 │   └── features/
 │
-├── pages/                  Dashboard sub-section pages (40+ HTML files)
+├── pages/                  Legacy redirect wrappers (deprecated)
 │   ├── trucks.html / trailers.html / drivers.html
 │   ├── dispatch.html / dispatch-board.html / active-loads.html
 │   ├── maintenance.html / work-orders.html / parts-inventory.html
 │   ├── payroll.html / settlements.html / invoices.html / expenses.html
-│   └── ... (compliance, safety, hiring, reports, settings, etc.)
+│   └── ... (redirects to canonical workspace shells with ?section=...)
 │
 ├── functions/              Firebase Cloud Functions
 │   ├── index.js            mcLookup + samsaraCallback
@@ -369,7 +377,7 @@ Tax rates are sourced from [IFTA, Inc.](https://www.iftach.org/taxmatrix4/) and 
 
 ## Running Locally
 
-Simply open `index.html` in any modern web browser. No server required!
+Simply open `dashboard.html` in any modern web browser. No server required!
 
 For development with live reload:
 ```bash
@@ -389,7 +397,7 @@ Then open http://localhost:8000 in your browser.
 
 ```
 IFTA-Wizard/
-├── index.html      # Main application HTML
+├── dashboard.html  # Main application HTML
 ├── styles.css      # CSS styles
 ├── app.js          # Main application logic
 ├── tax-rates.js    # IFTA tax rate database

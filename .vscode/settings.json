@@ -1,0 +1,19 @@
+{
+  "css.validate": false,
+  "scss.validate": false,
+  "less.validate": false,
+  "css.lint.compatibleVendorPrefixes": "ignore",
+  "css.lint.duplicateProperties": "ignore",
+  "css.lint.unknownProperties": "ignore",
+  "html.validate.styles": false,
+  "html.validate.scripts": false,
+  "vscode-edge-devtools.webhint": false,
+  "htmlhint.options": {
+    "inline-style-disabled": false,
+    "doctype-first": false,
+    "head-script-disabled": false,
+    "style-disabled": false,
+    "title-require": false,
+    "img-alt-require": false
+  }
+}

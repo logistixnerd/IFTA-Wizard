@@ -1615,9 +1615,6 @@ const IFTAReports = {
         IFTAAuth.user.fleetSize = document.getElementById('profileFleetSize')?.value || '';
         IFTAAuth.user.driverCount = document.getElementById('profileDriverCount')?.value || '';
         
-        // Save to localStorage
-        localStorage.setItem('ifta_user', JSON.stringify(IFTAAuth.user));
-        
         // Also save to Firebase if available
         if (typeof db !== 'undefined' && IFTAAuth.user?.uid) {
             try {
